@@ -72,48 +72,24 @@
 #define SMI_CLOCK_DIVIDER   (100 / 10)
 
 
-// Initialise the ports and clock blocks
-void smi_init(smi_interface_t &smi) {
-
-#if SMI_MDIO_RESET_MUX
-  {
-    timer tmr;
-    int t;
-    smi.p_smi_mdio <: 0x0;
-    tmr :> t;tmr when timerafter(t+100000) :> void;
-    smi.p_smi_mdio <: SMI_MDIO_REST;
-  }
-#endif
-
-#if SMI_HANDLE_COMBINED_PORTS
-  if (SMI_COMBINE_MDC_MDIO || (smi.phy_address < 0)) {
-    smi.p_smi_mdc <: 1 << SMI_MDC_BIT;
-    return;
-  }
-#endif
-  smi.p_smi_mdc <: 1;
-}
-
 // Constants used in calls to smi_bit_shift and smi_reg.
 
 #define SMI_READ 1
 #define SMI_WRITE 0
 
 // Shift in a number of data bits to or from the SMI port
-static int smi_bit_shift(smi_interface_t &smi, unsigned data, unsigned count, unsigned inning) {
+static int smi_bit_shift(smi_ports_t &smi, unsigned data, unsigned count, unsigned inning) {
     int i = count, dataBit = 0, t;
 
-#if SMI_HANDLE_COMBINED_PORTS || SMI_COMBINE_MDC_MDIO
-    if (SMI_COMBINE_MDC_MDIO || (smi.phy_address < 0)) {
+    if (SMI_HANDLE_COMBINED_PORTS && isnull(smi.p_smi_mdio)) {
         smi.p_smi_mdc :> void @ t;
         if (inning) {
             while (i != 0) {
                 i--;
                 smi.p_smi_mdc @ (t + 30) :> dataBit;
                 dataBit &= (1 << SMI_MDIO_BIT);
-                #if SMI_MDIO_REST
-                dataBit |= SMI_MDIO_REST;
-                #endif
+                if (SMI_MDIO_RESET_MUX)
+                  dataBit |= SMI_MDIO_REST;
                 smi.p_smi_mdc            <: dataBit;
                 data = (data << 1) | (dataBit >> SMI_MDIO_BIT);
                 smi.p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | dataBit;
@@ -125,9 +101,8 @@ static int smi_bit_shift(smi_interface_t &smi, unsigned data, unsigned count, un
           while (i != 0) {
                 i--;
                 dataBit = ((data >> i) & 1) << SMI_MDIO_BIT;
-                #if SMI_MDIO_REST
-                dataBit |= SMI_MDIO_REST;
-                #endif
+                if (SMI_MDIO_RESET_MUX)
+                  dataBit |= SMI_MDIO_REST;
                 smi.p_smi_mdc @ (t + 30) <:                    dataBit;
                 smi.p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | dataBit;
                 t += 60;
@@ -136,20 +111,16 @@ static int smi_bit_shift(smi_interface_t &smi, unsigned data, unsigned count, un
         }
         return data;
     }
-
-#endif
-
-#if !SMI_COMBINE_MDC_MDIO
-    smi.p_smi_mdc <: ~0 @ t;
-    while (i != 0) {
+    else {
+      smi.p_smi_mdc <: ~0 @ t;
+      while (i != 0) {
         i--;
         smi.p_smi_mdc @ (t+30) <: 0;
         if (!inning) {
           int dataBit;
           dataBit = ((data >> i) & 1) << SMI_MDIO_BIT;
-          #if SMI_MDIO_REST
-          dataBit |= SMI_MDIO_REST;
-          #endif
+          if (SMI_MDIO_RESET_MUX)
+            dataBit |= SMI_MDIO_REST;
           smi.p_smi_mdio <: dataBit;
         }
         smi.p_smi_mdc @ (t+60) <: ~0;
@@ -159,73 +130,96 @@ static int smi_bit_shift(smi_interface_t &smi, unsigned data, unsigned count, un
           data = (data << 1) | dataBit;
         }
         t += 60;
+      }
+      smi.p_smi_mdc @ (t+30) <: ~0;
+      return data;
     }
-    smi.p_smi_mdc @ (t+30) <: ~0;
-    return data;
-#else
-    return 0;
-#endif
 }
 
-// Register access: lots of 1111, then a code (read/write), phy address,
-// register, and a turn-around, then data.
-int smi_reg(smi_interface_t &smi, unsigned reg, unsigned val, int inning) {
-    smi_bit_shift(smi, 0xffffffff, 32, SMI_WRITE);         // Preamble
-    smi_bit_shift(smi, (5+inning) << 10 | smi.phy_address << 5 | reg, 14, SMI_WRITE);
-    smi_bit_shift(smi, 2, 2, inning);
-    return smi_bit_shift(smi, val, 16, inning);
+[[distributable]]
+void smi(server interface smi_if i, unsigned phy_address, smi_ports_t &smi)
+{
+  if (SMI_MDIO_RESET_MUX) {
+    timer tmr;
+    int t;
+    smi.p_smi_mdio <: 0x0;
+    tmr :> t;tmr when timerafter(t+100000) :> void;
+    smi.p_smi_mdio <: SMI_MDIO_REST;
+  }
+
+  if (isnull(smi.p_smi_mdio)) {
+    smi.p_smi_mdc <: 1 << SMI_MDC_BIT;
+  }
+  else {
+    smi.p_smi_mdc <: 1;
+  }
+  while (1) {
+    select {
+    case i.readwrite_reg(unsigned reg, unsigned val, int inning) -> int res:
+      // Register access: lots of 1111, then a code (read/write), phy address,
+      // register, and a turn-around, then data.
+      smi_bit_shift(smi, 0xffffffff, 32, SMI_WRITE);         // Preamble
+      smi_bit_shift(smi, (5+inning) << 10 | phy_address << 5 | reg,
+                    14, SMI_WRITE);
+      smi_bit_shift(smi, 2, 2, inning);
+      res = smi_bit_shift(smi, val, 16, inning);
+      break;
+    }
+  }
 }
 
-int eth_phy_id(smi_interface_t &smi) {
-    unsigned lo = smi_reg(smi, PHY_ID1_REG, 0, SMI_READ);
-    unsigned hi = smi_reg(smi, PHY_ID2_REG, 0, SMI_READ);
+
+extends client interface smi_if : {
+
+  unsigned get_phy_id(client smi_if i) {
+    unsigned lo = i.read_reg(PHY_ID1_REG);
+    unsigned hi = i.read_reg(PHY_ID2_REG);
     return ((hi >> 10) << 16) | lo;
-}
+  }
 
-void eth_phy_config(int eth100, smi_interface_t &smi) {
-    int autoNegAdvertReg, basicControl;
-    autoNegAdvertReg = smi_reg(smi, AUTONEG_ADVERT_REG, 0, SMI_READ);
+  void configure_phy(client smi_if i, int is_eth_100, int is_auto)
+  {
+    if (is_auto) {
+      int autoNegAdvertReg;
+      autoNegAdvertReg = i.read_reg(AUTONEG_ADVERT_REG);
 
-    // Clear bits [9:5]
-    autoNegAdvertReg &= 0xfc1f;
+      // Clear bits [9:5]
+      autoNegAdvertReg &= 0xfc1f;
 
-    // Set 100 or 10 Mpbs bits
-    if (eth100) {
+      // Set 100 or 10 Mpbs bits
+      if (is_eth_100) {
         autoNegAdvertReg |= 1 << AUTONEG_ADVERT_100_BIT;
-    } else {
+      } else {
         autoNegAdvertReg |= 1 << AUTONEG_ADVERT_10_BIT;
+      }
+
+      // Write back
+      i.write_reg(AUTONEG_ADVERT_REG, autoNegAdvertReg);
     }
 
-    // Write back
-    smi_reg(smi, AUTONEG_ADVERT_REG, autoNegAdvertReg, SMI_WRITE);
-
-    basicControl = smi_reg(smi, BASIC_CONTROL_REG, 0, SMI_READ);
-    // clear autoneg bit
-    // basicControl &= ~(1 << BASIC_CONTROL_AUTONEG_EN_BIT);
-    // smi_reg(smi, BASIC_CONTROL_REG, basicControl, SMI_WRITE);
-    // set autoneg bit
-    basicControl |= 1 << BASIC_CONTROL_AUTONEG_EN_BIT;
-    smi_reg(smi, BASIC_CONTROL_REG, basicControl, SMI_WRITE);
-    // restart autoneg
-    basicControl |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
-    smi_reg(smi, BASIC_CONTROL_REG, basicControl, SMI_WRITE);
-}
-
-void eth_phy_config_noauto(int eth100, smi_interface_t &smi) {
-    int basicControl = smi_reg(smi, BASIC_CONTROL_REG, 0, SMI_READ);
-    // set duplex mode, clear autoneg and 100 Mbps.
-    basicControl |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
-    basicControl &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
-                       (1 << BASIC_CONTROL_100_MBPS_BIT));
-    if (eth100) {                // Optionally set 100 Mbps
+    int basicControl = i.read_reg(BASIC_CONTROL_REG);
+    if (is_auto) {
+      // set autoneg bit
+      basicControl |= 1 << BASIC_CONTROL_AUTONEG_EN_BIT;
+      i.write_reg(BASIC_CONTROL_REG, basicControl);
+      // restart autoneg
+      basicControl |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
+    }
+    else {
+      // set duplex mode, clear autoneg and 100 Mbps.
+      basicControl |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
+      basicControl &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
+                         (1 << BASIC_CONTROL_100_MBPS_BIT));
+      if (is_eth_100) {                // Optionally set 100 Mbps
         basicControl |= 1 << BASIC_CONTROL_100_MBPS_BIT;
+      }
     }
-    smi_reg(smi, BASIC_CONTROL_REG, basicControl, SMI_WRITE);
-}
+    i.write_reg(BASIC_CONTROL_REG, basicControl);
+  }
 
+  void set_loopback_mode(client smi_if i, int enable) {
+    int controlReg = i.read_reg(BASIC_CONTROL_REG);
 
-void eth_phy_loopback(int enable, smi_interface_t &smi) {
-    int controlReg = smi_reg(smi, BASIC_CONTROL_REG, 0, SMI_READ);
     // First clear both autoneg and loopback
     controlReg = controlReg & ~ ((1 << BASIC_CONTROL_AUTONEG_EN_BIT) |
                                  (1 << BASIC_CONTROL_LOOPBACK_BIT));
@@ -235,9 +229,13 @@ void eth_phy_loopback(int enable, smi_interface_t &smi) {
     } else {
         controlReg = controlReg | (1 << BASIC_CONTROL_AUTONEG_EN_BIT);
     }
-    smi_reg(smi, BASIC_CONTROL_REG, controlReg, SMI_WRITE);
-}
 
-int smi_check_link_state(smi_interface_t &smi) {
-    return (smi_reg(smi, BASIC_STATUS_REG, 0, SMI_READ) >> BASIC_STATUS_LINK_BIT) & 1;
+    i.write_reg(BASIC_CONTROL_REG, controlReg);
+  }
+
+  ethernet_link_state_t get_link_state(client smi_if i) {
+    int link_up = ((i.read_reg(BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
+    return (link_up ? ETHERNET_LINK_UP : ETHERNET_LINK_DOWN);
+  }
+
 }

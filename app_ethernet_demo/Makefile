@@ -2,7 +2,7 @@
 # compiled for. It either refers to an XN file in the source directories
 # or a valid argument for the --target option when compiling.
 
-TARGET = SLICEKIT-L2
+TARGET = SLICEKIT-L16
 
 # The APP_NAME variable determines the name of the final .xe file. It should
 # not include the .xe postfix. If left blank the name will default to 
@@ -18,9 +18,9 @@ APP_NAME =
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to
 # xcc for the final link (mapping) stage.
 
-XCC_FLAGS_full = -g -report -DCONFIG_FULL -fxscope -save-temps
-XCC_FLAGS_lite = -g -report -DCONFIG_LITE -fxscope -save-temps
+XCC_FLAGS = -g -report -DCONFIG_FULL -save-temps -Os -Xmapper --map -Xmapper MAPFILE
 
+XCC_FLAGS_icmp.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
 # The USED_MODULES variable lists other module used by the application. 
 
 USED_MODULES = module_ethernet module_ethernet_board_support module_otp_board_info module_slicekit_support

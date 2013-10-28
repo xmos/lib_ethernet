@@ -8,14 +8,7 @@
 
 #include <xs1.h>
 #include <xccompat.h>
-
-#ifdef __ethernet_conf_derived_h_exists__
-#include "ethernet_conf_derived.h"
-#endif
-
-#ifdef __ethernet_board_conf_h_exists__
-#include "ethernet_board_conf.h"
-#endif
+#include "ethernet.h"
 
 #ifdef __smi_conf_h_exists__
 #include "smi_conf.h"
@@ -26,6 +19,7 @@
 #define SMI_COMBINE_MDC_MDIO 0
 #endif
 
+#ifdef __XC__
 
 /** Structure containing resources required for the SMI ethernet phy interface.
  *
@@ -40,67 +34,59 @@
  * assumbed to multibit port containing both mdio and mdc.
  *
  */
-typedef struct smi_interface_t {
-    int phy_address;           /**< Address of PHY, typically 0 or 0x1F. */
-#if !SMI_COMBINE_MDC_MDIO
-    port p_smi_mdio;           /**< MDIO port. */
+typedef struct smi_ports_t {
+    port ?p_smi_mdio;           /**< MDIO port. */
+    port  p_smi_mdc;            /**< MDC port.  */
+} smi_ports_t;
+
+typedef interface smi_if {
+  int readwrite_reg(unsigned reg, unsigned val, int inning);
+} smi_if;
+
+extends client interface smi_if : {
+
+  inline int read_reg(client smi_if i, unsigned reg) {
+    return i.readwrite_reg(reg, 0, 1);
+  }
+
+  inline void write_reg(client smi_if i, unsigned reg, unsigned value) {
+    i.readwrite_reg(reg, value, 0);
+  }
+
+  /** Function that configures the Ethernet PHY.
+   *
+   *    Full duplex is always advertised
+   *
+   *   \param is_eth_100         If non-zero, 100BaseT is advertised
+   *                             to the link peer
+   *   \param is_auto_negotiate  If non-zero, the phy is set to auto negotiate
+   */
+  void configure_phy(client smi_if i, int is_eth_100, int is_auto_negotiate);
+
+  /** Function that can enable or disable loopback in the phy.
+   *
+   * \param enable  set to 1 to enable loopback,
+   *                or 0 to disable loopback.
+   */
+  void set_loopback_mode(client smi_if i, int enable);
+
+  /** Function that returns the PHY identification.
+   *
+   * \returns the 32-bit identifier.
+   */
+  unsigned get_phy_id(client smi_if i);
+
+  /** Function that polls whether the link is alive.
+   *
+   * \returns ethernet link state - either ETHERNET_LINK_UP or
+   *          ETHERNET_LINK_DOWN
+   */
+  ethernet_link_state_t get_link_state(client smi_if i);
+}
+
+[[distributable]]
+void smi(server smi_if i, unsigned phy_address, smi_ports_t &smi_ports);
+
 #endif
-    port p_smi_mdc;            /**< MDC port.  */
-} smi_interface_t;
-
-/** Function that configures the SMI ports. No clock block is needed.
- * Note that there is no deinit function.
- *
- * \param smi structure containing the clock and data ports for SMI.
- */
-void smi_init(REFERENCE_PARAM(smi_interface_t, smi));
-
-#define smi_port_init(clk,smi) _Pragma("warning \"smi_port_init in module_ethernet_smi deprecated, use smiInit without clock block\"") smi_init(smi)
-
-/** Function that configures the Ethernet PHY explicitly to set to
- * autonegotiate.
- *
- * \param If eth100 is non-zero, 100BaseT is advertised to the link peer
- * Full duplex is always advertised
- *
- * \param smi structure that defines the ports to use for SMI
- */
-void eth_phy_config(int eth100, REFERENCE_PARAM(smi_interface_t, smi));
-
-/** Function that configures the Ethernet PHY to not
- * autonegotiate.
- *
- * \param If eth100 is non-zero, it is set to 100, else to 10 Mbits/s
- *
- * \param smi structure that defines the ports to use for SMI
- */
-void eth_phy_config_noauto(int eth100, REFERENCE_PARAM(smi_interface_t, smi));
-
-/** Function that can enable or disable loopback in the phy.
- *
- * \param enable boolean; set to 1 to enable loopback, or 0 to disable loopback.
- *
- * \param smi  structure containing the ports
- */
-void eth_phy_loopback(int enable, REFERENCE_PARAM(smi_interface_t, smi));
-
-/** Function that returns the PHY identification.
- *
- * \param smi  structure containing the ports
- *
- * \returns the 32-bit identifier.
- */
-int eth_phy_id(REFERENCE_PARAM(smi_interface_t, smi));
-
-/** Function that polls whether the link is alive.
- *
- * \param smi  structure containing the ports
- *
- * \returns non-zero if the link is alive; zero otherwise.
- */
-int smi_check_link_state(REFERENCE_PARAM(smi_interface_t, smi));
-
-/**/
-int smi_reg(REFERENCE_PARAM(smi_interface_t, smi), unsigned reg, unsigned val, int inning);
 
 #endif

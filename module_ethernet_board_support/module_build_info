@@ -12,3 +12,5 @@
 # Only include the board we are compiling for
 SOURCE_DIRS = common $(TARGET)
 INCLUDE_DIRS = common $(TARGET)
+
+OPTIONAL_HEADERS += ethernet_board_conf.h
