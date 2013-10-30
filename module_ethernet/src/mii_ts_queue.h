@@ -20,6 +20,8 @@ mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, unsigned *buf, int n);
 
 void mii_ts_queue_add_entry(mii_ts_queue_t q, mii_packet_t *buf);
 
+mii_packet_t *mii_ts_queue_get_entry(mii_ts_queue_t q);
+
 #ifdef __XC__
 } // extern "C"
 #endif

@@ -4,6 +4,8 @@
 #include "mii_buffering.h"
 #include "mii_ts_queue.h"
 #include "string.h"
+#define DEBUG_UNIT ETHERNET_CLIENT_HANDLER
+#include "debug_print.h"
 
 enum status_update_state_t {
   STATUS_UPDATE_IGNORING,
@@ -15,15 +17,16 @@ enum status_update_state_t {
 typedef struct
 {
   unsigned dropped_pkt_cnt;
-  int notified;
-  int max_queue_size;
   int rdIndex;
   int wrIndex;
   mii_packet_t * unsafe fifo[ETHERNET_RX_CLIENT_QUEUE_SIZE];
   int status_update_state;
   unsigned filter_mask;
   int requested_send_buffer_size;
+  int requested_send_priority;
   mii_packet_t * unsafe send_buffer;
+  int has_outgoing_timestamp_info;
+  unsigned outgoing_timestamp;
 } client_state_t;
 
 
@@ -34,17 +37,25 @@ unsafe static void handle_incoming_packet(mii_mempool_t rx_mem,
                                           unsigned n)
 {
   mii_packet_t * unsafe buf = mii_get_my_next_buf(rx_mem, rdptr);
-  int tcount = 0;
+  if (!buf || buf->stage != 1)
+    return;
 
+  rdptr = mii_update_my_rdptr(rx_mem, rdptr);
+
+  int tcount = 0;
   if (buf->filter_result) {
+    debug_printf("Assigning packet to clients (filter result %x)\n",
+                 buf->filter_result);
     for (int i = 0; i < n; i++) {
       if (client_info[i].filter_mask & buf->filter_result) {
+        debug_printf("Trying to queue for client %d\n", i);
         int wrptr = client_info[i].wrIndex;
         int new_wrptr = wrptr + 1;
         if (new_wrptr >= ETHERNET_RX_CLIENT_QUEUE_SIZE) {
           new_wrptr = 0;
         }
         if (new_wrptr != client_info[i].rdIndex) {
+          debug_printf("Putting in client queue %d\n", i);
           client_info[i].fifo[wrptr] = buf;
           tcount++;
           i_eth[i].packet_ready();
@@ -59,7 +70,6 @@ unsafe static void handle_incoming_packet(mii_mempool_t rx_mem,
   else {
     buf->tcount = tcount - 1;
   }
-  rdptr = mii_update_my_rdptr(rx_mem, rdptr);
 }
 
 unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
@@ -83,14 +93,13 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 
   for (int i = 0; i < n; i ++) {
     client_info[i].dropped_pkt_cnt = 0;
-    client_info[i].max_queue_size = ETHERNET_RX_CLIENT_QUEUE_SIZE;
     client_info[i].rdIndex = 0;
     client_info[i].wrIndex = 0;
-    client_info[i].notified = 0;
     client_info[i].status_update_state = STATUS_UPDATE_IGNORING;
     client_info[i].filter_mask = 0;
     client_info[i].requested_send_buffer_size = 0;
     client_info[i].send_buffer = null;
+    client_info[i].has_outgoing_timestamp_info = 0;
   }
 
   while (1) {
@@ -113,6 +122,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
         info.src_port = buf->src_port;
         info.timestamp = buf->timestamp;
         info.len = buf->length;
+        info.filter_data = buf->filter_data;
         memcpy(&desc, &info, sizeof(info));
         int len = (n > buf->length ? buf->length : n);
         unsigned * unsafe wrap_ptr = mii_packet_get_wrap_ptr(buf);
@@ -140,15 +150,27 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
       client_info[i].filter_mask = mask;
       break;
 
-    case i_eth[int i].init_send_packet(unsigned n, unsigned dst_port):
-      if (client_info[i].send_buffer != null)
+    case i_eth[int i].init_send_packet(unsigned n, int is_high_priority,
+                                       unsigned dst_port):
+      if (client_info[i].send_buffer == null)
         client_info[i].requested_send_buffer_size = n;
+      if (ETHERNET_TX_HP_QUEUE)
+        client_info[i].requested_send_priority = is_high_priority;
+      break;
+
+    [[independent_guard]]
+    case (int i = 0; i < n; i++)
+      (client_info[i].has_outgoing_timestamp_info) =>
+      i_eth[i].get_outgoing_timestamp() -> unsigned timestamp:
+      timestamp = client_info[i].outgoing_timestamp;
+      client_info[i].has_outgoing_timestamp_info = 0;
       break;
 
     [[independent_guard]]
     case (int i = 0; i < n; i++)
       (client_info[i].send_buffer != null) =>
        i_eth[i].complete_send_packet(char data[n], unsigned n,
+                                     int request_timestamp,
                                      unsigned dst_port):
       mii_packet_t * unsafe buf = client_info[i].send_buffer;
       unsigned * unsafe dptr = &buf->data[0];
@@ -166,10 +188,15 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
         dptr = dptr + (len+3)/4;
       }
       buf->length = n;
-      buf->timestamp_id = 0;
+      if (request_timestamp)
+        buf->timestamp_id = i+1;
+      else
+        buf->timestamp_id = 0;
       mii_commit(buf, dptr);
       buf->tcount = 0;
       buf->stage = 1;
+      client_info[i].send_buffer = null;
+      client_info[i].requested_send_buffer_size = 0;
       break;
 
     case i_config.set_link_state(int ifnum, ethernet_link_state_t status):
@@ -192,6 +219,27 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 
     handle_incoming_packet(rx_lp_mem, rdptr_lp, client_info, i_eth, n);
 
+    for (int i = 0; i < n; i++) {
+      if (client_info[i].requested_send_buffer_size != 0 &&
+          client_info[i].send_buffer == null) {
+        debug_printf("Trying to reserve send buffer (client %d, size %d)\n",
+                     i,
+                     client_info[i].requested_send_buffer_size);
+        int is_hp = (ETHERNET_TX_HP_QUEUE &&
+                     client_info[i].requested_send_priority);
+        mii_mempool_t mem = is_hp ? tx_hp_mem : tx_lp_mem;
+        client_info[i].send_buffer =
+          mii_reserve_at_least(mem, client_info[i].requested_send_buffer_size);
+      }
+    }
+
+    mii_packet_t * unsafe buf = mii_ts_queue_get_entry(ts_queue);
+    if (buf) {
+      client_info[buf->timestamp_id - 1].has_outgoing_timestamp_info = 1;
+      client_info[buf->timestamp_id - 1].outgoing_timestamp = buf->timestamp;
+      if (mii_get_and_dec_transmit_count(buf) == 0)
+        mii_free(buf);
+    }
   }
 }
 

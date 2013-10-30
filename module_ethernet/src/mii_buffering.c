@@ -1,6 +1,7 @@
 #include "mii_buffering.h"
+#include "debug_print.h"
 
-#define MII_PACKET_HEADER_SIZE (sizeof(mii_packet_t) - ((MAX_ETHERNET_PACKET_SIZE+3)/4)*4)
+#define MII_PACKET_HEADER_SIZE (sizeof(mii_packet_t) - ((ETHERNET_MAX_PACKET_SIZE+3)/4)*4)
 #define MIN_USAGE (MII_PACKET_HEADER_SIZE+sizeof(malloc_hdr_t)+4*10)
 
 #if ETHERNET_USE_HARDWARE_LOCKS
@@ -9,7 +10,7 @@ hwlock_t ethernet_memory_lock = 0;
 
 mii_mempool_t mii_init_mempool(unsigned * buf, int size)
 {
-  if (size == 0)
+  if (size < 4)
     return 0;
   mempool_info_t *info = (mempool_info_t *) buf;
   info->start = (int *) (((char *) buf) + sizeof(mempool_info_t));
@@ -35,7 +36,6 @@ unsigned *mii_get_wrap_ptr(mii_mempool_t mempool)
 }
 
 mii_packet_t *mii_reserve_at_least(mii_mempool_t mempool,
-                                   unsigned **end_ptr,
                                    int min_size)
 {
   mempool_info_t *info = (mempool_info_t *) mempool;
@@ -55,7 +55,6 @@ mii_packet_t *mii_reserve_at_least(mii_mempool_t mempool,
   hdr = (malloc_hdr_t *) wrptr;
   hdr->info = info;
 
-  *end_ptr = (unsigned *) rdptr;
   return (mii_packet_t *) (wrptr+(sizeof(malloc_hdr_t)>>2));
 }
 

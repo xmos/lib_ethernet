@@ -1,6 +1,7 @@
 #ifndef __mii_buffering_h__
 #define __mii_buffering_h__
 #include "ethernet.h"
+#include "mii_ethernet.h"
 #include "swlock.h"
 #include "hwlock.h"
 
@@ -25,7 +26,8 @@ typedef struct mii_packet_t {
   int crc;              //!< The calculated CRC
   int forwarding;       //!< A bitfield for tracking forwarding of the packet
                         //   to other ports
-  unsigned int data[(MAX_ETHERNET_PACKET_SIZE+3)/4];
+  unsigned filter_data; //!< Word of data returned by the mac filter
+  unsigned int data[(ETHERNET_MAX_PACKET_SIZE+3)/4];
 } mii_packet_t;
 
 typedef struct mempool_info_t {
@@ -52,9 +54,7 @@ mii_mempool_t mii_init_mempool(unsigned *buffer, int size);
 mii_packet_t *mii_reserve(mii_mempool_t mempool,
                           REFERENCE_PARAM(unsigned *, end_ptr));
 
-mii_packet_t *mii_reserve_at_least(mii_mempool_t mempool,
-                                   REFERENCE_PARAM(unsigned *, end_ptr),
-                                   int min_size);
+mii_packet_t *mii_reserve_at_least(mii_mempool_t mempool, int min_size);
 
 void mii_commit(mii_packet_t *buf, unsigned *endptr);
 

@@ -10,7 +10,7 @@
 #include <xclib.h>
 #include "mii_ethernet.h"
 #include "mii_buffering.h"
-
+#include "debug_print.h"
 
 #ifndef ETHERNET_ENABLE_FULL_TIMINGS
 #define ETHERNET_ENABLE_FULL_TIMINGS (1)
@@ -29,13 +29,19 @@
 // Receive timing constraints
 #if ETHERNET_ENABLE_FULL_TIMINGS
 #pragma xta command "remove exclusion *"
-#pragma xta command "add exclusion mii_rx_eof"
+
 #pragma xta command "add exclusion mii_rx_begin"
 #pragma xta command "add exclusion mii_eof_case"
+#pragma xta command "add exclusion mii_no_available_buffers"
 #pragma xta command "add exclusion mii_no_available_buffers"
 
 // Start of frame to first word is 32 bits = 320ns
 #pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_word"
+#pragma xta command "set required - 320 ns"
+
+// Start of frame to first word is 32 bits = 320ns
+#pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_word"
+
 #pragma xta command "set required - 320 ns"
 
 #pragma xta command "analyze endpoints mii_rx_first_word mii_rx_second_word"
@@ -193,7 +199,6 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
 
 #pragma xta endpoint "mii_rx_after_preamble"
     tmr :> time;
-    buf->timestamp = time;
 
     if (buf_lp) {
       dptr_lp = &buf_lp->data[0];
@@ -262,7 +267,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
       end_ptr = end_ptr_lp;
     }
 
-
+    buf->timestamp = time;
 #pragma xta endpoint "mii_rx_fifth_word"
     p_mii_rxd :> word;
     crc32(crc, word, poly);
@@ -402,10 +407,11 @@ int g_mii_idle_slope=(11<<MII_CREDIT_FRACTIONAL_BITS);
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-unsafe void mii_transmit_packet(mii_packet_t * unsafe buf,
-                                out buffered port:32 p_mii_txd)
+unsafe int mii_transmit_packet(mii_packet_t * unsafe buf,
+                               out buffered port:32 p_mii_txd)
 {
   timer tmr;
+  int time;
   register const unsigned poly = 0xEDB88320;
   unsigned int crc = 0;
   unsigned * unsafe dptr;
@@ -420,10 +426,9 @@ unsafe void mii_transmit_packet(mii_packet_t * unsafe buf,
   p_mii_txd <: 0x55555555;
   p_mii_txd <: 0xD5555555;
 
-  if (!MII_TX_TIMESTAMP_END_OF_PACKET) {
+  if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
     int time;
     tmr :> time;
-    buf->timestamp = time;
   }
 
 #pragma xta endpoint "mii_tx_first_word"
@@ -445,10 +450,8 @@ unsafe void mii_transmit_packet(mii_packet_t * unsafe buf,
     p_mii_txd <: word;
   } while (i < word_count);
 
-  if (MII_TX_TIMESTAMP_END_OF_PACKET) {
-    int time;
+  if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
     tmr :> time;
-    buf->timestamp = time;
   }
 
   if (tail_byte_count) {
@@ -478,6 +481,7 @@ unsafe void mii_transmit_packet(mii_packet_t * unsafe buf,
   crc32(crc, ~0, poly);
 #pragma xta endpoint "mii_tx_crc_0"
   p_mii_txd <: crc;
+  return time;
 }
 
 
@@ -558,7 +562,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
     }
 
 #pragma xta endpoint "mii_tx_start"
-    mii_transmit_packet(buf, p_mii_txd);
+    time = mii_transmit_packet(buf, p_mii_txd);
 #pragma xta endpoint "mii_tx_end"
 
     tmr :> prev_eof_time;
@@ -566,6 +570,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {
       if (buf->timestamp_id) {
+        buf->timestamp = time;
         mii_ts_queue_add_entry(ts_queue, buf);
         buf->stage = 2;
       }

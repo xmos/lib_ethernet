@@ -39,3 +39,37 @@ void mii_ts_queue_add_entry(mii_ts_queue_t q, mii_packet_t *i)
   }
   return;
 }
+
+mii_packet_t *mii_ts_queue_get_entry(mii_ts_queue_t q)
+{
+  unsigned i=0;
+  int rdIndex, wrIndex;
+
+  if (ETHERNET_USE_HARDWARE_LOCKS) {
+    hwlock_acquire(ethernet_memory_lock);
+  }
+  else {
+    swlock_acquire((swlock_t *) q->lock);
+  }
+
+  rdIndex = q->rdIndex;
+  wrIndex = q->wrIndex;
+
+  if (rdIndex == wrIndex)
+    i = 0;
+  else {
+    i = q->fifo[rdIndex];
+    rdIndex++;
+    rdIndex *= (rdIndex != q->num_entries);
+    q->rdIndex = rdIndex;
+  }
+
+  if (ETHERNET_USE_HARDWARE_LOCKS) {
+    hwlock_release(ethernet_memory_lock);
+  }
+  else {
+    swlock_release((swlock_t *) q->lock);
+  }
+
+  return (mii_packet_t *) i;
+}

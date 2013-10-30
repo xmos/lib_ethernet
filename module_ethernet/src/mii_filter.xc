@@ -5,14 +5,19 @@
 #include "mii_filter.h"
 #include "mii_ethernet.h"
 #include "mii_buffering.h"
+#include "print.h"
 #include <xs1.h>
+
+#define DEBUG_UNIT ETHERNET_FILTER
+#include "debug_print.h"
+
 
 #ifndef ETHERNET_RX_CRC_ERROR_CHECK
 #define ETHERNET_RX_CRC_ERROR_CHECK 1
 #endif
 
 #ifndef ETHERNET_MAC_PROMISCUOUS
-#define ETHERNET_MAC_PROMISCUOUS 1
+#define ETHERNET_MAC_PROMISCUOUS 0
 #endif
 
 
@@ -70,6 +75,7 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
   mac[0] = mac_address[0] + (((unsigned) mac_address[1]) << 8)+ (((unsigned) mac_address[2]) << 16)  + (((unsigned) mac_address[3]) << 24);
   mac[1] = (((unsigned) mac_address[4])) + (((unsigned) mac_address[5]) << 8);
 
+  debug_printf("Starting filter\n");
   while (1) {
     select {
 #pragma xta endpoint "rx_packet"
@@ -77,11 +83,15 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
       if (buf) {
         unsigned length = buf->length;
         unsigned crc;
+        debug_printf("Filtering incoming packet (length %d)\n", buf->length);
 
         if (ETHERNET_RX_CRC_ERROR_CHECK)
           crc = complete_crc(buf);
 
+        debug_printf("Filter CRC result: %x\n", crc);
+
         buf->src_port = 0;
+        buf->timestamp_id = 0;
 
         if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc)) {
           buf->filter_result = 0;
@@ -90,12 +100,17 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
           int broadcast = is_broadcast(buf->data);
           int unicast = compare_mac(buf->data, mac);
           if (ETHERNET_MAC_PROMISCUOUS || broadcast || unicast) {
+            debug_printf("Initial filter passed\n");
             char *data = (char *) buf->data;
-            int filter_result = i_filter.do_filter(data, buf->length);
+            int filter_result, filter_data;
+            {filter_result, filter_data} = i_filter.do_filter(data,
+                                                              buf->length);
+            debug_printf("User filter result: %x\n", filter_result);
             if (!unicast && ENABLE_ETHERNET_PORT_FORWARDING) {
               filter_result |= ETHERNET_FILTER_PORT_FORWARD_MASK;
             }
             buf->filter_result = filter_result;
+            buf->filter_data = filter_data;
             buf->stage = 1;
           }
         }

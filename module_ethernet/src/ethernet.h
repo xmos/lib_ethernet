@@ -15,7 +15,9 @@ typedef enum {
 
 #define ETHERNET_ALL_INTERFACES  (-1)
 
+#ifndef ETHERNET_MAX_PACKET_SIZE
 #define ETHERNET_MAX_PACKET_SIZE (1518)
+#endif
 
 typedef enum ethernet_link_state_t {
   ETHERNET_LINK_DOWN,
@@ -28,6 +30,7 @@ typedef struct ethernet_packet_info_t {
   int len;
   unsigned timestamp;
   unsigned src_port;
+  unsigned filter_data;
 } ethernet_packet_info_t;
 
 
@@ -38,7 +41,7 @@ typedef interface ethernet_config_if {
 } ethernet_config_if;
 
 typedef interface ethernet_filter_if {
-  unsigned do_filter(char packet[len], unsigned len);
+  {unsigned, unsigned} do_filter(char packet[len], unsigned len);
 } ethernet_filter_if;
 
 typedef interface ethernet_if {
@@ -47,10 +50,11 @@ typedef interface ethernet_if {
 
   void set_receive_filter_mask(unsigned mask);
 
-  void init_send_packet(unsigned n, unsigned dst_port);
+  void init_send_packet(unsigned n, int is_high_priority, unsigned dst_port);
   void complete_send_packet(char packet[n], unsigned n,
-                            unsigned dst_port);
+                            int request_timestamp, unsigned dst_port);
 
+  unsigned get_outgoing_timestamp();
 
   [[notification]] slave void packet_ready();
   [[clears_notification]] void get_packet(ethernet_packet_info_t &desc,
@@ -62,9 +66,22 @@ extends client interface ethernet_if : {
 
   inline void send_packet(client ethernet_if i, char packet[n], unsigned n,
                           unsigned dst_port) {
-    i.init_send_packet(n, dst_port);
-    i.complete_send_packet(packet, n, dst_port);
+    unsigned short etype = ((unsigned short) packet[12] << 8) + packet[13];
+    int is_high_priority = (etype == 0x8100);
+    i.init_send_packet(n, is_high_priority, dst_port);
+    i.complete_send_packet(packet, n, 0, dst_port);
   }
+
+  inline unsigned send_timed_packet(client ethernet_if i, char packet[n],
+                                    unsigned n,
+                                    unsigned dst_port) {
+    unsigned short etype = ((unsigned short) packet[12] << 8) + packet[13];
+    int is_high_priority = (etype == 0x8100);
+    i.init_send_packet(n, is_high_priority, dst_port);
+    i.complete_send_packet(packet, n, 1, dst_port);
+    return i.get_outgoing_timestamp();
+  }
+
 
 }
 

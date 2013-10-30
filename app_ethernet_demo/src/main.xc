@@ -30,6 +30,10 @@ ethernet_reset_port_t p_phy_reset = XMOS_DEV_BOARD_RESET_PORT;
 
 static unsigned char ip_address[4] = {192, 168, 1, 178};
 
+#ifdef CONFIG_LITE
+port p_mii_timing = on tile[XMOS_DEV_BOARD_ETH_TILE]: XS1_PORT_8C;
+#endif
+
 int main()
 {
   ethernet_if i_eth[1];
@@ -37,11 +41,20 @@ int main()
   ethernet_filter_if i_eth_filter;
   par {
       on tile[XMOS_DEV_BOARD_ETH_TILE]:
+      #ifdef CONFIG_LITE
+        mii_ethernet_lite_server(i_eth_filter, i_eth_config,
+                                 i_eth, 1,
+                                 null,
+                                 otp_ports,
+                                 mii_ports,
+                                 p_mii_timing);
+      #else
         mii_ethernet_server(i_eth_filter, i_eth_config,
                             i_eth, 1,
                             null,
                             otp_ports,
                             mii_ports);
+      #endif
 
       on tile[XMOS_DEV_BOARD_ETH_TILE]:
         smsc_LAN8710_driver(smi_ports, p_phy_reset,
@@ -51,11 +64,13 @@ int main()
       on tile[XMOS_DEV_BOARD_ETH_TILE]:
         arp_ip_filter(i_eth_filter);
 
+#if 0
       on tile[XMOS_DEV_BOARD_ETH_TILE]: while(1);
       on tile[XMOS_DEV_BOARD_ETH_TILE]: while(1);
       on tile[XMOS_DEV_BOARD_ETH_TILE]: while(1);
+#endif
 
-      on tile[0]: icmp_server(i_eth[0], ip_address);
+      on tile[1]: icmp_server(i_eth[0], ip_address);
   }
   return 0;
 }

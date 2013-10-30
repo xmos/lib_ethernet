@@ -1,4 +1,4 @@
-#include <print.h>
+#include <debug_print.h>
 #include <xclib.h>
 #include <stdint.h>
 #include "ethernet.h"
@@ -84,28 +84,28 @@ static int is_valid_arp_packet(const unsigned char rxbuf[nbytes],
   if (rxbuf[12] != 0x08 || rxbuf[13] != 0x06)
     return 0;
 
-  printstr("ARP packet received\n");
+  debug_printf("ARP packet received\n");
 
   if ((rxbuf, const unsigned[])[3] != 0x01000608)
   {
-    printstr("Invalid et_htype\n");
+    debug_printf("Invalid et_htype\n");
     return 0;
   }
   if ((rxbuf, const unsigned[])[4] != 0x04060008)
   {
-    printstr("Invalid ptype_hlen\n");
+    debug_printf("Invalid ptype_hlen\n");
     return 0;
   }
   if (((rxbuf, const unsigned[])[5] & 0xFFFF) != 0x0100)
   {
-    printstr("Not a request\n");
+    debug_printf("Not a request\n");
     return 0;
   }
   for (int i = 0; i < 4; i++)
   {
     if (rxbuf[38 + i] != own_ip_addr[i])
     {
-      printstr("Not for us\n");
+      debug_printf("Not for us\n");
       return 0;
     }
   }
@@ -198,23 +198,23 @@ static int is_valid_icmp_packet(const unsigned char rxbuf[nbytes],
   if (rxbuf[23] != 0x01)
     return 0;
 
-  printstr("ICMP packet received\n");
+  debug_printf("ICMP packet received\n");
 
   if ((rxbuf, const unsigned[])[3] != 0x00450008)
   {
-    printstr("Invalid et_ver_hdrl_tos\n");
+    debug_printf("Invalid et_ver_hdrl_tos\n");
     return 0;
   }
   if (((rxbuf, const unsigned[])[8] >> 16) != 0x0008)
   {
-    printstr("Invalid type_code\n");
+    debug_printf("Invalid type_code\n");
     return 0;
   }
   for (int i = 0; i < 4; i++)
   {
     if (rxbuf[30 + i] != own_ip_addr[i])
     {
-      printstr("Not for us\n");
+      debug_printf("Not for us\n");
       return 0;
     }
   }
@@ -222,14 +222,12 @@ static int is_valid_icmp_packet(const unsigned char rxbuf[nbytes],
   totallen = byterev((rxbuf, const unsigned[])[4]) >> 16;
   if (nbytes > 60 && nbytes != totallen + 14)
   {
-    printstr("Invalid size\n");
-    printintln(nbytes);
-    printintln(totallen+14);
+    debug_printf("Invalid size (nbytes:%d, totallen:%d)\n", nbytes, totallen+14);
     return 0;
   }
   if (checksum_ip(rxbuf) != 0)
   {
-    printstr("Bad checksum\n");
+    debug_printf("Bad checksum\n");
     return 0;
   }
 
@@ -242,7 +240,7 @@ void icmp_server(client ethernet_if eth, const unsigned char ip_address[4])
   unsigned char mac_address[6];
   eth.get_macaddr(mac_address);
   eth.set_receive_filter_mask(0x1);
-  printstr("Test started\n");
+  debug_printf("Test started\n");
 
   while (1)
   {
@@ -257,13 +255,13 @@ void icmp_server(client ethernet_if eth, const unsigned char ip_address[4])
       {
         int len = build_arp_response(rxbuf, txbuf, mac_address, ip_address);
         eth.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
-        printstr("ARP response sent\n");
+        debug_printf("ARP response sent\n");
       }
       else if (is_valid_icmp_packet(rxbuf, packet_info.len, ip_address))
       {
         int len = build_icmp_response(rxbuf, txbuf, mac_address, ip_address);
         eth.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
-        printstr("ICMP response sent\n");
+        debug_printf("ICMP response sent\n");
       }
       break;
     }

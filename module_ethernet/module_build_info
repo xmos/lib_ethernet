@@ -9,7 +9,7 @@
 #
 # You can also set MODULE_XCC_C_FLAGS, MODULE_XCC_XC_FLAGS etc..
 
-DEPENDENT_MODULES = module_ethernet_smi module_locks
+DEPENDENT_MODULES = module_ethernet_smi module_locks module_logging
 
 OPTIONAL_HEADERS += ethernet_conf.h
 

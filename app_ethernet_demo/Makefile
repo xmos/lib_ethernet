@@ -18,7 +18,8 @@ APP_NAME =
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to
 # xcc for the final link (mapping) stage.
 
-XCC_FLAGS = -g -report -DCONFIG_FULL -save-temps -Os -Xmapper --map -Xmapper MAPFILE
+XCC_FLAGS_full = -g -report -DCONFIG_FULL -save-temps -Os -Xmapper --map -Xmapper MAPFILE
+XCC_FLAGS_lite = -g -report -DCONFIG_LITE -save-temps -Os -Xmapper --map -Xmapper MAPFILE
 
 XCC_FLAGS_icmp.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
 # The USED_MODULES variable lists other module used by the application. 
