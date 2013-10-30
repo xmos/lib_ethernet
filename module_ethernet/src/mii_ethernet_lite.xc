@@ -5,6 +5,7 @@
 #include "debug_print.h"
 #include "string.h"
 #include "xs1.h"
+#include "xassert.h"
 
 #ifndef ETHERNET_MAC_PROMISCUOUS
 #define ETHERNET_MAC_PROMISCUOUS 0
@@ -104,6 +105,7 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
       break;
 
     case i_eth[int i].get_outgoing_timestamp() -> unsigned timestamp:
+      fail("Outgoing timestamps are not supported in mii ethernet lite");
       break;
 
     case i_eth[int i].complete_send_packet(char data[n], unsigned n,
