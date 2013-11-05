@@ -11,6 +11,16 @@
 #include "mii_ethernet.h"
 #include "mii_buffering.h"
 #include "debug_print.h"
+#include "string.h"
+
+// As of the v12/13 xTIMEcomper tools. The compiler schedules code around a
+// bit too much which violates the timing constraints. This change to the
+// crc32 makes it a barrier to scheduling. This is not really
+// recommended practice since it inhibits the compiler in a bit of a hacky way,
+// but is perfectly safe.
+#undef crc32
+#define crc32(a, b, c) {__builtin_crc32(a, b, c); asm volatile (""::"r"(a):"memory");}
+
 
 #ifndef ETHERNET_ENABLE_FULL_TIMINGS
 #define ETHERNET_ENABLE_FULL_TIMINGS (1)
@@ -32,8 +42,7 @@
 
 #pragma xta command "add exclusion mii_rx_begin"
 #pragma xta command "add exclusion mii_eof_case"
-#pragma xta command "add exclusion mii_no_available_buffers"
-#pragma xta command "add exclusion mii_no_available_buffers"
+//#pragma xta command "add exclusion mii_wait_for_buffers"
 
 // Start of frame to first word is 32 bits = 320ns
 #pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_word"
@@ -41,7 +50,6 @@
 
 // Start of frame to first word is 32 bits = 320ns
 #pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_word"
-
 #pragma xta command "set required - 320 ns"
 
 #pragma xta command "analyze endpoints mii_rx_first_word mii_rx_second_word"
@@ -56,11 +64,14 @@
 #pragma xta command "analyze endpoints mii_rx_ethertype_word mii_rx_fifth_word"
 #pragma xta command "set required - 320 ns"
 
-#pragma xta command "analyze endpoints mii_rx_fifth_word mii_rx_sixth_word"
+//#pragma xta command "analyze endpoints mii_rx_fifth_word mii_rx_sixth_word"
+//#pragma xta command "set required - 320 ns"
+
+#pragma xta command "analyze endpoints mii_rx_fifth_word mii_rx_word"
 #pragma xta command "set required - 320 ns"
 
-#pragma xta command "analyze endpoints mii_rx_sixth_word mii_rx_word"
-#pragma xta command "set required - 320 ns"
+//#pragma xta command "analyze endpoints mii_rx_sixth_word mii_rx_word"
+//#pragma xta command "set required - 320 ns"
 
 #pragma xta command "analyze endpoints mii_rx_word mii_rx_word"
 #pragma xta command "set required - 300 ns"
@@ -75,9 +86,11 @@
 #pragma xta command "remove exclusion *"
 #pragma xta command "add exclusion mii_rx_after_preamble"
 #pragma xta command "add exclusion mii_rx_eof"
-#pragma xta command "add exclusion mii_no_available_buffers"
-#pragma xta command "add exclusion mii_rx_correct_priority_buffer_unavailable"
-#pragma xta command "add exclusion mii_rx_data_inner_loop"
+#pragma xta command "add exclusion mii_rx_word"
+//#pragma xta command "add exclusion mii_wait_for_buffers"
+//#pragma xta command "add exclusion mii_no_available_buffers"
+//#pragma xta command "add exclusion mii_rx_correct_priority_buffer_unavailable"
+//#pragma xta command "add exclusion mii_rx_data_inner_loop"
 #pragma xta command "analyze endpoints mii_rx_eof mii_rx_sof"
 #pragma xta command "set required - 1560 ns"
 
@@ -161,133 +174,86 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
                                streaming chanend c)
 {
   timer tmr;
-  unsigned poly = 0xEDB88320;
+  unsigned * unsafe wrap_ptr;
   unsigned * unsafe wrap_ptr_hp;
-  unsigned * unsafe wrap_ptr_lp;
 
-  if (ETHERNET_RX_HP_QUEUE) {
+  /* Set up the wrap markers for the two memory buffers. These are the
+     points at which we must wrap data back to the beginning of the buffer */
+
+  wrap_ptr = mii_get_wrap_ptr(rxmem_lp);
+
+  if (ETHERNET_RX_HP_QUEUE)
     wrap_ptr_hp = mii_get_wrap_ptr(rxmem_hp);
-  }
 
-  wrap_ptr_lp = mii_get_wrap_ptr(rxmem_lp);
-
+  /* Make sure we do not start in the middle of a packet */
   p_mii_rxdv when pinseq(0) :> int lo;
 
   while (1) {
 #pragma xta label "mii_rx_begin"
-    unsigned ii;
-    int endofframe;
-    unsigned crc;
-    int length;
-    unsigned time;
     unsigned word;
-    unsigned * unsafe wrap_ptr;
-    mii_packet_t * unsafe buf, * unsafe buf_lp, * unsafe buf_hp;
-    unsigned * unsafe dptr, * unsafe dptr_lp, * unsafe dptr_hp;
-    unsigned * unsafe end_ptr, * unsafe end_ptr_lp, * unsafe end_ptr_hp;
+    mii_packet_t * unsafe buf, * unsafe buf_hp;
+    unsigned * unsafe end_ptr, * unsafe end_ptr_hp;
+
+    /* Grab buffers to read the packet into. mii_reserve always returns a
+       buffer we can use (though it may be a dummy buffer that gets thrown
+       away later if we are out of buffer space). */
+
+    buf = mii_reserve(rxmem_lp, end_ptr);
 
     if (ETHERNET_RX_HP_QUEUE)
       buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
 
-    buf_lp = mii_reserve(rxmem_lp, end_ptr_lp);
-
-    if (ETHERNET_RX_HP_QUEUE)
-      dptr_hp = &buf_lp->data[0];
-
-#pragma xta endpoint "mii_rx_sof"
+    /* Wait for the start of the packet and timestamp it */
+    #pragma xta endpoint "mii_rx_sof"
     p_mii_rxd when pinseq(0xD) :> int sof;
 
-#pragma xta endpoint "mii_rx_after_preamble"
+    #pragma xta endpoint "mii_rx_after_preamble"
+    unsigned time;
     tmr :> time;
 
-    if (buf_lp) {
-      dptr_lp = &buf_lp->data[0];
-      if (ETHERNET_RX_HP_QUEUE && !buf_hp)
-        dptr_hp = dptr_lp;
-    } else if (ETHERNET_RX_HP_QUEUE && buf_hp) {
-      dptr_lp = dptr_hp;
-    } else {
-      #pragma xta label "mii_no_available_buffers"
-      p_mii_rxdv when pinseq(0) :> int hi;
-      clearbuf(p_mii_rxd);
-      continue;
+    unsigned crc = 0x9226F562;
+    unsigned poly = 0xEDB88320;
+    unsigned header[3];
+
+    /* Read in the first four words of the packet into the header array.
+       This gets copied into the packet buffer later */
+    #pragma xta endpoint "mii_rx_first_word"
+    p_mii_rxd :> header[0];
+    crc32(crc, header[0], poly);
+
+    #pragma xta endpoint "mii_rx_second_word"
+    p_mii_rxd :> header[1];
+    crc32(crc, header[1], poly);
+
+    #pragma xta endpoint "mii_rx_third_word"
+    p_mii_rxd :> header[2];
+    crc32(crc, header[2], poly);
+
+    #pragma xta endpoint "mii_rx_ethertype_word"
+    p_mii_rxd :> word;
+    crc32(crc, word, poly);
+
+    /* Determine what buffer to use based on the ethertype field in
+       the header */
+    unsigned short etype = (unsigned short) word;
+    if (ETHERNET_RX_HP_QUEUE && etype == 0x0081) {
+      buf = buf_hp;
+      wrap_ptr = wrap_ptr_hp;
+      end_ptr = end_ptr_hp;
     }
 
-
-    crc = 0x9226F562;
-
-#pragma xta endpoint "mii_rx_first_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-    *dptr_lp++ = word;
-    if (ETHERNET_RX_HP_QUEUE)
-      *dptr_hp++ = word;
-
-#pragma xta endpoint "mii_rx_second_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-    *dptr_lp++ = word;
-    if (ETHERNET_RX_HP_QUEUE)
-      *dptr_hp++ = word;
-
-#pragma xta endpoint "mii_rx_third_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-    *dptr_lp++ = word;
-    if (ETHERNET_RX_HP_QUEUE)
-      *dptr_hp++ = word;
-
-#pragma xta endpoint "mii_rx_ethertype_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-    *dptr_lp++ = word;
-    if (ETHERNET_RX_HP_QUEUE)
-      *dptr_hp++ = word;
-
-    if (ETHERNET_RX_HP_QUEUE) {
-      unsigned short etype = (unsigned short)word;
-
-      if (etype == 0x0081) {
-        buf = buf_hp;
-        dptr = dptr_hp;
-        wrap_ptr = wrap_ptr_hp;
-        end_ptr = end_ptr_hp;
-      }
-      else {
-        buf = buf_lp;
-        dptr = dptr_lp;
-        wrap_ptr = wrap_ptr_lp;
-        end_ptr = end_ptr_lp;
-      }
-    }
-    else {
-      buf = buf_lp;
-      dptr = dptr_lp;
-      wrap_ptr = wrap_ptr_lp;
-      end_ptr = end_ptr_lp;
-    }
+    buf->data[3] = word;
+    unsigned * unsafe dptr = &buf->data[4];
 
     buf->timestamp = time;
-#pragma xta endpoint "mii_rx_fifth_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-    if (!buf) {
-#pragma xta label "mii_rx_correct_priority_buffer_unavailable"
-      p_mii_rxdv when pinseq(0) :> int hi;
-#if ETHERNET_COUNT_PACKETS
-      ethernet_mii_no_queue_entries++;
-#endif
-      clearbuf(p_mii_rxd);
-      continue;
-    }
-    *dptr++ = word;
 
-
-#pragma xta endpoint "mii_rx_sixth_word"
+    #pragma xta endpoint "mii_rx_fifth_word"
     p_mii_rxd :> word;
     crc32(crc, word, poly);
     *dptr++ = word;
-    ii = 5*4;
+
+    unsigned nbytes = 4*sizeof(word);
+    unsigned endofframe;
     do
       {
 #pragma xta label "mii_rx_data_inner_loop"
@@ -295,14 +261,14 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
           {
 #pragma xta endpoint "mii_rx_word"
           case p_mii_rxd :> word:
+            *dptr = word;
+            crc32(crc, word, poly);
             if (dptr != end_ptr) {
-              *dptr = word;
-              crc32(crc, word, poly);
-              ii+=4;
               dptr++;
               if (dptr == wrap_ptr)
                 dptr = (unsigned * unsafe) *dptr;
             }
+            nbytes+=4;
             endofframe = 0;
             break;
 #pragma xta endpoint "mii_rx_eof"
@@ -315,29 +281,28 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
           }
       } while (!endofframe);
 
-    {
-      unsigned tail;
-      int taillen;
+    unsigned tail;
+    int taillen;
+    taillen = endin(p_mii_rxd);
+    buf->length = nbytes + (taillen>>3);
 
-      taillen = endin(p_mii_rxd);
+    /* The remainder of the CRC calculation and the test takes
+       place in the filter thread */
+    buf->crc = crc;
 
-      // Calculate final length - (i-1) to not count the CRC
-      //  length = ((i-1) << 2) + (taillen >> 3);
-      length = ii + (taillen>>3);
-      buf->length = length;
+    p_mii_rxd :> tail;
 
-      // The remainder of the CRC calculation and the test takes place in the filter thread
-      buf->crc = crc;
+    tail = tail >> (32 - taillen);
 
-      p_mii_rxd :> tail;
 
-      tail = tail >> (32 - taillen);
+    buf->data[0] = header[0];
+    buf->data[1] = header[1];
+    buf->data[2] = header[2];
 
-      if (dptr != end_ptr) {
-        *dptr = tail;
-        c <: buf;
-        mii_commit(buf, dptr);
-      }
+    if (dptr != end_ptr) {
+      *dptr = tail;
+      c <: buf;
+      mii_commit(buf, dptr);
     }
   }
 

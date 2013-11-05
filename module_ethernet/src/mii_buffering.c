@@ -8,10 +8,41 @@
 hwlock_t ethernet_memory_lock = 0;
 #endif
 
+static unsigned dummy_buf[(sizeof(mempool_info_t) +
+                           sizeof(malloc_hdr_t) +
+                           MII_PACKET_HEADER_SIZE +
+                           4*10)/4];
+
+static mii_packet_t *dummy_packet;
+static unsigned * dummy_end_ptr;
+
+static void init_dummy_buf()
+{
+  mempool_info_t *info = (mempool_info_t *) (void *) &dummy_buf[0];
+  info->start = (int *) (((char *) dummy_buf) + sizeof(mempool_info_t));
+  info->end = (int *) (((char *) dummy_buf) + sizeof(dummy_buf) - 4);
+  info->rdptr = info->start;
+  info->wrptr = info->start;
+  *(info->start) = 0;
+  *(info->end) = (int) (info->start);
+#if !ETHERNET_USE_HARDWARE_LOCKS
+  swlock_init(&info->lock);
+#else
+  if (ethernet_memory_lock == 0) {
+    ethernet_memory_lock = hwlock_alloc();
+  }
+#endif
+  dummy_packet = (mii_packet_t *) ((char *) info->wrptr + (sizeof(malloc_hdr_t)));
+  dummy_end_ptr = (unsigned *) ((char*) dummy_packet + MII_PACKET_HEADER_SIZE + 4*10);
+  ((malloc_hdr_t *) (info->wrptr))->info = info;
+}
+
 mii_mempool_t mii_init_mempool(unsigned * buf, int size)
 {
   if (size < 4)
     return 0;
+  if (dummy_buf[0] == 0)
+    init_dummy_buf();
   mempool_info_t *info = (mempool_info_t *) buf;
   info->start = (int *) (((char *) buf) + sizeof(mempool_info_t));
   info->end = (int *) (((char *) buf) + size - 4);
@@ -69,8 +100,10 @@ mii_packet_t *mii_reserve(mii_mempool_t mempool,
 
   if (rdptr > wrptr) {
     space_left = (char *) rdptr - (char *) wrptr;
-    if (space_left < MIN_USAGE)
-      return 0;
+    if (space_left < MIN_USAGE) {
+      *end_ptr = dummy_end_ptr;
+      return dummy_packet;
+    }
   } else  {
     // If the wrptr is after the rdptr then the should be at least
     // MIN_USAGE between the wrptr and the end of the buffer, therefore
@@ -91,6 +124,7 @@ void mii_commit(mii_packet_t *buf, unsigned *endptr0)
   mempool_info_t *info = (mempool_info_t *) hdr->info;
   mii_packet_t *pkt;
   int *end = info->end;
+
   pkt = (mii_packet_t *) buf;
   pkt->stage = 0;
 
