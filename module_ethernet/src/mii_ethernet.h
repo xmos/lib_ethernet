@@ -24,7 +24,7 @@ typedef struct mii_ports_t {
 void mii_ethernet_server(client ethernet_filter_if i_filter,
                          server ethernet_config_if i_config,
                          server ethernet_if i_eth[n], static const unsigned n,
-                         const char ?mac_address0[6],
+                         const char (&?mac_address0)[6],
                          otp_ports_t &?otp_ports,
                          mii_ports_t &mii_ports);
 
@@ -32,7 +32,7 @@ void mii_ethernet_lite_server(client ethernet_filter_if i_filter,
                               server ethernet_config_if i_config,
                               server ethernet_if i_eth[n],
                               static const unsigned n,
-                              const char ?mac_address0[6],
+                              const char (&?mac_address0)[6],
                               otp_ports_t &?otp_ports,
                               mii_ports_t &mii_ports,
                               port p_timing);
