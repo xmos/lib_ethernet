@@ -99,16 +99,16 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
     case i_eth[int i].set_receive_filter_mask(unsigned mask):
       client_info[i].filter_mask = mask;
       break;
-    case i_eth[int i].init_send_packet(unsigned n, int is_high_priority,
+    case i_eth[int i]._init_send_packet(unsigned n, int is_high_priority,
                                        unsigned dst_port):
       // Do nothing
       break;
 
-    case i_eth[int i].get_outgoing_timestamp() -> unsigned timestamp:
+    case i_eth[int i]._get_outgoing_timestamp() -> unsigned timestamp:
       fail("Outgoing timestamps are not supported in mii ethernet lite");
       break;
 
-    case i_eth[int i].complete_send_packet(char data[n], unsigned n,
+    case i_eth[int i]._complete_send_packet(char data[n], unsigned n,
                                            int request_timestamp,
                                            unsigned dst_port):
       memcpy(txbuf, data, n);

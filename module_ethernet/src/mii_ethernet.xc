@@ -150,7 +150,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
       client_info[i].filter_mask = mask;
       break;
 
-    case i_eth[int i].init_send_packet(unsigned n, int is_high_priority,
+    case i_eth[int i]._init_send_packet(unsigned n, int is_high_priority,
                                        unsigned dst_port):
       if (client_info[i].send_buffer == null)
         client_info[i].requested_send_buffer_size = n;
@@ -161,7 +161,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
     [[independent_guard]]
     case (int i = 0; i < n; i++)
       (client_info[i].has_outgoing_timestamp_info) =>
-      i_eth[i].get_outgoing_timestamp() -> unsigned timestamp:
+      i_eth[i]._get_outgoing_timestamp() -> unsigned timestamp:
       timestamp = client_info[i].outgoing_timestamp;
       client_info[i].has_outgoing_timestamp_info = 0;
       break;
@@ -169,7 +169,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
     [[independent_guard]]
     case (int i = 0; i < n; i++)
       (client_info[i].send_buffer != null) =>
-       i_eth[i].complete_send_packet(char data[n], unsigned n,
+       i_eth[i]._complete_send_packet(char data[n], unsigned n,
                                      int request_timestamp,
                                      unsigned dst_port):
       mii_packet_t * unsafe buf = client_info[i].send_buffer;
@@ -247,7 +247,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 void mii_ethernet_server(client ethernet_filter_if i_filter,
                          server ethernet_config_if i_config,
                          server ethernet_if i_eth[n], static const unsigned n,
-                         const char ?mac_address0[6],
+                         const char (&?mac_address0)[6],
                          otp_ports_t &?otp_ports,
                          mii_ports_t &mii_ports)
 {

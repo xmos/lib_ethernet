@@ -50,11 +50,11 @@ typedef interface ethernet_if {
 
   void set_receive_filter_mask(unsigned mask);
 
-  void init_send_packet(unsigned n, int is_high_priority, unsigned dst_port);
-  void complete_send_packet(char packet[n], unsigned n,
+  void _init_send_packet(unsigned n, int is_high_priority, unsigned dst_port);
+  void _complete_send_packet(char packet[n], unsigned n,
                             int request_timestamp, unsigned dst_port);
 
-  unsigned get_outgoing_timestamp();
+  unsigned _get_outgoing_timestamp();
 
   [[notification]] slave void packet_ready();
   [[clears_notification]] void get_packet(ethernet_packet_info_t &desc,
@@ -68,8 +68,8 @@ extends client interface ethernet_if : {
                           unsigned dst_port) {
     unsigned short etype = ((unsigned short) packet[12] << 8) + packet[13];
     int is_high_priority = (etype == 0x8100);
-    i.init_send_packet(n, is_high_priority, dst_port);
-    i.complete_send_packet(packet, n, 0, dst_port);
+    i._init_send_packet(n, is_high_priority, dst_port);
+    i._complete_send_packet(packet, n, 0, dst_port);
   }
 
   inline unsigned send_timed_packet(client ethernet_if i, char packet[n],
@@ -77,9 +77,9 @@ extends client interface ethernet_if : {
                                     unsigned dst_port) {
     unsigned short etype = ((unsigned short) packet[12] << 8) + packet[13];
     int is_high_priority = (etype == 0x8100);
-    i.init_send_packet(n, is_high_priority, dst_port);
-    i.complete_send_packet(packet, n, 1, dst_port);
-    return i.get_outgoing_timestamp();
+    i._init_send_packet(n, is_high_priority, dst_port);
+    i._complete_send_packet(packet, n, 1, dst_port);
+    return i._get_outgoing_timestamp();
   }
 
 
