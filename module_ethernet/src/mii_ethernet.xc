@@ -86,7 +86,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
   client_state_t client_info[n];
   mii_rdptr_t rdptr_hp, rdptr_lp;
 
-  if (ETHERNET_RX_HP_QUEUE) {
+  if (rx_hp_mem) {
     rdptr_hp = mii_init_my_rdptr(rx_hp_mem);
   }
   rdptr_lp = mii_init_my_rdptr(rx_lp_mem);
@@ -154,7 +154,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
                                        unsigned dst_port):
       if (client_info[i].send_buffer == null)
         client_info[i].requested_send_buffer_size = n;
-      if (ETHERNET_TX_HP_QUEUE)
+      if (tx_hp_mem)
         client_info[i].requested_send_priority = is_high_priority;
       break;
 
@@ -214,7 +214,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
       break;
     }
 
-    if (ETHERNET_RX_HP_QUEUE)
+    if (rx_hp_mem)
       handle_incoming_packet(rx_hp_mem, rdptr_hp, client_info, i_eth, n);
 
     handle_incoming_packet(rx_lp_mem, rdptr_lp, client_info, i_eth, n);
@@ -225,7 +225,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
         debug_printf("Trying to reserve send buffer (client %d, size %d)\n",
                      i,
                      client_info[i].requested_send_buffer_size);
-        int is_hp = (ETHERNET_TX_HP_QUEUE &&
+        int is_hp = (tx_hp_mem &&
                      client_info[i].requested_send_priority);
         mii_mempool_t mem = is_hp ? tx_hp_mem : tx_lp_mem;
         client_info[i].send_buffer =
@@ -244,38 +244,40 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 }
 
 
-void mii_ethernet_server(client ethernet_filter_if i_filter,
-                         server ethernet_config_if i_config,
-                         server ethernet_if i_eth[n], static const unsigned n,
-                         const char (&?mac_address0)[6],
-                         otp_ports_t &?otp_ports,
-                         mii_ports_t &mii_ports)
+void mii_ethernet_server_(client ethernet_filter_if i_filter,
+                          server ethernet_config_if i_config,
+                          server ethernet_if i_eth[n], static const unsigned n,
+                          const char mac_address[6],
+                          mii_ports_t &mii_ports,
+                          static const unsigned rx_bufsize_words,
+                          static const unsigned tx_bufsize_words,
+                          static const unsigned rx_hp_bufsize_words,
+                          static const unsigned tx_hp_bufsize_words,
+                          int enable_shaper)
 {
-  char mac_address[6];
-  if (!isnull(mac_address0)) {
-    memcpy(mac_address, mac_address0, sizeof(mac_address));
-  }
-  else {
-    otp_board_info_get_mac(otp_ports, 0, mac_address);
-  }
   unsafe {
-  unsigned int rx_lp_data[ETHERNET_RX_BUFSIZE_LOW_PRIORITY/4];
-  unsigned int tx_lp_data[ETHERNET_TX_BUFSIZE_LOW_PRIORITY/4];
-  unsigned int rx_hp_data[ETHERNET_RX_BUFSIZE_HIGH_PRIORITY/4];
-  unsigned int tx_hp_data[ETHERNET_TX_BUFSIZE_HIGH_PRIORITY/4];
-  mii_mempool_t rx_lp_mem = mii_init_mempool(rx_lp_data, sizeof(rx_lp_data));
-  mii_mempool_t rx_hp_mem = mii_init_mempool(rx_hp_data, sizeof(rx_hp_data));
-  mii_mempool_t tx_hp_mem = mii_init_mempool(tx_hp_data, sizeof(tx_hp_data));
-  mii_mempool_t tx_lp_mem = mii_init_mempool(tx_lp_data, sizeof(tx_lp_data));
+  unsigned int rx_lp_data[rx_bufsize_words];
+  unsigned int tx_lp_data[tx_bufsize_words];
+  unsigned int rx_hp_data[rx_hp_bufsize_words];
+  unsigned int tx_hp_data[tx_hp_bufsize_words];
+  mii_mempool_t rx_lp_mem = mii_init_mempool(rx_lp_data, rx_bufsize_words*4);
+  mii_mempool_t rx_hp_mem = mii_init_mempool(rx_hp_data, rx_hp_bufsize_words*4);
+  mii_mempool_t tx_hp_mem = mii_init_mempool(tx_hp_data, tx_bufsize_words*4);
+  mii_mempool_t tx_lp_mem = mii_init_mempool(tx_lp_data, tx_hp_bufsize_words*4);
   unsigned ts_fifo[n];
   mii_ts_queue_info_t ts_queue_info;
   mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n);
   streaming chan c;
   mii_master_init(mii_ports);
+  if (!ETHERNET_SUPPORT_HP_QUEUES) {
+    rx_hp_mem = tx_hp_mem = 0;
+  }
+  int idle_slope = (11<<MII_CREDIT_FRACTIONAL_BITS);
   par {
       mii_master_rx_pins(rx_hp_mem, rx_lp_mem,
-                         mii_ports.p_rxdv, mii_ports.p_rxd, 0, c);
-      mii_master_tx_pins(tx_hp_mem, tx_lp_mem, ts_queue, mii_ports.p_txd, 0);
+                         mii_ports.p_rxdv, mii_ports.p_rxd, c);
+      mii_master_tx_pins(tx_hp_mem, tx_lp_mem, ts_queue, mii_ports.p_txd,
+                         enable_shaper, &idle_slope);
       mii_ethernet_filter(mac_address, c, i_filter);
       mii_ethernet_server_aux(rx_hp_mem, rx_lp_mem,
                               tx_hp_mem, tx_lp_mem, ts_queue,

@@ -46,11 +46,12 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
                                   client ethernet_filter_if i_filter,
                                   server ethernet_if i_eth[n],
                                   static const unsigned n,
-                                  char mac_address[6])
+                                  const char mac_address[6],
+                                  static const unsigned double_rx_bufsize_words)
 {
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
   client_state_t client_info[n];
-  int rxbuf[ETHERNET_LITE_RX_BUFSIZE*2/4];
+  int rxbuf[double_rx_bufsize_words];
   int txbuf[(ETHERNET_TX_MAX_PACKET_SIZE+3)/4];
   struct mii_lite_data_t mii_lite_data;
   int incoming_nbytes;
@@ -67,7 +68,7 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
 
   // Setup buffering and interrupt for packet handling
   mii_lite_buffer_init(mii_lite_data, c_in, notifications,
-                       rxbuf, sizeof(rxbuf)/4);
+                       rxbuf, double_rx_bufsize_words);
   mii_lite_out_init(c_out);
 
   while (1) {
@@ -170,22 +171,15 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
 }
 
 
-void mii_ethernet_lite_server(client ethernet_filter_if i_filter,
-                              server ethernet_config_if i_config,
-                              server ethernet_if i_eth[n],
-                              static const unsigned n,
-                              const char (&?mac_address0)[6],
-                              otp_ports_t &?otp_ports,
-                              mii_ports_t &mii_ports,
-                              port p_timing)
+void mii_ethernet_lite_server_(client ethernet_filter_if i_filter,
+                               server ethernet_config_if i_config,
+                               server ethernet_if i_eth[n],
+                               static const unsigned n,
+                               const char mac_address[6],
+                               mii_ports_t &mii_ports,
+                               port p_timing,
+                               static const unsigned double_rx_bufsize_words)
 {
-  char mac_address[6];
-  if (!isnull(mac_address0)) {
-    memcpy(mac_address, mac_address0, sizeof(mac_address));
-  }
-  else {
-    otp_board_info_get_mac(otp_ports, 0, mac_address);
-  }
   mii_master_init(mii_ports);
   chan c_in, c_out;
   chan notifications;
@@ -194,7 +188,7 @@ void mii_ethernet_lite_server(client ethernet_filter_if i_filter,
       {asm(""::"r"(notifications));mii_lite_driver(mii_ports, p_timing,
                                                    c_in, c_out);}
       mii_ethernet_lite_aux(c_in, c_out, notifications, i_config, i_filter,
-                            i_eth, n, mac_address);
+                            i_eth, n, mac_address, double_rx_bufsize_words);
     }
   }
 }

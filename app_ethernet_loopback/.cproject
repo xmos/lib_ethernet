@@ -158,11 +158,7 @@
 									<listOptionValue builtIn="false" value="&quot;${XMOS_TOOL_PATH}/target/include/gcc&quot;"/>
                                     <listOptionValue builtIn="false" value='&quot;${workspace_loc:/app_ethernet_loopback/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/app_ethernet_loopback}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/.settings}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/common}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/full}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/include}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/lite}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/phy_support}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet_board_support/D4U-AVB-DG}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet_board_support/SLICEKIT-L16}&quot;' />
@@ -177,8 +173,12 @@
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_locks/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_locks}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_logging/src}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_logging}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_otp_board_info/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_otp_board_info}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_xassert/src}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_xassert}&quot;' />
 
 								</option>
 								<inputType id = "com.xmos.cdt.xc.compiler.input.56863091" name="XC" superClass="com.xmos.cdt.xc.compiler.input"/>
@@ -292,11 +292,7 @@
 									<listOptionValue builtIn="false" value="&quot;${XMOS_TOOL_PATH}/target/include/gcc&quot;"/>
                                     <listOptionValue builtIn="false" value='&quot;${workspace_loc:/app_ethernet_loopback/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/app_ethernet_loopback}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/.settings}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/common}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/full}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/include}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/lite}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/phy_support}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet_board_support/D4U-AVB-DG}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet_board_support/SLICEKIT-L16}&quot;' />
@@ -311,8 +307,12 @@
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_locks/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_locks}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_logging/src}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_logging}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_otp_board_info/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_otp_board_info}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_xassert/src}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_xassert}&quot;' />
 
 								</option>
 								<inputType id = "com.xmos.cdt.c.compiler.input.c.83437809" name="C" superClass="com.xmos.cdt.c.compiler.input.c"/>
@@ -432,11 +432,7 @@
 									<listOptionValue builtIn="false" value="&quot;${XMOS_TOOL_PATH}/target/include/c++/4.2.1/xcore-xmos-elf&quot;"/>
                                     <listOptionValue builtIn="false" value='&quot;${workspace_loc:/app_ethernet_loopback/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/app_ethernet_loopback}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/.settings}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/common}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/full}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/include}&quot;' />
-<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/lite}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src/phy_support}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet_board_support/D4U-AVB-DG}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet_board_support/SLICEKIT-L16}&quot;' />
@@ -451,8 +447,12 @@
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_ethernet}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_locks/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_locks}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_logging/src}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_logging}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_otp_board_info/src}&quot;' />
 <listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_otp_board_info}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_xassert/src}&quot;' />
+<listOptionValue builtIn="false" value='&quot;${workspace_loc:/module_xassert}&quot;' />
 
 								</option>
 								<inputType id = "com.xmos.cdt.cxx.compiler.input.cpp.78059319" name="C++" superClass="com.xmos.cdt.cxx.compiler.input.cpp"/>

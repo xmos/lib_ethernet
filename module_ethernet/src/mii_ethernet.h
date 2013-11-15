@@ -21,21 +21,30 @@ typedef struct mii_ports_t {
     out buffered port:32 p_txd; /**< MII TX data wire */
 } mii_ports_t;
 
-void mii_ethernet_server(client ethernet_filter_if i_filter,
-                         server ethernet_config_if i_config,
-                         server ethernet_if i_eth[n], static const unsigned n,
-                         const char (&?mac_address0)[6],
-                         otp_ports_t &?otp_ports,
-                         mii_ports_t &mii_ports);
+void mii_ethernet_server_(client ethernet_filter_if ETHERNET_FILTER_SPECIALIZATION i_filter,
+                          server ethernet_config_if i_config,
+                          server ethernet_if i_eth[n], static const unsigned n,
+                          const char mac_address[6],
+                          mii_ports_t &mii_ports,
+                          static const unsigned rx_bufsize_words,
+                          static const unsigned tx_bufsize_words,
+                          static const unsigned rx_hp_bufsize_words,
+                          static const unsigned tx_hp_bufsize_words,
+                          int enable_shaper);
 
-void mii_ethernet_lite_server(client ethernet_filter_if i_filter,
-                              server ethernet_config_if i_config,
-                              server ethernet_if i_eth[n],
-                              static const unsigned n,
-                              const char (&?mac_address0)[6],
-                              otp_ports_t &?otp_ports,
-                              mii_ports_t &mii_ports,
-                              port p_timing);
+#define mii_ethernet_server(i_filter, i_config, i_eth, n, m_addr, mii, rx_bufsize, tx_bufsize, rx_hp_bufsize, tx_hp_bufsize, enable_shaper) mii_ethernet_server_(i_filter, i_config, i_eth, n, m_addr, mii, rx_bufsize/4, tx_bufsize/4, rx_hp_bufsize/4, tx_hp_bufsize/4, enable_shaper)
+
+
+void mii_ethernet_lite_server_(client ethernet_filter_if i_filter,
+                               server ethernet_config_if i_config,
+                               server ethernet_if i_eth[n],
+                               static const unsigned n,
+                               const char mac_address[6],
+                               mii_ports_t &mii_ports,
+                               port p_timing,
+                               static const unsigned double_rx_bufsize_words);
+
+#define mii_ethernet_lite_server(i_filter, i_config, i_eth, n, m_addr, mii, p, rx_bufsize) mii_ethernet_lite_server_(i_filter, i_config, i_eth, n, m_addr, mii, p, (rx_bufsize/4)*2)
 
 #endif
 

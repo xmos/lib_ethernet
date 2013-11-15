@@ -37,7 +37,7 @@ typedef struct ethernet_packet_info_t {
 #ifdef __XC__
 
 typedef interface ethernet_config_if {
-  void set_link_state(int, ethernet_link_state_t);
+  void set_link_state(int ifnum, ethernet_link_state_t new_state);
 } ethernet_config_if;
 
 typedef interface ethernet_filter_if {
@@ -52,7 +52,7 @@ typedef interface ethernet_if {
 
   void _init_send_packet(unsigned n, int is_high_priority, unsigned dst_port);
   void _complete_send_packet(char packet[n], unsigned n,
-                            int request_timestamp, unsigned dst_port);
+                                 int request_timestamp, unsigned dst_port);
 
   unsigned _get_outgoing_timestamp();
 

@@ -20,8 +20,11 @@
 #define ETHERNET_MAC_PROMISCUOUS 0
 #endif
 
+#ifndef ETHERNET_ENABLE_FILTER_TIMING
+#define ETHERNET_ENABLE_FILTER_TIMING 0
+#endif
 
-#if ETHERNET_ENABLE_FULL_TIMINGS
+#if ETHERNET_ENABLE_FILTER_TIMING
 // Smallest packet + interframe gap is 84 bytes = 6.72 us
 #pragma xta command "analyze endpoints rx_packet rx_packet"
 #pragma xta command "set required - 6.72 us"
@@ -41,7 +44,7 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
 }
 
 unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
-                                client ethernet_filter_if i_filter)
+                                client ETHERNET_FILTER_SPECIALIZATION ethernet_filter_if i_filter)
 {
   unsigned int mac[2];
   mii_packet_t * unsafe buf;
@@ -75,14 +78,16 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
           int unicast = compare_mac(buf->data, mac);
           if (ETHERNET_MAC_PROMISCUOUS || broadcast || unicast) {
             debug_printf("Initial filter passed\n");
-            char *data = (char *) buf->data;
-            int filter_result, filter_data;
-            {filter_result, filter_data} = i_filter.do_filter(data,
+            char * unsafe data = (char * unsafe) buf->data;
+            int filter_result = 0, filter_data = 0;
+            {filter_result, filter_data} = i_filter.do_filter((char *) data,
                                                               buf->length);
             debug_printf("User filter result: %x\n", filter_result);
+            #if 0
             if (!unicast && ENABLE_ETHERNET_PORT_FORWARDING) {
               filter_result |= ETHERNET_FILTER_PORT_FORWARD_MASK;
             }
+            #endif
             buf->filter_result = filter_result;
             buf->filter_data = filter_data;
             buf->stage = 1;

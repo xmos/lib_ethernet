@@ -170,19 +170,20 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
                                mii_mempool_t rxmem_lp,
                                in port p_mii_rxdv,
                                in buffered port:32 p_mii_rxd,
-                               int ifnum,
                                streaming chanend c)
 {
   timer tmr;
   unsigned * unsafe wrap_ptr;
   unsigned * unsafe wrap_ptr_hp;
 
+  if (!ETHERNET_SUPPORT_HP_QUEUES)
+    rxmem_hp = 0;
+
   /* Set up the wrap markers for the two memory buffers. These are the
      points at which we must wrap data back to the beginning of the buffer */
-
   wrap_ptr = mii_get_wrap_ptr(rxmem_lp);
 
-  if (ETHERNET_RX_HP_QUEUE)
+  if (rxmem_hp)
     wrap_ptr_hp = mii_get_wrap_ptr(rxmem_hp);
 
   /* Make sure we do not start in the middle of a packet */
@@ -200,7 +201,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
 
     buf = mii_reserve(rxmem_lp, end_ptr);
 
-    if (ETHERNET_RX_HP_QUEUE)
+    if (rxmem_hp)
       buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
 
     /* Wait for the start of the packet and timestamp it */
@@ -236,7 +237,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     /* Determine what buffer to use based on the ethertype field in
        the header */
     unsigned short etype = (unsigned short) word;
-    if (ETHERNET_RX_HP_QUEUE && etype == 0x0081) {
+    if (rxmem_hp && etype == 0x0081) {
       buf = buf_hp;
       wrap_ptr = wrap_ptr_hp;
       end_ptr = end_ptr_hp;
@@ -366,10 +367,6 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
 #pragma xta command "set required - 80 ns"
 
 
-// Global for the transmit slope variable
-#if (ETHERNET_TX_HP_QUEUE) && (ETHERNET_TRAFFIC_SHAPER)
-int g_mii_idle_slope=(11<<MII_CREDIT_FRACTIONAL_BITS);
-#endif
 
 #undef crc32
 #define crc32(a, b, c) {__builtin_crc32(a, b, c);}
@@ -460,7 +457,8 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
                                mii_mempool_t lp_queue,
                                mii_ts_queue_t ts_queue,
                                out buffered port:32 p_mii_txd,
-                               int ifnum)
+                               int enable_shaper,
+                               volatile int * unsafe idle_slope)
 {
   int credit = 0;
   int credit_time;
@@ -468,7 +466,13 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
   timer tmr;
   int ok_to_transmit=1;
 
-  if (ETHERNET_TX_HP_QUEUE && ETHERNET_TRAFFIC_SHAPER)
+  if (!ETHERNET_SUPPORT_HP_QUEUES)
+    hp_queue = 0;
+
+  if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER)
+    enable_shaper = 0;
+
+  if (hp_queue && enable_shaper)
     tmr :> credit_time;
 
   while (1) {
@@ -478,23 +482,20 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
 
     int stage;
     int prev_credit_time;
-    int idle_slope;
     int elapsed;
 
-    if (ETHERNET_TX_HP_QUEUE)
+    if (hp_queue)
       buf = mii_get_next_buf(hp_queue);
 
-    if (ETHERNET_TRAFFIC_SHAPER) {
+    if (enable_shaper) {
       if (buf && buf->stage == 1) {
 
         if (credit < 0) {
-          asm("ldw %0,dp[g_mii_idle_slope]":"=r"(idle_slope));
-
           prev_credit_time = credit_time;
-        tmr :> credit_time;
+          tmr :> credit_time;
 
           elapsed = credit_time - prev_credit_time;
-          credit += elapsed * idle_slope;
+          credit += elapsed * (*idle_slope);
         }
 
         if (credit < 0)
@@ -512,7 +513,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
       }
     }
 
-    if (!ETHERNET_TX_HP_QUEUE || !buf || buf->stage != 1)
+    if (!hp_queue || !buf || buf->stage != 1)
       buf = mii_get_next_buf(lp_queue);
 
 
