@@ -286,21 +286,27 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     taillen = endin(p_mii_rxd);
     buf->length = nbytes + (taillen>>3);
 
-    /* The remainder of the CRC calculation and the test takes
-       place in the filter thread */
-    buf->crc = crc;
+    unsigned mask = ~0U >> taillen;
 
     p_mii_rxd :> tail;
 
-    tail = tail >> (32 - taillen);
+    /* Mask out junk bits in last input */
+    tail &= ~mask;
 
+    /* Incorporate tailbits of input data,
+       see https://github.com/xcore/doc_tips_and_tricks for details. */
+    { tail, crc } = mac(crc, mask, tail, crc);
+    crc32(crc, tail, poly);
+
+    buf->crc = crc;
 
     buf->data[0] = header[0];
     buf->data[1] = header[1];
     buf->data[2] = header[2];
 
     if (dptr != end_ptr) {
-      *dptr = tail;
+      /* We don't store the last word since it contains the CRC and
+         we don't need it from this point on. */
       c <: buf;
       mii_commit(buf, dptr);
     }
