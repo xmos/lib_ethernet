@@ -40,32 +40,6 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
   return ((buf[0] == mac[0]) && ((short) buf[1] == (short) mac[1]));
 }
 
-static unsafe unsigned complete_crc(mii_packet_t * unsafe buf)
-{
-  unsigned poly = 0xEDB88320;
-  unsigned crc = buf->crc;
-  int endbytes = buf->length & 3;
-  unsigned * unsafe data = buf->data;
-  int tail = data[((buf->length & 0xFFFFFFFC)/4)+1];
-  switch (endbytes) {
-  case 0:
-    break;
-  case 1:
-    tail = crc8shr(crc, tail, poly);
-    break;
-  case 2:
-    tail = crc8shr(crc, tail, poly);
-    tail = crc8shr(crc, tail, poly);
-    break;
-  case 3:
-    tail = crc8shr(crc, tail, poly);
-    tail = crc8shr(crc, tail, poly);
-    tail = crc8shr(crc, tail, poly);
-    break;
-  }
-  return crc;
-}
-
 unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
                                 client ethernet_filter_if i_filter)
 {
@@ -86,7 +60,7 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
         debug_printf("Filtering incoming packet (length %d)\n", buf->length);
 
         if (ETHERNET_RX_CRC_ERROR_CHECK)
-          crc = complete_crc(buf);
+          crc = buf->crc;
 
         debug_printf("Filter CRC result: %x\n", crc);
 
