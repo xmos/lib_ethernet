@@ -78,6 +78,7 @@ int main()
                      eth_rxclk, eth_txclk,
                      ETH_RX_BUFFER_SIZE_WORDS);
       }
+
       on tile[1]: arp_ip_filter(i_eth_filter);
 
       on tile[1].core[0]: icmp_server(i_eth[ETH_TO_ICMP], ip_address);

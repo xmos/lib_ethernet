@@ -107,9 +107,9 @@ Creating an Ethernet instance
 The Ethernet configuration interface
 ....................................
 
-.. doxygenenum:: ethernet_link_state_t
-
 .. doxygeninterface:: ethernet_config_if
+
+.. doxygenenum:: ethernet_link_state_t
 
 |newpage|
 

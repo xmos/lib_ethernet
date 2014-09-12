@@ -26,14 +26,6 @@ XCC_FLAGS_icmp.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
 
 USED_MODULES = lib_ethernet lib_otpinfo lib_slicekit_support
 
-# This change to the module path is so that this application can be in the
-# examples sub-directory in it's git repo
-ifeq ($(notdir $(abspath ..)),examples)
-PATHSEP = $(if $(findstring Windows, $(OS))$(findstring WINDOWS,$(OS)),;,:)
-XMOS_MODULE_PATH := $(XMOS_MODULE_PATH)$(PATHSEP)../../..
-endif
-
-
 #=============================================================================
 # The following part of the Makefile includes the common build infrastructure
 # for compiling XMOS applications. You should not need to edit below here.

@@ -6,7 +6,7 @@ void arp_ip_filter(server ethernet_filter_callback_if i_filter)
 {
   while (1) {
     select {
-    case i_filter.do_filter(char buf[len], unsigned len) ->
+    case i_filter.do_filter(char * buf, unsigned len) ->
                   {unsigned result, unsigned data}:
       result = 0;
       unsigned short etype = ((unsigned short) buf[12] << 8) + buf[13];
