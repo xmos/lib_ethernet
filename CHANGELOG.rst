@@ -1,5 +1,9 @@
-sc_ethernet Change Log
-======================
+Ethernet library change log
+===========================
+
+3.0.0
+-----
+  * Major rework of structure and API
 
 2.2.6
 -----
