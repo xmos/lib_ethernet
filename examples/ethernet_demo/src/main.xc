@@ -73,7 +73,7 @@ int main()
                      i_eth, NUM_ETH_CLIENTS,
                      mac_address,
                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                     p_eth_txclk, p_eth_txd, p_eth_txen,
+                     p_eth_txclk, p_eth_txen, p_eth_txd,
                      p_eth_dummy,
                      eth_rxclk, eth_txclk,
                      ETH_RX_BUFFER_SIZE_WORDS);
