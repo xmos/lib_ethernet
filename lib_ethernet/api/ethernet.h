@@ -1,7 +1,6 @@
 #ifndef __ethernet__h__
 #define __ethernet__h__
 #include <xs1.h>
-#include <gpio.h>
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -214,14 +213,6 @@ void mii_ethernet(client ethernet_filter_callback_if i_filter,
                   clock rxclk,
                   clock txclk,
                   static const unsigned rx_bufsize_words);
-
-/************* PHY SUPPORT ***********************/
-[[combinable]]
-void smsc_LAN8710_driver(client ethernet_config_if i_config,
-                         client output_gpio_if mdc, client inout_gpio_if p_mdio,
-                         client output_gpio_if ?p_reset,
-                         unsigned phy_address);
-
 #endif
 
 #endif // __ethernet__h__

@@ -14,7 +14,7 @@
 #include "otp_board_info.h"
 #include "ethernet.h"
 #include "icmp.h"
-#include "gpio.h"
+#include "smi.h"
 
 // These ports are for accessing the OTP memory
 otp_ports_t otp_ports = on tile[1]: OTP_PORTS_INITIALIZER;
@@ -39,6 +39,7 @@ clock eth_txclk   = on tile[1]: XS1_CLKBLK_2;
 
 static unsigned char ip_address[4] = {192, 168, 1, 178};
 
+
 // An enum to manager the array of connections from the ethernet component
 // to its clients.
 enum eth_clients {
@@ -51,19 +52,18 @@ enum eth_clients {
 // On the ethernet slice card the phy address is configure to be 0
 #define ETH_SMI_PHY_ADDRESS 0x0
 
+[[combinable]]
+void phy_driver(client interface smi_if smi,
+                client interface ethernet_config_if eth_config);
+
 int main()
 {
   ethernet_if i_eth[NUM_ETH_CLIENTS];
   ethernet_config_if i_eth_config;
   ethernet_filter_callback_if i_eth_filter;
-  output_gpio_if i_gpio_mdc;
-  inout_gpio_if i_gpio_mdio;
+  smi_if i_smi;
   par {
-    on tile[1].core[0]: smsc_LAN8710_driver(i_eth_config,
-                                    i_gpio_mdc, i_gpio_mdio, null,
-                                    ETH_SMI_PHY_ADDRESS);
-    on tile[1]: inout_gpio(i_gpio_mdio, p_smi_mdio);
-    on tile[1]: output_gpio(i_gpio_mdc, p_smi_mdc);
+    on tile[1]: smi(i_smi, ETH_SMI_PHY_ADDRESS, p_smi_mdio, p_smi_mdc);
 
     on tile[1]:
       {
@@ -82,7 +82,36 @@ int main()
       on tile[1]: arp_ip_filter(i_eth_filter);
 
       on tile[1].core[0]: icmp_server(i_eth[ETH_TO_ICMP], ip_address);
+      on tile[1].core[0]: phy_driver(i_smi, i_eth_config);
   }
   return 0;
 }
+
+#define ETHERNET_LINK_POLL_PERIOD_MS 1000
+[[combinable]]
+void phy_driver(client interface smi_if smi,
+                client interface ethernet_config_if eth_config) {
+  ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
+  timer tmr;
+  int t;
+  tmr :> t;
+
+
+  smi_configure(smi, 1, 1);
+  while (1) {
+    select {
+    case tmr when timerafter(t) :> t:
+      int link_up = smi_is_link_up(smi);
+      ethernet_link_state_t new_state = link_up ? ETHERNET_LINK_UP :
+                                                  ETHERNET_LINK_DOWN;
+      if (new_state != link_state) {
+        link_state = new_state;
+        eth_config.set_link_state(0, ETHERNET_LINK_DOWN);
+      }
+      t += ETHERNET_LINK_POLL_PERIOD_MS * XS1_TIMER_MHZ * 1000;
+      break;
+    }
+  }
+}
+
 
