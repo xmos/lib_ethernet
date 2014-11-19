@@ -20,8 +20,6 @@ def do_test(impl):
 
     binary = 'test_tx/bin/%s/test_tx_%s.xe' % (impl, impl)
 
-    binary = 'test_tx/bin/test_tx.xe'
-
     txclock = Clock('tile[0]:XS1_PORT_1I', 25000000)
     receiver = MiiReceiver('tile[0]:XS1_PORT_4F',
                            'tile[0]:XS1_PORT_1L',
