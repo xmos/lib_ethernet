@@ -1,0 +1,6 @@
+Sending packet 1, len = 68.
+Sent
+Sending packet 2, len = 78.
+Sent
+1: Received packet, type=0, len=68, buf[15]=0x2.
+2: Received packet, type=0, len=78, buf[15]=0x6.
