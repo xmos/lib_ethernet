@@ -1,6 +1,8 @@
 #ifndef __ethernet__h__
 #define __ethernet__h__
 #include <xs1.h>
+#include <stdint.h>
+#include <stddef.h>
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -26,19 +28,41 @@ typedef struct ethernet_packet_info_t {
   eth_packet_type_t type;
   int len;
   unsigned timestamp;
-  unsigned src_port;
+  unsigned src_ifnum;
   unsigned filter_data;
 } ethernet_packet_info_t;
 
-
 #ifdef __XC__
 
-/** Ethernet configuration interface.
+typedef struct ethernet_macaddr_filter_t {
+  uint16_t vlan;
+  unsigned char addr[6];
+  unsigned appdata;
+} ethernet_macaddr_filter_t;
+
+typedef enum ethernet_macaddr_filter_result_t {
+  ETHERNET_MACADDR_FILTER_SUCCESS,
+  ETHERNET_MACADDR_FILTER_TABLE_FULL
+} ethernet_macaddr_filter_result_t;
+
+/** Ethernet endpoint interface.
  *
- *  This interface allows tasks to configure the ethernet component. In
- *  particular it can signal to the ethernet component the current link state.
- */
-typedef interface ethernet_config_if {
+ *  This interface allows clients to send and receive packets. */
+typedef interface ethernet_if {
+  void set_macaddr(size_t ifnum, unsigned char mac_address[6]);
+
+  void get_macaddr(size_t ifnum, unsigned char mac_address[6]);
+
+  ethernet_macaddr_filter_result_t
+  add_macaddr_filter(ethernet_macaddr_filter_t entry);
+
+  void del_macaddr_filter(ethernet_macaddr_filter_t entry);
+
+  void del_all_macaddr_filters(void);
+
+  void add_ethertype_filter(uint16_t ethertype);
+  void del_ethertype_filter(uint16_t ethertype);
+
   /** Set the current link state.
    *
    *  This function sets the current link state of the interface component.
@@ -48,37 +72,11 @@ typedef interface ethernet_config_if {
    *                   set to 0.
    *  \param new_state The new link state for the port.
    */
-  void set_link_state(int portnum, ethernet_link_state_t new_state);
-} ethernet_config_if;
+  void set_link_state(int ifnum, ethernet_link_state_t new_state);
 
-
-/** The ethernet filtering callback inteface.
- *
- *  This interface allows the MAC to call to another task to perform
- *  filtering.
- *
- */
-typedef interface ethernet_filter_callback_if {
-  /** Filter a packet.
-   *
-   *  After a packet is received by the MAC this function is called.
-   *  TODO: document this function.
-   */
-  {unsigned, unsigned} do_filter(char * packet, unsigned len);
-} ethernet_filter_callback_if;
-
-/** Ethernet endpoint interface.
- *
- *  This interface allows clients to send and receive packets. */
-typedef interface ethernet_if {
-
-  void get_macaddr(unsigned char mac_address[6]);
-
-  void set_receive_filter_mask(unsigned mask);
-
-  void _init_send_packet(unsigned n, int is_high_priority, unsigned dst_port);
+  void _init_send_packet(size_t n, int is_high_priority, size_t ifnum);
   void _complete_send_packet(char packet[n], unsigned n,
-                                 int request_timestamp, unsigned dst_port);
+                             int request_timestamp, size_t ifnum);
 
   unsigned _get_outgoing_timestamp();
 
@@ -111,9 +109,6 @@ extends client interface ethernet_if : {
 
 }
 
-[[distributable]]
-void arp_ip_filter(server ethernet_filter_callback_if i_filter);
-
 enum ethernet_enable_shaper_t {
   ETHERNET_ENABLE_SHAPER,
   ETHERNET_DISABLE_SHAPER
@@ -126,10 +121,6 @@ enum ethernet_enable_shaper_t {
  *  Interaction to the component is via the connected filtering, configuration
  *  and data interfaces.
  *
- *  \param i_filter     callback interface to connect to a task to
- *                      perform filtering
- *  \param i_config     configuration interface to connect to a task that
- *                      can perform configuration calls to the component
  *  \param i_eth        array of interfaces to connect to the clients of the
  *                      MAC (i.e. the tasks sending/receiving data)
  *  \param n            the number of clients connected
@@ -158,10 +149,7 @@ enum ethernet_enable_shaper_t {
  *                             or disable the traffice shaper within the
  *                             MAC.
  */
-void mii_ethernet_rt(client ethernet_filter_callback_if i_filter,
-                     server ethernet_config_if i_config,
-                     server ethernet_if i_eth[n], static const unsigned n,
-                     const char mac_address[6],
+void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
                      in port p_rxclk, in port p_rxer,
                      in port p_rxd, in port p_rxdv,
                      in port p_txclk, out port p_txen, out port p_txd,
@@ -180,10 +168,6 @@ void mii_ethernet_rt(client ethernet_filter_callback_if i_filter,
  *  Interaction to the component is via the connected filtering, configuration
  *  and data interfaces.
  *
- *  \param i_filter     callback interface to connect to a task to
- *                      perform filtering
- *  \param i_config     configuration interface to connect to a task that
- *                      can perform configuration calls to the component
  *  \param i_eth        array of interfaces to connect to the clients of the
  *                      MAC (i.e. the tasks sending/receiving data)
  *  \param n            the number of clients connected
@@ -202,11 +186,8 @@ void mii_ethernet_rt(client ethernet_filter_callback_if i_filter,
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
  */
-void mii_ethernet(client ethernet_filter_callback_if i_filter,
-                  server ethernet_config_if i_config,
-                  server ethernet_if i_eth[n],
+void mii_ethernet(server ethernet_if i_eth[n],
                   static const unsigned n,
-                  const char mac_address[6],
                   in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
                   in port p_txclk, out port p_txen, out port p_txd,
                   port p_timing,

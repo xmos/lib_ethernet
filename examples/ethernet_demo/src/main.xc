@@ -49,69 +49,18 @@ enum eth_clients {
 
 #define ETH_RX_BUFFER_SIZE_WORDS 1600
 
-// On the ethernet slice card the phy address is configure to be 0
-#define ETH_SMI_PHY_ADDRESS 0x0
-
-[[combinable]]
-void phy_driver(client interface smi_if smi,
-                client interface ethernet_config_if eth_config);
-
 int main()
 {
   ethernet_if i_eth[NUM_ETH_CLIENTS];
-  ethernet_config_if i_eth_config;
-  ethernet_filter_callback_if i_eth_filter;
-  smi_if i_smi;
   par {
-    on tile[1]: smi(i_smi, ETH_SMI_PHY_ADDRESS, p_smi_mdio, p_smi_mdc);
+    on tile[1]: mii_ethernet(i_eth, NUM_ETH_CLIENTS,
+                             p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                             p_eth_txclk, p_eth_txen, p_eth_txd,
+                             p_eth_dummy,
+                             eth_rxclk, eth_txclk,
+                             ETH_RX_BUFFER_SIZE_WORDS);
 
-    on tile[1]:
-      {
-        char mac_address[6];
-        otp_board_info_get_mac(otp_ports, 0, mac_address);
-        mii_ethernet(i_eth_filter, i_eth_config,
-                     i_eth, NUM_ETH_CLIENTS,
-                     mac_address,
-                     p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                     p_eth_txclk, p_eth_txen, p_eth_txd,
-                     p_eth_dummy,
-                     eth_rxclk, eth_txclk,
-                     ETH_RX_BUFFER_SIZE_WORDS);
-      }
-
-      on tile[1]: arp_ip_filter(i_eth_filter);
-
-      on tile[1].core[0]: icmp_server(i_eth[ETH_TO_ICMP], ip_address);
-      on tile[1].core[0]: phy_driver(i_smi, i_eth_config);
+    on tile[1]: icmp_server(i_eth[ETH_TO_ICMP], ip_address, otp_ports);
   }
   return 0;
 }
-
-#define ETHERNET_LINK_POLL_PERIOD_MS 1000
-[[combinable]]
-void phy_driver(client interface smi_if smi,
-                client interface ethernet_config_if eth_config) {
-  ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
-  timer tmr;
-  int t;
-  tmr :> t;
-
-
-  smi_configure(smi, 1, 1);
-  while (1) {
-    select {
-    case tmr when timerafter(t) :> t:
-      int link_up = smi_is_link_up(smi);
-      ethernet_link_state_t new_state = link_up ? ETHERNET_LINK_UP :
-                                                  ETHERNET_LINK_DOWN;
-      if (new_state != link_state) {
-        link_state = new_state;
-        eth_config.set_link_state(0, ETHERNET_LINK_DOWN);
-      }
-      t += ETHERNET_LINK_POLL_PERIOD_MS * XS1_TIMER_MHZ * 1000;
-      break;
-    }
-  }
-}
-
-

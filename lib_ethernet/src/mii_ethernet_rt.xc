@@ -6,6 +6,7 @@
 #include "string.h"
 #define DEBUG_UNIT ETHERNET_CLIENT_HANDLER
 #include "debug_print.h"
+#include "xassert.h"
 
 enum status_update_state_t {
   STATUS_UPDATE_IGNORING,
@@ -21,12 +22,13 @@ typedef struct
   int wrIndex;
   mii_packet_t * unsafe fifo[ETHERNET_RX_CLIENT_QUEUE_SIZE];
   int status_update_state;
-  unsigned filter_mask;
   int requested_send_buffer_size;
   int requested_send_priority;
   mii_packet_t * unsafe send_buffer;
   int has_outgoing_timestamp_info;
   unsigned outgoing_timestamp;
+  size_t num_etype_filters;
+  uint16_t etype_filters[ETHERNET_MAX_ETHERTYPE_FILTERS];
 } client_state_t;
 
 
@@ -47,7 +49,25 @@ unsafe static void handle_incoming_packet(mii_mempool_t rx_mem,
     debug_printf("Assigning packet to clients (filter result %x)\n",
                  buf->filter_result);
     for (int i = 0; i < n; i++) {
-      if (client_info[i].filter_mask & buf->filter_result) {
+      int client_wants_packet = ((buf->filter_result >> i) & 1);
+      if (client_info[i].num_etype_filters != 0) {
+        char * unsafe data = (char * unsafe) buf->data;
+        int passed_etype_filter = 0;
+        uint16_t etype = ((uint16_t) data[12] << 8) + data[13];
+        int qhdr = (etype == 0x8100);
+        if (qhdr) {
+          // has a 802.1q tag - read etype from next word
+          etype = ((uint16_t) data[16] << 8) + data[17];
+        }
+        for (int j = 0; j < client_info[i].num_etype_filters; j++) {
+          if (client_info[i].etype_filters[j] == etype) {
+            passed_etype_filter = 1;
+            break;
+          }
+        }
+        client_wants_packet &= passed_etype_filter;
+      }
+      if (client_wants_packet) {
         debug_printf("Trying to queue for client %d\n", i);
         int wrptr = client_info[i].wrIndex;
         int new_wrptr = wrptr + 1;
@@ -77,11 +97,11 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
                                            mii_mempool_t tx_hp_mem,
                                            mii_mempool_t tx_lp_mem,
                                            mii_ts_queue_t ts_queue,
-                                           server ethernet_config_if i_config,
                                            server ethernet_if i_eth[n],
                                            static const unsigned n,
-                                           const char mac_address[6])
+                                           chanend c_macaddr_filter)
 {
+  char mac_address[6] = {0};
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
   client_state_t client_info[n];
   mii_rdptr_t rdptr_hp, rdptr_lp;
@@ -96,10 +116,10 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
     client_info[i].rdIndex = 0;
     client_info[i].wrIndex = 0;
     client_info[i].status_update_state = STATUS_UPDATE_IGNORING;
-    client_info[i].filter_mask = 0;
     client_info[i].requested_send_buffer_size = 0;
     client_info[i].send_buffer = null;
     client_info[i].has_outgoing_timestamp_info = 0;
+    client_info[i].num_etype_filters = 0;
   }
 
   while (1) {
@@ -119,7 +139,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
         mii_packet_t * unsafe buf = client_info[i].fifo[rdIndex];
         ethernet_packet_info_t info;
         info.type = ETH_DATA;
-        info.src_port = buf->src_port;
+        info.src_ifnum = buf->src_port;
         info.timestamp = buf->timestamp;
         info.len = buf->length;
         info.filter_data = buf->filter_data;
@@ -143,13 +163,59 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
         desc.type = ETH_NO_DATA;
       }
       break;
-    case i_eth[int i].get_macaddr(char r_mac_address[6]):
+    case i_eth[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
       memcpy(r_mac_address, mac_address, 6);
       break;
-    case i_eth[int i].set_receive_filter_mask(unsigned mask):
-      client_info[i].filter_mask = mask;
+    case i_eth[int i].set_macaddr(size_t ifnum, char r_mac_address[6]):
+      memcpy(mac_address, r_mac_address, 6);
       break;
-
+    case i_eth[int i].add_macaddr_filter(ethernet_macaddr_filter_t entry) -> ethernet_macaddr_filter_result_t result:
+      unsafe {
+        c_macaddr_filter <: 0;
+        eth_global_filter_info_t * unsafe p;
+        c_macaddr_filter :> p;
+        result = ethernet_add_filter_table_entry(*p, i, entry);
+        c_macaddr_filter <: 0;
+      }
+      break;
+    case i_eth[int i].del_macaddr_filter(ethernet_macaddr_filter_t entry):
+      unsafe {
+        c_macaddr_filter <: 0;
+        eth_global_filter_info_t * unsafe p;
+        c_macaddr_filter :> p;
+        ethernet_del_filter_table_entry(*p, i, entry);
+        c_macaddr_filter <: 0;
+      }
+      break;
+    case i_eth[int i].del_all_macaddr_filters():
+      unsafe {
+        c_macaddr_filter <: 0;
+        eth_global_filter_info_t * unsafe p;
+        c_macaddr_filter :> p;
+        ethernet_clear_filter_table(*p, i);
+        c_macaddr_filter <: 0;
+      }
+      break;
+    case i_eth[int i].add_ethertype_filter(uint16_t ethertype):
+      size_t n = client_info[i].num_etype_filters;
+      assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
+      client_info[i].etype_filters[n] = ethertype;
+      client_info[i].num_etype_filters = n + 1;
+      break;
+    case i_eth[int i].del_ethertype_filter(uint16_t ethertype):
+      size_t j = 0;
+      size_t n = client_info[i].num_etype_filters;
+      while (j < n) {
+        if (client_info[i].etype_filters[j] == ethertype) {
+          client_info[i].etype_filters[j] = client_info[i].etype_filters[n-1];
+          n--;
+        }
+        else {
+          j++;
+        }
+      }
+      client_info[i].num_etype_filters = n;
+      break;
     case i_eth[int i]._init_send_packet(unsigned n, int is_high_priority,
                                        unsigned dst_port):
       if (client_info[i].send_buffer == null)
@@ -199,7 +265,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
       client_info[i].requested_send_buffer_size = 0;
       break;
 
-    case i_config.set_link_state(int ifnum, ethernet_link_state_t status):
+    case i_eth[int i].set_link_state(int ifnum, ethernet_link_state_t status):
       if (link_status != status) {
         link_status = status;
         for (int i = 0; i < n; i+=1) {
@@ -244,10 +310,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 }
 
 
-void mii_ethernet_rt(client ethernet_filter_callback_if i_filter,
-                  server ethernet_config_if i_config,
-                  server ethernet_if i_eth[n], static const unsigned n,
-                  const char mac_address[6],
+void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
                   in port p_rxclk, in port p_rxer, in port p_rxd0, in port p_rxdv,
                   in port p_txclk, out port p_txen, out port p_txd0,
                   clock rxclk, clock txclk,
@@ -281,16 +344,16 @@ void mii_ethernet_rt(client ethernet_filter_callback_if i_filter,
     rx_hp_mem = tx_hp_mem = 0;
   }
   int idle_slope = (11<<MII_CREDIT_FRACTIONAL_BITS);
+  chan c_conf;
   par {
       mii_master_rx_pins(rx_hp_mem, rx_lp_mem,
                          p_rxdv, p_rxd, c);
       mii_master_tx_pins(tx_hp_mem, tx_lp_mem, ts_queue, p_txd,
                          enable_shaper == ETHERNET_ENABLE_SHAPER, &idle_slope);
-      mii_ethernet_filter(mac_address, c, i_filter);
+      mii_ethernet_filter(c, c_conf);
       mii_ethernet_server_aux(rx_hp_mem, rx_lp_mem,
                               tx_hp_mem, tx_lp_mem, ts_queue,
-                              i_config, i_eth, n,
-                              mac_address);
+                              i_eth, n, c_conf);
   }
   }
 }

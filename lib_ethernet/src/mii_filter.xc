@@ -6,6 +6,7 @@
 #include "mii_filter.h"
 #include "mii_buffering.h"
 #include "print.h"
+#include "macaddr_filter.h"
 #include <xs1.h>
 
 #define DEBUG_UNIT ETHERNET_FILTER
@@ -43,19 +44,24 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
   return ((buf[0] == mac[0]) && ((short) buf[1] == (short) mac[1]));
 }
 
-unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
-                                client ETHERNET_FILTER_SPECIALIZATION ethernet_filter_callback_if i_filter)
+unsafe void mii_ethernet_filter(streaming chanend c,
+                                chanend c_conf)
 {
-  unsigned int mac[2];
+  eth_global_filter_info_t filter_info;
+  ethernet_init_filter_table(filter_info);
   mii_packet_t * unsafe buf;
-  // create integer version of mac address for speed
-  mac[0] = mac_address[0] + (((unsigned) mac_address[1]) << 8)+ (((unsigned) mac_address[2]) << 16)  + (((unsigned) mac_address[3]) << 24);
-  mac[1] = (((unsigned) mac_address[4])) + (((unsigned) mac_address[5]) << 8);
-
   debug_printf("Starting filter\n");
   while (1) {
     select {
 #pragma xta endpoint "rx_packet"
+    case c_conf :> int:
+      // Give the routing table to the ethernet server to reconfigure
+      unsafe {
+        eth_global_filter_info_t * unsafe  p = &filter_info;
+        c_conf <: p;
+        c_conf :> int;
+      }
+      break;
     case c :> buf :
       if (buf) {
         unsigned length = buf->length;
@@ -66,7 +72,6 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
           crc = buf->crc;
 
         debug_printf("Filter CRC result: %x\n", crc);
-
         buf->src_port = 0;
         buf->timestamp_id = 0;
 
@@ -74,27 +79,19 @@ unsafe void mii_ethernet_filter(const char mac_address[6], streaming chanend c,
           buf->filter_result = 0;
           buf->stage = 1;
         } else  {
-          int broadcast = is_broadcast(buf->data);
-          int unicast = compare_mac(buf->data, mac);
-          if (ETHERNET_MAC_PROMISCUOUS || broadcast || unicast) {
-            debug_printf("Initial filter passed\n");
-            char * unsafe data = (char * unsafe) buf->data;
-            int filter_result = 0, filter_data = 0;
-            {filter_result, filter_data} = i_filter.do_filter((char *) data,
-                                                              buf->length);
-            debug_printf("User filter result: %x\n", filter_result);
-            #if 0
-            if (!unicast && ENABLE_ETHERNET_PORT_FORWARDING) {
-              filter_result |= ETHERNET_FILTER_PORT_FORWARD_MASK;
-            }
-            #endif
-            buf->filter_result = filter_result;
-            buf->filter_data = filter_data;
-            buf->stage = 1;
-          }
+          char * unsafe data = (char * unsafe) buf->data;
+          int filter_result = ethernet_do_filtering(filter_info,
+                                                    (char *) buf->data,
+                                                    length,
+                                                    buf->filter_data);
+          int filter_data = 0;
+          debug_printf("Filter result: %x\n", filter_result);
+          buf->filter_result = filter_result;
+          buf->filter_data = filter_data;
+          buf->stage = 1;
         }
-      } // end if (buf)
+      }
       break;
-    } // end select
-  } // end while (1)
+    }
+  }
 }

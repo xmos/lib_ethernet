@@ -1,7 +1,9 @@
 #include <debug_print.h>
 #include <xclib.h>
 #include <stdint.h>
-#include "ethernet.h"
+#include <ethernet.h>
+#include <otp_board_info.h>
+#include <string.h>
 
 static unsigned short checksum_ip(const unsigned char frame[34])
 {
@@ -235,13 +237,29 @@ static int is_valid_icmp_packet(const unsigned char rxbuf[nbytes],
 }
 
 [[combinable]]
-void icmp_server(client ethernet_if eth, const unsigned char ip_address[4])
+void icmp_server(client ethernet_if eth,
+                 const unsigned char ip_address[4],
+                 otp_ports_t &otp_ports)
 {
   unsigned char mac_address[6];
-  eth.get_macaddr(mac_address);
-  eth.set_receive_filter_mask(0x1);
-  debug_printf("Test started\n");
+  ethernet_macaddr_filter_t macaddr_filter;
 
+  // Get the mac address from OTP and set it in the ethernet component
+  otp_board_info_get_mac(otp_ports, 0, mac_address);
+  eth.set_macaddr(0, mac_address);
+
+  macaddr_filter.vlan = 0;
+  memcpy(macaddr_filter.addr, mac_address, sizeof(mac_address));
+  eth.add_macaddr_filter(macaddr_filter);
+
+  // Only allow ARP and IP packets to the app
+  eth.add_ethertype_filter(0x0806);
+  eth.add_ethertype_filter(0x0800);
+
+  // Set link up on the ethernet mac
+  eth.set_link_state(0, ETHERNET_LINK_UP);
+
+  debug_printf("Test started\n");
   while (1)
   {
     select {
