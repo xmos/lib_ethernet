@@ -397,7 +397,6 @@ unsafe int mii_transmit_packet(mii_packet_t * unsafe buf,
   p_mii_txd <: 0xD5555555;
 
   if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
-    int time;
     tmr :> time;
   }
 
