@@ -11,7 +11,7 @@ class Clock(xmostest.SimThread):
 
     def run(self):
         while True:
-            self.wait_until(self.xsi.get_time() + self._period)
+            self.wait_until(self.xsi.get_time() + self._period/2)
             self._val = 1 - self._val
             self.xsi.drive_port_pins(self._port, self._val)
 
@@ -37,13 +37,14 @@ class MiiTransmitter(xmostest.SimThread):
         xsi = self.xsi
         self.wait_until(xsi.get_time() + self._initial_delay)
         i = 1
+        num_preamble_0x5_nibbles = 15
         for packet in self._packets:
             if self._verbose:
                 print "Sending packet %d, len = %d." % (i, len(packet))
             i += 1
 
             # Start with preamble
-            nibbles = [0x5 for x in range(7)]
+            nibbles = [0x5 for x in range(num_preamble_0x5_nibbles)]
             nibbles.append(0xD)
 
             # Then the data
@@ -94,25 +95,41 @@ class MiiReceiver(xmostest.SimThread):
         self.wait_for_port_pins_change([self._txen])
 
         packet_count = 0
+        last_frame_end_time = None
         while True:
             # Wait for TXEN to go high
             self.wait_for_port_pins_change([self._txen])
             packet = []
+            frame_start_time = self.xsi.get_time()
             nibble_index = 0
             byte = 0
             in_preamble = True
+            preamble_0x5_count = 0
+
+            if last_frame_end_time:
+                ifgap = frame_start_time - last_frame_end_time
+                # UNH-IOL MAC Test 4.2.2
+                if (ifgap < 960):
+                    print "ERROR: Invalid interframe gap of %d ns" % ifgap
+
             while True:
                 # Wait for a falling clock edge or enable low
                 self.wait(lambda x: self._clock.is_low() or \
                                    xsi.sample_port_pins(self._txen) == 0)
                 if xsi.sample_port_pins(self._txen) == 0:
+                    last_frame_end_time = self.xsi.get_time()
                     break
                 nibble = xsi.sample_port_pins(self._txd)
                 if in_preamble:
                     if nibble == 0xd:
+                        # UNH-IOL MAC Test 4.2.1
+                        if preamble_0x5_count != 15:
+                            print "ERROR: Invalid number of 0x5 preamble nibbles: %d" % preamble_0x5_count
                         in_preamble = False
                     elif nibble != 0x5:
                         print "ERROR: Invalid preamble value: %x" % nibble
+                    else:
+                        preamble_0x5_count += 1
                 elif (nibble_index == 0):
                     byte = nibble
                     nibble_index = 1
@@ -128,6 +145,7 @@ class MiiReceiver(xmostest.SimThread):
                          (packet[-2] << 16) + (packet[-1] << 24)
             data = ''.join(chr(x) for x in packet[:-4])
             expected_crc = zlib.crc32(data)&0xFFFFFFFF
+            # UNH-IOL MAC Test 4.2.3
             if packet_crc != expected_crc:
                 print "ERROR: Invalid crc (got 0x%x, expecting 0x%x)" % (packet_crc, expected_crc)
             if self._print_packets:
