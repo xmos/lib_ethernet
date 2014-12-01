@@ -292,7 +292,7 @@ void miiTimeStampInit(unsigned offset) {
 #pragma unsafe arrays
 void miiClientUser(struct mii_lite_data_t &this, int base, int end, chanend notificationChannel) {
     int length = packetGood(this, base, end);
-    if (length != 0) {
+    if (length >= 64) {
         miiCommitBuffer(this, base, length, notificationChannel);
     } else {
         miiRejectBuffer(this, base);
