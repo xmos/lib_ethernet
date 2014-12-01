@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import xmostest
 import os
-import numpy.random as nprand
 from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter

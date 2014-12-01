@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import xmostest
 import os
-import numpy.random as nprand
+import random
 from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
@@ -32,7 +32,7 @@ def do_test(impl, clk, phy):
 
 
 def runtest():
-    nprand.seed(1)
+    random.seed(1)
 
     # Test 100 MBit - MII
     clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)

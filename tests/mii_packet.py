@@ -1,8 +1,8 @@
 
 import sys
 import zlib
-import numpy
-import numpy.random as nprand
+import random
+
 
 def create_data(args):
   f_name,f_args = args
@@ -55,11 +55,11 @@ class MiiPacket(object):
 
     # Destination MAC address - use a random one if not user-defined
     if self.dst_mac_addr is None:
-      self.dst_mac_addr = [x for x in nprand.randint(256, size=6)]
+      self.dst_mac_addr = [random.randint(0, 256) for x in range(6)]
 
     # Source MAC address - use a random one if not user-defined
     if self.src_mac_addr is None:
-      self.src_mac_addr = [x for x in nprand.randint(256, size=6)]
+      self.src_mac_addr = [random.randint(0, 256) for x in range(6)]
 
     # If the data is defined, then record the length. Otherwise create random
     # data of the length specified
@@ -67,7 +67,7 @@ class MiiPacket(object):
       if self.create_data_args:
         self.data_bytes = create_data(self.create_data_args)
       else:
-        self.data_bytes = [x for x in nprand.randint(256, size=self.num_data_bytes)]
+        self.data_bytes = [random.randint(0, 256) for x in range(self.num_data_bytes)]
 
     # Ensure that however the data has been created, the length is correct
     if self.data_bytes is None:
@@ -123,7 +123,7 @@ class MiiPacket(object):
 
     # Add an extra random nibble for alignment test
     if self.extra_nibble:
-      nibbles.append(nprand.randint(256))
+      nibbles.append(random.randint(0, 15))
 
     return nibbles
 
@@ -177,11 +177,19 @@ class MiiPacket(object):
 
   def dump(self):
     # Discount the CRC word from the bytes received
-    sys.stdout.write("Packet len={len}, dst=[{dst}], src=[{src}], len/type=[{lt}]\n".format(
+    sys.stdout.write("Packet len={len}, dst=[{dst}], src=[{src}]".format(
       len=(self.num_data_bytes),
       dst=" ".join(["0x{0:0>2x}".format(i) for i in self.dst_mac_addr]),
-      src=" ".join(["0x{0:0>2x}".format(i) for i in self.src_mac_addr]),
+      src=" ".join(["0x{0:0>2x}".format(i) for i in self.src_mac_addr])))
+
+    if self.vlan_prio_tag:
+      sys.stdout.write(", vlan/prio=[{vp}]".format(
+        vp=" ".join(["0x{0:0>2x}".format(i) for i in self.vlan_prio_tag])))
+
+    sys.stdout.write(", len/type=[{lt}]".format(
       lt=" ".join(["0x{0:0>2x}".format(i) for i in self.ether_len_type])))
+    sys.stdout.write("\n")
+
     sys.stdout.write("data=[\n  ")
     for i,x in enumerate(self.data_bytes):
       if i and ((i%16) == 0):

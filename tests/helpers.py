@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import xmostest
 import os
-import numpy.random as nprand
 
 
 def do_rx_test(impl, clk, phy, packets, test_file):

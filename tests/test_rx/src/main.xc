@@ -63,9 +63,19 @@ void test_rx(client ethernet_if eth, client control_if ctrl)
       eth.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
       debug_printf("Received packet, type=%d, len=%d.\n",
                    packet_info.type, packet_info.len);
-      int step = rxbuf[15] - rxbuf[14];
+      int step;
+      int start;
+      if (rxbuf[12] == 0x81 && rxbuf[13] == 0x00) {
+	// VLAN/Prio tagged
+	step = rxbuf[19] - rxbuf[18];
+	start = 19;
+      } else {
+	// Non-tagged
+	step = rxbuf[15] - rxbuf[14];
+	start = 15;
+      }
       debug_printf("Step = %d\n", step);
-      for (size_t i = 15; i < packet_info.len - 1; i++) {
+      for (size_t i = start; i < packet_info.len - 1; i++) {
         if ((uint8_t) (rxbuf[i+1] - rxbuf[i]) != step) {
           debug_printf("ERROR: byte %d is %d more than byte %d (expected %d)\n",
                        i+1, rxbuf[i+1] - rxbuf[i], i, step);

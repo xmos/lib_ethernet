@@ -75,7 +75,7 @@ unsafe void mii_ethernet_filter(streaming chanend c,
         buf->src_port = 0;
         buf->timestamp_id = 0;
 
-        if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc)) {
+        if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc) || (length > ETHERNET_MAX_PACKET_SIZE)) {
           buf->filter_result = 0;
           buf->stage = 1;
         } else  {
