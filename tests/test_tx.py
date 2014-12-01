@@ -1,39 +1,48 @@
 #!/usr/bin/env python
 import xmostest
 import os
-from mii_model import Clock, MiiReceiver
+import numpy.random as nprand
+from mii_clock import Clock
+from mii_phy import MiiReceiver
+from rgmii_phy import RgmiiTransmitter
+from mii_packet import MiiPacket
+
 
 def packet_checker(packet):
-    print "Packet received, len=%d." % (len(packet))
-    step = packet[1] - packet[0]
-    print "Step = %d." % step
-    for i in range(len(packet)-1):
-        x = packet[i+1] - packet[i]
+    # Ignore the CRC (-4)
+    data = packet.data_bytes[:-4]
+    
+    print "Packet received, len={}.".format(len(data))
+    step = data[1] - data[0]
+    print "Step = {}.".format(step)
+
+    for i in range(len(data)-1):
+        x = data[i+1] - data[i]
         x = x & 0xff;
         if x != step:
             print "ERROR: byte %d is %d more than byte %d (expected %d)." % (i+1, x, i, step)
+            # Only print one error per packet
+            break
 
 def do_test(impl):
     resources = xmostest.request_resource("xsim")
 
-    xmostest.build('test_tx')
-
     binary = 'test_tx/bin/%s/test_tx_%s.xe' % (impl, impl)
 
-    txclock = Clock('tile[0]:XS1_PORT_1I', 25000000)
-    receiver = MiiReceiver('tile[0]:XS1_PORT_4F',
-                           'tile[0]:XS1_PORT_1L',
-                           txclock,
-                           print_packets = False,
-                           packet_fn = packet_checker,
-                           terminate_after = 2)
+    clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
+    phy = MiiReceiver('tile[0]:XS1_PORT_4F',
+                      'tile[0]:XS1_PORT_1L',
+                      clock_25,
+                      print_packets=False,
+                      packet_fn=packet_checker,
+                      terminate_after=2)
 
     tester = xmostest.pass_if_matches(open('tx_test.expect'),
                                      'lib_ethernet', 'basic_tests',
                                       'tx_test', {'impl':impl})
 
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads = [txclock, receiver],
+                              simthreads = [clock_25, phy],
                               tester = tester)
 
 def runtest():

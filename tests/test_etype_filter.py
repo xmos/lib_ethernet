@@ -1,33 +1,47 @@
 #!/usr/bin/env python
 import xmostest
 import os
-from mii_model import Clock, MiiTransmitter
+import numpy.random as nprand
+from mii_clock import Clock
+from mii_phy import MiiTransmitter
+from rgmii_phy import RgmiiTransmitter
+from mii_packet import MiiPacket
+from helpers import do_rx_test
+
 
 def do_test(impl):
     resources = xmostest.request_resource("xsim")
 
-    xmostest.build('test_etype_filter')
-
     binary = 'test_etype_filter/bin/%s/test_etype_filter_%s.xe' % (impl, impl)
 
-    packets = [[0,1,2,3,4,5, 0, 0, 0, 0, 0, 0, 0x11, 0x11, 1, 2, 3, 4] + [0 for x in range(50)],
-               [0,1,2,3,4,5, 0, 0, 0, 0, 0, 0, 0x22, 0x22, 5, 6, 7, 8] + [0 for x in range(60)]]
+    dut_mac_address = [0,1,2,3,4,5]
+    packets = [
+        MiiPacket(dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
+                  ether_len_type=[0x11, 0x11], data_bytes=[1,2,3,4] + [0 for x in range(50)]),
+        MiiPacket(dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
+                  ether_len_type=[0x22, 0x22], data_bytes=[5,6,7,8] + [0 for x in range(60)])
+      ]
 
-    txclock = Clock('tile[0]:XS1_PORT_1J', 25000000)
-    receiver = MiiTransmitter('tile[0]:XS1_PORT_4E',
-                              'tile[0]:XS1_PORT_1K',
-                              txclock,
-                              packets, verbose=True)
+    clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
+    phy = MiiTransmitter('tile[0]:XS1_PORT_1A',
+                         'tile[0]:XS1_PORT_4E',
+                         'tile[0]:XS1_PORT_1K',
+                         clock_25,
+                         verbose=True)
 
-    tester = xmostest.pass_if_matches(open('etype_filter_test.expect'),
+    phy.set_packets(packets)
+    
+    tester = xmostest.pass_if_matches(open('test_etype_filter.expect'),
                                      'lib_ethernet', 'basic_tests',
-                                      'etype_filter_test',{'impl':impl})
+                                      'etype_filter_test', {'impl':impl})
 
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads = [txclock, receiver],
+                              simthreads = [clock_25, phy],
                               tester = tester)
 
 
 def runtest():
+    nprand.seed(1)
+    
     do_test("standard")
     do_test("rt")

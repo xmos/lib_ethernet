@@ -10,6 +10,16 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+typedef enum {
+  STATUS_ACTIVE,
+  STATUS_DONE
+} status_t;
+
+typedef interface control_if {
+  [[notification]] slave void status_changed();
+  [[clears_notification]] void get_status(status_t &status);
+} control_if;
+
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
 port p_eth_rxclk  = on tile[0]: XS1_PORT_1J;
@@ -22,11 +32,13 @@ port p_eth_int    = on tile[0]: XS1_PORT_1O;
 port p_eth_rxerr  = on tile[0]: XS1_PORT_1P;
 port p_eth_dummy  = on tile[0]: XS1_PORT_8C;
 
+port p_ctrl       = on tile[0]: XS1_PORT_1A;
+
 clock eth_rxclk   = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk   = on tile[0]: XS1_CLKBLK_2;
 
 
-void test_rx(client ethernet_if eth)
+void test_rx(client ethernet_if eth, client control_if ctrl)
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
@@ -35,20 +47,31 @@ void test_rx(client ethernet_if eth)
     macaddr_filter.addr[i] = i;
   eth.add_macaddr_filter(macaddr_filter);
 
-  for (int i = 0; i < 3; i++) {
+  int done = 0;
+  while (!done) {
     select {
+    case ctrl.status_changed():
+      status_t status;
+      ctrl.get_status(status);
+      if (status == STATUS_DONE)
+	done = 1;
+      break;
+      
     case eth.packet_ready():
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
       eth.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
       debug_printf("Received packet, type=%d, len=%d.\n",
                    packet_info.type, packet_info.len);
-      int step = rxbuf[7] - rxbuf[6];
+      int step = rxbuf[15] - rxbuf[14];
       debug_printf("Step = %d\n", step);
-      for (size_t i = 6; i < packet_info.len - 1; i++) {
+      for (size_t i = 15; i < packet_info.len - 1; i++) {
         if ((uint8_t) (rxbuf[i+1] - rxbuf[i]) != step) {
           debug_printf("ERROR: byte %d is %d more than byte %d (expected %d)\n",
                        i+1, rxbuf[i+1] - rxbuf[i], i, step);
+
+	  // Only print one error per packet
+	  break;
         }
       }
       break;
@@ -57,11 +80,31 @@ void test_rx(client ethernet_if eth)
   _exit(0);
 }
 
+void control(port p_ctrl, server control_if ctrl)
+{
+  int tmp;
+  status_t current_status = STATUS_ACTIVE;
+  
+  while (1) {
+    select {
+    case current_status != STATUS_DONE => p_ctrl when pinseq(1) :> tmp:
+        current_status = STATUS_DONE;
+        ctrl.status_changed();
+        break;
+    case ctrl.get_status(status_t &status):
+	status = current_status;
+	break;
+    }
+  }
+}
+
 #define ETH_RX_BUFFER_SIZE_WORDS 1600
 
 int main()
 {
   ethernet_if i_eth[1];
+  control_if i_ctrl;
+
   par {
     #if RT
     on tile[0]: mii_ethernet_rt(i_eth, 1,
@@ -78,7 +121,8 @@ int main()
                              ETH_RX_BUFFER_SIZE_WORDS);
     #endif
 
-    on tile[0]: test_rx(i_eth[0]);
+    on tile[0]: test_rx(i_eth[0], i_ctrl);
+    on tile[0]: control(p_ctrl, i_ctrl);
   }
   return 0;
 }

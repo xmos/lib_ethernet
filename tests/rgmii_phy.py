@@ -2,84 +2,79 @@ import xmostest
 import sys
 import zlib
 
-class Clock(xmostest.SimThread):
+class RgmiiPhy(xmostest.SimThread):
 
-    def __init__(self, port, rate):
-        self._period = float(1000000000) / rate
-        self._val = 0
-        self._port = port
+    def __init__(self):
+        self._name = 'rgmii'
 
-    def run(self):
-        while True:
-            self.wait_until(self.xsi.get_time() + self._period/2)
-            self._val = 1 - self._val
-            self.xsi.drive_port_pins(self._port, self._val)
+    def get_name(self):
+        return self._name
 
-    def is_high(self):
-        return (self._val == 1)
+        
+class RgmiiTransmitter(RgmiiPhy):
 
-    def is_low(self):
-        return (self._val == 0)
+    (FULL_DUPLEX, HALF_DUPLEX) = (0x8, 0x0)
+    (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
-class MiiTransmitter(xmostest.SimThread):
-
-    def __init__(self, rxd, rxdv, clock, packets, initial_delay = 30000,
-                 verbose = False):
+    def __init__(self, test_ctrl, rxd, rxdv, clock, packets,
+                 initial_delay=30000, verbose=False):
+        super(RgmiiTransmitter, self).__init__()
+        self._test_ctrl = test_ctrl
         self._rxd = rxd
         self._rxdv = rxdv
-        self._packets = packets
+        self._packets = []
         self._clock = clock
         self._initial_delay = initial_delay
-        self._interframe_gap = 960
         self._verbose = verbose
+        self._phy_status = self.FULL_DUPLEX | self.LINK_UP | clock.get_rate()
 
     def run(self):
         xsi = self.xsi
+
+        # When DV is low, the PHY should indicate its mode on the DATA pins
+        xsi.drive_port_pins(self._rxd, self._phy_status)
+        
         self.wait_until(xsi.get_time() + self._initial_delay)
-        i = 1
-        num_preamble_0x5_nibbles = 15
-        for packet in self._packets:
+
+        for i,packet in enumerate(self._packets):
             if self._verbose:
-                print "Sending packet %d, len = %d." % (i, len(packet))
-            i += 1
+                print "Sending packet {p}".format(p=packet)
 
-            # Start with preamble
-            nibbles = [0x5 for x in range(num_preamble_0x5_nibbles)]
-            nibbles.append(0xD)
-
-            # Then the data
-            for byte in packet:
-                nibbles.append(byte & 0xf)
-                nibbles.append((byte>>4) & 0xf)
-
-            # Finally the CRC
-            data = ''.join(chr(x) for x in packet)
-            crc = zlib.crc32(data)&0xFFFFFFFF
-            nibbles.append((crc >>  0) & 0xf)
-            nibbles.append((crc >>  4) & 0xf)
-            nibbles.append((crc >>  8) & 0xf)
-            nibbles.append((crc >> 12) & 0xf)
-            nibbles.append((crc >> 16) & 0xf)
-            nibbles.append((crc >> 20) & 0xf)
-            nibbles.append((crc >> 24) & 0xf)
-            nibbles.append((crc >> 28) & 0xf)
+            # Don't wait the inter-frame gap on the first packet
+            if i:
+                self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
             self.wait(lambda x: self._clock.is_high())
             self.wait(lambda x: self._clock.is_low())
             xsi.drive_port_pins(self._rxdv, 1)
-            for nibble in nibbles:
+            for nibble in packet.get_nibbles():
                 self.wait(lambda x: self._clock.is_low())
                 xsi.drive_port_pins(self._rxd, nibble)
                 self.wait(lambda x: self._clock.is_high())
             self.wait(lambda x: self._clock.is_low())
             xsi.drive_port_pins(self._rxdv, 0)
-            self.wait_until(xsi.get_time() + self._interframe_gap)
+
+            # When DV is low, the PHY should indicate its mode on the DATA pins
+            xsi.drive_port_pins(self._rxd, self._phy_status)
+
             if self._verbose:
                 print "Sent"
 
+        if self._verbose:
+            print "All packets sent"
+
+        # Indicate to the DUT that the test has finished
+        xsi.drive_port_pins(self._test_ctrl, 1)
+
+    def set_clock(self, clock):
+        self._clock = clock
+
+    def set_packets(self, packets):
+        self._packets = packets
 
 
-class MiiReceiver(xmostest.SimThread):
+
+class RgmiiReceiver(RgmiiPhy):
 
     def __init__(self, txd, txen, clock, print_packets = False,
                  packet_fn = None, terminate_after = -1):
