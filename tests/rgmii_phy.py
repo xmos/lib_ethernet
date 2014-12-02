@@ -35,20 +35,21 @@ class RgmiiTransmitter(RgmiiPhy):
         xsi.drive_port_pins(self._rxd, self._phy_status)
         
         self.wait_until(xsi.get_time() + self._initial_delay)
+        self.wait(lambda x: self._clock.is_high())
+        self.wait(lambda x: self._clock.is_low())
 
         for i,packet in enumerate(self._packets):
             if self._verbose:
                 print "Sending packet {p}".format(p=packet)
+                packet.dump()
 
             # Don't wait the inter-frame gap on the first packet
             if i:
                 self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
-            self.wait(lambda x: self._clock.is_high())
-            self.wait(lambda x: self._clock.is_low())
-            xsi.drive_port_pins(self._rxdv, 1)
             for nibble in packet.get_nibbles():
                 self.wait(lambda x: self._clock.is_low())
+                xsi.drive_port_pins(self._rxdv, 1)
                 xsi.drive_port_pins(self._rxd, nibble)
                 self.wait(lambda x: self._clock.is_high())
             self.wait(lambda x: self._clock.is_low())
@@ -63,6 +64,9 @@ class RgmiiTransmitter(RgmiiPhy):
         if self._verbose:
             print "All packets sent"
 
+        # Give the DUT a reasonable time to process the packet
+        self.wait_until(xsi.get_time() + self.END_OF_TEST_TIME)
+            
         # Indicate to the DUT that the test has finished
         xsi.drive_port_pins(self._test_ctrl, 1)
 

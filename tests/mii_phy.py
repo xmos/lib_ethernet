@@ -45,9 +45,9 @@ class MiiTransmitter(MiiPhy):
             if i:
                 self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
-            xsi.drive_port_pins(self._rxdv, 1)
             for nibble in packet.get_nibbles():
                 self.wait(lambda x: self._clock.is_low())
+                xsi.drive_port_pins(self._rxdv, 1)
                 xsi.drive_port_pins(self._rxd, nibble)
                 self.wait(lambda x: self._clock.is_high())
             self.wait(lambda x: self._clock.is_low())
