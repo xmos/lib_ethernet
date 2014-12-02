@@ -9,6 +9,7 @@
 #include "print.h"
 #include "debug_print.h"
 #include "syscall.h"
+#include "xta_test_pragmas.h"
 
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;

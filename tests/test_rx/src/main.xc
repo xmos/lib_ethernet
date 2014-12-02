@@ -9,6 +9,7 @@
 #include "print.h"
 #include "debug_print.h"
 #include "syscall.h"
+#include "xta_test_pragmas.h"
 
 typedef enum {
   STATUS_ACTIVE,

@@ -20,8 +20,11 @@ APP_NAME =
 
 COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE
 
-XCC_FLAGS_rt       = $(COMMON_FLAGS) -DRT=1
-XCC_FLAGS_standard = $(COMMON_FLAGS) -DRT=0
+XTA_PRAGMA_INCLUDES = -I'../../xta'
+
+XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) $(XTA_PRAGMA_INCLUDES) -DRT=1 -DRGMII=0
+XCC_FLAGS_standard_mii = $(COMMON_FLAGS) $(XTA_PRAGMA_INCLUDES) -DRT=0 -DRGMII=0
+XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) $(XTA_PRAGMA_INCLUDES) -DRT=0 -DRGMII=1
 
 # The USED_MODULES variable lists other module used by the application.
 

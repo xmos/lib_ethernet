@@ -38,6 +38,7 @@
 
 // Receive timing constraints
 #if ETHERNET_ENABLE_FULL_TIMINGS
+#pragma xta command "config Terror on"
 #pragma xta command "remove exclusion *"
 
 #pragma xta command "add exclusion mii_rx_begin"
