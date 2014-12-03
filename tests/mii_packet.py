@@ -17,7 +17,7 @@ class MiiPacket(object):
 
   # The maximum payload value (1500 bytes)
   MAX_ETHER_LEN = 0x5dc
-  
+
   def __init__(self, **kwargs):
     blank = kwargs.pop('blank', False)
 
@@ -26,24 +26,30 @@ class MiiPacket(object):
       self.sfd_nibble = 0
       self.num_data_bytes = 0
       self.inter_frame_gap = 0
+      self.dst_mac_addr = []
+      self.src_mac_addr = []
+      self.vlan_prio_tag = []
+      self.ether_len_type = []
+      self.data_bytes = []
     else:
       self.num_preamble_nibbles = 15
       self.sfd_nibble = 0xd
       self.num_data_bytes = 46
       self.inter_frame_gap = 960
-      
+      self.dst_mac_addr = None
+      self.src_mac_addr = None
+      self.vlan_prio_tag = None
+      self.ether_len_type = None
+      self.data_bytes = None
+
     self.preamble_nibbles = None
     self.send_crc_word = True
-    self.data_bytes = None
     self.corrupt_crc = False
     self.extra_nibble = False
     self.seed = None
-    self.dst_mac_addr = None
-    self.src_mac_addr = None
-    self.vlan_prio_tag = None
-    self.ether_len_type = None
     self.create_data_args = None
     self.send_header = True
+    self.nibble = None
 
     # Get all other values from the dictionary passed in
     for arg,value in kwargs.iteritems():
@@ -75,16 +81,13 @@ class MiiPacket(object):
     else:
       self.num_data_bytes = len(self.data_bytes)
 
-    # Nibble count primarily used for packet receive, but keep it valid here
-    self.num_data_nibbles = 2 * self.num_data_bytes
-
     # If the ether length/type field is not specified then set it to something sensible
     if self.ether_len_type is None:
       if self.ether_len_type <= self.MAX_ETHER_LEN:
         self.ether_len_type = [ (self.num_data_bytes >> 8) & 0xff, self.num_data_bytes & 0xff ]
       else:
         self.ether_len_type = [ 0x00, 0x00 ]
-  
+
   def get_packet_bytes(self):
     """ Returns all the data bytes of the packet. This does not include preamble or CRC
     """
@@ -137,15 +140,40 @@ class MiiPacket(object):
     self.sfd_nibble = nibble
     
   def append_data_nibble(self, nibble):
-    if self.data_bytes is None:
-      self.data_bytes = []
-    if (self.num_data_nibbles % 2) == 0:
-      self.data_bytes.append(nibble)
-    else:
-      self.data_bytes[-1] = self.data_bytes[-1] + (nibble << 4)
-      
-    self.num_data_nibbles += 1
-    
+    if self.nibble is None:
+      self.nibble = nibble
+      return
+
+    byte = self.nibble | nibble << 4
+    self.nibble = None
+
+    if len(self.dst_mac_addr) < 6:
+      self.dst_mac_addr.append(byte)
+      return
+
+    if len(self.src_mac_addr) < 6:
+      self.src_mac_addr.append(byte)
+      return
+
+    if len(self.vlan_prio_tag) >= 2 and len(self.vlan_prio_tag) < 4:
+      self.vlan_prio_tag.append(byte)
+      return
+
+    if len(self.ether_len_type) < 2:
+      self.ether_len_type.append(byte)
+
+      # Detect the fact that this is actually a VLAN/Priority tag
+      if (len(self.ether_len_type) == 2 and
+            self.ether_len_type[0] == 0x81 and
+            self.ether_len_type[1] == 0x00):
+        self.vlan_prio_tag = self.ether_len_type
+        self.ether_len_type = []
+
+      return
+
+    self.data_bytes.append(byte)
+    self.num_data_bytes += 1
+
   def check(self, clock):
     # UNH-IOL MAC Test 4.2.2 (only check if it is non-zero as otherwise it is simply the first packet)
     if self.inter_frame_gap and (self.inter_frame_gap < clock.get_min_ifg()):
@@ -157,18 +185,26 @@ class MiiPacket(object):
 
     if self.sfd_nibble != 0xd:
       print "ERROR: Invalid SFD nibble: {0:#x}".format(self.sfd_nibble)
-      
+
     for nibble in self.preamble_nibbles:
       if nibble != 0x5:
         print "ERROR: Invalid preamble value: {0:#x}".format(nibble)
 
-    if (self.num_data_nibbles % 2) != 0:
-      print "ERROR: Odd number of data nibbles transmitted: {0}".format(self.num_preamble_nibbles)
+    if self.nibble is not None:
+      print "ERROR: Odd number of data nibbles received"
+
+    # Ensure that if the len/type field specifies a length then it is valid (Section 3.2.6 of 802.3-2012)
+    if len(self.ether_len_type) != 2:
+      print "ERROR: The len/type field contains {0} bytes".format(len(self.ether_len_type))
+    len_type = self.ether_len_type[0] << 8 | self.ether_len_type[1]
+    if len_type <= 1500:
+      if len_type != (self.num_data_bytes - 4):
+        print "ERROR: len/type field value ({0}) != packet bytes ({1})".format(len_type, (self.num_data_bytes - 4))
 
     # Check the CRC
-    packet_crc = (self.data_bytes[-4] + (self.data_bytes[-3] << 8) + 
+    packet_crc = (self.data_bytes[-4] + (self.data_bytes[-3] << 8) +
                   (self.data_bytes[-2] << 16) + (self.data_bytes[-1] << 24))
-    data = ''.join(chr(x) for x in self.data_bytes[:-4])
+    data = ''.join(chr(x) for x in self.get_packet_bytes()[:-4])
     expected_crc = zlib.crc32(data) & 0xFFFFFFFF
 
     # UNH-IOL MAC Test 4.2.3
@@ -178,7 +214,7 @@ class MiiPacket(object):
   def dump(self):
     # Discount the CRC word from the bytes received
     sys.stdout.write("Packet len={len}, dst=[{dst}], src=[{src}]".format(
-      len=(self.num_data_bytes),
+      len=(self.num_data_bytes - 4),
       dst=" ".join(["0x{0:0>2x}".format(i) for i in self.dst_mac_addr]),
       src=" ".join(["0x{0:0>2x}".format(i) for i in self.src_mac_addr])))
 
@@ -199,7 +235,7 @@ class MiiPacket(object):
     if self.send_crc_word:
       crc = self.get_crc(self.get_packet_bytes())
       sys.stdout.write("CRC: 0x{0:0>2x}\n".format(crc))
-        
+
   def __str__(self):
     return "{0} preamble nibbles, {1} data bytes".format(self.num_preamble_nibbles, self.num_data_bytes)
-  
+

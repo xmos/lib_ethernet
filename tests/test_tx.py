@@ -8,10 +8,12 @@ from mii_packet import MiiPacket
 
 
 def packet_checker(packet):
-    # Ignore the CRC (-4)
+    print "Packet received:"
+    packet.dump()
+
+    # Ignore the CRC bytes (-4)
     data = packet.data_bytes[:-4]
-    
-    print "Packet received, len={}.".format(len(data))
+
     step = data[1] - data[0]
     print "Step = {}.".format(step)
 
@@ -26,23 +28,32 @@ def packet_checker(packet):
 def do_test(impl):
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_tx/bin/%s/test_tx_%s.xe' % (impl, impl)
+    binary = 'test_tx/bin/{impl}/test_tx_{impl}.xe'.format(impl=impl)
 
     clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
-    phy = MiiReceiver('tile[0]:XS1_PORT_4F',
+    phy = MiiReceiver('tile[0]:XS1_PORT_1A',
+                      'tile[0]:XS1_PORT_4F',
                       'tile[0]:XS1_PORT_1L',
                       clock_25,
                       print_packets=False,
-                      packet_fn=packet_checker,
-                      terminate_after=2)
+                      packet_fn=packet_checker)
 
-    tester = xmostest.pass_if_matches(open('tx_test.expect'),
+    tester = xmostest.pass_if_matches(open('test_tx.expect'),
                                      'lib_ethernet', 'basic_tests',
                                       'tx_test', {'impl':impl})
 
+    log_folder = "logs"
+    if not os.path.exists(log_folder):
+        os.makedirs(log_folder)
+
+    filename = "{log}/xsim_trace_test_tx_{impl}".format(log=log_folder, impl=impl)
+    trace_args = "--trace-to {0}.txt".format(filename)
+    vcd_args = '--vcd-tracing "-o {0}.vcd -tile tile[0] -ports -instructions -functions -cycles"'.format(filename)
+
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads = [clock_25, phy],
-                              tester = tester)
+                              simthreads=[clock_25, phy],
+                              tester=tester,
+                              simargs=[trace_args, vcd_args])
 
 def runtest():
     do_test('standard')

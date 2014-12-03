@@ -29,9 +29,9 @@ def do_rx_test(impl, clk, phy, packets, test_file):
     trace_args = "--trace-to {0}.txt".format(filename)
     vcd_args = '--vcd-tracing "-o {0}.vcd -tile tile[0] -ports -instructions -functions -cycles"'.format(filename)
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads = [clk, phy],
-                              tester = tester,
-                              simargs = [trace_args, vcd_args])
+                              simthreads=[clk, phy],
+                              tester=tester,
+                              simargs=[trace_args, vcd_args])
 
 
 # The time taken for the DUT to process a given frame
