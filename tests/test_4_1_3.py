@@ -7,7 +7,7 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import do_rx_test, packet_processing_time, dut_mac_address
+from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 
 
 def do_test(impl, clk, phy):
