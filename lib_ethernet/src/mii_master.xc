@@ -46,33 +46,8 @@
 //#pragma xta command "add exclusion mii_wait_for_buffers"
 
 // Start of frame to first word is 32 bits = 320ns
-#pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_word"
+#pragma xta command "analyze endpoints mii_rx_sof mii_rx_word"
 #pragma xta command "set required - 320 ns"
-
-// Start of frame to first word is 32 bits = 320ns
-#pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_word"
-#pragma xta command "set required - 320 ns"
-
-#pragma xta command "analyze endpoints mii_rx_first_word mii_rx_second_word"
-#pragma xta command "set required - 320 ns"
-
-#pragma xta command "analyze endpoints mii_rx_second_word mii_rx_third_word"
-#pragma xta command "set required - 320 ns"
-
-#pragma xta command "analyze endpoints mii_rx_third_word mii_rx_ethertype_word"
-#pragma xta command "set required - 320 ns"
-
-#pragma xta command "analyze endpoints mii_rx_ethertype_word mii_rx_fifth_word"
-#pragma xta command "set required - 320 ns"
-
-//#pragma xta command "analyze endpoints mii_rx_fifth_word mii_rx_sixth_word"
-//#pragma xta command "set required - 320 ns"
-
-#pragma xta command "analyze endpoints mii_rx_fifth_word mii_rx_word"
-#pragma xta command "set required - 320 ns"
-
-//#pragma xta command "analyze endpoints mii_rx_sixth_word mii_rx_word"
-//#pragma xta command "set required - 320 ns"
 
 #pragma xta command "analyze endpoints mii_rx_word mii_rx_word"
 #pragma xta command "set required - 300 ns"
@@ -197,6 +172,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     unsigned word;
     mii_packet_t * unsafe buf, * unsafe buf_hp;
     unsigned * unsafe end_ptr, * unsafe end_ptr_hp;
+    unsigned num_rx_words = 0;
 
     /* Grab buffers to read the packet into. mii_reserve always returns a
        buffer we can use (though it may be a dummy buffer that gets thrown
@@ -218,46 +194,8 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     unsigned crc = 0x9226F562;
     unsigned poly = 0xEDB88320;
     unsigned header[3];
-
-    /* Read in the first four words of the packet into the header array.
-       This gets copied into the packet buffer later */
-    #pragma xta endpoint "mii_rx_first_word"
-    p_mii_rxd :> header[0];
-    crc32(crc, header[0], poly);
-
-    #pragma xta endpoint "mii_rx_second_word"
-    p_mii_rxd :> header[1];
-    crc32(crc, header[1], poly);
-
-    #pragma xta endpoint "mii_rx_third_word"
-    p_mii_rxd :> header[2];
-    crc32(crc, header[2], poly);
-
-    #pragma xta endpoint "mii_rx_ethertype_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-
-    /* Determine what buffer to use based on the ethertype field in
-       the header */
-    unsigned short etype = (unsigned short) word;
-    if (rxmem_hp && etype == 0x0081) {
-      buf = buf_hp;
-      wrap_ptr = wrap_ptr_hp;
-      end_ptr = end_ptr_hp;
-    }
-
-    buf->data[3] = word;
-    unsigned * unsafe dptr = &buf->data[4];
-
-    buf->timestamp = time;
-
-    #pragma xta endpoint "mii_rx_fifth_word"
-    p_mii_rxd :> word;
-    crc32(crc, word, poly);
-    *dptr++ = word;
-
-    unsigned nbytes = 4*sizeof(word);
-    unsigned endofframe;
+    unsigned * unsafe dptr;
+    unsigned endofframe = 0;
     do
       {
 #pragma xta label "mii_rx_data_inner_loop"
@@ -265,15 +203,34 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
           {
 #pragma xta endpoint "mii_rx_word"
           case p_mii_rxd :> word:
-            *dptr = word;
-            crc32(crc, word, poly);
-            if (dptr != end_ptr) {
-              dptr++;
-              if (dptr == wrap_ptr)
-                dptr = (unsigned * unsafe) *dptr;
+            /* Read in the first 3 words of the packet into the header array.
+            This gets copied into the packet buffer later */
+            if (num_rx_words < 3) {
+              header[num_rx_words] = word;
+              crc32(crc, word, poly);
             }
-            nbytes+=4;
-            endofframe = 0;
+            else if (num_rx_words == 3) {
+              unsigned short etype = (unsigned short) word;
+              crc32(crc, word, poly);
+              if (rxmem_hp && etype == 0x0081) {
+                buf = buf_hp;
+                wrap_ptr = wrap_ptr_hp;
+                end_ptr = end_ptr_hp;
+              }
+              buf->data[3] = word;
+              buf->timestamp = time;
+              dptr = &buf->data[4];
+            }
+            else {
+              *dptr = word;
+              crc32(crc, word, poly);
+              if (dptr != end_ptr) {
+                dptr++;
+                if (dptr == wrap_ptr)
+                  dptr = (unsigned * unsafe) *dptr;
+              }
+            }
+            num_rx_words++;
             break;
 #pragma xta endpoint "mii_rx_eof"
           case p_mii_rxdv when pinseq(0) :> int lo:
@@ -285,10 +242,17 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
           }
       } while (!endofframe);
 
+    if (num_rx_words < ((64/sizeof(word)) - 1)) {
+      endin(p_mii_rxd);
+      p_mii_rxd :> void;
+      continue;
+    }
+
     unsigned tail;
     int taillen;
     taillen = endin(p_mii_rxd);
-    buf->length = nbytes + (taillen>>3);
+    const int num_rx_bytes_minus_crc = (num_rx_words-1)*sizeof(word) + (taillen>>3);
+    buf->length = num_rx_bytes_minus_crc;
 
     unsigned mask = ~0U >> taillen;
 
