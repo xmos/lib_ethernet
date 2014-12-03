@@ -15,13 +15,17 @@ def do_test(impl, clk, phy):
 
     error_packets = []
 
-    # Part A - length errors (len/type field value greater than actual data length)
-    for (num_data_bytes, len_type, step) in [(46, 47, 20), (46, 1505, 21), (1504, 1505, 22)]:
-        error_packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
-                                ether_len_type=[(len_type >> 8) & 0xff, len_type & 0xff],
-                                create_data_args=['step', (step, num_data_bytes)]))
+    # Part A - Invalid SFD nibble: use preamble nibble (0x5)
+    error_packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
+                            sfd_nibble=0x5,
+                            create_data_args=['step', (19, 46)]))
 
-    # Part B - Part A with valid frames before/after the errror frame
+    # Part B - Invalid SFD: replace last byte of preamble with 0x9 instead of 0x5
+    error_packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
+                            preamble_nibbles=[0x5 for x in range(15)] + [0x9],
+                            create_data_args=['step', (20, 46)]))
+
+    # Part C - Parts A and B with valid frames before/after the errror frame
     packets = []
     for packet in error_packets:
         packets.append(packet)

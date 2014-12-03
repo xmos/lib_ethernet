@@ -6,11 +6,11 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import do_rx_test
+from helpers import do_rx_test, get_dut_mac_address
 
 
 def do_test(impl, clk, phy):
-    dut_mac_address = [0,1,2,3,4,5]
+    dut_mac_address = get_dut_mac_address()
 
     # Part A
     packets = [ MiiPacket(create_data_args=['step', (3, 46)], corrupt_crc=True) ]

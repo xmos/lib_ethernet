@@ -7,12 +7,11 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import do_rx_test, packet_processing_time
+from helpers import do_rx_test, packet_processing_time, dut_mac_address
 
 
 def do_test(impl, clk, phy):
-    # The destination MAC address that has been set up in the filter on the device
-    dut_mac_address = [0,1,2,3,4,5]
+    dut_mac_address = get_dut_mac_address()
     
     packets = []
     error_packets = []

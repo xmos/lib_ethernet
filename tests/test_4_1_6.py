@@ -15,11 +15,20 @@ def do_test(impl, clk, phy):
 
     error_packets = []
 
-    # Part A - length errors (len/type field value greater than actual data length)
-    for (num_data_bytes, len_type, step) in [(46, 47, 20), (46, 1505, 21), (1504, 1505, 22)]:
-        error_packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
-                                ether_len_type=[(len_type >> 8) & 0xff, len_type & 0xff],
-                                create_data_args=['step', (step, num_data_bytes)]))
+    # Part A - maximum jabber size packet
+    # Use a valid ether type as the type/len field can't encode the length
+    ether_type_ip = [0x08, 0x00]
+
+    # Jabber lengths as defined for 10Mb/s & 100Mb/s
+    jabber_length = 9367
+    if clk.get_rate() == Clock.CLK_125MHz:
+        # Length for 1000Mb/s
+        jabber_length = 18742
+
+    error_packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
+                            ether_len_type=ether_type_ip,
+                            num_preamble_nibbles=7,
+                            create_data_args=['step', (17, jabber_length)]))
 
     # Part B - Part A with valid frames before/after the errror frame
     packets = []
