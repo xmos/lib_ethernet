@@ -27,7 +27,7 @@ def do_test(impl, clk, phy):
     
     tester = xmostest.pass_if_matches(open('test_etype_filter.expect'),
                                      'lib_ethernet', 'basic_tests',
-                                      'etype_filter_test', {'impl':impl})
+                                      'etype_filter_test', {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
 
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads = [clk, phy],

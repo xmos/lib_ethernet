@@ -25,22 +25,15 @@ def packet_checker(packet):
             # Only print one error per packet
             break
 
-def do_test(impl):
+def do_test(impl, clk, phy):
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_tx/bin/{impl}/test_tx_{impl}.xe'.format(impl=impl)
-
-    clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
-    phy = MiiReceiver('tile[0]:XS1_PORT_1A',
-                      'tile[0]:XS1_PORT_4F',
-                      'tile[0]:XS1_PORT_1L',
-                      clock_25,
-                      print_packets=False,
-                      packet_fn=packet_checker)
+    binary = 'test_tx/bin/{impl}_{phy}/test_tx_{impl}_{phy}.xe'.format(
+        impl=impl, phy=phy.get_name())
 
     tester = xmostest.pass_if_matches(open('test_tx.expect'),
                                      'lib_ethernet', 'basic_tests',
-                                      'tx_test', {'impl':impl})
+                                      'tx_test', {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
 
     log_folder = "logs"
     if not os.path.exists(log_folder):
@@ -51,10 +44,18 @@ def do_test(impl):
     vcd_args = '--vcd-tracing "-o {0}.vcd -tile tile[0] -ports -instructions -functions -cycles"'.format(filename)
 
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[clock_25, phy],
+                              simthreads=[clk, phy],
                               tester=tester,
                               simargs=[trace_args, vcd_args])
 
 def runtest():
-    do_test('standard')
-    do_test('rt')
+    clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
+    mii = MiiReceiver('tile[0]:XS1_PORT_1A',
+                      'tile[0]:XS1_PORT_4F',
+                      'tile[0]:XS1_PORT_1L',
+                      clock_25,
+                      print_packets=False,
+                      packet_fn=packet_checker)
+
+    do_test('standard', clock_25, mii)
+    do_test('rt', clock_25, mii)

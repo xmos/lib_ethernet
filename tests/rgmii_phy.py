@@ -82,6 +82,7 @@ class RgmiiReceiver(RgmiiPhy):
 
     def __init__(self, txd, txen, clock, print_packets = False,
                  packet_fn = None, terminate_after = -1):
+        super(RgmiiReceiver, self).__init__()
         self._txd = txd
         self._txen = txen
         self._clock = clock

@@ -77,6 +77,7 @@ class MiiReceiver(MiiPhy):
 
     def __init__(self, test_ctrl, txd, txen, clock, print_packets = False,
                  packet_fn = None):
+        super(MiiReceiver, self).__init__()
         self._txd = txd
         self._txen = txen
         self._clock = clock
