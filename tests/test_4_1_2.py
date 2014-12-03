@@ -2,6 +2,7 @@
 import xmostest
 import os
 import random
+import copy
 from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
@@ -80,9 +81,12 @@ def do_test(impl, clk, phy):
                                create_data_args=['step', (i%10, 46)],
                                inter_frame_gap=2*packet_processing_time(46)))
 
+      # Take a copy to ensure that the original is not modified
+      packet_copy = copy.deepcopy(packet)
+
       # Error frame after minimum IFG
-      packet.inter_frame_gap = ifg
-      packets.append(packet)
+      packet_copy.inter_frame_gap = ifg
+      packets.append(packet_copy)
 
       # Second valid frame with minimum IFG
       packets.append(MiiPacket(dst_mac_addr=dut_mac_address,

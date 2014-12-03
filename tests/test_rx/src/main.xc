@@ -50,14 +50,8 @@ void test_rx(client ethernet_if eth, client control_if ctrl)
 
   int done = 0;
   while (!done) {
+    #pragma ordered
     select {
-    case ctrl.status_changed():
-      status_t status;
-      ctrl.get_status(status);
-      if (status == STATUS_DONE)
-	done = 1;
-      break;
-      
     case eth.packet_ready():
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
@@ -86,6 +80,13 @@ void test_rx(client ethernet_if eth, client control_if ctrl)
         }
       }
       break;
+
+    case ctrl.status_changed():
+      status_t status;
+      ctrl.get_status(status);
+      if (status == STATUS_DONE)
+	done = 1;
+      break;
     }
   }
   _exit(0);
@@ -95,7 +96,7 @@ void control(port p_ctrl, server control_if ctrl)
 {
   int tmp;
   status_t current_status = STATUS_ACTIVE;
-  
+
   while (1) {
     select {
     case current_status != STATUS_DONE => p_ctrl when pinseq(1) :> tmp:
