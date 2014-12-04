@@ -20,16 +20,40 @@ def do_test(impl, clk, phy, seed):
 
     error_packets = []
 
-    # Part A - length errors (len/type field value greater than actual data length)
-    for (num_data_bytes, len_type, step) in [(46, 47, 20), (46, 1505, 21), (1504, 1505, 22)]:
-        error_packets.append(MiiPacket(
-            dst_mac_addr=dut_mac_address,
-            ether_len_type=[(len_type >> 8) & 0xff, len_type & 0xff],
-            create_data_args=['step', (step, num_data_bytes)],
-            dropped=True
-          ))
+    # Part A - Invalid preamble nibbles, but the frame should still be received
+    preamble_nibbles = [0x5, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5]
+    if clk.get_rate() == Clock.CLK_125MHz:
+        preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5]
 
-    # Part B - Part A with valid frames before/after the errror frame
+    error_packets.append(MiiPacket(
+        dst_mac_addr=dut_mac_address,
+        preamble_nibbles=preamble_nibbles,
+        create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))]
+      ))
+
+    # Part B - Invalid preamble nibbles, but the packet should still be received
+    preamble_nibbles = [0x5, 0x5, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0x5]
+    if clk.get_rate() == Clock.CLK_125MHz:
+        preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0x5]
+
+    error_packets.append(MiiPacket(
+        dst_mac_addr=dut_mac_address,
+        preamble_nibbles=preamble_nibbles,
+        create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
+        inter_frame_gap=packet_processing_time(46)
+      ))
+
+    # Part C - Invalid preamble nibbles, but the packet should still be received
+    preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x8, 0x5, 0xf, 0x5]
+
+    error_packets.append(MiiPacket(
+        dst_mac_addr=dut_mac_address,
+        preamble_nibbles=preamble_nibbles,
+        create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
+        inter_frame_gap=packet_processing_time(46)
+      ))
+
+    # Part D - Parts A, B and C with valid frames before/after the errror frame
     packets = []
     for packet in error_packets:
         packets.append(packet)
@@ -40,7 +64,7 @@ def do_test(impl, clk, phy, seed):
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
-          inter_frame_gap=2*packet_processing_time(46)
+          inter_frame_gap=3*packet_processing_time(46)
         ))
 
       # Take a copy to ensure that the original is not modified
@@ -61,7 +85,7 @@ def do_test(impl, clk, phy, seed):
 
 
 def runtest():
-    random.seed(4)
+    random.seed(8)
 
     # Test 100 MBit - MII
     clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)

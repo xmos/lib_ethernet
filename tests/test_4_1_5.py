@@ -45,7 +45,7 @@ def do_test(impl, clk, phy, seed):
       # First valid frame (allowing time to process previous two valid frames)
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
-          create_data_args=['step', (i%10, 46)],
+          create_data_args=['step', (i%10, choose_small_frame_size(rand))],
           inter_frame_gap=2*packet_processing_time(46) + packet_processing_time(1518)
         ))
 
@@ -59,7 +59,7 @@ def do_test(impl, clk, phy, seed):
       # Second valid frame with minimum IFG
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
-          create_data_args=['step', (2 * ((i+1)%10), 46)],
+          create_data_args=['step', (2 * ((i+1)%10), choose_small_frame_size(rand))],
           inter_frame_gap=ifg
         ))
 
