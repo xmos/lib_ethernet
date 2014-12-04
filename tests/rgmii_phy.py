@@ -10,7 +10,7 @@ class RgmiiPhy(xmostest.SimThread):
     def get_name(self):
         return self._name
 
-        
+
 class RgmiiTransmitter(RgmiiPhy):
 
     (FULL_DUPLEX, HALF_DUPLEX) = (0x8, 0x0)
@@ -33,7 +33,7 @@ class RgmiiTransmitter(RgmiiPhy):
 
         # When DV is low, the PHY should indicate its mode on the DATA pins
         xsi.drive_port_pins(self._rxd, self._phy_status)
-        
+
         self.wait_until(xsi.get_time() + self._initial_delay)
         self.wait(lambda x: self._clock.is_high())
         self.wait(lambda x: self._clock.is_low())
@@ -66,7 +66,7 @@ class RgmiiTransmitter(RgmiiPhy):
 
         # Give the DUT a reasonable time to process the packet
         self.wait_until(xsi.get_time() + self.END_OF_TEST_TIME)
-            
+
         # Indicate to the DUT that the test has finished
         xsi.drive_port_pins(self._test_ctrl, 1)
 

@@ -3,16 +3,21 @@ import xmostest
 import os
 import random
 import copy
+import sys
 from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
+from helpers import choose_small_frame_size
 
 
-def do_test(impl, clk, phy):
+def do_test(impl, clk, phy, seed):
+    rand = random.Random()
+    rand.seed(seed)
+
     dut_mac_address = get_dut_mac_address()
-    
+
     # Part A
     error_packets = []
 
@@ -23,9 +28,12 @@ def do_test(impl, clk, phy):
 
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(2, max_fragment_len, 1))
     for m in [2, max_fragment_len/3, max_fragment_len/2, max_fragment_len]:
-      error_packets.append(MiiPacket(num_preamble_nibbles=m, num_data_bytes=0,
-                               sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
-                               send_crc_word=False))
+      error_packets.append(MiiPacket(
+          num_preamble_nibbles=m, num_data_bytes=0,
+          sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
+          send_crc_word=False,
+          dropped=True
+        ))
 
     # Test Frame 2 - Runts - undersized data with a valid CRC
     # NOTES:
@@ -33,8 +41,11 @@ def do_test(impl, clk, phy):
     #  - The data contents will be the DUT MAC address when long enough to contain a dst address
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(5, 45, 1))
     for n in [5, 25, 45]:
-      error_packets.append(MiiPacket(dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
-                                     data_bytes=[(x & 0xff) for x in range(n - 4)]))
+      error_packets.append(MiiPacket(
+          dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
+          data_bytes=[(x & 0xff) for x in range(n - 4)],
+          dropped=True
+        ))
 
     # There should have been no errors logged by the MAC
     #controller.dumpStats()
@@ -42,25 +53,37 @@ def do_test(impl, clk, phy):
     # Part B
 
     # Test Frame 5 - send a 7-octect preamble
-    error_packets.append(MiiPacket(num_preamble_nibbles=7, num_data_bytes=0,
-                             sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
-                             ether_len_type=[], send_crc_word=False))
-        
+    error_packets.append(MiiPacket(
+        num_preamble_nibbles=15, num_data_bytes=0,
+        sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
+        ether_len_type=[], send_crc_word=False,
+        dropped=True
+      ))
+
     # Test Frame 6 - send a 7-octect preamble with SFD
-    error_packets.append(MiiPacket(num_preamble_nibbles=7, num_data_bytes=0,
-                             dst_mac_addr=[], src_mac_addr=[],
-                             ether_len_type=[], send_crc_word=False))
-        
+    error_packets.append(MiiPacket(
+        num_preamble_nibbles=15, num_data_bytes=0,
+        dst_mac_addr=[], src_mac_addr=[],
+        ether_len_type=[], send_crc_word=False,
+        dropped=True
+      ))
+
     # Test Frame 7 - send a 7-octect preamble with SFD and dest MAC
-    error_packets.append(MiiPacket(num_preamble_nibbles=7, num_data_bytes=6,
-                             dst_mac_addr=dut_mac_address,
-                             src_mac_addr=[], ether_len_type=[], send_crc_word=False))
-        
+    error_packets.append(MiiPacket(
+        num_preamble_nibbles=15, num_data_bytes=6,
+        dst_mac_addr=dut_mac_address,
+        src_mac_addr=[], ether_len_type=[], send_crc_word=False,
+        dropped=True
+      ))
+
     # Test Frame 8 - send a 7-octect preamble with SFD, dest and src MAC
-    error_packets.append(MiiPacket(num_preamble_nibbles=7, num_data_bytes=12,
-                             dst_mac_addr=dut_mac_address,
-                             ether_len_type=[], send_crc_word=False))
-        
+    error_packets.append(MiiPacket(
+        num_preamble_nibbles=15, num_data_bytes=12,
+        dst_mac_addr=dut_mac_address,
+        ether_len_type=[], send_crc_word=False,
+        dropped=True
+      ))
+
     # There should have been no errors logged by the MAC
     #controller.dumpStats()
 
@@ -76,9 +99,11 @@ def do_test(impl, clk, phy):
     ifg = clk.get_min_ifg()
     for i,packet in enumerate(error_packets):
       # First valid frame (allowing time to process previous two valid frames)
-      packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
-                               create_data_args=['step', (i%10, 46)],
-                               inter_frame_gap=2*packet_processing_time(46)))
+      packets.append(MiiPacket(
+          dst_mac_addr=dut_mac_address,
+          create_data_args=['step', (i%10, 46)],
+          inter_frame_gap=2*packet_processing_time(46)
+        ))
 
       # Take a copy to ensure that the original is not modified
       packet_copy = copy.deepcopy(packet)
@@ -88,16 +113,18 @@ def do_test(impl, clk, phy):
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG
-      packets.append(MiiPacket(dst_mac_addr=dut_mac_address,
-                               create_data_args=['step', (2 * ((i+1)%10), 46)],
-                               inter_frame_gap=ifg))
-    
-    do_rx_test(impl, clk, phy, packets, __file__)
+      packets.append(MiiPacket(
+          dst_mac_addr=dut_mac_address,
+          create_data_args=['step', (2 * ((i+1)%10), 46)],
+          inter_frame_gap=ifg
+        ))
+
+    do_rx_test(impl, clk, phy, packets, __file__, seed)
 
 
 def runtest():
-    random.seed(1)
-    
+    random.seed(2)
+
     # Test 100 MBit - MII
     clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     mii = MiiTransmitter('tile[0]:XS1_PORT_1A',
@@ -105,5 +132,5 @@ def runtest():
                          'tile[0]:XS1_PORT_1K',
                          clock_25)
 
-    do_test("standard", clock_25, mii)
-    do_test("rt", clock_25, mii)
+    do_test("standard", clock_25, mii, random.randint(0, sys.maxint))
+    do_test("rt", clock_25, mii, random.randint(0, sys.maxint))

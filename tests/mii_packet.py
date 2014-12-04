@@ -4,6 +4,7 @@ import zlib
 import random
 
 
+# Functions for creating the data contents of packets
 def create_data(args):
   f_name,f_args = args
   func = 'create_data_{}'.format(f_name)
@@ -13,13 +14,35 @@ def create_data_step(args):
   step,num_data_bytes = args
   return [(step * i) & 0xff for i in range(num_data_bytes)]
 
+
+# Functions for creating the expected output that the DUT will print given
+# this packet
+def create_data_expect(args):
+  f_name,f_args = args
+  func = 'create_data_expect_{}'.format(f_name)
+  return globals()[func](f_args)
+
+def create_data_expect_step(args):
+  step,num_data_bytes = args
+  return "Step = {0}\n".format(step)
+
+
 class MiiPacket(object):
+  """ The MiiPacket class contains all the data to represent a packet on the wire.
+      This includes the inter-frame gap (IFG), preamble and CRC.
+
+      The packet structure is able to represent both valid and invalid packets
+      for the purpose of testing.
+
+  """
 
   # The maximum payload value (1500 bytes)
   MAX_ETHER_LEN = 0x5dc
 
   def __init__(self, **kwargs):
     blank = kwargs.pop('blank', False)
+
+    self.dropped = False
 
     if blank:
       self.num_preamble_nibbles = 0
@@ -61,11 +84,11 @@ class MiiPacket(object):
 
     # Destination MAC address - use a random one if not user-defined
     if self.dst_mac_addr is None:
-      self.dst_mac_addr = [random.randint(0, 256) for x in range(6)]
+      self.dst_mac_addr = [random.randint(0, 255) for x in range(6)]
 
     # Source MAC address - use a random one if not user-defined
     if self.src_mac_addr is None:
-      self.src_mac_addr = [random.randint(0, 256) for x in range(6)]
+      self.src_mac_addr = [random.randint(0, 255) for x in range(6)]
 
     # If the data is defined, then record the length. Otherwise create random
     # data of the length specified
@@ -73,7 +96,7 @@ class MiiPacket(object):
       if self.create_data_args:
         self.data_bytes = create_data(self.create_data_args)
       else:
-        self.data_bytes = [random.randint(0, 256) for x in range(self.num_data_bytes)]
+        self.data_bytes = [random.randint(0, 255) for x in range(self.num_data_bytes)]
 
     # Ensure that however the data has been created, the length is correct
     if self.data_bytes is None:
@@ -109,7 +132,10 @@ class MiiPacket(object):
     return crc
 
   def get_nibbles(self):
-    nibbles = self.preamble_nibbles
+    nibbles = []
+
+    for nibble in self.preamble_nibbles:
+        nibbles.append(nibble)
 
     if self.sfd_nibble is not None:
       nibbles.append(self.sfd_nibble)
@@ -138,8 +164,11 @@ class MiiPacket(object):
 
   def set_sfd_nibble(self, nibble):
     self.sfd_nibble = nibble
-    
+
   def append_data_nibble(self, nibble):
+    """ Add a nibble to a packet. Manage merging nibbles into bytes and
+        then place it in the correct place in the packet structure.
+    """
     if self.nibble is None:
       self.nibble = nibble
       return
@@ -175,6 +204,9 @@ class MiiPacket(object):
     self.num_data_bytes += 1
 
   def check(self, clock):
+    """ Check the packet contents - valid preamble, IFG, length, CRC.
+    """
+
     # UNH-IOL MAC Test 4.2.2 (only check if it is non-zero as otherwise it is simply the first packet)
     if self.inter_frame_gap and (self.inter_frame_gap < clock.get_min_ifg()):
       print "ERROR: Invalid interframe gap of {0} ns".format(self.inter_frame_gap)
@@ -236,6 +268,15 @@ class MiiPacket(object):
       crc = self.get_crc(self.get_packet_bytes())
       sys.stdout.write("CRC: 0x{0:0>2x}\n".format(crc))
 
+  def get_data_expect(self):
+    """ Return the expected DUT print for the given data contents
+    """
+    if (self.create_data_args):
+      return create_data_expect(self.create_data_args)
+    else:
+      return ""
+
   def __str__(self):
-    return "{0} preamble nibbles, {1} data bytes".format(self.num_preamble_nibbles, self.num_data_bytes)
+    return "{0} preamble nibbles, {1} data bytes".format(
+      self.num_preamble_nibbles, self.num_data_bytes)
 

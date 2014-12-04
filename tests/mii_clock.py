@@ -6,7 +6,7 @@ class Clock(xmostest.SimThread):
 
     # Use the values that need to be presented in the RGMII data pins when DV inactive
     (CLK_125MHz, CLK_25MHz, CLK_2_5MHz) = (0x4, 0x2, 0x0)
-    
+
     def __init__(self, port, clk):
         self._clk = clk
         if clk == self.CLK_125MHz:
@@ -43,4 +43,4 @@ class Clock(xmostest.SimThread):
         return self._name
 
     def get_min_ifg(self):
-        return self._min_ifg    
+        return self._min_ifg

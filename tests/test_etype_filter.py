@@ -24,7 +24,7 @@ def do_test(impl, clk, phy):
       ]
 
     phy.set_packets(packets)
-    
+
     tester = xmostest.pass_if_matches(open('test_etype_filter.expect'),
                                      'lib_ethernet', 'basic_tests',
                                       'etype_filter_test', {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
@@ -36,7 +36,7 @@ def do_test(impl, clk, phy):
 
 def runtest():
     random.seed(1)
-    
+
     clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     mii = MiiTransmitter('tile[0]:XS1_PORT_1A',
                          'tile[0]:XS1_PORT_4E',

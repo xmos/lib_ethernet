@@ -3,14 +3,19 @@ import xmostest
 import os
 import random
 import copy
+import sys
 from mii_clock import Clock
 from mii_phy import MiiTransmitter
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
+from helpers import choose_small_frame_size
 
 
-def do_test(impl, clk, phy):
+def do_test(impl, clk, phy, seed):
+    rand = random.Random()
+    rand.seed(seed)
+
     dut_mac_address = get_dut_mac_address()
 
     error_packets = []
@@ -19,14 +24,15 @@ def do_test(impl, clk, phy):
     error_packets.append(MiiPacket(
         dst_mac_addr=dut_mac_address,
         extra_nibble=True,
-        create_data_args=['step', (22, 46)]
+        create_data_args=['step', (22, choose_small_frame_size(rand))]
       ))
 
     # Part B - Invalid packet with an extra nibble (should be reported as alignmentError)
     error_packets.append(MiiPacket(
         dst_mac_addr=dut_mac_address,
         extra_nibble=True, corrupt_crc=True,
-        create_data_args=['step', (23, 46)]
+        create_data_args=['step', (23, choose_small_frame_size(rand))],
+        dropped=True
       ))
 
     # Part C - Parts A and B with valid frames before/after the errror frame
@@ -39,7 +45,7 @@ def do_test(impl, clk, phy):
       # First valid frame (allowing time to process previous two valid frames)
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
-          create_data_args=['step', (i%10, 46)],
+          create_data_args=['step', (i%10, choose_small_frame_size(rand))],
           inter_frame_gap=2*packet_processing_time(46)
         ))
 
@@ -53,15 +59,15 @@ def do_test(impl, clk, phy):
       # Second valid frame with minimum IFG
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
-          create_data_args=['step', (2 * ((i+1)%10), 46)],
+          create_data_args=['step', (2 * ((i+1)%10), choose_small_frame_size(rand))],
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(impl, clk, phy, packets, __file__)
+    do_rx_test(impl, clk, phy, packets, __file__, seed)
 
 
 def runtest():
-    random.seed(1)
+    random.seed(8)
 
     # Test 100 MBit - MII
     clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
@@ -70,5 +76,5 @@ def runtest():
                          'tile[0]:XS1_PORT_1K',
                          clock_25)
 
-    do_test("standard", clock_25, mii)
-    do_test("rt", clock_25, mii)
+    do_test("standard", clock_25, mii, random.randint(0, sys.maxint))
+    do_test("rt", clock_25, mii, random.randint(0, sys.maxint))

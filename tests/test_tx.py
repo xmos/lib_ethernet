@@ -41,7 +41,8 @@ def do_test(impl, clk, phy):
 
     filename = "{log}/xsim_trace_test_tx_{impl}".format(log=log_folder, impl=impl)
     trace_args = "--trace-to {0}.txt".format(filename)
-    vcd_args = '--vcd-tracing "-o {0}.vcd -tile tile[0] -ports -instructions -functions -cycles"'.format(filename)
+    vcd_args = ('--vcd-tracing "-o {0}.vcd -tile tile[0] '
+                '-ports -instructions -functions -cycles"'.format(filename))
 
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[clk, phy],
