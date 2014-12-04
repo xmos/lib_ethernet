@@ -7,7 +7,9 @@
 #include "mii_buffering.h"
 #include "print.h"
 #include "macaddr_filter.h"
+#include <stdint.h>
 #include <xs1.h>
+#include <xclib.h>
 
 #define DEBUG_UNIT ETHERNET_FILTER
 #include "debug_print.h"
@@ -62,9 +64,24 @@ unsafe void mii_ethernet_filter(streaming chanend c,
         c_conf :> int;
       }
       break;
+#pragma xta endpoint "rx_packet"
     case c :> buf :
       if (buf) {
-        unsigned length = buf->length;
+        unsigned length = buf->length; // Number of bytes in the frame minus the CRC
+        uint16_t len_type = (uint16_t) (byterev(buf->data[3]) >> 16);
+        unsigned header_len = 14;
+        if (len_type == 0x8100) {
+          header_len = 18;
+          len_type = (uint16_t) (byterev(buf->data[4]) >> 16);
+        }
+        const unsigned rx_data_len = length - header_len;
+
+        if ((len_type < 1536) && (len_type > rx_data_len)) {
+          buf->filter_result = 0;
+          buf->stage = 1;
+          break;
+        }
+
         unsigned crc;
         debug_printf("Filtering incoming packet (length %d)\n", buf->length);
 
