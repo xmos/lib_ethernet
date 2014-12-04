@@ -161,6 +161,8 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
       break;
     case inuchar_byref(notifications, mii_lite_data.notifySeen):
       break;
+    default:
+      break;
     }
     // Check that there is an incoming packet
     if (!incoming_data) {

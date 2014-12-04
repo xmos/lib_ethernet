@@ -151,14 +151,22 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
         int len1 = prewrap > len ? len : prewrap;
         int len2 = prewrap > len ? 0 : len - prewrap;
         memcpy(data, dptr, len1);
-        if (len2)
+        if (len2) {
           memcpy(&data[len1], (unsigned *) *wrap_ptr, len2);
-        if (mii_get_and_dec_transmit_count(buf) == 0)
+        }
+        if (mii_get_and_dec_transmit_count(buf) == 0) {
           mii_free(buf);
-        if (rdIndex == ETHERNET_RX_CLIENT_QUEUE_SIZE - 1)
+        }
+        if (rdIndex == ETHERNET_RX_CLIENT_QUEUE_SIZE - 1) {
           client_info[i].rdIndex = 0;
-        else
+        }
+        else {
           client_info[i].rdIndex++;
+        }
+
+        if (client_info[i].rdIndex != client_info[i].wrIndex) {
+          i_eth[i].packet_ready();
+        }
       } else {
         desc.type = ETH_NO_DATA;
       }
