@@ -56,36 +56,15 @@ void test_rx(client ethernet_if eth, client control_if ctrl)
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
       eth.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
-      debug_printf("Received packet, type=%d, len=%d.\n",
-                   packet_info.type, packet_info.len);
-      int step;
-      int start;
-      if (rxbuf[12] == 0x81 && rxbuf[13] == 0x00) {
-	// VLAN/Prio tagged
-	step = rxbuf[19] - rxbuf[18];
-	start = 19;
-      } else {
-	// Non-tagged
-	step = rxbuf[15] - rxbuf[14];
-	start = 15;
-      }
-      debug_printf("Step = %d\n", step);
-      for (size_t i = start; i < packet_info.len - 1; i++) {
-        if ((uint8_t) (rxbuf[i+1] - rxbuf[i]) != step) {
-          debug_printf("ERROR: byte %d is %d more than byte %d (expected %d)\n",
-                       i+1, rxbuf[i+1] - rxbuf[i], i, step);
-
-	  // Only print one error per packet
-	  break;
-        }
-      }
+      eth.send_packet(rxbuf, packet_info.len,
+                    ETHERNET_ALL_INTERFACES);
       break;
 
     case ctrl.status_changed():
       status_t status;
       ctrl.get_status(status);
       if (status == STATUS_DONE)
-	done = 1;
+        done = 1;
       break;
     }
   }
@@ -100,12 +79,12 @@ void control(port p_ctrl, server control_if ctrl)
   while (1) {
     select {
     case current_status != STATUS_DONE => p_ctrl when pinseq(1) :> tmp:
-        current_status = STATUS_DONE;
-        ctrl.status_changed();
-        break;
+      current_status = STATUS_DONE;
+      ctrl.status_changed();
+      break;
     case ctrl.get_status(status_t &status):
-	status = current_status;
-	break;
+	     status = current_status;
+	     break;
     }
   }
 }

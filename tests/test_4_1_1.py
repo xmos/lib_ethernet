@@ -1,17 +1,11 @@
 #!/usr/bin/env python
-import xmostest
-import os
+
 import random
-import sys
-from mii_clock import Clock
-from mii_phy import MiiTransmitter
-from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import do_rx_test, get_dut_mac_address
-from helpers import choose_small_frame_size
+from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
+from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
-
-def do_test(impl, clk, phy, seed):
+def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -32,14 +26,14 @@ def do_test(impl, clk, phy, seed):
       ))
 
     packets.append(MiiPacket(
-        inter_frame_gap=clk.get_min_ifg(),
+        inter_frame_gap=tx_clk.get_min_ifg(),
         create_data_args=['step', (5, choose_small_frame_size(rand))],
         corrupt_crc=True,
         dropped=True
       ))
 
     packets.append(MiiPacket(
-        inter_frame_gap=clk.get_min_ifg(),
+        inter_frame_gap=tx_clk.get_min_ifg(),
         create_data_args=['step', (6, choose_small_frame_size(rand))]
       ))
 
@@ -47,19 +41,8 @@ def do_test(impl, clk, phy, seed):
     for packet in packets:
         packet.dst_mac_addr = dut_mac_address
 
-    do_rx_test(impl, clk, phy, packets, __file__, seed)
-
+    do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 def runtest():
-    random.seed(1)
-
-    # Test 100 MBit - MII
-    clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
-    mii = MiiTransmitter('tile[0]:XS1_PORT_1A',
-                         'tile[0]:XS1_PORT_4E',
-                         'tile[0]:XS1_PORT_1K',
-                         clock_25)
-
-    do_test("standard", clock_25, mii, random.randint(0, sys.maxint))
-    do_test("rt", clock_25, mii, random.randint(0, sys.maxint))
-
+    random.seed(11)
+    runall_rx(do_test)

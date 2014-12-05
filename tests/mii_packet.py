@@ -73,6 +73,7 @@ class MiiPacket(object):
     self.create_data_args = None
     self.send_header = True
     self.nibble = None
+    self.packet_crc = 0
 
     # Get all other values from the dictionary passed in
     for arg,value in kwargs.iteritems():
@@ -203,6 +204,14 @@ class MiiPacket(object):
     self.data_bytes.append(byte)
     self.num_data_bytes += 1
 
+  def complete(self):
+    """ When a packet has been fully received then move the CRC from the data
+    """
+    self.packet_crc = (self.data_bytes[-4] + (self.data_bytes[-3] << 8) +
+                  (self.data_bytes[-2] << 16) + (self.data_bytes[-1] << 24))
+    self.data_bytes = self.data_bytes[:-4]
+    self.num_data_bytes -= 4
+
   def check(self, clock):
     """ Check the packet contents - valid preamble, IFG, length, CRC.
     """
@@ -230,23 +239,21 @@ class MiiPacket(object):
       print "ERROR: The len/type field contains {0} bytes".format(len(self.ether_len_type))
     len_type = self.ether_len_type[0] << 8 | self.ether_len_type[1]
     if len_type <= 1500:
-      if len_type != (self.num_data_bytes - 4):
-        print "ERROR: len/type field value ({0}) != packet bytes ({1})".format(len_type, (self.num_data_bytes - 4))
+      if len_type > self.num_data_bytes:
+        print "ERROR: len/type field value ({0}) != packet bytes ({1})".format(len_type, self.num_data_bytes)
 
     # Check the CRC
-    packet_crc = (self.data_bytes[-4] + (self.data_bytes[-3] << 8) +
-                  (self.data_bytes[-2] << 16) + (self.data_bytes[-1] << 24))
-    data = ''.join(chr(x) for x in self.get_packet_bytes()[:-4])
+    data = ''.join(chr(x) for x in self.get_packet_bytes())
     expected_crc = zlib.crc32(data) & 0xFFFFFFFF
 
     # UNH-IOL MAC Test 4.2.3
-    if packet_crc != expected_crc:
-      print "ERROR: Invalid crc (got {got}, expecting {expect})".format(got=packet_crc, expect=expected_crc)
+    if self.packet_crc != expected_crc:
+      print "ERROR: Invalid crc (got {got}, expecting {expect})".format(got=self.packet_crc, expect=expected_crc)
 
   def dump(self):
     # Discount the CRC word from the bytes received
     sys.stdout.write("Packet len={len}, dst=[{dst}], src=[{src}]".format(
-      len=(self.num_data_bytes - 4),
+      len=self.num_data_bytes,
       dst=" ".join(["0x{0:0>2x}".format(i) for i in self.dst_mac_addr]),
       src=" ".join(["0x{0:0>2x}".format(i) for i in self.src_mac_addr])))
 
@@ -278,5 +285,23 @@ class MiiPacket(object):
 
   def __str__(self):
     return "{0} preamble nibbles, {1} data bytes".format(
-      self.num_preamble_nibbles, self.num_data_bytes)
+      self.num_preamble_nibbles, len(self.data_bytes))
 
+  def __ne__(self, other):
+    return not self.__eq__(other)
+
+  def __eq__(self, other):
+    if (self.dst_mac_addr != other.dst_mac_addr or
+        self.src_mac_addr != other.src_mac_addr or
+        self.ether_len_type != other.ether_len_type or
+        self.data_bytes != other.data_bytes):
+      return False
+
+    # The VLAN/Prio field can either be None or have length 0. Only check
+    # they are the same if one is set
+    if ((self.vlan_prio_tag is not None and len(self.vlan_prio_tag) > 0) or
+        (other.vlan_prio_tag is not None and len(other.vlan_prio_tag) > 0)):
+      if self.vlan_prio_tag != other.vlan_prio_tag:
+        return false
+
+    return True

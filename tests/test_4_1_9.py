@@ -1,18 +1,13 @@
 #!/usr/bin/env python
-import xmostest
-import os
+
 import random
 import copy
-import sys
-from mii_clock import Clock
-from mii_phy import MiiTransmitter
-from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
+from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size
+from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
-
-def do_test(impl, clk, phy, seed):
+def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -22,7 +17,7 @@ def do_test(impl, clk, phy, seed):
 
     # Part A - Invalid preamble nibbles, but the frame should still be received
     preamble_nibbles = [0x5, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5]
-    if clk.get_rate() == Clock.CLK_125MHz:
+    if tx_clk.get_rate() == Clock.CLK_125MHz:
         preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5]
 
     error_packets.append(MiiPacket(
@@ -33,7 +28,7 @@ def do_test(impl, clk, phy, seed):
 
     # Part B - Invalid preamble nibbles, but the packet should still be received
     preamble_nibbles = [0x5, 0x5, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0x5]
-    if clk.get_rate() == Clock.CLK_125MHz:
+    if tx_clk.get_rate() == Clock.CLK_125MHz:
         preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0x5]
 
     error_packets.append(MiiPacket(
@@ -58,7 +53,7 @@ def do_test(impl, clk, phy, seed):
     for packet in error_packets:
         packets.append(packet)
 
-    ifg = clk.get_min_ifg()
+    ifg = tx_clk.get_min_ifg()
     for i,packet in enumerate(error_packets):
       # First valid frame (allowing time to process previous two valid frames)
       packets.append(MiiPacket(
@@ -81,18 +76,8 @@ def do_test(impl, clk, phy, seed):
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(impl, clk, phy, packets, __file__, seed)
-
+    do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 def runtest():
-    random.seed(8)
-
-    # Test 100 MBit - MII
-    clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
-    mii = MiiTransmitter('tile[0]:XS1_PORT_1A',
-                         'tile[0]:XS1_PORT_4E',
-                         'tile[0]:XS1_PORT_1K',
-                         clock_25)
-
-    do_test("standard", clock_25, mii, random.randint(0, sys.maxint))
-    do_test("rt", clock_25, mii, random.randint(0, sys.maxint))
+    random.seed(19)
+    runall_rx(do_test)

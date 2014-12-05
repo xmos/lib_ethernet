@@ -13,14 +13,16 @@ class Clock(xmostest.SimThread):
             self._period = float(1000000000) / 125000000
             self._name = '1Gbs'
             self._min_ifg = 96
+            self._bit_time = 1
         elif clk == self.CLK_25MHz:
             self._period = float(1000000000) / 25000000
             self._name = '100Mbs'
-            self._min_ifg = 960
+            self._bit_time = 10
         elif clk == self.CLK_2_5MHz:
             self._period = float(1000000000) / 2500000
             self._name = '10Mbs'
-            self._min_ifg = 9600
+            self._bit_time = 100
+        self._min_ifg = 96 * self._bit_time
         self._val = 0
         self._port = port
 
@@ -44,3 +46,6 @@ class Clock(xmostest.SimThread):
 
     def get_min_ifg(self):
         return self._min_ifg
+
+    def get_bit_time(self):
+        return self._bit_time

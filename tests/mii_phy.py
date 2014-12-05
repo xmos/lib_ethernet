@@ -19,8 +19,8 @@ class MiiTransmitter(MiiPhy):
     # Time in ns from the last packet being sent until the end of test is signalled to the DUT
     END_OF_TEST_TIME = 5000
 
-    def __init__(self, test_ctrl, rxd, rxdv, clock,
-                 initial_delay=30000, verbose=False):
+    def __init__(self, rxd, rxdv, clock,
+                 initial_delay=30000, verbose=False, test_ctrl=None):
         super(MiiTransmitter, self).__init__()
         self._test_ctrl = test_ctrl
         self._rxd = rxd
@@ -62,8 +62,20 @@ class MiiTransmitter(MiiPhy):
         # Give the DUT a reasonable time to process the packet
         self.wait_until(xsi.get_time() + self.END_OF_TEST_TIME)
 
-        # Indicate to the DUT that the test has finished
-        xsi.drive_port_pins(self._test_ctrl, 1)
+        if self._test_ctrl:
+            # Indicate to the DUT that the test has finished
+            xsi.drive_port_pins(self._test_ctrl, 1)
+
+        # Allow time for a maximum sized packet to arrive
+        timeout_time = (self._clock.get_bit_time() * 1522 * 8)
+        # And allow some time for the packets to get through the buffers internally
+        #  - packet is copied twice at a rate of 1-bit per cycle
+        timeout_time += 2 * 1522 * 8
+        # Add some overhead for the system
+        timeout_time += 10000
+        self.wait_until(xsi.get_time() + timeout_time)
+        print "ERROR: Test timed out"
+        xsi.terminate()
 
     def set_clock(self, clock):
         self._clock = clock
@@ -75,8 +87,8 @@ class MiiTransmitter(MiiPhy):
 
 class MiiReceiver(MiiPhy):
 
-    def __init__(self, test_ctrl, txd, txen, clock, print_packets = False,
-                 packet_fn = None):
+    def __init__(self, txd, txen, clock, print_packets=False,
+                 packet_fn=None, test_ctrl=None):
         super(MiiReceiver, self).__init__()
         self._txd = txd
         self._txen = txen
@@ -85,6 +97,10 @@ class MiiReceiver(MiiPhy):
         self._test_ctrl = test_ctrl
         self._packet_fn = packet_fn
 
+        self.expected_packets = None
+        self.expect_packet_index = 0
+        self.num_expected_packets = 0
+
     def run(self):
         xsi = self.xsi
         self.wait_for_port_pins_change([self._txen])
@@ -92,14 +108,15 @@ class MiiReceiver(MiiPhy):
         packet_count = 0
         last_frame_end_time = None
         while True:
-            if xsi.sample_port_pins(self._test_ctrl) == 1:
-                xsi.terminate()
-
             # Wait for TXEN to go high
-            self.wait_for_port_pins_change([self._txen, self._test_ctrl])
-
-            if xsi.sample_port_pins(self._test_ctrl) == 1:
-                xsi.terminate()
+            if self._test_ctrl is None:
+                self.wait_for_port_pins_change([self._txen])
+            else:
+                if xsi.sample_port_pins(self._test_ctrl) == 1:
+                    xsi.terminate()
+                self.wait_for_port_pins_change([self._txen, self._test_ctrl])
+                if xsi.sample_port_pins(self._test_ctrl) == 1:
+                    xsi.terminate()
 
             # Start with a blank packet to ensure they are filled in by the receiver
             packet = MiiPacket(blank=True)
@@ -131,11 +148,22 @@ class MiiReceiver(MiiPhy):
 
                 self.wait(lambda x: self._clock.is_high())
 
+            packet.complete()
+
             if self._print_packets:
                 packet.dump()
 
             if self._packet_fn:
-                self._packet_fn(packet)
+                self._packet_fn(packet, self)
 
             # Perform packet checks
             packet.check(self._clock)
+
+    def set_expected_packets(self, packets):
+        self.expect_packet_index = 0;
+        self.expected_packets = packets
+        if self.expected_packets is None:
+            self.num_expected_packets = 0
+        else:
+            self.num_expected_packets = len(self.expected_packets)
+

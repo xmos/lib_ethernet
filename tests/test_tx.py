@@ -7,7 +7,7 @@ from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
 
 
-def packet_checker(packet):
+def packet_checker(packet, phy):
     print "Packet received:"
     packet.dump()
 
@@ -51,12 +51,12 @@ def do_test(impl, clk, phy):
 
 def runtest():
     clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
-    mii = MiiReceiver('tile[0]:XS1_PORT_1A',
-                      'tile[0]:XS1_PORT_4F',
+    mii = MiiReceiver('tile[0]:XS1_PORT_4F',
                       'tile[0]:XS1_PORT_1L',
                       clock_25,
                       print_packets=False,
-                      packet_fn=packet_checker)
+                      packet_fn=packet_checker,
+                      test_ctrl='tile[0]:XS1_PORT_1A')
 
     do_test('standard', clock_25, mii)
     do_test('rt', clock_25, mii)
