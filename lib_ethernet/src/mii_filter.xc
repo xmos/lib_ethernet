@@ -9,7 +9,7 @@
 #include "macaddr_filter.h"
 #include <stdint.h>
 #include <xs1.h>
-#include <xclib.h>
+#include "ntoh.h"
 
 #define DEBUG_UNIT ETHERNET_FILTER
 #include "debug_print.h"
@@ -68,11 +68,13 @@ unsafe void mii_ethernet_filter(streaming chanend c,
     case c :> buf :
       if (buf) {
         unsigned length = buf->length; // Number of bytes in the frame minus the CRC
-        uint16_t len_type = (uint16_t) (byterev(buf->data[3]) >> 16);
+        int *unsafe p_len_type = (int *unsafe) &buf->data[3];
+        uint16_t len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
         unsigned header_len = 14;
         if (len_type == 0x8100) {
-          header_len = 18;
-          len_type = (uint16_t) (byterev(buf->data[4]) >> 16);
+          header_len += 4;
+          p_len_type = (int *unsafe) &buf->data[4];
+          len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
         }
         const unsigned rx_data_len = length - header_len;
 

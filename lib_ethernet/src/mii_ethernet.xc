@@ -7,6 +7,7 @@
 #include "xassert.h"
 #include "macaddr_filter.h"
 #include "print.h"
+#include "ntoh.h"
 
 #ifndef ETHERNET_MAC_PROMISCUOUS
 #define ETHERNET_MAC_PROMISCUOUS 0
@@ -176,31 +177,41 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
         incoming_nbytes = nbytes;
         incoming_data = data;
         incoming_tcount = 0;
-        int filter_result =
-          ethernet_do_filtering(filter_info, (char *) data, nbytes,
-                                incoming_appdata);
-        for (int i = 0; i < n; i++) {
-          int client_wants_packet = ((filter_result >> i) & 1);
-          if (client_info[i].num_etype_filters != 0) {
-            int passed_etype_filter = 0;
-            uint16_t etype = ((uint16_t) data[12] << 8) + data[13];
-            int qhdr = (etype == 0x8100);
-            if (qhdr) {
-              // has a 802.1q tag - read etype from next word
-              etype = ((uint16_t) data[16] << 8) + data[17];
-            }
-            for (int j = 0; j < client_info[i].num_etype_filters; j++) {
-              if (client_info[i].etype_filters[j] == etype) {
-                passed_etype_filter = 1;
-                break;
+
+        int *unsafe p_len_type = (int *unsafe) &data[12];
+        uint16_t len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
+        unsigned header_len = 14;
+        if (len_type == 0x8100) {
+          header_len += 4;
+          p_len_type = (int *unsafe) &data[16];
+          len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
+        }
+        const unsigned rx_data_len = nbytes - header_len;
+
+        if ((len_type < 1536) && (len_type > rx_data_len)) {
+          // Invalid len_type field, will fall out and free the buffer below
+        }
+        else {
+          int filter_result =
+            ethernet_do_filtering(filter_info, (char *) data, nbytes,
+                                  incoming_appdata);
+          for (int i = 0; i < n; i++) {
+            int client_wants_packet = ((filter_result >> i) & 1);
+            if (client_info[i].num_etype_filters != 0 && (len_type >= 1536)) {
+              int passed_etype_filter = 0;
+              for (int j = 0; j < client_info[i].num_etype_filters; j++) {
+                if (client_info[i].etype_filters[j] == len_type) {
+                  passed_etype_filter = 1;
+                  break;
+                }
               }
+              client_wants_packet &= passed_etype_filter;
             }
-            client_wants_packet &= passed_etype_filter;
-          }
-          if (client_wants_packet) {
-            client_info[i].incoming_packet = 1;
-            i_eth[i].packet_ready();
-            incoming_tcount++;
+            if (client_wants_packet) {
+              client_info[i].incoming_packet = 1;
+              i_eth[i].packet_ready();
+              incoming_tcount++;
+            }
           }
         }
       }
