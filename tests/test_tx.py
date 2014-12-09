@@ -31,7 +31,7 @@ def do_test(impl, clk, phy):
     binary = 'test_tx/bin/{impl}_{phy}/test_tx_{impl}_{phy}.xe'.format(
         impl=impl, phy=phy.get_name())
 
-    tester = xmostest.pass_if_matches(open('test_tx.expect'),
+    tester = xmostest.ComparisonTester(open('test_tx.expect'),
                                      'lib_ethernet', 'basic_tests',
                                       'tx_test', {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
 

@@ -26,7 +26,7 @@ def do_test(impl, tx_clk, tx_phy):
 
     tx_phy.set_packets(packets)
 
-    tester = xmostest.pass_if_matches(open('test_etype_filter.expect'),
+    tester = xmostest.ComparisonTester(open('test_etype_filter.expect'),
                                      'lib_ethernet', 'basic_tests',
                                       'etype_filter_test',
                                       {'impl':impl, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})

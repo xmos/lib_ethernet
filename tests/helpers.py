@@ -65,7 +65,7 @@ def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed):
         folder=expect_folder, test=testname, impl=impl, phy=tx_phy.get_name(), clk=tx_clk.get_name())
     create_expect(packets, expect_filename)
 
-    tester = xmostest.pass_if_matches(open(expect_filename),
+    tester = xmostest.ComparisonTester(open(expect_filename),
                                       'lib_ethernet', 'basic_tests', testname,
                                      {'impl':impl, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
 
