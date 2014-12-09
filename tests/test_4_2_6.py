@@ -30,7 +30,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     bit_time = ifg/96
 
     # Allow lots of time for the DUT to recover between test bursts
-    recovery_time = 4*packet_processing_time(46)
+    recovery_time = 4*packet_processing_time(tx_phy, 46)
 
     # Test shrinking the IFG by different amounts. Use the shrink as the step for debug purposes
     for gap_shrink in [10, 20, 30, 40, 50, 55, 60, 65]:

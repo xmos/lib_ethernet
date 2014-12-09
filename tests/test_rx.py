@@ -21,17 +21,17 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         MiiPacket(
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (5, 52)],
-            inter_frame_gap=packet_processing_time(72)
+            inter_frame_gap=packet_processing_time(tx_phy, 72)
           ),
 
         MiiPacket(
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (7, 1500)],
-            inter_frame_gap=packet_processing_time(52)
+            inter_frame_gap=packet_processing_time(tx_phy, 52)
           )
       ]
 
-    do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
+    do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, 'smoke')
 
 def runtest():
     random.seed(1)

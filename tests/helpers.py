@@ -28,23 +28,24 @@ def runall_rx(test_fn):
     test_fn("standard", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
     test_fn("rt", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
 
-#    # Test 100 MBit - RGMII
-#    clock_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
-#    rgmii = RgmiiTransmitter('tile[0]:XS1_PORT_1A',
-#                         'tile[0]:XS1_PORT_4E',
-#                         'tile[0]:XS1_PORT_1K',
-#                         clock_25)
+#    # Test 1000 MBit - RGMII
+#    rx_clk_125 = Clock('tile[0]:XS1_PORT_1D', Clock.CLK_125MHz)
+#    rx_rgmii = RgmiiReceiver('tile[0]:XS1_PORT_8B',
+#                             'tile[0]:XS1_PORT_1F',
+#                             rx_clk_125,
+#                             packet_fn=check_received_packet)
 #
-#    test_fn("rt", clock_25, rgmii)
+#    tx_clk_125 = Clock('tile[0]:XS1_PORT_1C', Clock.CLK_125MHz)
+#    tx_rgmii = RgmiiTransmitter('tile[0]:XS1_PORT_8A',
+#                                'tile[0]:XS1_PORT_1B',
+#                                'tile[0]:XS1_PORT_8C',
+#                                'tile[0]:XS1_PORT_1K',
+#                                tx_clk_125, verbose=True)
 #
-#    # Test Gigabit - RGMII
-#    clock_125 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_125MHz)
-#    rgmii.clock = clock_125
-#
-#    test_fn("rt", clock_125, rgmii)
+#    test_fn("rt", rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, random.randint(0, sys.maxint))
 
 
-def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed):
+def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, level='nightly'):
     """ Shared test code for all RX tests using the test_rx application.
     """
     testname,extension = os.path.splitext(os.path.basename(test_file))
@@ -54,8 +55,9 @@ def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed):
     binary = 'test_rx/bin/{impl}_{phy}/test_rx_{impl}_{phy}.xe'.format(
         impl=impl, phy=tx_phy.get_name())
 
-    print "Running {test}: {phy} phy sending {n} packets at {clk} (seed {seed})".format(
-        test=testname, n=len(packets), phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
+    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
+        print "Running {test}: {phy} phy sending {n} packets at {clk} (seed {seed})".format(
+            test=testname, n=len(packets), phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
@@ -69,19 +71,13 @@ def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed):
                                       'lib_ethernet', 'basic_tests', testname,
                                      {'impl':impl, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
 
-    log_folder = create_if_needed("logs")
-    filename = "{log}/xsim_trace_{test}_{impl}_{phy}_{clk}".format(
-        log=log_folder, test=testname, impl=impl,
-        clk=tx_clk.get_name(), phy=tx_phy.get_name())
+    tester.set_min_testlevel(level)
 
-    trace_args = "--trace-to {0}.txt".format(filename)
-    vcd_args = ('--vcd-tracing "-o {0}.vcd -tile tile[0] '
-                '-ports -ports-detailed -instructions -functions -cycles -clock-blocks"'.format(filename))
-
+    simargs = get_sim_args(testname, impl, tx_clk, tx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
                               tester=tester,
-                              simargs=[trace_args, vcd_args])
+                              simargs=simargs)
 
 def create_expect(packets, filename):
     """ Create the expect file for what packets should be reported by the DUT
@@ -92,11 +88,23 @@ def create_expect(packets, filename):
                 f.write("Received packet {} ok\n".format(i))
         f.write("Test done\n")
 
-def packet_processing_time(data_bytes):
+def get_sim_args(testname, impl, clk, phy):
+    log_folder = create_if_needed("logs")
+    filename = "{log}/xsim_trace_{test}_{impl}_{phy}_{clk}".format(
+        log=log_folder, test=testname, impl=impl,
+        clk=clk.get_name(), phy=phy.get_name())
+
+    trace_args = "--trace-to {0}.txt".format(filename)
+    vcd_args = ('--vcd-tracing "-o {0}.vcd -tile tile[0] '
+                '-ports -ports-detailed -instructions -functions -cycles -clock-blocks"'.format(filename))
+
+    return [trace_args, vcd_args]
+
+def packet_processing_time(phy, data_bytes):
     """ Returns the time it takes the DUT to process a given frame
     """
     # An overhead for forwarding
-    return 10000
+    return 1000 * phy.get_clock().get_bit_time()
 
 def get_dut_mac_address():
     """ Returns the MAC address of the DUT

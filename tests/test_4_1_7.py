@@ -40,15 +40,15 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       # First valid frame (allowing time to process previous two valid frames)
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
-          create_data_args=['step', (i%10, 46)],
-          inter_frame_gap=2*packet_processing_time(choose_small_frame_size(rand))
+          create_data_args=['step', (i%10, choose_small_frame_size(rand))],
+          inter_frame_gap=2*packet_processing_time(tx_phy, 46)
         ))
 
       # Take a copy to ensure that the original is not modified
       packet_copy = copy.deepcopy(packet)
 
       # Error frame after minimum IFG
-      packet_copy.inter_frame_gap = ifg
+      packet_copy.set_ifg(ifg)
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG

@@ -35,7 +35,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
-        inter_frame_gap=packet_processing_time(46)
+        inter_frame_gap=packet_processing_time(tx_phy, 46)
       ))
 
     # Part C - Invalid preamble nibbles, but the packet should still be received
@@ -45,7 +45,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
-        inter_frame_gap=packet_processing_time(46)
+        inter_frame_gap=packet_processing_time(tx_phy, 46)
       ))
 
     # Part D - Parts A, B and C with valid frames before/after the errror frame
@@ -59,14 +59,14 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
-          inter_frame_gap=3*packet_processing_time(46)
+          inter_frame_gap=3*packet_processing_time(tx_phy, 46)
         ))
 
       # Take a copy to ensure that the original is not modified
       packet_copy = copy.deepcopy(packet)
 
       # Error frame after minimum IFG
-      packet_copy.inter_frame_gap = ifg
+      packet_copy.set_ifg(ifg)
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG

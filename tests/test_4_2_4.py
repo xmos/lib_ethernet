@@ -20,7 +20,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             dst_mac_addr=dut_mac_address,
             num_preamble_nibbles=num_preamble_nibbles,
             create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
-            inter_frame_gap=packet_processing_time(46)
+            inter_frame_gap=packet_processing_time(tx_phy, 46)
           ))
 
     do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)

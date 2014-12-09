@@ -2,7 +2,7 @@
 
 import random
 from mii_packet import MiiPacket
-from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
+from helpers import do_rx_test, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
 def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):

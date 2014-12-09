@@ -48,7 +48,7 @@ class MiiPacket(object):
       self.num_preamble_nibbles = 0
       self.sfd_nibble = 0
       self.num_data_bytes = 0
-      self.inter_frame_gap = 0
+      self.inter_frame_gap = 0.0
       self.dst_mac_addr = []
       self.src_mac_addr = []
       self.vlan_prio_tag = []
@@ -111,6 +111,12 @@ class MiiPacket(object):
         self.ether_len_type = [ (self.num_data_bytes >> 8) & 0xff, self.num_data_bytes & 0xff ]
       else:
         self.ether_len_type = [ 0x00, 0x00 ]
+
+  def get_ifg(self):
+    return self.inter_frame_gap
+
+  def set_ifg(self, inter_frame_gap):
+    self.inter_frame_gap = inter_frame_gap
 
   def get_packet_bytes(self):
     """ Returns all the data bytes of the packet. This does not include preamble or CRC
@@ -177,6 +183,9 @@ class MiiPacket(object):
     byte = self.nibble | nibble << 4
     self.nibble = None
 
+    self.append_data_byte(byte)
+
+  def append_data_byte(self, byte):
     if len(self.dst_mac_addr) < 6:
       self.dst_mac_addr.append(byte)
       return

@@ -14,14 +14,14 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packets = []
 
     # Part A - Test the sending of all valid size untagged frames
-    processing_time = packet_processing_time(46)
+    processing_time = packet_processing_time(tx_phy, 46)
     for num_data_bytes in [46, choose_small_frame_size(rand), 1500]:
         packets.append(MiiPacket(
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (rand.randint(1, 254), num_data_bytes)],
             inter_frame_gap=processing_time
           ))
-        processing_time = packet_processing_time(num_data_bytes)
+        processing_time = packet_processing_time(tx_phy, num_data_bytes)
 
     # Part B - Test the sending of sub 46 bytes of data in the length field but valid minimum packet sizes
     # The packet sizes longer than this are covered by Part A
@@ -30,11 +30,11 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             dst_mac_addr=dut_mac_address,
             ether_len_type=[(len_type >> 8) & 0xff, len_type & 0xff],
             create_data_args=['step', (rand.randint(1, 254), 46)],
-            inter_frame_gap=packet_processing_time(46)
+            inter_frame_gap=packet_processing_time(tx_phy, 46)
           ))
 
     # Part C - Test the sending of all valid size tagged frames
-    processing_time = packet_processing_time(46)
+    processing_time = packet_processing_time(tx_phy, 46)
     for num_data_bytes in [42, choose_small_frame_size(rand), 1500]:
         packets.append(MiiPacket(
             dst_mac_addr=dut_mac_address,
@@ -42,7 +42,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             create_data_args=['step', (rand.randint(1, 254), num_data_bytes)],
             inter_frame_gap=processing_time
           ))
-        processing_time = packet_processing_time(num_data_bytes)
+        processing_time = packet_processing_time(tx_phy, num_data_bytes)
 
     # Part D
     # Not supporting 802.3-2012, so no envelope frames

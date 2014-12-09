@@ -5,7 +5,7 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-
+from helpers import get_sim_args
 
 def packet_checker(packet, phy):
     print "Packet received:"
@@ -28,26 +28,23 @@ def packet_checker(packet, phy):
 def do_test(impl, clk, phy):
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_tx/bin/{impl}_{phy}/test_tx_{impl}_{phy}.xe'.format(
-        impl=impl, phy=phy.get_name())
+    testname = 'test_tx'
 
-    tester = xmostest.ComparisonTester(open('test_tx.expect'),
-                                     'lib_ethernet', 'basic_tests',
-                                      'tx_test', {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
+    binary = '{test}/bin/{impl}_{phy}/{test}_{impl}_{phy}.xe'.format(
+        test=testname, impl=impl, phy=phy.get_name())
 
-    log_folder = "logs"
-    if not os.path.exists(log_folder):
-        os.makedirs(log_folder)
+    print "Running {test}: {phy} phy at {clk}".format(
+        test=testname, phy=phy.get_name(), clk=clk.get_name())
 
-    filename = "{log}/xsim_trace_test_tx_{impl}".format(log=log_folder, impl=impl)
-    trace_args = "--trace-to {0}.txt".format(filename)
-    vcd_args = ('--vcd-tracing "-o {0}.vcd -tile tile[0] '
-                '-ports -instructions -functions -cycles"'.format(filename))
+    tester = xmostest.ComparisonTester(open('{test}.expect'.format(test=testname)),
+                                     'lib_ethernet', 'basic_tests', testname,
+                                     {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
 
+    simargs = get_sim_args(testname, impl, clk, phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[clk, phy],
                               tester=tester,
-                              simargs=[trace_args, vcd_args])
+                              simargs=simargs)
 
 def runtest():
     clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)

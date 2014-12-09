@@ -1,0 +1,21 @@
+<Xvcd zoomFactor="3.863451e+04" hScrollPos="0" vScrollPos="0" markerBarPos="1.754399e+05">
+    <Signals>
+        <Signal name="tile[0]_Functions_Thread0" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread1" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread2" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread3" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread4" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread5" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread6" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread7" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_XS1_PORT_1A" alias="" radix="HEX"/>
+        <Separator name="RX"/>
+        <Signal name="tile[0]_XS1_PORT_4E" alias="" radix="HEX"/>
+        <Signal name="tile[0]_XS1_PORT_1J" alias="PORT_UART_TX" radix="HEX"/>
+        <Signal name="tile[0]_XS1_PORT_1K" alias="PORT_BUT_1" radix="HEX"/>
+        <Separator name="TX"/>
+        <Signal name="tile[0]_XS1_PORT_1L" alias="PORT_BUT_2" radix="HEX"/>
+        <Signal name="tile[0]_XS1_PORT_4F" alias="PORT_LED" radix="HEX"/>
+        <Signal name="tile[0]_XS1_PORT_1I" alias="PORT_UART_RX" radix="HEX"/>
+    </Signals>
+</Xvcd>

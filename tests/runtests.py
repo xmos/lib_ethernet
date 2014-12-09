@@ -15,6 +15,8 @@ simulator model (written as a python plugin to xsim). Basic functioanlity is tes
     xmostest.build('test_rx')
     xmostest.build('test_tx')
     xmostest.build('test_etype_filter')
+    xmostest.build('test_time_tx')
+    xmostest.build('test_time_rx')
 
     xmostest.runtests()
 

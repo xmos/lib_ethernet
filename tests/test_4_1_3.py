@@ -25,7 +25,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Oversized untagged frame - one byte too big for the 1522 bytes allowed per frame
     packet = MiiPacket(
         dst_mac_addr=dut_mac_address, create_data_args=['step', (2, 1505)],
-        inter_frame_gap=packet_processing_time(1500),
+        inter_frame_gap=packet_processing_time(tx_phy, 1500),
         dropped=True
       )
     packets.append(packet)
@@ -34,7 +34,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Oversized untagged frame - too big for the 1522 bytes allowed per frame
     packet = MiiPacket(
         dst_mac_addr=dut_mac_address, create_data_args=['step', (3, 1600)],
-        inter_frame_gap=packet_processing_time(1500),
+        inter_frame_gap=packet_processing_time(tx_phy, 1500),
         dropped=True
       )
     packets.append(packet)
@@ -53,7 +53,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packet = MiiPacket(
         dst_mac_addr=dut_mac_address, vlan_prio_tag=vlan_prio_tag,
         create_data_args=['step', (11, 1501)],
-        inter_frame_gap=packet_processing_time(1500),
+        inter_frame_gap=packet_processing_time(tx_phy, 1500),
         dropped=True
       )
     packets.append(packet)
@@ -63,7 +63,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packet = MiiPacket(
         dst_mac_addr=dut_mac_address, vlan_prio_tag=vlan_prio_tag,
         create_data_args=['step', (12, 1549)],
-        inter_frame_gap=packet_processing_time(1500),
+        inter_frame_gap=packet_processing_time(tx_phy, 1500),
         dropped=True
       )
     packets.append(packet)
@@ -83,14 +83,14 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
-          inter_frame_gap=2*packet_processing_time(46)
+          inter_frame_gap=2*packet_processing_time(tx_phy, 46)
         ))
 
       # Take a copy to ensure that the original is not modified
       packet_copy = copy.deepcopy(packet)
 
       # Error frame after minimum IFG
-      packet_copy.inter_frame_gap = ifg
+      packet_copy.set_ifg(ifg)
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG

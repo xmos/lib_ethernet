@@ -9,12 +9,18 @@ from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
+from helpers import get_sim_args
 
 def do_test(impl, tx_clk, tx_phy):
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_etype_filter/bin/{impl}_{phy}/test_etype_filter_{impl}_{phy}.xe'.format(
-        impl=impl, phy=tx_phy.get_name())
+    testname = 'test_etype_filter'
+
+    binary = '{test}/bin/{impl}_{phy}/{test}_{impl}_{phy}.xe'.format(
+        test=testname, impl=impl, phy=tx_phy.get_name())
+
+    print "Running {test}: {phy} phy at {clk}".format(
+        test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
 
     dut_mac_address = get_dut_mac_address()
     packets = [
@@ -27,13 +33,14 @@ def do_test(impl, tx_clk, tx_phy):
     tx_phy.set_packets(packets)
 
     tester = xmostest.ComparisonTester(open('test_etype_filter.expect'),
-                                     'lib_ethernet', 'basic_tests',
-                                      'etype_filter_test',
+                                     'lib_ethernet', 'basic_tests', testname,
                                       {'impl':impl, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
 
+    simargs = get_sim_args(testname, impl, tx_clk, tx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads = [tx_clk, tx_phy],
-                              tester = tester)
+                              simthreads=[tx_clk, tx_phy],
+                              tester=tester,
+                              simargs=simargs)
 
 def runtest():
     random.seed(1)
