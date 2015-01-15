@@ -5,7 +5,7 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args
+from helpers import get_sim_args, get_mii_rx_clk_phy
 
 def packet_checker(packet, phy):
     print "Packet received:"
@@ -47,13 +47,8 @@ def do_test(impl, clk, phy):
                               simargs=simargs)
 
 def runtest():
-    clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
-    mii = MiiReceiver('tile[0]:XS1_PORT_4F',
-                      'tile[0]:XS1_PORT_1L',
-                      clock_25,
-                      print_packets=False,
-                      packet_fn=packet_checker,
-                      test_ctrl='tile[0]:XS1_PORT_1A')
+    xmostest.build('test_tx')
 
-    do_test('standard', clock_25, mii)
-    do_test('rt', clock_25, mii)
+    (clk_25, mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+    do_test('standard', clk_25, mii)
+    do_test('rt', clk_25, mii)

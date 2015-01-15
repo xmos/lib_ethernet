@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 import xmostest
+import argparse
+
+import helpers
 
 if __name__ == "__main__":
-    xmostest.init()
+    global trace
+    argparser = argparse.ArgumentParser(description="XMOS lib_ethernet tests")
+    argparser.add_argument('--trace', action='store_true', help='Run tests with simulator and VCD traces')
+    helpers.args = xmostest.init(argparser)
 
     xmostest.register_group("lib_ethernet",
                             "basic_tests",
@@ -13,10 +19,6 @@ simulator model (written as a python plugin to xsim). Basic functioanlity is tes
 """)
 
     xmostest.build('test_rx')
-    xmostest.build('test_tx')
-    xmostest.build('test_etype_filter')
-    xmostest.build('test_time_tx')
-    xmostest.build('test_time_rx')
 
     xmostest.runtests()
 

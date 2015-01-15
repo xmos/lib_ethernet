@@ -18,13 +18,20 @@ APP_NAME =
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to
 # xcc for the final link (mapping) stage.
 
-COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE
+SHARED_CODE = ../../include
 
 XTA_PRAGMA_INCLUDES = -I'../../xta'
 
-XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) $(XTA_PRAGMA_INCLUDES) -DRT=1 -DRGMII=0
-XCC_FLAGS_standard_mii = $(COMMON_FLAGS) $(XTA_PRAGMA_INCLUDES) -DRT=0 -DRGMII=0
-XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) $(XTA_PRAGMA_INCLUDES) -DRT=0 -DRGMII=1
+COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
+COMMON_FLAGS += $(XTA_PRAGMA_INCLUDES)
+
+XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
+XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
+XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
+
+ifeq ($(CONFIG),rt_rgmii)
+	TARGET = XS2-MODULE
+endif
 
 # The USED_MODULES variable lists other module used by the application.
 

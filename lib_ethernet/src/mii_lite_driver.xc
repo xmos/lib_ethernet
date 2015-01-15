@@ -54,20 +54,36 @@ static int CRCBad(int base, int end) {
     unsigned int tailLength = value_2(end);
     unsigned int partCRC = value_3(end);
     unsigned int length = end - base + (tailLength >> 3);
-    switch(tailLength >> 3) {
+    switch (tailLength >> 2) {
     case 0:
-        break;
     case 1:
+        break;
+    case 2:
         tailBits >>= 24;
         tailBits = crc8shr(partCRC, tailBits, POLY);
         break;
-    case 2:
+    case 3:
+        tailBits >>= 20;
+        tailBits = crc8shr(partCRC, tailBits, POLY);
+        break;
+    case 4:
         tailBits >>= 16;
         tailBits = crc8shr(partCRC, tailBits, POLY);
         tailBits = crc8shr(partCRC, tailBits, POLY);
         break;
-    case 3:
+    case 5:
+        tailBits >>= 12;
+        tailBits = crc8shr(partCRC, tailBits, POLY);
+        tailBits = crc8shr(partCRC, tailBits, POLY);
+        break;
+    case 6:
         tailBits >>= 8;
+        tailBits = crc8shr(partCRC, tailBits, POLY);
+        tailBits = crc8shr(partCRC, tailBits, POLY);
+        tailBits = crc8shr(partCRC, tailBits, POLY);
+        break;
+    case 7:
+        tailBits >>= 4;
         tailBits = crc8shr(partCRC, tailBits, POLY);
         tailBits = crc8shr(partCRC, tailBits, POLY);
         tailBits = crc8shr(partCRC, tailBits, POLY);
@@ -97,7 +113,7 @@ static int packetGood(struct mii_lite_data_t &this, int base, int end) {
  * circular buffer; more allocated buffers are found wrapped around to the
  * head, one indicates that this is the write pointer.
  *
- * THere are two circular buffers, denoted Bank 0 and Bank 1. Each buffer
+ * There are two circular buffers, denoted Bank 0 and Bank 1. Each buffer
  * has a free pointer, a write pointer, a lastsafe pointer, and a first
  * pointer. The first pointer is the address of the first word of memory,
  * the last safe pointer is the address of the last word where a full
@@ -233,7 +249,7 @@ static void miiRejectBuffer(struct mii_lite_data_t &this, unsigned int currentBu
 }
 
 #pragma unsafe arrays
-void mii_restart_buffer(struct mii_lite_data_t &this) {
+void mii_lite_restart_buffer(struct mii_lite_data_t &this) {
     int bn;
     if (this.nextBuffer != -1) {
         return;

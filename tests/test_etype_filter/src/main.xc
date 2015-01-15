@@ -10,6 +10,7 @@
 #include "debug_print.h"
 #include "syscall.h"
 #include "xta_test_pragmas.h"
+#include "helpers.xc"
 
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
@@ -73,6 +74,9 @@ int main()
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
                                 2000, 2000, 2000, 2000, 1);
+    on tile[0]: filler(0x66);
+    on tile[0]: filler(0x77);
+
     #else
     on tile[0]: mii_ethernet(i_eth, 2,
                              p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
@@ -80,6 +84,11 @@ int main()
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
                              ETH_RX_BUFFER_SIZE_WORDS);
+    on tile[0]: filler(0x44);
+    on tile[0]: filler(0x55);
+    on tile[0]: filler(0x66);
+    on tile[0]: filler(0x77);
+
     #endif
 
     on tile[0]: test_task(i_eth[0], 0x1111, 1);

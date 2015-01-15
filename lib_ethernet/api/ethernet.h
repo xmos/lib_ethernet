@@ -3,6 +3,7 @@
 #include <xs1.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "ethernet_defines.h"
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -13,10 +14,6 @@ typedef enum eth_packet_type_t {
 } eth_packet_type_t;
 
 #define ETHERNET_ALL_INTERFACES  (-1)
-
-#ifndef ETHERNET_MAX_PACKET_SIZE
-#define ETHERNET_MAX_PACKET_SIZE (1518)
-#endif
 
 /** Type representing link events. */
 typedef enum ethernet_link_state_t {
@@ -114,6 +111,49 @@ enum ethernet_enable_shaper_t {
   ETHERNET_DISABLE_SHAPER
 };
 
+/** Ethernet component to connect to an RGMII interface
+ *
+ *  This function implements an ethernet component connected to an RGMII
+ *  interface.
+ *  Interaction to the component is via the connected filtering, configuration
+ *  and data interfaces.
+ *
+ *  \param i_eth        array of interfaces to connect to the clients of the
+ *                      MAC (i.e. the tasks sending/receiving data)
+ *  \param n            the number of clients connected
+ *  \param p_rxclk            RX clock port
+ *  \param p_rxer             RX error port
+ *  \param p_rxd_1000         1Gb RX data port
+ *  \param p_rxd_10_100       10/100Mb RX data port
+ *  \param p_rxd_interframe   Interframe RX data port
+ *  \param p_rxdv             RX data valid port
+ *  \param p_rxdv_interframe  Interframe RX data valid port
+ *  \param p_txclk_in         TX clock input port
+ *  \param p_txclk_out        TX clock output port
+ *  \param p_txer             TX error port
+ *  \param p_txen             TX enable port
+ *  \param p_txd              TX data port
+ *  \param rxclk              Clock used for receive timing
+ *  \param rxclk_interframe   Clock used for interframe receive timing
+ *  \param txclk              Clock used for transmit timing
+ *  \param txclk_out          Second clock used for transmit timing
+ *  \param bufsize_words      The number of words to used for receive and
+ *                            transmit buffers.
+ */
+void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
+                        in port p_rxclk, in port p_rxer,
+                        in port p_rxd_1000, in port p_rxd_10_100,
+                        in port p_rxd_interframe,
+                        in port p_rxdv, in port p_rxdv_interframe,
+                        in port p_txclk_in, out port p_txclk_out,
+                        out port p_txer, out port p_txen,
+                        out port p_txd,
+                        clock rxclk,
+                        clock rxclk_interframe,
+                        clock txclk,
+                        clock txclk_out,
+                        static const unsigned bufsize_words);
+
 /** Ethernet component to connect to an MII interface (with real-time features).
  *
  *  This function implements an ethernet component connected to an
@@ -124,7 +164,6 @@ enum ethernet_enable_shaper_t {
  *  \param i_eth        array of interfaces to connect to the clients of the
  *                      MAC (i.e. the tasks sending/receiving data)
  *  \param n            the number of clients connected
- *  \param mac_address  The Ethernet MAC address for the component to use
  *  \param p_rxclk      RX clock port
  *  \param p_rxer       RX error port
  *  \param p_rxd        RX data port
@@ -171,7 +210,6 @@ void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
  *  \param i_eth        array of interfaces to connect to the clients of the
  *                      MAC (i.e. the tasks sending/receiving data)
  *  \param n            the number of clients connected
- *  \param mac_address  The Ethernet MAC address for the component to use
  *  \param p_rxclk      RX clock port
  *  \param p_rxer       RX error port
  *  \param p_rxd        RX data port

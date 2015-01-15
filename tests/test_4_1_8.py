@@ -5,10 +5,15 @@ import copy
 from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
+from mii_clock import Clock
 
 def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
+
+    if tx_clk.get_rate() == Clock.CLK_125MHz:
+        # This test is not relevant for gigabit
+        return
 
     dut_mac_address = get_dut_mac_address()
 

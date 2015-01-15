@@ -6,6 +6,7 @@
 #include <platform.h>
 #include "ethernet.h"
 #include "xta_test_pragmas.h"
+#include "helpers.xc"
 
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
@@ -18,7 +19,8 @@ port p_eth_txclk  = on tile[0]: XS1_PORT_1I;
 port p_eth_int    = on tile[0]: XS1_PORT_1O;
 port p_eth_rxerr  = on tile[0]: XS1_PORT_1P;
 port p_eth_dummy  = on tile[0]: XS1_PORT_8C;
-port p_test_ctrl  = on tile[0]: XS1_PORT_1A;
+
+port p_test_ctrl  = on tile[0]: XS1_PORT_1C;
 
 clock eth_rxclk   = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk   = on tile[0]: XS1_CLKBLK_2;
@@ -91,6 +93,10 @@ int main()
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
                                 2000, 2000, 2000, 2000, 1);
+    on tile[0]: filler(0x111);
+    on tile[0]: filler(0x222);
+    on tile[0]: filler(0x333);
+
     #else
     on tile[0]: mii_ethernet(i_eth, 1,
                              p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
@@ -98,6 +104,12 @@ int main()
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
                              ETH_RX_BUFFER_SIZE_WORDS);
+    on tile[0]: filler(0x11);
+    on tile[0]: filler(0x22);
+    on tile[0]: filler(0x33);
+    on tile[0]: filler(0x44);
+    on tile[0]: filler(0x55);
+
     #endif
     on tile[0]: test_tx(i_eth[0]);
   }

@@ -1,7 +1,6 @@
 import xmostest
 import sys
 import zlib
-
 from mii_packet import MiiPacket
 
 class TxPhy(xmostest.SimThread):
@@ -9,15 +8,19 @@ class TxPhy(xmostest.SimThread):
     # Time in ns from the last packet being sent until the end of test is signalled to the DUT
     END_OF_TEST_TIME = 5000
 
-    def __init__(self, name, rxd, rxdv, clock, initial_delay, verbose, test_ctrl):
+    def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay, verbose,
+                 test_ctrl, do_timeout, complete_fn):
         self._name = name
         self._test_ctrl = test_ctrl
         self._rxd = rxd
         self._rxdv = rxdv
+        self._rxer = rxer
         self._packets = []
         self._clock = clock
         self._initial_delay = initial_delay
         self._verbose = verbose
+        self._do_timeout = do_timeout
+        self._complete_fn = complete_fn
 
     def get_name(self):
         return self._name
@@ -34,6 +37,9 @@ class TxPhy(xmostest.SimThread):
         if self._verbose:
             print "All packets sent"
 
+        if self._complete_fn:
+            self._complete_fn(self)
+
         # Give the DUT a reasonable time to process the packet
         self.wait_until(self.xsi.get_time() + self.END_OF_TEST_TIME)
 
@@ -41,16 +47,19 @@ class TxPhy(xmostest.SimThread):
             # Indicate to the DUT that the test has finished
             self.xsi.drive_port_pins(self._test_ctrl, 1)
 
-        # Allow time for a maximum sized packet to arrive
-        timeout_time = (self._clock.get_bit_time() * 1522 * 8)
-        # And allow some time for the packets to get through the buffers internally
-        #  - packet is copied twice at a rate of 1-bit per cycle
-        timeout_time += 2 * 1522 * 8
-        # Add some overhead for the system
-        timeout_time += 10000
-        self.wait_until(self.xsi.get_time() + timeout_time)
-        print "ERROR: Test timed out"
-        self.xsi.terminate()
+        if self._do_timeout:
+            # Allow time for a maximum sized packet to arrive
+            timeout_time = (self._clock.get_bit_time() * 1522 * 8)
+
+            # And allow some time for the packets to get through the buffers internally
+            #  - packet is copied twice. Allow 2 cycles per bit
+            timeout_time += 2 * 1522 * 8 * 2
+
+            # Add some overhead for the system
+            timeout_time += 10000
+            self.wait_until(self.xsi.get_time() + timeout_time)
+            print "ERROR: Test timed out"
+            self.xsi.terminate()
 
     def set_clock(self, clock):
         self._clock = clock
@@ -61,9 +70,12 @@ class TxPhy(xmostest.SimThread):
 
 class MiiTransmitter(TxPhy):
 
-    def __init__(self, rxd, rxdv, clock,
-                 initial_delay=30000, verbose=False, test_ctrl=None):
-        super(MiiTransmitter, self).__init__('mii', rxd, rxdv, clock, initial_delay, verbose, test_ctrl)
+    def __init__(self, rxd, rxdv, rxer, clock,
+                 initial_delay=80000, verbose=False, test_ctrl=None,
+                 do_timeout=True, complete_fn=None):
+        super(MiiTransmitter, self).__init__('mii', rxd, rxdv, rxer, clock,
+                                             initial_delay, verbose, test_ctrl,
+                                             do_timeout, complete_fn)
 
     def run(self):
         xsi = self.xsi
@@ -75,17 +87,28 @@ class MiiTransmitter(TxPhy):
                 print "Sending packet {p}".format(p=packet)
                 packet.dump()
 
+            error_nibbles = packet.get_error_nibbles()
+
             # Don't wait the inter-frame gap on the first packet
             if i:
                 self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
-            for nibble in packet.get_nibbles():
+            for (i, nibble) in enumerate(packet.get_nibbles()):
                 self.wait(lambda x: self._clock.is_low())
                 xsi.drive_port_pins(self._rxdv, 1)
                 xsi.drive_port_pins(self._rxd, nibble)
+
+                # Signal an error if required
+                if i in error_nibbles:
+                    xsi.drive_port_pins(self._rxer, 1)
+                else:
+                    xsi.drive_port_pins(self._rxer, 0)
+
                 self.wait(lambda x: self._clock.is_high())
+
             self.wait(lambda x: self._clock.is_low())
             xsi.drive_port_pins(self._rxdv, 0)
+            xsi.drive_port_pins(self._rxer, 0)
 
             if self._verbose:
                 print "Sent"
@@ -95,12 +118,13 @@ class MiiTransmitter(TxPhy):
 
 class RxPhy(xmostest.SimThread):
 
-    def __init__(self, name, txd, txen, clock, print_packets, packet_fn, test_ctrl):
+    def __init__(self, name, txd, txen, clock, print_packets, packet_fn, verbose, test_ctrl):
         self._name = name
         self._txd = txd
         self._txen = txen
         self._clock = clock
         self._print_packets = print_packets
+        self._verbose = verbose
         self._test_ctrl = test_ctrl
         self._packet_fn = packet_fn
 
@@ -129,8 +153,9 @@ class RxPhy(xmostest.SimThread):
 class MiiReceiver(RxPhy):
 
     def __init__(self, txd, txen, clock, print_packets=False,
-                 packet_fn=None, test_ctrl=None):
-        super(MiiReceiver, self).__init__('mii', txd, txen, clock, print_packets, packet_fn, test_ctrl)
+                 packet_fn=None, verbose=False, test_ctrl=None):
+        super(MiiReceiver, self).__init__('mii', txd, txen, clock, print_packets,
+                                          packet_fn, verbose, test_ctrl)
 
     def run(self):
         xsi = self.xsi
@@ -167,6 +192,7 @@ class MiiReceiver(RxPhy):
                 if xsi.sample_port_pins(self._txen) == 0:
                     last_frame_end_time = self.xsi.get_time()
                     break
+
                 nibble = xsi.sample_port_pins(self._txd)
                 if in_preamble:
                     if nibble == 0xd:

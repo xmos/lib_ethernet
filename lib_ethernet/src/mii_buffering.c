@@ -119,14 +119,15 @@ mii_packet_t *mii_reserve(mii_mempool_t mempool,
 
 void mii_commit(mii_packet_t *buf, unsigned *endptr0)
 {
+  // The filter thread will set the stage quickly in the case of a length error so
+  // set stage before the filter thread does.
+  mii_packet_t *pkt = (mii_packet_t *) buf;
+  pkt->stage = 0;
+
   int *end_ptr = (int *) endptr0;
   malloc_hdr_t *hdr = (malloc_hdr_t *) ((char *) buf - sizeof(malloc_hdr_t));
   mempool_info_t *info = (mempool_info_t *) hdr->info;
-  mii_packet_t *pkt;
   int *end = info->end;
-
-  pkt = (mii_packet_t *) buf;
-  pkt->stage = 0;
 
 #if 0 && (NUM_ETHERNET_PORTS > 1) && !defined(DISABLE_ETHERNET_PORT_FORWARDING)
   pkt->forwarding = 0;

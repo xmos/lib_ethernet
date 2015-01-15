@@ -3,6 +3,8 @@ import sys
 import zlib
 from itertools import izip
 from mii_phy import TxPhy, RxPhy
+from mii_packet import MiiPacket
+from mii_clock import Clock
 
 def pairwise(t):
     it = iter(t)
@@ -14,9 +16,12 @@ class RgmiiTransmitter(TxPhy):
     (FULL_DUPLEX, HALF_DUPLEX) = (0x8, 0x0)
     (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
-    def __init__(self, rxd, rxdv, mode_rxd, mode_rxdv, clock,
-                 initial_delay=30000, verbose=False, test_ctrl=None):
-        super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, clock, initial_delay, verbose, test_ctrl)
+    def __init__(self, rxd, rxdv, mode_rxd, mode_rxdv, rxer, clock,
+                 initial_delay=45000, verbose=False, test_ctrl=None,
+                 do_timeout=True, complete_fn=None):
+        super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, rxer, clock,
+                                               initial_delay, verbose, test_ctrl,
+                                               do_timeout, complete_fn)
         self._mode_rxd = mode_rxd
         self._mode_rxdv = mode_rxdv
         self._phy_status = (self.FULL_DUPLEX | self.LINK_UP | clock.get_rate())
@@ -41,25 +46,58 @@ class RgmiiTransmitter(TxPhy):
         self.start_test()
 
         for i,packet in enumerate(self._packets):
+            packet_rate = self._clock.get_rate()
+
             if self._verbose:
                 print "Sending packet {p}".format(p=packet)
                 packet.dump()
+
+            error_nibbles = packet.get_error_nibbles()
 
             # Don't wait the inter-frame gap on the first packet
             if i:
                 self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
-            for (a,b) in pairwise(packet.get_nibbles()):
-                byte = (a << 4) | b
-                self.wait(lambda x: self._clock.is_low())
-                self.set_dv(1)
-                self.set_data(byte)
-                self.wait(lambda x: self._clock.is_high())
+            if packet_rate == Clock.CLK_125MHz:
+                # The RGMII phy puts a nibble on each edge at 1Gb/s. This is mapped
+                # to having a byte every clock by the shim in the DUT
+                i = 0
+                for (a,b) in pairwise(packet.get_nibbles()):
+                    byte = a | (b << 4)
+                    self.wait(lambda x: self._clock.is_low())
+                    self.set_dv(1)
+                    self.set_data(byte)
+
+                    # Signal an error if required
+                    if i in error_nibbles or i+1 in error_nibbles:
+                        xsi.drive_port_pins(self._rxer, 1)
+                    else:
+                        xsi.drive_port_pins(self._rxer, 0)
+
+                    self.wait(lambda x: self._clock.is_high())
+                    i += 2
+            else:
+                # The RGMII phy will replicate the data on both edges at 10/100Mb/s
+                for (i, nibble) in enumerate(packet.get_nibbles()):
+                    byte = nibble | (nibble << 4)
+                    self.wait(lambda x: self._clock.is_low())
+                    self.set_dv(1)
+                    self.set_data(byte)
+
+                    # Signal an error if required
+                    if i in error_nibbles:
+                        xsi.drive_port_pins(self._rxer, 1)
+                    else:
+                        xsi.drive_port_pins(self._rxer, 0)
+
+                    self.wait(lambda x: self._clock.is_high())
+
             self.wait(lambda x: self._clock.is_low())
 
             # When DV is low, the PHY should indicate its mode on the DATA pins
             self.set_data(self._phy_status)
             self.set_dv(0)
+            xsi.drive_port_pins(self._rxer, 0)
 
             if self._verbose:
                 print "Sent"
@@ -70,8 +108,9 @@ class RgmiiTransmitter(TxPhy):
 class RgmiiReceiver(RxPhy):
 
     def __init__(self, txd, txen, clock, print_packets=False,
-                 packet_fn=None, test_ctrl=None):
-        super(RgmiiReceiver, self).__init__('rgmii', txd, txen, clock, print_packets, packet_fn, test_ctrl)
+                 packet_fn=None, verbose=None, test_ctrl=None):
+        super(RgmiiReceiver, self).__init__('rgmii', txd, txen, clock, print_packets,
+                                            packet_fn, verbose, test_ctrl)
 
     def run(self):
         xsi = self.xsi
@@ -95,6 +134,7 @@ class RgmiiReceiver(RxPhy):
 
             frame_start_time = self.xsi.get_time()
             in_preamble = True
+            packet_rate = self._clock.get_rate()
 
             if last_frame_end_time:
                 ifgap = frame_start_time - last_frame_end_time
@@ -109,16 +149,30 @@ class RgmiiReceiver(RxPhy):
                     last_frame_end_time = self.xsi.get_time()
                     break
                 byte = xsi.sample_port_pins(self._txd)
-                if in_preamble:
-                    if byte == 0xd5:
-                        packet.append_preamble_nibble(byte & 0xf)
-                        packet.set_sfd_nibble(byte >> 4)
-                        in_preamble = False
+                if packet_rate == Clock.CLK_125MHz:
+                    # The RGMII phy at 1Gb/s expects a different nibble on each clock edge
+                    # and hence will get a byte per cycle
+                    if in_preamble:
+                        if byte == 0xd5:
+                            packet.append_preamble_nibble(byte & 0xf)
+                            packet.set_sfd_nibble(byte >> 4)
+                            in_preamble = False
+                        else:
+                            packet.append_preamble_nibble(byte & 0xf)
+                            packet.append_preamble_nibble(byte >> 4)
                     else:
-                        packet.append_preamble_nibble(byte & 0xf)
-                        packet.append_preamble_nibble(byte >> 4)
+                        packet.append_data_byte(byte)
                 else:
-                    packet.append_data_byte(byte)
+                    # The RGMII phy at 10/100Mb/s only gets one nibble of data per clock
+                    nibble = byte & 0xf
+                    if in_preamble:
+                        if nibble == 0xd:
+                            packet.set_sfd_nibble(nibble)
+                            in_preamble = False
+                        else:
+                            packet.append_preamble_nibble(nibble)
+                    else:
+                        packet.append_data_nibble(nibble)
 
                 self.wait(lambda x: self._clock.is_high())
 

@@ -122,11 +122,16 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
     client_info[i].num_etype_filters = 0;
   }
 
+  int prioritize_rx = 0;
   while (1) {
+    if (prioritize_rx)
+      prioritize_rx--;
+
     select {
     case i_eth[int i].get_packet(ethernet_packet_info_t &desc,
                                  char data[n],
                                  unsigned n):
+      prioritize_rx += 1;
       if (client_info[i].status_update_state == STATUS_UPDATE_PENDING) {
         data[0] = 1;
         data[1] = link_status;
@@ -227,7 +232,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
     case i_eth[int i]._init_send_packet(unsigned n, int is_high_priority,
                                        unsigned dst_port):
       if (client_info[i].send_buffer == null)
-        client_info[i].requested_send_buffer_size = n;
+        client_info[i].requested_send_buffer_size = n + sizeof(mii_packet_t);
       if (tx_hp_mem)
         client_info[i].requested_send_priority = is_high_priority;
       break;
@@ -242,7 +247,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 
     [[independent_guard]]
     case (int i = 0; i < n; i++)
-      (client_info[i].send_buffer != null) =>
+      (client_info[i].send_buffer != null && !prioritize_rx) =>
        i_eth[i]._complete_send_packet(char data[n], unsigned n,
                                      int request_timestamp,
                                      unsigned dst_port):
@@ -255,8 +260,9 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
       int len2 = prewrap > len ? 0 : len - prewrap;
       memcpy(dptr, data, len1);
       if (len2) {
-        memcpy((unsigned *) *wrap_ptr, &data[len1], len2);
-        dptr = wrap_ptr + (len2+3)/4;
+        unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
+        memcpy((unsigned *) start_ptr, &data[len1], len2);
+        dptr = start_ptr + (len2+3)/4;
       }
       else {
         dptr = dptr + (len+3)/4;
@@ -271,6 +277,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
       buf->stage = 1;
       client_info[i].send_buffer = null;
       client_info[i].requested_send_buffer_size = 0;
+      prioritize_rx = 3;
       break;
 
     case i_eth[int i].set_link_state(int ifnum, ethernet_link_state_t status):
@@ -319,7 +326,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_hp_mem,
 
 
 void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
-                  in port p_rxclk, in port p_rxer, in port p_rxd0, in port p_rxdv,
+                  in port p_rxclk, in port p_rxer0, in port p_rxd0, in port p_rxdv,
                   in port p_txclk, out port p_txen, out port p_txd0,
                   clock rxclk, clock txclk,
                   static const unsigned rx_bufsize_words,
@@ -331,6 +338,9 @@ void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
   in port * movable pp_rxd0 = &p_rxd0;
   in buffered port:32 * movable pp_rxd = reconfigure_port(move(pp_rxd0), in buffered port:32);
   in buffered port:32 &p_rxd = *pp_rxd;
+  in port * movable pp_rxer0 = &p_rxer0;
+  in buffered port:1 * movable pp_rxer = reconfigure_port(move(pp_rxer0), in buffered port:1);
+  in buffered port:1 &p_rxer = *pp_rxer;
   out port * movable pp_txd0 = &p_txd0;
   out buffered port:32 * movable pp_txd = reconfigure_port(move(pp_txd0), out buffered port:32);
   out buffered port:32 &p_txd = *pp_txd;
@@ -355,7 +365,7 @@ void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
   chan c_conf;
   par {
       mii_master_rx_pins(rx_hp_mem, rx_lp_mem,
-                         p_rxdv, p_rxd, c);
+                         p_rxdv, p_rxd, p_rxer, c);
       mii_master_tx_pins(tx_hp_mem, tx_lp_mem, ts_queue, p_txd,
                          enable_shaper == ETHERNET_ENABLE_SHAPER, &idle_slope);
       mii_ethernet_filter(c, c_conf);

@@ -23,6 +23,14 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             dropped=True
           ))
 
+        # Also do this for VLAN tagged frames
+        error_packets.append(MiiPacket(
+            dst_mac_addr=dut_mac_address, vlan_prio_tag=[0x81, 0x00, 0x00, 0x00],
+            ether_len_type=[(len_type >> 8) & 0xff, len_type & 0xff],
+            create_data_args=['step', (step, num_data_bytes)],
+            dropped=True
+          ))
+
     # Part B - Part A with valid frames before/after the errror frame
     packets = []
     for packet in error_packets:

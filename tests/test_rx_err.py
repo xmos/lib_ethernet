@@ -3,6 +3,7 @@
 import random
 import copy
 from mii_packet import MiiPacket
+from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
@@ -14,23 +15,41 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     error_packets = []
 
-    # Part A - Invalid SFD nibble: use preamble nibble (0x5)
+    # Test that packets where the RXER line goes high are dropped even
+    # if the rest of the packet is valid
+
+    # Error on the first nibble of the preamble
+    num_data_bytes = choose_small_frame_size(rand)
     error_packets.append(MiiPacket(
         dst_mac_addr=dut_mac_address,
-        sfd_nibble=0x5,
-        create_data_args=['step', (19, choose_small_frame_size(rand))],
+        num_data_bytes=num_data_bytes,
+        error_nibbles=[0],
         dropped=True
       ))
 
-    # Part B - Invalid SFD: replace last byte of preamble with 0x9 instead of 0x5
+    # Error somewhere in the middle of the packet
+    num_data_bytes = choose_small_frame_size(rand)
     error_packets.append(MiiPacket(
         dst_mac_addr=dut_mac_address,
-        preamble_nibbles=[0x5 for x in range(14)] + [0x9],
-        create_data_args=['step', (20, choose_small_frame_size(rand))],
+        num_data_bytes=num_data_bytes,
         dropped=True
       ))
+    packet = error_packets[-1]
+    error_nibble = rand.randint(packet.num_preamble_nibbles + 1, len(packet.get_nibbles()))
+    packet.error_nibbles = [error_nibble]
 
-    # Part C - Parts A and B with valid frames before/after the errror frame
+    # Due to BUG 16233 the RGMII code won't always detect an error in the last two bytes
+    num_data_bytes = choose_small_frame_size(rand)
+    error_packets.append(MiiPacket(
+        dst_mac_addr=dut_mac_address,
+        num_data_bytes=num_data_bytes,
+        dropped=True
+      ))
+    packet = error_packets[-1]
+    packet.error_nibbles = [len(packet.get_nibbles()) - 5]
+
+    # Now run all packets with valid frames before/after the errror frame to ensure the
+    # errors don't interfere with valid frames
     packets = []
     for packet in error_packets:
         packets.append(packet)
@@ -41,7 +60,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
-          inter_frame_gap=2*packet_processing_time(tx_phy, 46)
+          inter_frame_gap=3*packet_processing_time(tx_phy, 46)
         ))
 
       # Take a copy to ensure that the original is not modified
@@ -61,5 +80,5 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 def runtest():
-    random.seed(17)
+    random.seed(19)
     runall_rx(do_test)

@@ -9,7 +9,7 @@ from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
-from helpers import get_sim_args, create_if_needed
+from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy
 
 def do_test(impl, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -49,8 +49,8 @@ def do_test(impl, tx_clk, tx_phy, seed):
                 dst_mac_addr=dut_mac_address, inter_frame_gap=ifg, num_data_bytes=length
               ))
             
-            # Add on the overhead of the packet header and CRC
-            num_data_bytes += length + 18
+            # Add on the overhead of the packet header
+            num_data_bytes += length + 14
 
             if len(packets) == 150:
                 done = True
@@ -90,12 +90,9 @@ def create_expect(packets, filename):
 def runtest():
     random.seed(1)
 
-    # Test 100 MBit - MII
-    tx_clk_25 = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
-    tx_mii = MiiTransmitter('tile[0]:XS1_PORT_4E',
-                            'tile[0]:XS1_PORT_1K',
-                            tx_clk_25,
-                            test_ctrl='tile[0]:XS1_PORT_1A')
+    xmostest.build('test_time_rx')
 
+    # Test 100 MBit - MII
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C')
     do_test("standard", tx_clk_25, tx_mii, random.randint(0, sys.maxint))
     do_test("rt", tx_clk_25, tx_mii, random.randint(0, sys.maxint))

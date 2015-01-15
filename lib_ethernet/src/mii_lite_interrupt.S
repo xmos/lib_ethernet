@@ -37,31 +37,31 @@
 
     .align 4
 mii_lite_install_handler:
-    setd   res[r3], r3                //    synchronising interrupt routine and user land
+    setd   res[r3], r3                       //    synchronising interrupt routine and user land
     stw    r3, r0[notificationChannelEnd]    //    it points to itself
 
-    stw    r2, r0[miiChannelEnd]   // Step 2: Channel end to MIILLD layer, store it
-    ldap   r11, miiInterruptHandler   //         and set it up for interrupts.
+    stw    r2, r0[miiChannelEnd]       // Step 2: Channel end to MIILLD layer, store it
+    ldap   r11, miiInterruptHandler    //         and set it up for interrupts.
     setc   res[r2], XS1_SETC_IE_MODE_INTERRUPT
     setv   res[r2], r11
     eeu    res[r2]
-    or     r11, r0, r0
-    setev  res[r2], r11
+    mov    r11, r0
+    setev  res[r2], r11                // Step 3: Set the EV to the mii_lite_data_t structure so that
+                                       //         the ED will contain the pointer on interrupt
 
     ldc    r3, kernelStackEnd
     ldaw   r2, r0[r3]                  // Step 5: Set up kernel stack.
-    ldaw   r11, sp[0]                  //         Save SP into R2
-    set    sp, r2	                   //         Set SP, and place old SP...
+    ldaw   r11, sp[0]                  //         Save SP into R11
+    set    sp, r2                      //         Set SP, and place old SP...
     stw    r11, sp[0]                  //         ...where KRESTSP expects it
-    krestsp 0	                       //         Set KSP, restore SP
+    krestsp 0                          //         Set KSP, restore SP
 
-    ldw    r2, r0[miiChannelEnd]   // Step 6: provide LLD with first buffer
+    ldw    r2, r0[miiChannelEnd]       // Step 6: provide LLD with first buffer
     out    res[r2], r1
-    stw    r1, r0[packetInLLD]        //         packetInLLD holds pointer passed to LLD.
+    stw    r1, r0[packetInLLD]         //         packetInLLD holds pointer passed to LLD.
 
-    setsr  IEBLE                      // Step 7: Enable interrupts!
+    setsr  IEBLE                       // Step 7: Enable interrupts!
     retsp  0
-
 
 
     .align 4
@@ -77,13 +77,12 @@ miiInterruptHandler:
                                      // no less than 10, no more than 40.
     stw    r1, sp[2]
 
-
     ldc    r1, 0
     out    res[r3], r1
 
     stw    r0, sp[1]
     stw    lr, sp[6]
-    or     r0, r11, r11
+    mov    r0, r11
     nop
     nop
     nop
@@ -96,9 +95,9 @@ miiInterruptHandler:
     add    r11, r11, 1
     bt     r11, buffersAvailable
     out    res[r3], r1               // Reuse this buffer - drop current packet.
-    ldw   r3, r0[miiPacketsOverran]
-    add   r3, r3, 1
-    stw   r3, r0[miiPacketsOverran]
+    ldw    r3, r0[miiPacketsOverran]
+    add    r3, r3, 1
+    stw    r3, r0[miiPacketsOverran]
     bu     returnFromInterrupt
 buffersAvailable:
     sub    r11, r11, 1

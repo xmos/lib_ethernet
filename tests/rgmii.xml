@@ -1,0 +1,22 @@
+<Xvcd zoomFactor="8.444617e+03" hScrollPos="0" vScrollPos="0" markerBarPos="1.361400e+04">
+    <Signals>
+        <Signal name="tile[1]_Functions_Thread0" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread1" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread2" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread3" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread4" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread5" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread6" alias="" radix="ASCII"/>
+        <Signal name="tile[1]_Functions_Thread7" alias="" radix="ASCII"/>
+        <Separator name="RX"/>
+        <Signal name="tile[1]_XS1_PORT_8A" alias="" radix="HEX"/>
+        <Signal name="tile[1]_XS1_PORT_1B" alias="" radix="HEX"/>
+        <Signal name="tile[1]_XS1_PORT_1K" alias="" radix="HEX"/>
+        <Signal name="tile[1]_XS1_PORT_4E_transferReg" alias="" radix="HEX"/>
+        <Signal name="tile[1]_XS1_PORT_1O" alias="" radix="HEX"/>
+        <Separator name="TX"/>
+        <Signal name="tile[1]_XS1_PORT_8B" alias="" radix="HEX"/>
+        <Signal name="tile[1]_XS1_PORT_1F" alias="" radix="HEX"/>
+        <Signal name="tile[1]_XS1_PORT_1P" alias="" radix="HEX"/>
+    </Signals>
+</Xvcd>

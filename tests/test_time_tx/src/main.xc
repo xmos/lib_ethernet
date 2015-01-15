@@ -6,7 +6,7 @@
 #include <platform.h>
 #include "ethernet.h"
 #include "xta_test_pragmas.h"
-#include "random.h"
+#include "helpers.xc"
 
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
@@ -33,8 +33,10 @@ void test_tx(client ethernet_if eth)
   char data[ETHERNET_MAX_PACKET_SIZE];
   int lengths[NUM_PACKET_LENGTHS];
 
-  // Choose random packet lengths
-  const int min_data_bytes = 0;
+  const int header_bytes = 14;
+
+  // Choose random packet lengths (but there must at least be a header)
+  const int min_data_bytes = header_bytes;
   random_generator_t rand = random_create_generator_from_seed(1);
   for (int i = 0; i < NUM_PACKET_LENGTHS; i++) {
     int do_small_packet = (random_get_random_number(rand) & 0xff) > 50;
@@ -58,8 +60,6 @@ void test_tx(client ethernet_if eth)
     x += step;
     data[j] = x;
   }
-
-  const int header_bytes = 14;
 
   while (1) {
     int do_burst = (random_get_random_number(rand) & 0xff) > 200;
@@ -93,6 +93,10 @@ int main()
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
                                 2000, 2000, 2000, 2000, 1);
+    on tile[0]: filler(0x333);
+    on tile[0]: filler(0x444);
+    on tile[0]: filler(0x555);
+
     #else
     on tile[0]: mii_ethernet(i_eth, 1,
                              p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
@@ -100,6 +104,12 @@ int main()
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
                              ETH_RX_BUFFER_SIZE_WORDS);
+    on tile[0]: filler(0x33);
+    on tile[0]: filler(0x44);
+    on tile[0]: filler(0x55);
+    on tile[0]: filler(0x66);
+    on tile[0]: filler(0x77);
+
     #endif
     on tile[0]: test_tx(i_eth[0]);
   }

@@ -5,7 +5,7 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args, create_if_needed
+from helpers import get_sim_args, create_if_needed, get_mii_rx_clk_phy
 
 num_test_packets = 150
 
@@ -85,12 +85,8 @@ def create_expect(filename):
             f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0 => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
 
 def runtest():
-    clock_25 = Clock('tile[0]:XS1_PORT_1I', Clock.CLK_25MHz)
-    mii = MiiReceiver('tile[0]:XS1_PORT_4F',
-                      'tile[0]:XS1_PORT_1L',
-                      clock_25,
-                      print_packets=False,
-                      packet_fn=packet_checker)
+    xmostest.build('test_time_tx')
 
-    do_test('standard', clock_25, mii)
-    do_test('rt', clock_25, mii)
+    (clk_25, mii) = get_mii_rx_clk_phy(packet_fn=packet_checker)
+    do_test('standard', clk_25, mii)
+    do_test('rt', clk_25, mii)

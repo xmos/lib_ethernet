@@ -142,58 +142,58 @@ mii_lite_lld:
     // IN coroutine.
 
 
-    .align 4                 // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
+    .align 4                  // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
     // Receive body of a packet
 mii_rxd:
-    in    r11, res[r0]       // Grab word to be loaded.
-    stw   r11, r4[1]         // Write data at end of packet
-    crc32 r10, r11, r6       // Update CRC
+    in    r11, res[r0]        // Grab word to be loaded.
+    stw   r11, r4[1]          // Write data at end of packet
+    crc32 r10, r11, r6        // Update CRC
     add   r4, r4, 4
-    kret                 // Post condition: res[r0] EN,  res[r1] EN,  res[r3] EN
+    kret                      // Post condition: res[r0] EN,  res[r1] EN,  res[r3] EN
 
-    .align 4                 // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
+    .align 4                  // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
     // End of packet: grab last few bytes
 mii_rxdv0:
-    in    r11, res[r1]       // clear RXDV port
-    out   res[r3], r4        // Output pointer to CRC to input layer
+    in    r11, res[r1]        // clear RXDV port
+    out   res[r3], r4         // Output pointer to CRC to input layer
     edu   res[r1]
-    kret                     // Post condition: res[r0] EN,  res[r1] EN,  res[r3] EN
+    kret                      // Post condition: res[r0] EN,  res[r1] EN,  res[r3] EN
 
-    .align 4                 // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
-mii_rxLastBits:              // Jumped to from mii_rxd_packet - not an entry point.
-    endin r11, res[r0]       // Get number of bits left
-    stw   r11, r4[2]         // Save the number of bits left
-    in    r11, res[r0]       // Grab them bits
-    stw   r11, r4[1]         // Save the left over 0, 8, 16, or 24 bits.
+    .align 4                  // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
+mii_rxLastBits:               // Jumped to from mii_rxd_packet - not an entry point.
+    endin r11, res[r0]        // Get number of bits left
+    stw   r11, r4[2]          // Save the number of bits left
+    in    r11, res[r0]        // Grab them bits
+    stw   r11, r4[1]          // Save the left over 0, 8, 16, or 24 bits.
     edu   res[r0]
-    stw   r10, r4[3]         // And save CRC
-    kret                 // Post condition: res[r0] DIS,  res[r1] DIS,  res[r3] EN
+    stw   r10, r4[3]          // And save CRC
+    kret                      // Post condition: res[r0] DIS,  res[r1] DIS,  res[r3] EN
 
-    .align 4                 // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
+    .align 4                  // Pre condition:  res[r0] EN,  res[r1] EN,  res[r3] EN
 mii_rxd_packet:
     in    r11, res[r3]        // Get pointer address to store data
     bf    r11, mii_rxLastBits
-    or    r4, r11, r11
+    mov   r4, r11
     eeu   res[r0]
     setc  res[r0], XS1_SETC_COND_EQ // Trigger on 0xD
     ldap  r11, mii_rxd_preamble // Setup RXD port to jump to right data.
     setv  res[r0], r11
     ldw   r11, sp[theTimer]
-    kret                 // Post condition: res[r0] EN,  res[r1] DIS, res[r3] EN
+    kret                      // Post condition: res[r0] EN,  res[r1] DIS, res[r3] EN
 
-    .align 4                 // Pre condition:  res[r0] EN,  res[r1] DIS, res[r3] EN
+    .align 4                  // Pre condition:  res[r0] EN,  res[r1] DIS, res[r3] EN
     // Received the end of the preamble.
 mii_rxd_preamble:
     in    r11, res[r11]
     stw   r11, r4[0]
-    in    r11, res[r0]       // Throw preamble away
-    ldw   r10, cp[initialCRC]         // Initialise CRC to something. What?
-    ldap  r11, mii_rxd       // And setup the RXD port for future events.
+    in    r11, res[r0]        // Throw preamble away
+    ldw   r10, cp[initialCRC] // Initialise CRC to something. What?
+    ldap  r11, mii_rxd        // And setup the RXD port for future events.
     setv  res[r0], r11
     setc  res[r1], XS1_SETC_RUN_CLRBUF
 //    setc  res[r1], XS1_SETC_COND_EQ
     eeu   res[r1]
-    kret                 // Post condition: res[r0] EN,  res[r1] EN,  res[r3] EN
+    kret                      // Post condition: res[r0] EN,  res[r1] EN,  res[r3] EN
 
     //----------------------------------------------------
     // OUT coroutine.
@@ -233,10 +233,10 @@ outIdle:
 
     // Get a pointer to the next packet
     ldw   r9, sp[OUTchannel]
-    outct res[r9], 1          // Request the next packet
+    outct res[r9], 1            // Request the next packet
     testct r5, res[r9]
     bt    r5, stateDone
-    in    r7, res[r9]          // Read the pointer to the packet
+    in    r7, res[r9]           // Read the pointer to the packet
 
     ldw   r5, cp[allFives]
 
@@ -272,12 +272,11 @@ outPacket:
     ldw   r8, r7[r8]
     crc32 r9, r8, r6
 
-
     ldw   r5, r7[2]
     ldw   r7, r7[1]
     out   res[r2], r8
     // Transmitting the tail of a packet
-    bau   r5          // This will jump to r5
+    bau   r5
 
     .align 4
 Tail0:

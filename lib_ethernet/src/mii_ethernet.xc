@@ -219,6 +219,7 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
 
     if (incoming_data != null && incoming_tcount == 0) {
       mii_lite_free_in_buffer(mii_lite_data, incoming_data);
+      mii_lite_restart_buffer(mii_lite_data);
       incoming_data = null;
     }
   }

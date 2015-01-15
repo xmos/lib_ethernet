@@ -4,6 +4,7 @@ import random
 from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
+from mii_clock import Clock
 
 def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -15,7 +16,12 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     # Part A - Send different length preambles and ensure the packets are still received
     # Check a selection of preamble lengths from 1 byte to 64 bytes (including SFD)
-    for num_preamble_nibbles in [2, 3, 4, 61, 127]:
+    test_lengths = [3, 4, 5, 61, 127]
+    if tx_clk.get_rate() == Clock.CLK_125MHz:
+        # The RGMII requires a longer preamble
+        test_lengths = [5, 7, 9, 61, 127]
+
+    for num_preamble_nibbles in test_lengths:
         packets.append(MiiPacket(
             dst_mac_addr=dut_mac_address,
             num_preamble_nibbles=num_preamble_nibbles,
