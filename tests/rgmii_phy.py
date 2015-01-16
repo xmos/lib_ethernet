@@ -49,7 +49,7 @@ class RgmiiTransmitter(TxPhy):
             packet_rate = self._clock.get_rate()
 
             if self._verbose:
-                print "Sending packet {p}".format(p=packet)
+                print "Sending packet {i}: {p}".format(i=i, p=packet)
                 packet.dump()
 
             error_nibbles = packet.get_error_nibbles()
@@ -114,19 +114,19 @@ class RgmiiReceiver(RxPhy):
 
     def run(self):
         xsi = self.xsi
-        self.wait_for_port_pins_change([self._txen])
+        self.wait(lambda x: xsi.sample_port_pins(self._txen) == 0)
 
         packet_count = 0
         last_frame_end_time = None
         while True:
             # Wait for TXEN to go high
             if self._test_ctrl is None:
-                self.wait_for_port_pins_change([self._txen])
+                self.wait(lambda x: xsi.sample_port_pins(self._txen) == 1)
             else:
-                if xsi.sample_port_pins(self._test_ctrl) == 1:
-                    xsi.terminate()
-                self.wait_for_port_pins_change([self._txen, self._test_ctrl])
-                if xsi.sample_port_pins(self._test_ctrl) == 1:
+                self.wait(lambda x: xsi.sample_port_pins(self._txen) == 1 or \
+                                    xsi.sample_port_pins(self._test_ctrl) == 1)
+
+                if xsi.sample_port_pins(self._txen) == 0 and xsi.sample_port_pins(self._test_ctrl) == 1:
                     xsi.terminate()
 
             # Start with a blank packet to ensure they are filled in by the receiver
@@ -148,7 +148,9 @@ class RgmiiReceiver(RxPhy):
                 if xsi.sample_port_pins(self._txen) == 0:
                     last_frame_end_time = self.xsi.get_time()
                     break
+
                 byte = xsi.sample_port_pins(self._txd)
+
                 if packet_rate == Clock.CLK_125MHz:
                     # The RGMII phy at 1Gb/s expects a different nibble on each clock edge
                     # and hence will get a byte per cycle

@@ -29,8 +29,6 @@ typedef struct ethernet_packet_info_t {
   unsigned filter_data;
 } ethernet_packet_info_t;
 
-#ifdef __XC__
-
 typedef struct ethernet_macaddr_filter_t {
   uint16_t vlan;
   unsigned char addr[6];
@@ -42,23 +40,15 @@ typedef enum ethernet_macaddr_filter_result_t {
   ETHERNET_MACADDR_FILTER_TABLE_FULL
 } ethernet_macaddr_filter_result_t;
 
-/** Ethernet endpoint interface.
+#ifdef __XC__
+
+/** Ethernet endpoint configuration interface.
  *
- *  This interface allows clients to send and receive packets. */
-typedef interface ethernet_if {
+ *  This interface allows clients to configure the ethernet endpoint. */
+typedef interface ethernet_cfg_if {
   void set_macaddr(size_t ifnum, unsigned char mac_address[6]);
 
   void get_macaddr(size_t ifnum, unsigned char mac_address[6]);
-
-  ethernet_macaddr_filter_result_t
-  add_macaddr_filter(ethernet_macaddr_filter_t entry);
-
-  void del_macaddr_filter(ethernet_macaddr_filter_t entry);
-
-  void del_all_macaddr_filters(void);
-
-  void add_ethertype_filter(uint16_t ethertype);
-  void del_ethertype_filter(uint16_t ethertype);
 
   /** Set the current link state.
    *
@@ -71,39 +61,71 @@ typedef interface ethernet_if {
    */
   void set_link_state(int ifnum, ethernet_link_state_t new_state);
 
-  void _init_send_packet(size_t n, int is_high_priority, size_t ifnum);
+  /** Add MAC addresses to the filter.
+   *
+   *  \param client_num   The index into the set of rx clients. Can be acquired by
+   *                      calling the get_index() method.
+   *  \param is_hp        Indicates whether the rx client is high priority. There is
+   *                      only 1 high priority client, so client_num must be 0 when
+   *                      is_hp is set.
+   *  \param entry        The filter entry to add.
+   *
+   *  \returns            ETHERNET_MACADDR_FILTER_SUCCESS when the entry is added or
+   *                      ETHERNET_MACADDR_FILTER_TABLE_FULL on failure.
+   *
+   */
+  ethernet_macaddr_filter_result_t
+    add_macaddr_filter(size_t client_num, int is_hp, ethernet_macaddr_filter_t entry);
+
+  void del_macaddr_filter(size_t client_num, int is_hp, ethernet_macaddr_filter_t entry);
+
+  void del_all_macaddr_filters(size_t client_num, int is_hp);
+
+  void add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype);
+  void del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype);
+} ethernet_cfg_if;
+
+/** Ethernet endpoint receive interface.
+ *
+ *  This interface allows clients to send and receive packets. */
+typedef interface ethernet_tx_if {
+  void _init_send_packet(size_t n, size_t ifnum);
   void _complete_send_packet(char packet[n], unsigned n,
                              int request_timestamp, size_t ifnum);
 
   unsigned _get_outgoing_timestamp();
+} ethernet_tx_if;
+
+/** Ethernet endpoint receive interface.
+ *
+ *  This interface allows clients to send and receive packets. */
+typedef interface ethernet_rx_if {
+  /** Get the index of a given receiver
+   *
+   */
+  size_t get_index();
 
   [[notification]] slave void packet_ready();
   [[clears_notification]] void get_packet(ethernet_packet_info_t &desc,
                                           char data[n],
                                           unsigned n);
-} ethernet_if;
+} ethernet_rx_if;
 
-extends client interface ethernet_if : {
+extends client interface ethernet_tx_if : {
 
-  inline void send_packet(client ethernet_if i, char packet[n], unsigned n,
+  inline void send_packet(client ethernet_tx_if i, char packet[n], unsigned n,
                           unsigned dst_port) {
-    unsigned short etype = ((unsigned short) packet[12] << 8) + packet[13];
-    int is_high_priority = (etype == 0x8100);
-    i._init_send_packet(n, is_high_priority, dst_port);
+    i._init_send_packet(n, dst_port);
     i._complete_send_packet(packet, n, 0, dst_port);
   }
 
-  inline unsigned send_timed_packet(client ethernet_if i, char packet[n],
+  inline unsigned send_timed_packet(client ethernet_tx_if i, char packet[n],
                                     unsigned n,
                                     unsigned dst_port) {
-    unsigned short etype = ((unsigned short) packet[12] << 8) + packet[13];
-    int is_high_priority = (etype == 0x8100);
-    i._init_send_packet(n, is_high_priority, dst_port);
+    i._init_send_packet(n, dst_port);
     i._complete_send_packet(packet, n, 1, dst_port);
     return i._get_outgoing_timestamp();
   }
-
-
 }
 
 enum ethernet_enable_shaper_t {
@@ -118,9 +140,18 @@ enum ethernet_enable_shaper_t {
  *  Interaction to the component is via the connected filtering, configuration
  *  and data interfaces.
  *
- *  \param i_eth        array of interfaces to connect to the clients of the
- *                      MAC (i.e. the tasks sending/receiving data)
- *  \param n            the number of clients connected
+ *  \param i_cfg              Array of client configuration interfaces
+ *  \param n_cfg              The number of configuration clients connected
+ *
+ *  \param i_rx_lp            Array of low priority receive clients
+ *  \param n_rx_lp            The number of low priority receive clients connected
+ *
+ *  \param i_tx_lp            Array of low priority transmit clients
+ *  \param n_tx_lp            The number of low priority transmit clients connected
+ *
+ *  \param c_rx_hp            Streaming channel end for high priority receive data
+ *  \param c_tx_hp            Streaming channel end for high priority transmit data
+ *
  *  \param p_rxclk            RX clock port
  *  \param p_rxer             RX error port
  *  \param p_rxd_1000         1Gb RX data port
@@ -133,14 +164,18 @@ enum ethernet_enable_shaper_t {
  *  \param p_txer             TX error port
  *  \param p_txen             TX enable port
  *  \param p_txd              TX data port
+ *
  *  \param rxclk              Clock used for receive timing
  *  \param rxclk_interframe   Clock used for interframe receive timing
  *  \param txclk              Clock used for transmit timing
  *  \param txclk_out          Second clock used for transmit timing
- *  \param bufsize_words      The number of words to used for receive and
- *                            transmit buffers.
+ *
  */
-void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
+void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                        server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                        server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                        streaming chanend ? c_rx_hp,
+                        streaming chanend ? c_tx_hp,
                         in port p_rxclk, in port p_rxer,
                         in port p_rxd_1000, in port p_rxd_10_100,
                         in port p_rxd_interframe,
@@ -151,8 +186,7 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
                         clock rxclk,
                         clock rxclk_interframe,
                         clock txclk,
-                        clock txclk_out,
-                        static const unsigned bufsize_words);
+                        clock txclk_out);
 
 /** Ethernet component to connect to an MII interface (with real-time features).
  *
@@ -161,22 +195,32 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
  *  Interaction to the component is via the connected filtering, configuration
  *  and data interfaces.
  *
- *  \param i_eth        array of interfaces to connect to the clients of the
- *                      MAC (i.e. the tasks sending/receiving data)
- *  \param n            the number of clients connected
- *  \param p_rxclk      RX clock port
- *  \param p_rxer       RX error port
- *  \param p_rxd        RX data port
- *  \param p_rxdv       RX data valid port
- *  \param p_txclk      TX clock port
- *  \param p_txen       TX enable port
- *  \param p_txd        TX data port
- *  \param rxclk        Clock used for receive timing
- *  \param txclk        Clock used for transmit timing
- *  \param rx_bufsize_words The number of words to used for a receive buffer.
- *                          This should be at least 500 words.
- *  \param tx_bufsize_words The number of words to used for a transmit buffer.
- *                          This should be at least 500 words.
+ *  \param i_cfg               Array of client configuration interfaces
+ *  \param n_cfg               The number of configuration clients connected
+ *
+ *  \param i_rx_lp             Array of low priority receive clients
+ *  \param n_rx_lp             The number of low priority receive clients connected
+ *
+ *  \param i_tx_lp             Array of low priority transmit clients
+ *  \param n_tx_lp             The number of low priority transmit clients connected
+ *
+ *  \param c_rx_hp             Streaming channel end for high priority receive data
+ *  \param c_tx_hp             Streaming channel end for high priority transmit data
+ *
+ *  \param n                   The number of clients connected
+ *  \param p_rxclk             RX clock port
+ *  \param p_rxer              RX error port
+ *  \param p_rxd               RX data port
+ *  \param p_rxdv              RX data valid port
+ *  \param p_txclk             TX clock port
+ *  \param p_txen              TX enable port
+ *  \param p_txd               TX data port
+ *  \param rxclk               Clock used for receive timing
+ *  \param txclk               Clock used for transmit timing
+ *  \param rx_bufsize_words    The number of words to used for a receive buffer.
+ *                             This should be at least 500 words.
+ *  \param tx_bufsize_words    The number of words to used for a transmit buffer.
+ *                             This should be at least 500 words.
  *  \param rx_hp_bufsize_words The number of words to used for a high priority
  *                             receive buffer.
  *                             This should be at least 500 words.
@@ -188,9 +232,12 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
  *                             or disable the traffice shaper within the
  *                             MAC.
  */
-void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
-                     in port p_rxclk, in port p_rxer,
-                     in port p_rxd, in port p_rxdv,
+void mii_ethernet_rt(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                     server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                     server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                     streaming chanend ? c_rx_hp,
+                     streaming chanend ? c_tx_hp,
+                     in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
                      in port p_txclk, out port p_txen, out port p_txd,
                      clock rxclk,
                      clock txclk,
@@ -207,25 +254,33 @@ void mii_ethernet_rt(server ethernet_if i_eth[n], static const unsigned n,
  *  Interaction to the component is via the connected filtering, configuration
  *  and data interfaces.
  *
- *  \param i_eth        array of interfaces to connect to the clients of the
- *                      MAC (i.e. the tasks sending/receiving data)
- *  \param n            the number of clients connected
- *  \param p_rxclk      RX clock port
- *  \param p_rxer       RX error port
- *  \param p_rxd        RX data port
- *  \param p_rxdv       RX data valid port
- *  \param p_txclk      TX clock port
- *  \param p_txen       TX enable port
- *  \param p_txd        TX data port
- *  \param p_timing     Internal timing port - this can be any xCORE port that
- *                      is not connected to any external device.
- *  \param rxclk        Clock used for receive timing
- *  \param txclk        Clock used for transmit timing
+ *  \param i_cfg            Array of client configuration interfaces
+ *  \param n_cfg            The number of configuration clients connected
+ *
+ *  \param i_rx             Array of receive clients
+ *  \param n_rx             The number of receive clients connected
+ *
+ *  \param i_tx             Array of transmit clients
+ *  \param n_tx             The number of transmit clients connected
+ *
+ *  \param n                The number of clients connected
+ *  \param p_rxclk          RX clock port
+ *  \param p_rxer           RX error port
+ *  \param p_rxd            RX data port
+ *  \param p_rxdv           RX data valid port
+ *  \param p_txclk          TX clock port
+ *  \param p_txen           TX enable port
+ *  \param p_txd            TX data port
+ *  \param p_timing         Internal timing port - this can be any xCORE port that
+ *                          is not connected to any external device.
+ *  \param rxclk            Clock used for receive timing
+ *  \param txclk            Clock used for transmit timing
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
  */
-void mii_ethernet(server ethernet_if i_eth[n],
-                  static const unsigned n,
+void mii_ethernet(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                  server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
+                  server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
                   in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
                   in port p_txclk, out port p_txen, out port p_txd,
                   port p_timing,

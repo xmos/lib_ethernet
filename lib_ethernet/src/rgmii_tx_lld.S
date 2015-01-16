@@ -27,6 +27,9 @@
 
 #define MAX_PACKET_WORDS (ETHERNET_MAX_PACKET_SIZE/4)
 
+// The number of bytes in the mii_packet_t before the data
+#define MII_PACKET_HEADER_BYTES 40
+
 #if defined(__XS2A__)
 .align 4
 data_values:
@@ -130,9 +133,12 @@ tx_sof:
 
         // Convert bytes to bits          // Get word count
         { shl tmp5, tmp6, 3               ; shr tmp2, tmp4, 2 }
-        
-        // Move data ptr over size/timestamp // Load the offset for the start sequence
-        { add ptr, base, 8                ; ld8u tmp6, r11[tmp2] }
+
+        // Load size of mii_packet_t header // Load the offset for the start sequence
+        { ldc ptr, MII_PACKET_HEADER_BYTES; ld8u tmp6, r11[tmp2] }
+
+        // Skip mii_packet_t header
+        { add ptr, base, ptr              ; nop }
 
         // Two insts per data word        // Load in the max packet size branch distance
         { shl tmp4, tmp2, 1               ; ldw tmp1, dp[2] }
@@ -1093,7 +1099,7 @@ mod3_table:
 .byte (start_zero - bru_from) / 4, (start_one - bru_from) / 4, (start_two - bru_from) / 4
 .byte (start_zero - bru_from) / 4, (start_one - bru_from) / 4, (start_two - bru_from) / 4
 
-#else 
+#else
         .cc_top rgmii_tx_lld.function
         .set    rgmii_tx_lld.nstackwords,0
         .globl  rgmii_tx_lld.nstackwords

@@ -22,7 +22,11 @@
 #define ETHERNET_FILTER_PORT_FORWARD_MASK 0x80000000
 
 #ifndef ETHERNET_RX_CLIENT_QUEUE_SIZE
-#define ETHERNET_RX_CLIENT_QUEUE_SIZE (4)
+  #if RGMII
+    #define ETHERNET_RX_CLIENT_QUEUE_SIZE (16)
+  #else
+    #define ETHERNET_RX_CLIENT_QUEUE_SIZE (4)
+  #endif
 #endif
 
 #ifndef ETHERNET_TX_MAX_PACKET_SIZE
@@ -32,3 +36,14 @@
 #ifndef ETHERNET_RX_MAX_PACKET_SIZE
 #define ETHERNET_RX_MAX_PACKET_SIZE ETHERNET_MAX_PACKET_SIZE
 #endif
+
+#ifndef RGMII_MAC_BUFFER_COUNT
+// Provide enough buffers to receive all minumum sized frames after
+// a maximum sized frame - using a power of 2 value is more efficient
+#define RGMII_MAC_BUFFER_COUNT 32
+#endif
+
+#ifndef ETHERNET_USE_HARDWARE_LOCKS
+#define ETHERNET_USE_HARDWARE_LOCKS 1
+#endif
+

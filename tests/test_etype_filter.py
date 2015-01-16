@@ -9,7 +9,7 @@ from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
-from helpers import get_sim_args, get_mii_tx_clk_phy
+from helpers import get_sim_args, get_mii_tx_clk_phy, run_on
 
 def do_test(impl, tx_clk, tx_phy):
     resources = xmostest.request_resource("xsim")
@@ -49,5 +49,7 @@ def runtest():
 
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True)
-    do_test("standard", tx_clk_25, tx_mii)
-    do_test("rt", tx_clk_25, tx_mii)
+    if run_on(phy='mii', rate='100Mbs', mac='standard'):
+        do_test("standard", tx_clk_25, tx_mii)
+    if run_on(phy='mii', rate='100Mbs', mac='rt'):
+        do_test("rt", tx_clk_25, tx_mii)

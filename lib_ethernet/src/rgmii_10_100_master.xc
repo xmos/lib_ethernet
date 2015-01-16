@@ -7,6 +7,7 @@
 #include "rgmii_common.h"
 #include "rgmii.h"
 #include "mii_common_lld.h"
+#include "mii_buffering.h"
 #include "ntoh.h"
 
 #ifndef ETHERNET_ENABLE_FULL_TIMINGS
@@ -44,7 +45,11 @@
 
 #endif
 
-void rgmii_10_100_master_rx_pins(streaming chanend c,
+// The number of bytes in the mii_packet_t before the data
+#define MII_PACKET_HEADER_BYTES 40
+#define MII_PACKET_HEADER_WORDS (MII_PACKET_HEADER_BYTES / 4)
+
+unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
                                  in buffered port:32 p_rxd_10_100,
                                  in port p_rxdv,
 				 in buffered port:1 p_rxer,
@@ -71,6 +76,8 @@ void rgmii_10_100_master_rx_pins(streaming chanend c,
         break;
     }
 
+    mii_packet_t * unsafe buf = (mii_packet_t * unsafe)buffer;
+
     while (1) {
       register const unsigned poly = 0xEDB88320;
 
@@ -78,8 +85,7 @@ void rgmii_10_100_master_rx_pins(streaming chanend c,
         // Pre-load CRC with value making equivalent of doing crc of ~first_word
         unsigned int crc = 0x9226F562;
         unsigned int word;
-        unsigned * unsafe ptr = (unsigned * unsafe)buffer;
-        unsigned * unsafe dptr = &ptr[2];
+        unsigned * unsafe dptr = buf->data;
 
         unsigned sfd_preamble;
         select {
@@ -94,7 +100,7 @@ void rgmii_10_100_master_rx_pins(streaming chanend c,
 #pragma xta endpoint "rgmii_10_100_rx_after_preamble"
         unsigned time;
         tmr :> time;
-        ptr[1] = time;
+        buf->timestamp = time;
 
         // Enable interrupts
         asm("setsr 0x2");
@@ -140,7 +146,7 @@ void rgmii_10_100_master_rx_pins(streaming chanend c,
               }
 
               // Store the byte count in the packet structure
-              ptr[0] = num_packet_bytes;
+              buf->length = num_packet_bytes;
 
               if (tail_byte_count)
               {
@@ -183,12 +189,12 @@ void rgmii_10_100_master_rx_pins(streaming chanend c,
 
         // Check that the len/type field specifies a valid length (same or
         // less than the amount of data received).
-        int *unsafe p_len_type = (int *unsafe) &((int *)buffer)[5];
+        int *unsafe p_len_type = (int *unsafe) &((int *)buffer)[MII_PACKET_HEADER_WORDS + 3];
         uint16_t len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
         unsigned header_len = 14;
         if (len_type == 0x8100) {
           header_len += 4;
-          p_len_type = (int *unsafe) &((int *)buffer)[6];
+          p_len_type = (int *unsafe) &((int *)buffer)[MII_PACKET_HEADER_WORDS + 4];
           len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
         }
         const unsigned num_data_bytes = num_packet_bytes - header_len;
@@ -222,7 +228,7 @@ void rgmii_10_100_master_rx_pins(streaming chanend c,
 #endif
 }
 
-void rgmii_10_100_master_tx_pins(streaming chanend c,
+unsafe void rgmii_10_100_master_tx_pins(streaming chanend c,
                                  out buffered port:32 p_txd,
                                  streaming chanend c_speed_change)
 {
@@ -246,14 +252,15 @@ void rgmii_10_100_master_tx_pins(streaming chanend c,
     unsigned int eof_time;
     int tail_byte_count;
 
+    mii_packet_t * unsafe buf = (mii_packet_t * unsafe)buffer;
+
     unsafe {
       register const unsigned poly = 0xEDB88320;
       // Pre-load CRC with value making equivalent of doing crc of ~first_word
       unsigned int crc = 0x9226F562;
       unsigned int word;
-      unsigned * unsafe ptr = (unsigned * unsafe)buffer;
-      unsigned * unsafe dptr = &ptr[2];
-      int byte_count = ptr[0];
+      unsigned * unsafe dptr = buf->data;
+      int byte_count = buf->length;
       int word_count = byte_count >> 2;
       tail_byte_count = byte_count & 3;
 
@@ -271,7 +278,7 @@ void rgmii_10_100_master_tx_pins(streaming chanend c,
       // Timestamp the start of the packet
       unsigned int time;
       tmr :> time;
-      ptr[1] = time;
+      buf->timestamp = time;
 
       int i = 0;
       do {

@@ -17,7 +17,11 @@ typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS O
     int miiPacketsTransmitted;
     int miiPacketsReceived;
     int miiPacketsCRCError;
-    int readBank;
+
+    unsigned readBank;
+    unsigned readBankRdPtr;
+    unsigned readBankWrPtr;
+
     int kernelStack[KERNELSTACKWORDS];
 } mii_lite_data_t;
 

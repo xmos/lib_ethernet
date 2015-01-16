@@ -1,16 +1,19 @@
 #ifndef __mii_buffering_h__
 #define __mii_buffering_h__
 #include "ethernet.h"
+#include "mii_ethernet_conf.h"
 #include "swlock.h"
 #include "hwlock.h"
-
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-#define ETHERNET_USE_HARDWARE_LOCKS 1
-#endif
 
 #ifdef __XC__
 extern "C" {
 #endif
+
+typedef enum {
+  MII_STAGE_EMPTY,
+  MII_STAGE_FILTERED,
+  MII_STAGE_SENT
+} packet_stage_t;
 
 typedef struct mii_packet_t {
   int length;           //!< The length of the packet in bytes
@@ -19,7 +22,7 @@ typedef struct mii_packet_t {
   int src_port;         //!< The ethernet port which a packet arrived on
   int timestamp_id;     //!< Client channel number which is waiting for a
                         //   Tx timestamp
-  int stage;            //!< What stage in the Tx or Rx path the packet has
+  packet_stage_t stage; //!< What stage in the Tx or Rx path the packet has
   int tcount;           //!< Number of remaining clients who need to be send
                         //   this RX packet minus one
   int crc;              //!< The calculated CRC
@@ -49,6 +52,7 @@ typedef unsigned * mii_buffer_t;
 typedef unsigned * mii_rdptr_t;
 
 mii_mempool_t mii_init_mempool(unsigned *buffer, int size);
+void mii_init_lock();
 
 mii_packet_t *mii_reserve(mii_mempool_t mempool,
                           REFERENCE_PARAM(unsigned *, end_ptr));

@@ -163,7 +163,7 @@ def runtest():
     xmostest.build('test_time_rx_tx')
 
     # Test 100 MBit - MII
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker)
+    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl="tile[0]:XS1_PORT_1A")
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete)
     do_test("standard", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
     do_test("rt", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))

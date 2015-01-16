@@ -8,24 +8,11 @@
 #include "xta_test_pragmas.h"
 #include "helpers.xc"
 
-port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
-port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
-port p_eth_rxclk  = on tile[0]: XS1_PORT_1J;
-port p_eth_rxd    = on tile[0]: XS1_PORT_4E;
-port p_eth_txd    = on tile[0]: XS1_PORT_4F;
-port p_eth_rxdv   = on tile[0]: XS1_PORT_1K;
-port p_eth_txen   = on tile[0]: XS1_PORT_1L;
-port p_eth_txclk  = on tile[0]: XS1_PORT_1I;
-port p_eth_int    = on tile[0]: XS1_PORT_1O;
-port p_eth_rxerr  = on tile[0]: XS1_PORT_1P;
-port p_eth_dummy  = on tile[0]: XS1_PORT_8C;
-
-clock eth_rxclk   = on tile[0]: XS1_CLKBLK_1;
-clock eth_txclk   = on tile[0]: XS1_CLKBLK_2;
+#include "ports.h"
 
 #define NUM_PACKET_LENGTHS 64
 
-void test_tx(client ethernet_if eth)
+void test_tx(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
 {
   // Send a burst of frames to test the TX performance of the MAC layer and buffering
   // Just repeat the same frame numerous times to eliminate the frame setup time
@@ -76,42 +63,88 @@ void test_tx(client ethernet_if eth)
       // Send a valid length in the ether len/type field
       data[12] = (length - header_bytes) >> 8;
       data[13] = (length - header_bytes) & 0xff;
-      eth.send_packet(data, length, ETHERNET_ALL_INTERFACES);
+
+      if (isnull(c_tx_hp)) {
+        tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
+      }
+      else {
+        c_tx_hp <: length;
+        sout_char_array(c_tx_hp, data, length);
+      }
     }
   }
 }
 
 #define ETH_RX_BUFFER_SIZE_WORDS 1600
 
+#define NUM_CFG_IF 1
+#define NUM_RX_LP_IF 1
+#define NUM_TX_LP_IF 1
+
 int main()
 {
-  ethernet_if i_eth[1];
+  ethernet_cfg_if i_cfg[NUM_CFG_IF];
+  ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
+  ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
+  streaming chan c_rx_hp;
+  streaming chan c_tx_hp;
+
   par {
+    #if RGMII
+
+    on tile[1]: rgmii_ethernet_mac(i_cfg, NUM_CFG_IF,
+                                   i_rx_lp, NUM_RX_LP_IF,
+                                   i_tx_lp, NUM_TX_LP_IF,
+                                   c_rx_hp, c_tx_hp,
+                                   p_eth_rxclk, p_eth_rxer, p_eth_rxd_1000, p_eth_rxd_10_100,
+                                   p_eth_rxd_interframe, p_eth_rxdv, p_eth_rxdv_interframe,
+                                   p_eth_txclk_in, p_eth_txclk_out, p_eth_txer, p_eth_txen,
+                                   p_eth_txd, eth_rxclk, eth_rxclk_interframe, eth_txclk,
+                                   eth_txclk_out);
+
+    on tile[0]: test_tx(i_tx_lp[0], c_tx_hp);
+
+    #else // RGMII
+
     #if RT
-    on tile[0]: mii_ethernet_rt(i_eth, 1,
+    on tile[0]: mii_ethernet_rt(i_cfg, NUM_CFG_IF,
+                                i_rx_lp, NUM_RX_LP_IF,
+                                i_tx_lp, NUM_TX_LP_IF,
+                                c_rx_hp, c_tx_hp,
                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
                                 2000, 2000, 2000, 2000, 1);
-    on tile[0]: filler(0x333);
-    on tile[0]: filler(0x444);
-    on tile[0]: filler(0x555);
+    on tile[0]: filler(0x1111);
+    on tile[0]: filler(0x2222);
+    on tile[0]: filler(0x3333);
+
+    #if ETHERNET_SUPPORT_HP_QUEUES
+    on tile[0]: test_tx(i_tx_lp[0], c_tx_hp);
+    #else
+    on tile[0]: test_tx(i_tx_lp[0], null);
+    #endif
 
     #else
-    on tile[0]: mii_ethernet(i_eth, 1,
+    on tile[0]: mii_ethernet(i_cfg, NUM_CFG_IF,
+                             i_rx_lp, NUM_RX_LP_IF,
+                             i_tx_lp, NUM_TX_LP_IF,
                              p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                              p_eth_txclk, p_eth_txen, p_eth_txd,
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
                              ETH_RX_BUFFER_SIZE_WORDS);
-    on tile[0]: filler(0x33);
-    on tile[0]: filler(0x44);
-    on tile[0]: filler(0x55);
-    on tile[0]: filler(0x66);
-    on tile[0]: filler(0x77);
+    on tile[0]: filler(0x1111);
+    on tile[0]: filler(0x2222);
+    on tile[0]: filler(0x3333);
+    on tile[0]: filler(0x4444);
+    on tile[0]: filler(0x5555);
 
-    #endif
-    on tile[0]: test_tx(i_eth[0]);
+    on tile[0]: test_tx(i_tx_lp[0], null);
+
+    #endif // RT
+    #endif // RGMII
+
   }
   return 0;
 }

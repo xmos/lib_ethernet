@@ -53,7 +53,7 @@
 #pragma xta command "remove exclusion *"
 
 #pragma xta command "add exclusion mii_rx_begin"
-//#pragma xta command "add exclusion mii_eof_case_1"
+#pragma xta command "add exclusion mii_eof_case_1"
 #pragma xta command "add exclusion mii_eof_case_2"
 //#pragma xta command "add exclusion mii_wait_for_buffers"
 
@@ -83,10 +83,16 @@
 #pragma xta command "add exclusion mii_rx_after_preamble"
 #pragma xta command "add exclusion mii_rx_eof"
 #pragma xta command "add exclusion mii_rx_word"
-//#pragma xta command "add exclusion mii_rx_data_inner_loop"
+#pragma xta command "add exclusion mii_reserve_hp"
 #pragma xta command "analyze endpoints mii_rx_eof mii_rx_sof"
 #pragma xta command "set required - 1560 ns"
 
+#if ETHERNET_SUPPORT_HP_QUEUES
+#pragma xta command "remove exclusion mii_reserve_hp"
+#pragma xta command "add exclusion mii_reserve_lp"
+#pragma xta command "analyze endpoints mii_rx_eof mii_rx_sof"
+#pragma xta command "set required - 1560 ns"
+#endif
 
 #endif
 // check the transmit interframe space.  It should ideally be quite close to 1560, which will
@@ -186,26 +192,35 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
   /* Make sure we do not start in the middle of a packet */
   p_mii_rxdv when pinseq(0) :> int lo;
 
-  while (1) {
-#pragma xta label "mii_rx_begin"
-    unsigned word;
-    mii_packet_t * unsafe buf, * unsafe buf_hp;
-    unsigned * unsafe end_ptr, * unsafe end_ptr_hp;
-    unsigned num_rx_words = 0;
-
     /* Grab buffers to read the packet into. mii_reserve always returns a
        buffer we can use (though it may be a dummy buffer that gets thrown
        away later if we are out of buffer space). */
 
-    buf = mii_reserve(rxmem_lp, end_ptr);
+  unsigned * unsafe end_ptr, * unsafe end_ptr_hp;
+  mii_packet_t * unsafe buf_lp = mii_reserve(rxmem_lp, end_ptr);
+  mii_packet_t * unsafe buf_hp = null;
+  if (rxmem_hp)
+    buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
 
-    if (rxmem_hp)
-      buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
+  while (1) {
+    unsigned word;
+    unsigned num_rx_words = 0;
+
+    mii_packet_t * unsafe buf = buf_lp;
+
+    unsigned crc = 0x9226F562;
+    unsigned poly = 0xEDB88320;
+    unsigned * unsafe dptr;
 
     /* Wait for the start of the packet and timestamp it */
     unsigned sfd_preamble;
     #pragma xta endpoint "mii_rx_sof"
     p_mii_rxd when pinseq(0xD) :> sfd_preamble;
+
+    if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
+      // Corrupt the CRC so that the packet is discarded
+      crc = 0;
+    }
 
     #pragma xta endpoint "mii_rx_after_preamble"
     unsigned time;
@@ -214,10 +229,6 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     // Enable interrupts
     asm("setsr 0x2");
 
-    unsigned crc = 0x9226F562;
-    unsigned poly = 0xEDB88320;
-    unsigned header[3];
-    unsigned * unsafe dptr;
     unsigned end_of_frame = 0;
     unsigned header_done = 0;
     do {
@@ -227,7 +238,10 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
 #pragma xta endpoint "mii_rx_first_words"
       case p_mii_rxd :> word:
         if (num_rx_words < 3) {
-          header[num_rx_words] = word;
+          buf_lp->data[num_rx_words] = word;
+          if (rxmem_hp)
+            buf_hp->data[num_rx_words] = word;
+
           crc32(crc, word, poly);
         } else {
           unsigned short etype = (unsigned short) word;
@@ -246,16 +260,16 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
         break;
       case p_mii_rxdv when pinseq(0) :> int:
 #pragma xta label "mii_eof_case_1"
+        header_done = 1;
         end_of_frame = 1;
         break;
       }
-    } while (!header_done && !end_of_frame);
+    } while (!header_done);
 
     if (end_of_frame)
       continue;
 
     do {
-#pragma xta label "mii_rx_data_inner_loop"
      select
        {
 #pragma xta endpoint "mii_rx_word"
@@ -282,15 +296,14 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     // Clear interrupts
     asm("clrsr 0x2");
 
-    if ((((sfd_preamble >> 24) & 0xFF) != 0xD5) ||
-        *error_ptr)
-    {
+    if (*error_ptr) {
       endin(p_mii_rxd);
       p_mii_rxd :> void;
       *error_ptr = 0;
       continue;
     }
 
+#pragma xta label "mii_rx_begin"
     unsigned taillen = endin(p_mii_rxd);
     const unsigned num_rx_bytes_minus_crc = (num_rx_words-1)*sizeof(word) + (taillen>>3);
     buf->length = num_rx_bytes_minus_crc;
@@ -315,15 +328,20 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
 
     buf->crc = crc;
 
-    buf->data[0] = header[0];
-    buf->data[1] = header[1];
-    buf->data[2] = header[2];
-
     if (dptr != end_ptr) {
       /* We don't store the last word since it contains the CRC and
          we don't need it from this point on. */
       c <: buf;
       mii_commit(buf, dptr);
+    }
+
+    if (rxmem_hp && buf == buf_hp) {
+#pragma xta label "mii_reserve_hp"
+      buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
+    }
+    else {
+#pragma xta label "mii_reserve_lp"
+      buf_lp = mii_reserve(rxmem_lp, end_ptr);
     }
   }
 
@@ -474,7 +492,7 @@ unsafe unsigned mii_transmit_packet(mii_packet_t * unsafe buf,
 
 unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
                                mii_mempool_t lp_queue,
-                               mii_ts_queue_t ts_queue,
+                               mii_ts_queue_t ts_queue_lp,
                                out buffered port:32 p_mii_txd,
                                int enable_shaper,
                                volatile int * unsafe idle_slope)
@@ -503,12 +521,13 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
     int stage;
     int prev_credit_time;
     int elapsed;
+    mii_ts_queue_t *p_ts_queue = null;
 
     if (hp_queue)
       buf = mii_get_next_buf(hp_queue);
 
     if (enable_shaper) {
-      if (buf && buf->stage == 1) {
+      if (buf && buf->stage == MII_STAGE_FILTERED) {
 
         if (credit < 0) {
           prev_credit_time = credit_time;
@@ -533,15 +552,17 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
       }
     }
 
-    if (!hp_queue || !buf || buf->stage != 1)
+    if (!hp_queue || !buf || buf->stage != MII_STAGE_FILTERED) {
       buf = mii_get_next_buf(lp_queue);
+      p_ts_queue = &ts_queue_lp;
+    }
 
     if (!buf) {
 #pragma xta endpoint "mii_tx_not_valid_to_transmit"
       continue;
     }
 
-    if (buf->stage != 1) {
+    if (buf->stage != MII_STAGE_FILTERED) {
 #pragma xta endpoint "mii_tx_buffer_not_marked_for_transmission"
       continue;
     }
@@ -552,10 +573,10 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
     ifg_time += (buf->length & 0x3) * 8;
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {
-      if (buf->timestamp_id) {
+      if (buf->timestamp_id && p_ts_queue) {
         buf->timestamp = time;
-        mii_ts_queue_add_entry(ts_queue, buf);
-        buf->stage = 2;
+        mii_ts_queue_add_entry(*p_ts_queue, buf);
+        buf->stage = MII_STAGE_SENT;
       }
       else {
         mii_free(buf);

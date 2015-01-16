@@ -217,8 +217,11 @@ class MiiPacket(object):
     def complete(self):
         """ When a packet has been fully received then move the CRC from the data
         """
-        self.packet_crc = (self.data_bytes[-4] + (self.data_bytes[-3] << 8) +
-                          (self.data_bytes[-2] << 16) + (self.data_bytes[-1] << 24))
+        if len(self.data_bytes) >= 4:
+            self.packet_crc = (self.data_bytes[-4] + (self.data_bytes[-3] << 8) +
+                              (self.data_bytes[-2] << 16) + (self.data_bytes[-1] << 24))
+        else:
+            self.packet_crc = 0
         self.data_bytes = self.data_bytes[:-4]
         self.num_data_bytes -= 4
 
@@ -250,11 +253,12 @@ class MiiPacket(object):
         # Ensure that if the len/type field specifies a length then it is valid (Section 3.2.6 of 802.3-2012)
         if len(self.ether_len_type) != 2:
             print "ERROR: The len/type field contains {0} bytes".format(len(self.ether_len_type))
-        len_type = self.ether_len_type[0] << 8 | self.ether_len_type[1]
-        if len_type <= 1500:
-            if len_type > self.num_data_bytes:
-                print "ERROR: len/type field value ({0}) != packet bytes ({1})".format(
-                    len_type, self.num_data_bytes)
+        else:
+            len_type = self.ether_len_type[0] << 8 | self.ether_len_type[1]
+            if len_type <= 1500:
+                if len_type > self.num_data_bytes:
+                    print "ERROR: len/type field value ({0}) != packet bytes ({1})".format(
+                        len_type, self.num_data_bytes)
 
         # Check the CRC
         data = ''.join(chr(x) for x in self.get_packet_bytes())
@@ -288,7 +292,7 @@ class MiiPacket(object):
         sys.stdout.write("\n]\n")
         if self.send_crc_word:
             crc = self.get_crc(self.get_packet_bytes())
-            sys.stdout.write("CRC: 0x{0:0>2x}\n".format(crc))
+            sys.stdout.write("CRC: 0x{0:0>8x}\n".format(crc))
 
     def get_data_expect(self):
         """ Return the expected DUT print for the given data contents

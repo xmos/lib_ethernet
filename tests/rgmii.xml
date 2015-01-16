@@ -1,5 +1,15 @@
-<Xvcd zoomFactor="8.444617e+03" hScrollPos="0" vScrollPos="0" markerBarPos="1.361400e+04">
+<Xvcd zoomFactor="5.958115e+03" hScrollPos="4" vScrollPos="0" markerBarPos="4.710448e+04">
     <Signals>
+        <Separator name="tile[0]"/>
+        <Signal name="tile[0]_Functions_Thread0" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread1" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread2" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread3" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread4" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread5" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread6" alias="" radix="ASCII"/>
+        <Signal name="tile[0]_Functions_Thread7" alias="" radix="ASCII"/>
+        <Separator name="tile[1]"/>
         <Signal name="tile[1]_Functions_Thread0" alias="" radix="ASCII"/>
         <Signal name="tile[1]_Functions_Thread1" alias="" radix="ASCII"/>
         <Signal name="tile[1]_Functions_Thread2" alias="" radix="ASCII"/>

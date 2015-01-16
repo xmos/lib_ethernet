@@ -43,21 +43,34 @@ class TxPhy(xmostest.SimThread):
         # Give the DUT a reasonable time to process the packet
         self.wait_until(self.xsi.get_time() + self.END_OF_TEST_TIME)
 
-        if self._test_ctrl:
-            # Indicate to the DUT that the test has finished
-            self.xsi.drive_port_pins(self._test_ctrl, 1)
-
         if self._do_timeout:
             # Allow time for a maximum sized packet to arrive
             timeout_time = (self._clock.get_bit_time() * 1522 * 8)
 
             # And allow some time for the packets to get through the buffers internally
-            #  - packet is copied twice. Allow 2 cycles per bit
-            timeout_time += 2 * 1522 * 8 * 2
+            total_packet_bytes = sum([len(packet.get_packet_bytes()) for packet in self._packets])
+            total_data_bits = total_packet_bytes * 8
 
-            # Add some overhead for the system
-            timeout_time += 10000
+            # Allow 2 cycles per bit
+            loopback_time = 2 * total_data_bits
+
+            # The packets are copied to and from the user application
+            loopback_time *= 2
+
+            # The clock ticks are 2ns long
+            loopback_time *= 2
+
+            timeout_time += loopback_time
+
             self.wait_until(self.xsi.get_time() + timeout_time)
+
+            if self._test_ctrl:
+                # Indicate to the DUT that the test has finished
+                self.xsi.drive_port_pins(self._test_ctrl, 1)
+
+            # Allow time for the DUT to exit
+            self.wait_until(self.xsi.get_time() + 10000)
+
             print "ERROR: Test timed out"
             self.xsi.terminate()
 
@@ -84,7 +97,7 @@ class MiiTransmitter(TxPhy):
 
         for i,packet in enumerate(self._packets):
             if self._verbose:
-                print "Sending packet {p}".format(p=packet)
+                print "Sending packet {i}: {p}".format(i=i, p=packet)
                 packet.dump()
 
             error_nibbles = packet.get_error_nibbles()
@@ -159,19 +172,20 @@ class MiiReceiver(RxPhy):
 
     def run(self):
         xsi = self.xsi
-        self.wait_for_port_pins_change([self._txen])
+        self.wait(lambda x: xsi.sample_port_pins(self._txen) == 0)
 
         packet_count = 0
         last_frame_end_time = None
         while True:
             # Wait for TXEN to go high
             if self._test_ctrl is None:
-                self.wait_for_port_pins_change([self._txen])
+                self.wait(lambda x: xsi.sample_port_pins(self._txen) == 1)
             else:
-                if xsi.sample_port_pins(self._test_ctrl) == 1:
-                    xsi.terminate()
-                self.wait_for_port_pins_change([self._txen, self._test_ctrl])
-                if xsi.sample_port_pins(self._test_ctrl) == 1:
+                self.wait(lambda x: xsi.sample_port_pins(self._txen) == 1 or \
+                                    xsi.sample_port_pins(self._test_ctrl) == 1)
+
+                if (xsi.sample_port_pins(self._txen) == 0 and
+                      xsi.sample_port_pins(self._test_ctrl) == 1):
                     xsi.terminate()
 
             # Start with a blank packet to ensure they are filled in by the receiver

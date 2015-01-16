@@ -7,6 +7,7 @@
 #include "mii_lite_driver.h"
 #include "mii_lite_lld.h"
 #include "hwtimer.h"
+#include "xassert.h"
 
 // TODO: implement miiDriver straight in miiLLD.
 void mii_lite_driver(in buffered port:32 p_rxd,
@@ -170,6 +171,8 @@ void mii_lite_buffer_init(struct mii_lite_data_t &this, chanend cIn, chanend cNo
     this.miiPacketsReceived = 0;
     this.miiPacketsCRCError = 0;
     this.readBank = 0;
+    this.readBankRdPtr = 0;
+    this.readBankWrPtr = 0;
     mii_lite_install_handler(this, this.wrPtr[0], cIn, cNotifications);
 }
 
@@ -191,23 +194,25 @@ case inuchar_byref(notificationChannel, this.notifySeen):
 #pragma unsafe arrays
 {char * unsafe, unsigned, unsigned} mii_lite_get_in_buffer(struct mii_lite_data_t &this) {
   unsafe {
-    unsigned nBytes, timeStamp;
-    for(int i = 0; i < 2; i++) {
-        this.readBank = !this.readBank;
-        nBytes = get(this.readPtr[this.readBank]);
+    if (this.readBankRdPtr != this.readBankWrPtr) {
+        unsigned bank = (this.readBank >> this.readBankRdPtr) & 0x1;
+        unsigned nBytes = get(this.readPtr[bank]);
         if (nBytes == 0) {
-            this.readPtr[this.readBank] = this.firstPtr[this.readBank];
-            nBytes = get(this.readPtr[this.readBank]);
+            this.readPtr[bank] = this.firstPtr[bank];
+            nBytes = get(this.readPtr[bank]);
         }
-        if (nBytes != 1) {
-            unsigned retVal = this.readPtr[this.readBank] + 4;
-            this.readPtr[this.readBank] += ((nBytes + 3) & ~3) + 4;
-            if (get(this.readPtr[this.readBank]) == 0) {
-                this.readPtr[this.readBank] = this.firstPtr[this.readBank];
-            }
-            timeStamp = get(retVal);
-            return {(char * unsafe) (retVal+4), nBytes-4, timeStamp};
+
+        unsigned retVal = this.readPtr[bank] + 4;
+        this.readPtr[bank] += ((nBytes + 3) & ~3) + 4;
+
+        // Move the read bank pointer
+        this.readBankRdPtr = (this.readBankRdPtr + 1) % 32;
+
+        if (get(this.readPtr[bank]) == 0) {
+            this.readPtr[bank] = this.firstPtr[bank];
         }
+        unsigned timeStamp = get(retVal);
+        return {(char * unsafe) (retVal+4), nBytes-4, timeStamp};
     }
     return {(char * unsafe) 0, 0, 0};
   }
@@ -220,11 +225,19 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
     this.wrPtr[bn] = this.wrPtr[bn] + ((length+3)&~3) + 4; // new end pointer.
     miiNotify(this, notificationChannel);
     if (this.wrPtr[bn] > this.lastSafePtr[bn]) {  // This may be too far.
-        if (this.freePtr[bn] != this.firstPtr[bn]) {// Test if head of buf is free
+        if (this.freePtr[bn] != this.firstPtr[bn]) { // Test if head of buf is free
             set(this.wrPtr[bn]-4, 0);          // If so, record unused tail.
             this.wrPtr[bn] = this.firstPtr[bn] + 4; // and wrap to head, and record that
             set(this.wrPtr[bn]-4, 1);          // this is now the head of the queue.
-            if (this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) {// Test if there is room for packet
+
+            // Log which bank this packet was written to
+            this.readBank |= bn << this.readBankWrPtr;
+            this.readBankWrPtr = (this.readBankWrPtr + 1) % 32;
+
+            // Ensure the pointers haven't overflowed the 32 slots
+            assert(this.readBankRdPtr != this.readBankWrPtr);
+
+            if (this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) { // Test if there is room for packet
                 this.nextBuffer = this.wrPtr[bn];     // if so, record packet pointer
                 return;                            // fall out - default is no room
             }
@@ -233,8 +246,16 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
         }
     } else {                                       // room in tail.
         set(this.wrPtr[bn]-4, 1);            // record that this is now the head of the queue.
+
+        // Log which bank this packet was written to
+        this.readBank |= bn << this.readBankWrPtr;
+        this.readBankWrPtr = (this.readBankWrPtr + 1) % 32;
+
+        // Ensure the pointers haven't overflowed the 32 slots
+        assert(this.readBankRdPtr != this.readBankWrPtr);
+
         if (this.wrPtr[bn] > this.freePtr[bn] || // Test if there is room for a packet
-            this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) {
+              this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) {
             this.nextBuffer = this.wrPtr[bn];           // if so, record packet pointer
             return;
         }

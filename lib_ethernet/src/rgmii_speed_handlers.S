@@ -4,7 +4,7 @@
 
 .globl notification_channel_ids
 notification_channel_ids:
-.word 0, 0, 0, 0
+.word 0, 0, 0, 0, 0, 0, 0, 0
 
 saved_word0:
 .word 0
@@ -16,7 +16,7 @@ saved_word3:
 .word 0
 
 .text
-
+#if defined(__XS2A__)
         .cc_top log_speed_change_pointers.function
         .set    log_speed_change_pointers.nstackwords,0
         .globl  log_speed_change_pointers.nstackwords
@@ -24,12 +24,13 @@ saved_word3:
         .globl  log_speed_change_pointers.maxcores
         .set    log_speed_change_pointers.maxtimers,0
         .globl  log_speed_change_pointers.maxtimers
-        .set    log_speed_change_pointers.maxchanends,0
+        .set    log_speed_change_pointers.maxchanends,8
         .globl  log_speed_change_pointers.maxchanends
 
         .globl  log_speed_change_pointers
         .align  4
         .type   log_speed_change_pointers,@function
+        .issue_mode single
 
 log_speed_change_pointers:
         entsp 0
@@ -51,6 +52,22 @@ log_speed_change_pointers:
         setd res[r1], r1
         stw r1, r11[3]
         stw r1, r0[3]
+        getr r1, XS1_RES_TYPE_CHANEND
+        setd res[r1], r1
+        stw r1, r11[4]
+        stw r1, r0[4]
+        getr r1, XS1_RES_TYPE_CHANEND
+        setd res[r1], r1
+        stw r1, r11[5]
+        stw r1, r0[5]
+        getr r1, XS1_RES_TYPE_CHANEND
+        setd res[r1], r1
+        stw r1, r11[6]
+        stw r1, r0[6]
+        getr r1, XS1_RES_TYPE_CHANEND
+        setd res[r1], r1
+        stw r1, r11[7]
+        stw r1, r0[7]
 
         retsp 0
 
@@ -128,7 +145,14 @@ speed_change_handler:
         out res[r0], r1
         ldw r0, r11[3]
         out res[r0], r1
-
+        ldw r0, r11[4]
+        out res[r0], r1
+        ldw r0, r11[5]
+        out res[r0], r1
+        ldw r0, r11[6]
+        out res[r0], r1
+        ldw r0, r11[7]
+        out res[r0], r1
 
         // GET resource ID and disable interrupt on it
         get r11, ed
@@ -142,4 +166,41 @@ speed_change_handler:
 
         .align 4
         .cc_bottom speed_change_handler.function
+
+#else // Not __XS2A__
+
+        .cc_top log_speed_change_pointers.function
+        .set    log_speed_change_pointers.nstackwords,0
+        .globl  log_speed_change_pointers.nstackwords
+        .set    log_speed_change_pointers.maxcores,0
+        .globl  log_speed_change_pointers.maxcores
+        .set    log_speed_change_pointers.maxtimers,0
+        .globl  log_speed_change_pointers.maxtimers
+        .set    log_speed_change_pointers.maxchanends,0
+        .globl  log_speed_change_pointers.maxchanends
+
+        .globl  log_speed_change_pointers
+        .align  4
+        .type   log_speed_change_pointers,@function
+log_speed_change_pointers:
+        .cc_bottom log_speed_change_pointers.function
+
+
+        .cc_top install_speed_change_handler.function
+        .set    install_speed_change_handler.nstackwords,0
+        .globl  install_speed_change_handler.nstackwords
+        .set    install_speed_change_handler.maxcores,0
+        .globl  install_speed_change_handler.maxcores
+        .set    install_speed_change_handler.maxtimers,0
+        .globl  install_speed_change_handler.maxtimers
+        .set    install_speed_change_handler.maxchanends,0
+        .globl  install_speed_change_handler.maxchanends
+
+        .globl  install_speed_change_handler
+        .align  4
+        .type   install_speed_change_handler,@function
+install_speed_change_handler:
+        .cc_bottom install_speed_change_handler.function
+
+#endif // __XS2A__
 

@@ -32,6 +32,10 @@
 #define SP_RX_ERR        (SP_NUM_WORDS + 3)
 #define SP_RX_DV         (SP_NUM_WORDS + 2)
 
+// The number of bytes in the mii_packet_t before the data
+#define MII_PACKET_HEADER_BYTES 40
+#define MII_PACKET_HEADER_WORDS (MII_PACKET_HEADER_BYTES / 4)
+
 .align 4
 .globl sof_value
 sof_value:
@@ -133,7 +137,7 @@ start_gigabit_rx:
         ldw poly, r11[0]
 
         // Receive address of packet buffer // Get RXD off the stack
-        { in base, res[chan]                 ; ldw p_rxd, sp[SP_NUM_WORDS + 1] }
+        { in base, res[chan]              ; ldw p_rxd, sp[SP_NUM_WORDS + 1] }
 
         // Compute the minimum valid packet size before 4 for the CRC
         ldc r11, 60 + 4
@@ -177,8 +181,8 @@ rx_aligned:
         { in tmp1, res[tmp1]              ; ldw tmp3, sp[SP_RX_ERR] }
 
 rx_dont_wait:
-        // Take ownership of the error port
-        { setc res[tmp3], XS1_SETC_COND_EQ ; add ptr, base, 4 }
+        // Take ownership of the error port // Offset of data within the mii_packet_t structure
+        { setc res[tmp3], XS1_SETC_COND_EQ ; ldc ptr, MII_PACKET_HEADER_BYTES }
 
         // Setup the condition on the data port for the SOF
         // Load RX_DV into tmp4 so that it is available for the error handler code
@@ -196,8 +200,11 @@ rx_dont_wait:
 
 rx_data:
         //                                // Don't store SOF (would overwrite timestamp)
-        { in tmp1, res[p_rxd]             ; add ptr, ptr, 4 }
+        { in tmp1, res[p_rxd]             ; add ptr, base, ptr }
+
+        //                                // Number of bits required for two INs after ENDIN
         { not crc, tmp1                   ; ldc tmp4, 33 }
+
         { in tmp1, res[p_rxd]             ; stw tmp1, ptr[0] }
         crc32_inc crc, tmp1, poly, ptr, 4
         { in tmp1, res[p_rxd]             ; stw tmp1, ptr[0] }
@@ -1044,18 +1051,21 @@ rx_shared:
         // Compute byte count received    // Compute shift distance to align data
         { add tmp2, tmp2, r11             ; sub r11, tmp1, tmp3 }
 
-        // Align data word correctly      // Ignore size/timestamp words
-        { shr tmp1, tmp5, r11             ; sub tmp2, tmp2, 8 }
+        // Align data word correctly      // Load mii_packet_t overhead
+        { shr tmp1, tmp5, r11             ; ldc tmp5, MII_PACKET_HEADER_BYTES }
         crcn crc, tmp1, poly, tmp3
 
-        // Compare length with minimum    // Store last bytes of data
-        { lss tmp4, tmp2, tmp4            ; stw tmp1, ptr[0] }
+        // Discount mii_packet_t overhead
+        { sub tmp2, tmp2, tmp5            ; nop }
+
+        // Compare length with minimum    // Offset of length/type field
+        { lss tmp4, tmp2, tmp4            ; ldc tmp1, MII_PACKET_HEADER_WORDS + 3 }
 
         // Test whether result is -1      // In case of under-sized frames
         { not crc, crc                    ; bt tmp4, rx_error_runt }
 
         //                                // Load the length/type field
-        { mkmsk tmp5, 16                  ; ldw tmp1, base[5] }
+        { mkmsk tmp5, 16                  ; ldw tmp1, base[tmp1] }
 
         //                                // Load the constant to compare against
         { and tmp1, tmp1, tmp5            ; ldw tmp3, dp[vlan_prio_tag] }
@@ -1066,15 +1076,21 @@ rx_shared:
         // Packet overhead to discount    // Branch if this isn't vlan tagged
         { ldc tmp3, 18                    ; bf tmp3, rx_test_length }
 
+        //                                // Offset of length/type field in VLAN tagged packet
+        { nop                             ; ldc tmp1, MII_PACKET_HEADER_WORDS + 4 }
+
         //                                // Load the length/type field after a vlan tag
-        { add tmp3, tmp3, 4               ; ldw tmp1, base[6] }
+        { add tmp3, tmp3, 4               ; ldw tmp1, base[tmp1] }
 
 rx_test_length:
         // Mask off the data              // Load the length/type field after a vlan tag
         { byterev tmp1, tmp1              ; sub tmp4, tmp2, tmp3 }
 
-        // The length is a 16-bit field   // The missing word is from at base[15]
-        { shr tmp1, tmp1, 16              ; ldc ptr, 60 }
+        // The length is a 16-bit field   // The word offset of the missing word
+        { shr tmp1, tmp1, 16              ; ldc ptr, (MII_PACKET_HEADER_WORDS + 13) }
+
+        // The byte offset of the missing word
+        { shl ptr, ptr, 2                 ; nop }
 
         // Check whether type/len is a length // Restore the missing word to tmp5
         { lsu tmp3, tmp1, tmp5            ; ldw tmp5, sp[SP_SAVED_WORD13] }
@@ -1082,8 +1098,7 @@ rx_test_length:
         // Check whether the length is invalid (less than the actual data)
         { lsu tmp3, tmp4, tmp1            ; bf tmp3, rx_test_max_len }
 
-        // Compute address of the missing word
-        { add ptr, base, ptr              ; bt tmp3, rx_length_error }
+        { nop                             ; bt tmp3, rx_length_error }
 
 rx_test_max_len:
         // Ignore crc word in byte count  // Load the maximum permissible length
@@ -1092,8 +1107,8 @@ rx_test_max_len:
         // Compare actual length with max // If crc is wrong then return pointer
         { lsu tmp3, tmp3, tmp2            ; bt crc, rx_error_crc }
 
-        //                                // If the packet is too long then bin it
-        { nop                             ; bt tmp3, rx_length_error }
+        // Compute address of the missing word // If the packet is too long then bin it
+        { add ptr, base, ptr              ; bt tmp3, rx_length_error }
 
 rx_crc_ok:
         // CRC ok, send pointer           // Store size in word 0 or packet

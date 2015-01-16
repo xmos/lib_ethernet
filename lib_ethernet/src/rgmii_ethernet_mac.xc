@@ -17,7 +17,7 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
                            in buffered port:32 p_rxd_1000, in buffered port:32 p_rxd_10_100,
                            in buffered port:4 p_rxd_interframe,
                            in port p_rxdv, in port p_rxdv_interframe,
-                           in port p_txclk_in, out port p_txclk_out, 
+                           in port p_txclk_in, out port p_txclk_out,
                            out port p_txer, out port p_txen,
                            out buffered port:32 p_txd,
                            clock rxclk,
@@ -39,7 +39,7 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
   configure_clock_src(txclk, p_txclk_in);
   configure_out_port_strobed_master(p_txd, p_txen, txclk, 0);
   configure_out_port(p_txer, txclk, 0);
-  
+
   set_clock_fall_delay(txclk, 2);
   set_clock_rise_delay(txclk, 2);
   set_clock_rise_delay(rxclk, 0);
@@ -48,14 +48,14 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
 
   // Ensure that the error port is running fast enough to catch errors
   configure_in_port(p_rxer, rxclk);
-  
+
   configure_clock_src(txclk_out, p_txclk_in);
   configure_port_clock_output(p_txclk_out, txclk_out);
   set_port_inv(p_txclk_out);
 
-  // Use this to align the data recived by the rgmii block with TXC, 
-  // only require the data to arrive before the edge that it should be 
-  // output on but after the TXC last edge. 
+  // Use this to align the data recived by the rgmii block with TXC,
+  // only require the data to arrive before the edge that it should be
+  // output on but after the TXC last edge.
   // At 500MHz, data arrives in slot 3 i.e 2 cycles before tx rising edge
   set_clock_fall_delay(txclk_out, 3);
   set_clock_rise_delay(txclk_out, 3);
@@ -67,19 +67,22 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
   start_clock(rxclk_interframe);
 }
 
-void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
+void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                        server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                        server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                        streaming chanend ? c_rx_hp,
+                        streaming chanend ? c_tx_hp,
                         in port p_rxclk, in port _p_rxer,
                         in port _p_rxd_1000, in port _p_rxd_10_100,
                         in port _p_rxd_interframe,
                         in port p_rxdv, in port p_rxdv_interframe,
-                        in port p_txclk_in, out port p_txclk_out, 
+                        in port p_txclk_in, out port p_txclk_out,
                         out port p_txer, out port p_txen,
                         out port _p_txd,
                         clock rxclk,
                         clock rxclk_interframe,
                         clock txclk,
-                        clock txclk_out,
-                        static const unsigned bufsize_words)
+                        clock txclk_out)
 {
   in port * movable _pp_rxd_1000 = &_p_rxd_1000;
   in buffered port:32 * movable pp_rxd_1000 = reconfigure_port(move(_pp_rxd_1000), in buffered port:32);
@@ -96,26 +99,51 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
   in port * movable _pp_rxer = &_p_rxer;
   in buffered port:1 * movable pp_rxer = reconfigure_port(move(_pp_rxer), in buffered port:1);
   in buffered port:1 &p_rxer_safe = *pp_rxer;
+
+  rx_client_state_t rx_client_state_lp[n_rx_lp];
+  tx_client_state_t tx_client_state_lp[n_tx_lp];
+
+  init_rx_client_state(rx_client_state_lp, n_rx_lp);
+  init_tx_client_state(tx_client_state_lp, n_tx_lp);
+
+  mii_init_lock();
+
   unsafe {
-    unsigned int buffer[bufsize_words];
-    buffers_used_t used_buffers;
+    unsigned int buffer[RGMII_MAC_BUFFER_COUNT * sizeof(mii_packet_t) / 4];
+    buffers_used_t used_buffers_rx_lp;
+    buffers_used_t used_buffers_rx_hp;
+    buffers_used_t used_buffers_tx;
     buffers_free_t free_buffers;
-    in buffered port:32 *unsafe p_rxd_1000 = &p_rxd_1000_safe;
-    in port *unsafe p_rxdv_unsafe = &p_rxdv;
-    in buffered port:1 *unsafe p_rxer_unsafe = &p_rxer_safe;
+
+    // Create unsafe pointers to pass to two parallel tasks
+    buffers_used_t * unsafe p_used_buffers_rx_lp = &used_buffers_rx_lp;
+    buffers_used_t * unsafe p_used_buffers_rx_hp = &used_buffers_rx_hp;
+    buffers_free_t * unsafe p_free_buffers = &free_buffers;
+    in buffered port:32 * unsafe p_rxd_1000 = &p_rxd_1000_safe;
+    in port * unsafe p_rxdv_unsafe = &p_rxdv;
+    in buffered port:1 * unsafe p_rxer_unsafe = &p_rxer_safe;
+
     streaming chan c_rx_to_manager[2], c_manager_to_tx, c_ping_pong;
     streaming chanend * unsafe c_speed_change;
-    int speed_change_ids[4];
+    int speed_change_ids[8];
     rgmii_inband_status_t current_mode = INITIAL_MODE;
 
-    rgmii_configure_ports(p_rxclk, p_rxer_safe, p_rxd_1000_safe, p_rxd_10_100, p_rxd_interframe, p_rxdv, p_rxdv_interframe,
-                          p_txclk_in, p_txclk_out, p_txer, p_txen, p_txd, rxclk, rxclk_interframe, txclk, txclk_out);  
+    rgmii_configure_ports(p_rxclk, p_rxer_safe, p_rxd_1000_safe, p_rxd_10_100,
+                          p_rxd_interframe, p_rxdv, p_rxdv_interframe,
+                          p_txclk_in, p_txclk_out, p_txer, p_txen, p_txd,
+                          rxclk, rxclk_interframe, txclk, txclk_out);
 
     log_speed_change_pointers(speed_change_ids);
     c_speed_change = (streaming chanend * unsafe)speed_change_ids;
 
     while(1)
     {
+      // Setup the buffer pointers
+      buffers_used_initialize(used_buffers_rx_lp);
+      buffers_used_initialize(used_buffers_rx_hp);
+      buffers_used_initialize(used_buffers_tx);
+      buffers_free_initialize(free_buffers, (unsigned char*)buffer);
+
       if (current_mode == INBAND_STATUS_1G_FULLDUPLEX)
       {
         par
@@ -140,21 +168,34 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
                 empty_channel(c_rx_to_manager[1]);
                 empty_channel(c_ping_pong);
               }
+              {
+                rgmii_buffer_manager(c_rx_to_manager[0], c_speed_change[3],
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers);
+              }
+              {
+                rgmii_buffer_manager(c_rx_to_manager[1], c_speed_change[4],
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers);
+              }
             }
           }
 
           {
-            // Setup the buffer pointers
-            buffers_used_initialise(used_buffers);
-            buffers_free_initialise(free_buffers, (unsigned char*)buffer);
-
-            unsigned int error = 0;
-            error = buffer_manager_1000(c_rx_to_manager[0], c_rx_to_manager[1], c_manager_to_tx,
-                                        c_speed_change[3], p_txclk_out, p_rxd_interframe,
-                                        used_buffers, free_buffers, current_mode);
+            rgmii_ethernet_rx_server_aux(rx_client_state_lp, i_rx_lp, n_rx_lp,
+                                         c_rx_hp,
+                                         c_speed_change[5], p_txclk_out, p_rxd_interframe,
+                                         *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
+                                         *p_free_buffers, current_mode);
             current_mode = get_current_rgmii_mode(p_rxd_interframe);
-            if (error)
-              __builtin_trap();
+          }
+
+          {
+            rgmii_ethernet_tx_server_aux(tx_client_state_lp, i_tx_lp, n_tx_lp,
+                                         c_tx_hp,
+                                         c_manager_to_tx, c_speed_change[6],
+                                         used_buffers_tx, *p_free_buffers);
+          }
+          {
+            rgmii_ethernet_config_server_aux(i_cfg, n_cfg, c_speed_change[7]);
           }
         }
       }
@@ -177,24 +218,34 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
                 empty_channel(c_rx_to_manager[0]);
               }
               {
-                // Just wait for a change from 100Mb mode
+                rgmii_buffer_manager(c_rx_to_manager[0], c_speed_change[3],
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers);
+              }
+              {
+                // Just wait for a change from 100Mb mode and empty those channels
                 c_speed_change[2] :> unsigned tmp;
+                c_speed_change[4] :> unsigned tmp;
               }
             }
           }
 
           {
-            // Setup the buffer pointers
-            buffers_used_initialise(used_buffers);
-            buffers_free_initialise(free_buffers, (unsigned char*)buffer);
-
-            unsigned int error = 0;
-            error = buffer_manager_10_100(c_rx_to_manager[0], c_manager_to_tx,
-                                          c_speed_change[3], p_txclk_out, p_rxd_interframe,
-                                          used_buffers, free_buffers, current_mode);
+            rgmii_ethernet_rx_server_aux(rx_client_state_lp, i_rx_lp, n_rx_lp,
+                                         c_rx_hp,
+                                         c_speed_change[5], p_txclk_out, p_rxd_interframe,
+                                         *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
+                                         *p_free_buffers, current_mode);
             current_mode = get_current_rgmii_mode(p_rxd_interframe);
-            if (error)
-              __builtin_trap();
+          }
+
+          {
+            rgmii_ethernet_tx_server_aux(tx_client_state_lp, i_tx_lp, n_tx_lp,
+                                         c_tx_hp,
+                                         c_manager_to_tx, c_speed_change[6],
+                                         used_buffers_tx, *p_free_buffers);
+          }
+          {
+            rgmii_ethernet_config_server_aux(i_cfg, n_cfg, c_speed_change[7]);
           }
         }
       }
@@ -205,5 +256,4 @@ void rgmii_ethernet_mac(server ethernet_if i_eth[n], static const unsigned n,
       }
     }
   }
-
 }

@@ -27,10 +27,6 @@ static void init_dummy_buf()
   *(info->end) = (int) (info->start);
 #if !ETHERNET_USE_HARDWARE_LOCKS
   swlock_init(&info->lock);
-#else
-  if (ethernet_memory_lock == 0) {
-    ethernet_memory_lock = hwlock_alloc();
-  }
 #endif
   dummy_packet = (mii_packet_t *) ((char *) info->wrptr + (sizeof(malloc_hdr_t)));
   dummy_end_ptr = (unsigned *) ((char*) dummy_packet + MII_PACKET_HEADER_SIZE + 4*10);
@@ -50,14 +46,21 @@ mii_mempool_t mii_init_mempool(unsigned * buf, int size)
   info->wrptr = info->start;
   *(info->start) = 0;
   *(info->end) = (int) (info->start);
+
 #if !ETHERNET_USE_HARDWARE_LOCKS
   swlock_init(&info->lock);
-#else
+#endif
+
+  return ((mii_mempool_t) info);
+}
+
+void mii_init_lock()
+{
+#if ETHERNET_USE_HARDWARE_LOCKS
   if (ethernet_memory_lock == 0) {
     ethernet_memory_lock = hwlock_alloc();
   }
 #endif
-  return ((mii_mempool_t) info);
 }
 
 unsigned *mii_get_wrap_ptr(mii_mempool_t mempool)
@@ -122,7 +125,7 @@ void mii_commit(mii_packet_t *buf, unsigned *endptr0)
   // The filter thread will set the stage quickly in the case of a length error so
   // set stage before the filter thread does.
   mii_packet_t *pkt = (mii_packet_t *) buf;
-  pkt->stage = 0;
+  pkt->stage = MII_STAGE_EMPTY;
 
   int *end_ptr = (int *) endptr0;
   malloc_hdr_t *hdr = (malloc_hdr_t *) ((char *) buf - sizeof(malloc_hdr_t));

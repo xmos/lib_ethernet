@@ -78,7 +78,7 @@ unsafe void mii_ethernet_filter(streaming chanend c,
 
         if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc) || (length > ETHERNET_MAX_PACKET_SIZE)) {
           buf->filter_result = 0;
-          buf->stage = 1;
+          buf->stage = MII_STAGE_FILTERED;
           break;
         }
 
@@ -94,7 +94,7 @@ unsafe void mii_ethernet_filter(streaming chanend c,
 
         if ((len_type < 1536) && (len_type > rx_data_len)) {
           buf->filter_result = 0;
-          buf->stage = 1;
+          buf->stage = MII_STAGE_FILTERED;
           break;
         }
 
@@ -110,7 +110,7 @@ unsafe void mii_ethernet_filter(streaming chanend c,
         debug_printf("Filter result: %x\n", filter_result);
         buf->filter_result = filter_result;
         buf->filter_data = filter_data;
-        buf->stage = 1;
+        buf->stage = MII_STAGE_FILTERED;
       }
       break;
     }

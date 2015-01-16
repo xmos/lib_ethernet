@@ -5,7 +5,9 @@
 
 
 [[combinable]]
-void icmp_server(client ethernet_if eth,
+void icmp_server(client ethernet_cfg_if cfg,
+                 client ethernet_rx_if rx,
+                 client ethernet_tx_if tx,
                  const unsigned char ip_address[4],
                  otp_ports_t &otp_ports);
 

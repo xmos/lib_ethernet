@@ -22,12 +22,16 @@ SHARED_CODE = ../../include
 
 XTA_PRAGMA_INCLUDES = -I'../../xta'
 
-COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
+COMMON_FLAGS  = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
 COMMON_FLAGS += $(XTA_PRAGMA_INCLUDES)
 
 XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
 XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
-XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1
+XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
+
+ifeq ($(CONFIG),rt_rgmii)
+	TARGET = XS2-MODULE
+endif
 
 # The USED_MODULES variable lists other module used by the application.
 

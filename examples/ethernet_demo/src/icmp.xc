@@ -36,17 +36,17 @@ static int build_arp_response(unsigned char rxbuf[64],
   unsigned char byte;
 
   for (int i = 0; i < 6; i++)
-    {
-      byte = rxbuf[22+i];
-      txbuf[i] = byte;
-      txbuf[32 + i] = byte;
-    }
+  {
+    byte = rxbuf[22+i];
+    txbuf[i] = byte;
+    txbuf[32 + i] = byte;
+  }
   word = ((const unsigned int *) rxbuf)[7];
   for (int i = 0; i < 4; i++)
-    {
-      txbuf[38 + i] = word & 0xFF;
-      word >>= 8;
-    }
+  {
+    txbuf[38 + i] = word & 0xFF;
+    word >>= 8;
+  }
 
   txbuf[28] = own_ip_addr[0];
   txbuf[29] = own_ip_addr[1];
@@ -130,24 +130,24 @@ static int build_icmp_response(unsigned char rxbuf[], unsigned char txbuf[],
   unsigned ip_checksum = 0x0185;
 
   for (int i = 0; i < 6; i++)
-    {
-      txbuf[i] = rxbuf[6 + i];
-    }
+  {
+    txbuf[i] = rxbuf[6 + i];
+  }
   for (int i = 0; i < 4; i++)
-    {
-      txbuf[30 + i] = rxbuf[26 + i];
-    }
+  {
+    txbuf[30 + i] = rxbuf[26 + i];
+  }
   icmp_checksum = byterev(((const unsigned int *) rxbuf)[9]) >> 16;
   for (int i = 0; i < 4; i++)
-    {
-      txbuf[38 + i] = rxbuf[38 + i];
-    }
+  {
+    txbuf[38 + i] = rxbuf[38 + i];
+  }
   totallen = byterev(((const unsigned int *) rxbuf)[4]) >> 16;
   datalen = totallen - 28;
   for (int i = 0; i < datalen; i++)
-    {
-      txbuf[42 + i] = rxbuf[42+i];
-    }
+  {
+    txbuf[42 + i] = rxbuf[42+i];
+  }
 
   for (int i = 0; i < 6; i++)
   {
@@ -237,7 +237,9 @@ static int is_valid_icmp_packet(const unsigned char rxbuf[nbytes],
 }
 
 [[combinable]]
-void icmp_server(client ethernet_if eth,
+void icmp_server(client ethernet_cfg_if cfg,
+                 client ethernet_rx_if rx,
+                 client ethernet_tx_if tx,
                  const unsigned char ip_address[4],
                  otp_ports_t &otp_ports)
 {
@@ -246,39 +248,44 @@ void icmp_server(client ethernet_if eth,
 
   // Get the mac address from OTP and set it in the ethernet component
   otp_board_info_get_mac(otp_ports, 0, mac_address);
-  eth.set_macaddr(0, mac_address);
+
+  size_t index = rx.get_index();
+  cfg.set_macaddr(0, mac_address);
 
   macaddr_filter.vlan = 0;
   memcpy(macaddr_filter.addr, mac_address, sizeof(mac_address));
-  eth.add_macaddr_filter(macaddr_filter);
+  cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   // Only allow ARP and IP packets to the app
-  eth.add_ethertype_filter(0x0806);
-  eth.add_ethertype_filter(0x0800);
+  cfg.add_ethertype_filter(index, 0, 0x0806);
+  cfg.add_ethertype_filter(index, 0, 0x0800);
 
   // Set link up on the ethernet mac
-  eth.set_link_state(0, ETHERNET_LINK_UP);
+  cfg.set_link_state(0, ETHERNET_LINK_UP);
 
   debug_printf("Test started\n");
   while (1)
   {
     select {
-    case eth.packet_ready():
+    case rx.packet_ready():
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       unsigned char txbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
-      eth.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
+      rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
+
+      if (packet_info.type != ETH_DATA)
+        continue;
 
       if (is_valid_arp_packet(rxbuf, packet_info.len, ip_address))
       {
         int len = build_arp_response(rxbuf, txbuf, mac_address, ip_address);
-        eth.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
+        tx.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
         debug_printf("ARP response sent\n");
       }
       else if (is_valid_icmp_packet(rxbuf, packet_info.len, ip_address))
       {
         int len = build_icmp_response(rxbuf, txbuf, mac_address, ip_address);
-        eth.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
+        tx.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
         debug_printf("ICMP response sent\n");
       }
       break;

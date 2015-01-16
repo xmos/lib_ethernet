@@ -36,21 +36,67 @@ static unsafe inline int is_broadcast(char * unsafe buf)
 static unsafe inline int compare_mac(char * unsafe buf,
                                      const char mac[6])
 {
-  for (int i=0; i<6;i++)
+  for (int i = 0; i < 6; i++) {
     if (buf[i] != mac[i])
       return 0;
+  }
   return 1;
+}
+
+static unsafe inline void init_client_state(client_state_t client_state[n], static const unsigned n)
+{
+  for (int i = 0; i < n; i ++) {
+    client_state[i].status_update_state = STATUS_UPDATE_IGNORING;
+    client_state[i].incoming_packet = 0;
+    client_state[i].num_etype_filters = 0;
+  }
+}
+
+static unsafe inline void update_client_state(client_state_t client_state[n], server ethernet_rx_if i_rx[n],
+                                              static const unsigned n)
+{
+  for (int i = 0; i < n; i += 1) {
+    if (client_state[i].status_update_state == STATUS_UPDATE_WAITING) {
+      client_state[i].status_update_state = STATUS_UPDATE_PENDING;
+      i_rx[i].packet_ready();
+    }
+  }
+}
+
+static unsafe void send_to_clients(client_state_t client_state[n], server ethernet_rx_if i_rx[n],
+                                   static const unsigned n, unsigned filter_result,
+                                   uint16_t len_type, int &incoming_tcount)
+{
+  for (int i = 0; i < n; i++) {
+    int client_wants_packet = ((filter_result >> i) & 1);
+    if (client_state[i].num_etype_filters != 0 && (len_type >= 1536)) {
+      int passed_etype_filter = 0;
+      for (int j = 0; j < client_state[i].num_etype_filters; j++) {
+        if (client_state[i].etype_filters[j] == len_type) {
+          passed_etype_filter = 1;
+          break;
+        }
+      }
+      client_wants_packet &= passed_etype_filter;
+    }
+    if (client_wants_packet) {
+      client_state[i].incoming_packet = 1;
+      i_rx[i].packet_ready();
+      incoming_tcount++;
+    }
+  }
 }
 
 static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
                                          chanend notifications,
-                                         server ethernet_if i_eth[n],
-                                         static const unsigned n,
+                                         server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                                         server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
+                                         server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
                                          static const unsigned double_rx_bufsize_words)
 {
   char mac_address[6] = {0};
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
-  client_state_t client_info[n];
+  client_state_t client_state[n_rx];
   int rxbuf[double_rx_bufsize_words];
   int txbuf[(ETHERNET_MAX_PACKET_SIZE+3)/4];
   struct mii_lite_data_t mii_lite_data;
@@ -61,11 +107,7 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
   char * unsafe incoming_data = null;
   eth_global_filter_info_t filter_info;
 
-  for (int i = 0; i < n; i ++) {
-    client_info[i].status_update_state = STATUS_UPDATE_IGNORING;
-    client_info[i].incoming_packet = 0;
-    client_info[i].num_etype_filters = 0;
-  }
+  init_client_state(client_state, n_rx);
 
   ethernet_init_filter_table(filter_info);
 
@@ -76,72 +118,105 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
 
   while (1) {
     select {
-    case i_eth[int i].get_packet(ethernet_packet_info_t &desc,
+    case i_rx[int i].get_index() -> size_t result:
+      result = i;
+      break;
+
+    case i_rx[int i].get_packet(ethernet_packet_info_t &desc,
                                  char data[n],
                                  unsigned n):
-      if (client_info[i].status_update_state == STATUS_UPDATE_PENDING) {
+      if (client_state[i].status_update_state == STATUS_UPDATE_PENDING) {
         data[0] = 1;
         data[1] = link_status;
         desc.type = ETH_IF_STATUS;
-        client_info[i].status_update_state = STATUS_UPDATE_WAITING;
-      } else if (client_info[i].incoming_packet) {
-        desc.type = ETH_DATA;
-        desc.timestamp = incoming_timestamp;
-        desc.src_ifnum = 0;
-        desc.filter_data = 0;
-        desc.len = incoming_nbytes;
+        client_state[i].status_update_state = STATUS_UPDATE_WAITING;
+      } else if (client_state[i].incoming_packet) {
+        ethernet_packet_info_t info;
+        info.type = ETH_DATA;
+        info.timestamp = incoming_timestamp;
+        info.src_ifnum = 0;
+        info.filter_data = 0;
+        info.len = incoming_nbytes;
+        memcpy(&desc, &info, sizeof(info));
         memcpy(data, incoming_data, incoming_nbytes);
-        client_info[i].incoming_packet = 0;
+        client_state[i].incoming_packet = 0;
         incoming_tcount--;
       } else {
         desc.type = ETH_NO_DATA;
       }
       break;
-    case i_eth[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
+
+    case i_cfg[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
       memcpy(r_mac_address, mac_address, 6);
       break;
-    case i_eth[int i].set_macaddr(size_t ifnum, char r_mac_address[6]):
+
+    case i_cfg[int i].set_macaddr(size_t ifnum, char r_mac_address[6]):
       memcpy(mac_address, r_mac_address, 6);
       break;
-    case i_eth[int i].add_macaddr_filter(ethernet_macaddr_filter_t entry) -> ethernet_macaddr_filter_result_t result:
-      result = ethernet_add_filter_table_entry(filter_info, i, entry);
+
+    case i_cfg[int i].add_macaddr_filter(size_t client_num, int is_hp,
+                                         ethernet_macaddr_filter_t entry) ->
+                                           ethernet_macaddr_filter_result_t result:
+      if (is_hp)
+        fail("Standard MII ethernet does not support the high priority queue");
+
+      result = ethernet_add_filter_table_entry(filter_info, client_num, is_hp, entry);
       break;
-    case i_eth[int i].del_macaddr_filter(ethernet_macaddr_filter_t entry):
-      ethernet_del_filter_table_entry(filter_info, i, entry);
+
+    case i_cfg[int i].del_macaddr_filter(size_t client_num, int is_hp,
+                                         ethernet_macaddr_filter_t entry):
+      if (is_hp)
+        fail("Standard MII ethernet does not support the high priority queue");
+
+      ethernet_del_filter_table_entry(filter_info, client_num, is_hp, entry);
       break;
-    case i_eth[int i].del_all_macaddr_filters():
-      ethernet_clear_filter_table(filter_info, i);
+
+    case i_cfg[int i].del_all_macaddr_filters(size_t client_num, int is_hp):
+      if (is_hp)
+        fail("Standard MII ethernet does not support the high priority queue");
+
+      ethernet_clear_filter_table(filter_info, client_num, is_hp);
       break;
-    case i_eth[int i].add_ethertype_filter(uint16_t ethertype):
-      size_t n = client_info[i].num_etype_filters;
+
+    case i_cfg[int i].add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
+      if (is_hp)
+        fail("Standard MII ethernet does not support the high priority queue");
+
+      client_state_t &client_state = client_state[client_num];
+      size_t n = client_state.num_etype_filters;
       assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
-      client_info[i].etype_filters[n] = ethertype;
-      client_info[i].num_etype_filters = n + 1;
+      client_state.etype_filters[n] = ethertype;
+      client_state.num_etype_filters = n + 1;
       break;
-    case i_eth[int i].del_ethertype_filter(uint16_t ethertype):
+
+    case i_cfg[int i].del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
+      if (is_hp)
+        fail("Standard MII ethernet does not support the high priority queue");
+
+      client_state_t &client_state = client_state[client_num];
       size_t j = 0;
-      size_t n = client_info[i].num_etype_filters;
+      size_t n = client_state.num_etype_filters;
       while (j < n) {
-        if (client_info[i].etype_filters[j] == ethertype) {
-          client_info[i].etype_filters[j] = client_info[i].etype_filters[n-1];
+        if (client_state.etype_filters[j] == ethertype) {
+          client_state.etype_filters[j] = client_state.etype_filters[n-1];
           n--;
         }
         else {
           j++;
         }
       }
-      client_info[i].num_etype_filters = n;
+      client_state.num_etype_filters = n;
       break;
-    case i_eth[int i]._init_send_packet(unsigned n, int is_high_priority,
-                                       unsigned dst_port):
+
+    case i_tx[int i]._init_send_packet(unsigned n, unsigned dst_port):
       // Do nothing
       break;
 
-    case i_eth[int i]._get_outgoing_timestamp() -> unsigned timestamp:
-      fail("Outgoing timestamps are not supported in mii ethernet lite");
+    case i_tx[int i]._get_outgoing_timestamp() -> unsigned timestamp:
+      fail("Outgoing timestamps are not supported in standard MII ethernet");
       break;
 
-    case i_eth[int i]._complete_send_packet(char data[n], unsigned n,
+    case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                            int request_timestamp,
                                            unsigned dst_port):
       memcpy(txbuf, data, n);
@@ -149,22 +224,20 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
       mii_lite_out_packet_done(c_out);
       break;
 
-    case i_eth[int i].set_link_state(int ifnum, ethernet_link_state_t status):
+    case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
       if (link_status != status) {
         link_status = status;
-        for (int i = 0; i < n; i+=1) {
-          if (client_info[i].status_update_state == STATUS_UPDATE_WAITING) {
-            client_info[i].status_update_state = STATUS_UPDATE_PENDING;
-            i_eth[i].packet_ready();
-          }
-        }
+        update_client_state(client_state, i_rx, n_rx);
       }
       break;
+
     case inuchar_byref(notifications, mii_lite_data.notifySeen):
       break;
+
     default:
       break;
     }
+
     // Check that there is an incoming packet
     if (!incoming_data) {
       char * unsafe data;
@@ -192,26 +265,13 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
           // Invalid len_type field, will fall out and free the buffer below
         }
         else {
-          int filter_result =
+          unsigned filter_result =
             ethernet_do_filtering(filter_info, (char *) data, nbytes,
                                   incoming_appdata);
-          for (int i = 0; i < n; i++) {
-            int client_wants_packet = ((filter_result >> i) & 1);
-            if (client_info[i].num_etype_filters != 0 && (len_type >= 1536)) {
-              int passed_etype_filter = 0;
-              for (int j = 0; j < client_info[i].num_etype_filters; j++) {
-                if (client_info[i].etype_filters[j] == len_type) {
-                  passed_etype_filter = 1;
-                  break;
-                }
-              }
-              client_wants_packet &= passed_etype_filter;
-            }
-            if (client_wants_packet) {
-              client_info[i].incoming_packet = 1;
-              i_eth[i].packet_ready();
-              incoming_tcount++;
-            }
+
+          if (filter_result) {
+            send_to_clients(client_state, i_rx, n_rx,
+                            filter_result, len_type, incoming_tcount);
           }
         }
       }
@@ -226,8 +286,9 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
 }
 
 
-void mii_ethernet(server ethernet_if i_eth[n],
-                  static const unsigned n,
+void mii_ethernet(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                  server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
+                  server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
                   in port p_rxclk, in port p_rxer, in port p_rxd0,
                   in port p_rxdv,
                   in port p_txclk, out port p_txen, out port p_txd0,
@@ -251,7 +312,10 @@ void mii_ethernet(server ethernet_if i_eth[n],
       {asm(""::"r"(notifications));mii_lite_driver(p_rxd, p_rxdv, p_txd, p_timing,
                                                    c_in, c_out);}
       mii_ethernet_lite_aux(c_in, c_out, notifications,
-                            i_eth, n, double_rx_bufsize_words);
+                            i_cfg, n_cfg,
+                            i_rx, n_rx,
+                            i_tx, n_tx,
+                            double_rx_bufsize_words);
     }
   }
 }

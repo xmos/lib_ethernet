@@ -51,16 +51,21 @@ enum eth_clients {
 
 int main()
 {
-  ethernet_if i_eth[NUM_ETH_CLIENTS];
+  ethernet_cfg_if i_cfg[NUM_ETH_CLIENTS];
+  ethernet_rx_if i_rx[NUM_ETH_CLIENTS];
+  ethernet_tx_if i_tx[NUM_ETH_CLIENTS];
   par {
-    on tile[1]: mii_ethernet(i_eth, NUM_ETH_CLIENTS,
+    on tile[1]: mii_ethernet(i_cfg, NUM_ETH_CLIENTS,
+                             i_rx, NUM_ETH_CLIENTS,
+                             i_tx, NUM_ETH_CLIENTS,
                              p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                              p_eth_txclk, p_eth_txen, p_eth_txd,
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
                              ETH_RX_BUFFER_SIZE_WORDS);
 
-    on tile[1]: icmp_server(i_eth[ETH_TO_ICMP], ip_address, otp_ports);
+    on tile[1]: icmp_server(i_cfg[ETH_TO_ICMP], i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
+                            ip_address, otp_ports);
   }
   return 0;
 }

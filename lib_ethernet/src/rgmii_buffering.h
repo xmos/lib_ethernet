@@ -5,55 +5,67 @@
 #include <stdint.h>
 #include "rgmii.h"
 #include "ethernet.h"
+#include "mii_ethernet_conf.h"
+#include "client_state.h"
+#include "swlock.h"
+#include "hwlock.h"
 
-// Support max sized frames with VLAN tag.
-// Add an extra words to contain the packet size and timestamp.
-#define MAX_ETH_FRAME_SIZE (ETHERNET_MAX_PACKET_SIZE + 8)
-
-// Round up to the next full word
-#define MAX_ETH_FRAME_SIZE_WORDS ((MAX_ETH_FRAME_SIZE + 3) / 4)
-
-// Provide enough buffers to receive all minumum sized frames after
-// a maximum sized frame - using a power of 2 value is more efficient
-#define RGMII_MAC_BUFFER_COUNT 32
+void rgmii_init_lock();
 
 typedef struct buffers_free_t {
   unsigned top_index;
   uintptr_t stack[RGMII_MAC_BUFFER_COUNT];
+
+#if !ETHERNET_USE_HARDWARE_LOCKS
+  swlock_t lock;
+#endif
 } buffers_free_t;
 
-void buffers_free_initialise(REFERENCE_PARAM(buffers_free_t, free), unsigned char *buffer);
+void buffers_free_initialize(REFERENCE_PARAM(buffers_free_t, free), unsigned char *buffer);
 
 typedef struct buffers_used_t {
   unsigned tail_index;
   unsigned head_index;
   uintptr_t pointers[RGMII_MAC_BUFFER_COUNT + 1];
+
+#if !ETHERNET_USE_HARDWARE_LOCKS
+  swlock_t lock;
+#endif
 } buffers_used_t;
 
-void buffers_used_initialise(REFERENCE_PARAM(buffers_used_t, used));
+void buffers_used_initialize(REFERENCE_PARAM(buffers_used_t, used));
 
 void empty_channel(streaming_chanend_t c);
 
 #ifdef __XC__
-unsigned int buffer_manager_1000(streaming chanend c_rx0,
-                                 streaming chanend c_rx1,
-                                 streaming chanend c_tx,
+unsafe void rgmii_buffer_manager(streaming chanend c_rx,
                                  streaming chanend c_speed_change,
-                                 out port p_txclk_out,
-                                 in buffered port:4 p_rxd_interframe,
-                                 buffers_used_t &used_buffers,
-                                 buffers_free_t &free_buffers,
-                                 rgmii_inband_status_t current_mode);
+                                 buffers_used_t &used_buffers_rx_lp,
+                                 buffers_used_t &used_buffers_rx_hp,
+                                 buffers_free_t &free_buffers);
 
-unsigned int buffer_manager_10_100(streaming chanend c_rx,
-                                   streaming chanend c_tx,
-                                   streaming chanend c_speed_change,
-                                   out port p_txclk_out,
-                                   in buffered port:4 p_rxd_interframe,
-                                   buffers_used_t &used_buffers,
-                                   buffers_free_t &free_buffers,
-                                   rgmii_inband_status_t current_mode);
+unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
+                                         server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
+                                         streaming chanend ? c_rx_hp,
+                                         streaming chanend c_speed_change,
+                                         out port p_txclk_out,
+                                         in buffered port:4 p_rxd_interframe,
+                                         buffers_used_t &used_buffers_rx_lp,
+                                         buffers_used_t &used_buffers_rx_hp,
+                                         buffers_free_t &free_buffers,
+                                         rgmii_inband_status_t current_mode);
 
+unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_lp],
+                                         server ethernet_tx_if i_tx_lp[n_tx_lp], unsigned n_tx_lp,
+                                         streaming chanend ? c_tx_hp,
+                                         streaming chanend c_tx_to_mac,
+                                         streaming chanend c_speed_change,
+                                         buffers_used_t &used_buffers_tx,
+                                         buffers_free_t &free_buffers);
+
+unsafe void rgmii_ethernet_config_server_aux(server ethernet_cfg_if i_cfg[n],
+                                             unsigned n,
+                                             streaming chanend c_speed_change);
 #endif
 
 #endif // __RGMII_BUFFERING_H__

@@ -5,7 +5,9 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args, get_mii_rx_clk_phy
+from helpers import get_sim_args, run_on
+from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
+from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 
 def packet_checker(packet, phy):
     print "Packet received:"
@@ -13,6 +15,10 @@ def packet_checker(packet, phy):
 
     # Ignore the CRC bytes (-4)
     data = packet.data_bytes[:-4]
+
+    if len(data) < 2:
+        print "ERROR: packet doesn't contain enough data ({} bytes)".format(len(data))
+        return
 
     step = data[1] - data[0]
     print "Step = {}.".format(step)
@@ -25,30 +31,50 @@ def packet_checker(packet, phy):
             # Only print one error per packet
             break
 
-def do_test(impl, clk, phy):
+def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy):
     resources = xmostest.request_resource("xsim")
 
     testname = 'test_tx'
 
     binary = '{test}/bin/{impl}_{phy}/{test}_{impl}_{phy}.xe'.format(
-        test=testname, impl=impl, phy=phy.get_name())
+        test=testname, impl=impl, phy=rx_phy.get_name())
 
-    print "Running {test}: {phy} phy at {clk}".format(
-        test=testname, phy=phy.get_name(), clk=clk.get_name())
+    print "Running {test}: {impl} {phy} phy at {clk}".format(
+        test=testname, impl=impl, phy=rx_phy.get_name(), clk=rx_clk.get_name())
 
     tester = xmostest.ComparisonTester(open('{test}.expect'.format(test=testname)),
                                      'lib_ethernet', 'basic_tests', testname,
-                                     {'impl':impl, 'phy':phy.get_name(), 'clk':clk.get_name()})
+                                     {'impl':impl, 'phy':rx_phy.get_name(), 'clk':rx_clk.get_name()})
 
-    simargs = get_sim_args(testname, impl, clk, phy)
+    simargs = get_sim_args(testname, impl, rx_clk, rx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[clk, phy],
+                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
                               tester=tester,
                               simargs=simargs)
 
 def runtest():
+    # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
+
     xmostest.build('test_tx')
 
-    (clk_25, mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-    do_test('standard', clk_25, mii)
-    do_test('rt', clk_25, mii)
+    # Test 100 MBit - MII
+    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
+    if run_on(phy='mii', rate='100Mbs', mac='standard'):
+        do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+    if run_on(phy='mii', rate='100Mbs', mac='rt'):
+        do_test('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+
+    # Test 100 MBit - RGMII
+    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
+                                                test_ctrl='tile[0]:XS1_PORT_1C', verbose=True)
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
+    if run_on(phy='rgmii', rate='100Mbs', mac='rt'):
+        do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+
+    # Test 1000 MBit - RGMII
+    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
+                                               test_ctrl='tile[0]:XS1_PORT_1C')
+    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
+    if run_on(phy='rgmii', rate='1Gbs', mac='rt'):
+        do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
