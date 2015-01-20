@@ -1,6 +1,8 @@
 #ifndef __miiDriver_h__
 #define __miiDriver_h__
 
+#ifdef __XC__
+
 #define KERNELSTACKWORDS 128
 
 typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS OR ADD ANY FIELDS.
@@ -17,11 +19,10 @@ typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS O
     int miiPacketsTransmitted;
     int miiPacketsReceived;
     int miiPacketsCRCError;
-
     unsigned readBank;
     unsigned readBankRdPtr;
     unsigned readBankWrPtr;
-
+    unsigned miiOutChannel;
     int kernelStack[KERNELSTACKWORDS];
 } mii_lite_data_t;
 
@@ -39,7 +40,7 @@ typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS O
  *
  * \param words     number of words in the array.
  */
-extern void mii_lite_buffer_init(struct mii_lite_data_t &this, chanend cIn, chanend cNotifications, int buffer[], int words);
+extern void mii_lite_buffer_init(struct mii_lite_data_t &this, chanend cIn, chanend cNotifications, chanend cOut, int buffer[], int words);
 
 /** Function that closes down the MII thread. This function should not be
  * called between ``miiOutPacket()`` and ``miiOutPacketDone()``
@@ -131,7 +132,7 @@ void mii_lite_out_init(chanend cOut);
  *               reference clock periods
  *
  */
-int mii_lite_out_packet(chanend cOut, int buf[], int index, int length);
+int mii_lite_out_packet(chanend cOut, int * unsafe buf, int index, int length);
 
 /** Function that will cause a packet to be transmitted. It must get an
  * address, a length of the packet (in bytes),
@@ -189,6 +190,8 @@ void mii_lite_driver(in buffered port:32 p_rxd,
                      port p_mii_timing,
                      chanend c_in, chanend c_out);
 
+
+#endif
 
 #endif
 

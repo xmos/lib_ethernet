@@ -8,6 +8,7 @@
 #include "macaddr_filter.h"
 #include "print.h"
 #include "ntoh.h"
+#include "mii.h"
 
 #ifndef ETHERNET_MAC_PROMISCUOUS
 #define ETHERNET_MAC_PROMISCUOUS 0
@@ -87,34 +88,31 @@ static unsafe void send_to_clients(client_state_t client_state[n], server ethern
   }
 }
 
-static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
-                                         chanend notifications,
-                                         server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                                         server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
-                                         server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
-                                         static const unsigned double_rx_bufsize_words)
+static void mii_ethernet_aux(client mii_if i_mii,
+                                    server ethernet_cfg_if i_cfg[n_cfg],
+                                    static const unsigned n_cfg,
+                                    server ethernet_rx_if i_rx[n_rx],
+                                    static const unsigned n_rx,
+                                    server ethernet_tx_if i_tx[n_tx],
+                                    static const unsigned n_tx)
 {
+  unsafe {
   char mac_address[6] = {0};
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
   client_state_t client_state[n_rx];
-  int rxbuf[double_rx_bufsize_words];
   int txbuf[(ETHERNET_MAX_PACKET_SIZE+3)/4];
-  struct mii_lite_data_t mii_lite_data;
+  mii_info_t mii_info;
   int incoming_nbytes;
   int incoming_timestamp;
   int incoming_tcount;
   unsigned incoming_appdata;
-  char * unsafe incoming_data = null;
+  int * unsafe incoming_data = null;
   eth_global_filter_info_t filter_info;
 
+  mii_info = i_mii.init();
   init_client_state(client_state, n_rx);
 
   ethernet_init_filter_table(filter_info);
-
-  // Setup buffering and interrupt for packet handling
-  mii_lite_buffer_init(mii_lite_data, c_in, notifications,
-                       rxbuf, double_rx_bufsize_words);
-  mii_lite_out_init(c_out);
 
   while (1) {
     select {
@@ -143,6 +141,10 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
         incoming_tcount--;
       } else {
         desc.type = ETH_NO_DATA;
+      }
+      if (incoming_data != null && incoming_tcount == 0) {
+        i_mii.release_packet(incoming_data);
+        incoming_data = null;
       }
       break;
 
@@ -220,8 +222,9 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
                                            int request_timestamp,
                                            unsigned dst_port):
       memcpy(txbuf, data, n);
-      mii_lite_out_packet(c_out, txbuf, 0, n);
-      mii_lite_out_packet_done(c_out);
+      i_mii.send_packet(txbuf, n);
+      // wait for the packet to be sent
+      mii_packet_sent(mii_info);
       break;
 
     case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
@@ -230,20 +233,12 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
         update_client_state(client_state, i_rx, n_rx);
       }
       break;
-
-    case inuchar_byref(notifications, mii_lite_data.notifySeen):
-      break;
-
-    default:
-      break;
-    }
-
-    // Check that there is an incoming packet
-    if (!incoming_data) {
-      char * unsafe data;
+    case mii_incoming_packet(mii_info):
+      int * unsafe data;
       int nbytes;
       unsigned timestamp;
-      {data, nbytes, timestamp} = mii_lite_get_in_buffer(mii_lite_data);
+      {data, nbytes, timestamp} = i_mii.get_incoming_packet();
+
       if (data) {
         unsigned appdata;
         incoming_timestamp = timestamp;
@@ -251,12 +246,12 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
         incoming_data = data;
         incoming_tcount = 0;
 
-        int *unsafe p_len_type = (int *unsafe) &data[12];
+        int *unsafe p_len_type = (int *unsafe) &data[3];
         uint16_t len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
         unsigned header_len = 14;
         if (len_type == 0x8100) {
           header_len += 4;
-          p_len_type = (int *unsafe) &data[16];
+          p_len_type = (int *unsafe) &data[4];
           len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
         }
         const unsigned rx_data_len = nbytes - header_len;
@@ -275,13 +270,9 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
           }
         }
       }
+      break;
     }
-
-    if (incoming_data != null && incoming_tcount == 0) {
-      mii_lite_free_in_buffer(mii_lite_data, incoming_data);
-      mii_lite_restart_buffer(mii_lite_data);
-      incoming_data = null;
-    }
+  }
   }
 }
 
@@ -289,33 +280,24 @@ static unsafe void mii_ethernet_lite_aux(chanend c_in, chanend c_out,
 void mii_ethernet(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
                   server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
                   server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
-                  in port p_rxclk, in port p_rxer, in port p_rxd0,
+                  in port p_rxclk, in port p_rxer, in port p_rxd,
                   in port p_rxdv,
-                  in port p_txclk, out port p_txen, out port p_txd0,
+                  in port p_txclk, out port p_txen, out port p_txd,
                   port p_timing,
                   clock rxclk,
                   clock txclk,
                   static const unsigned double_rx_bufsize_words)
 
 {
-  in port * movable pp_rxd0 = &p_rxd0;
-  in buffered port:32 * movable pp_rxd = reconfigure_port(move(pp_rxd0), in buffered port:32);
-  in buffered port:32 &p_rxd = *pp_rxd;
-  out port * movable pp_txd0 = &p_txd0;
-  out buffered port:32 * movable pp_txd = reconfigure_port(move(pp_txd0), out buffered port:32);
-  out buffered port:32 &p_txd = *pp_txd;
-  mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk);
-  chan c_in, c_out;
-  chan notifications;
-  unsafe {
-    par {
-      {asm(""::"r"(notifications));mii_lite_driver(p_rxd, p_rxdv, p_txd, p_timing,
-                                                   c_in, c_out);}
-      mii_ethernet_lite_aux(c_in, c_out, notifications,
-                            i_cfg, n_cfg,
-                            i_rx, n_rx,
-                            i_tx, n_tx,
-                            double_rx_bufsize_words);
-    }
+  interface mii_if i_mii;
+  par {
+      mii(i_mii, p_rxclk, p_rxer, p_rxd, p_rxdv, p_txclk,
+          p_txen, p_txd, p_timing,
+          rxclk, txclk, double_rx_bufsize_words)
+      mii_ethernet_aux(i_mii,
+                       i_cfg, n_cfg,
+                       i_rx, n_rx,
+                       i_tx, n_tx);
   }
 }
+

@@ -8,6 +8,7 @@
 #include "mii_lite_lld.h"
 #include "hwtimer.h"
 #include "xassert.h"
+#include "print.h"
 
 // TODO: implement miiDriver straight in miiLLD.
 void mii_lite_driver(in buffered port:32 p_rxd,
@@ -151,7 +152,7 @@ static int get(int addr) {
 
 /* Called once on startup */
 
-void mii_lite_buffer_init(struct mii_lite_data_t &this, chanend cIn, chanend cNotifications, int buffer[], int numberWords) {
+void mii_lite_buffer_init(struct mii_lite_data_t &this, chanend cIn, chanend cNotifications, chanend cOut, int buffer[], int numberWords) {
     int address;
     this.notifySeen = 1;
     this.notifyLast = 1;
@@ -174,6 +175,9 @@ void mii_lite_buffer_init(struct mii_lite_data_t &this, chanend cIn, chanend cNo
     this.readBankRdPtr = 0;
     this.readBankWrPtr = 0;
     mii_lite_install_handler(this, this.wrPtr[0], cIn, cNotifications);
+    unsafe {
+      this.miiOutChannel = *((int * unsafe) &cOut);
+    }
 }
 
 
@@ -202,17 +206,19 @@ case inuchar_byref(notificationChannel, this.notifySeen):
             nBytes = get(this.readPtr[bank]);
         }
 
-        unsigned retVal = this.readPtr[bank] + 4;
-        this.readPtr[bank] += ((nBytes + 3) & ~3) + 4;
+        if (nBytes != 1) {
+          unsigned retVal = this.readPtr[bank] + 4;
+          this.readPtr[bank] += ((nBytes + 3) & ~3) + 4;
 
-        // Move the read bank pointer
-        this.readBankRdPtr = (this.readBankRdPtr + 1) % 32;
+          // Move the read bank pointer
+          this.readBankRdPtr = (this.readBankRdPtr + 1) % 32;
 
-        if (get(this.readPtr[bank]) == 0) {
+          if (get(this.readPtr[bank]) == 0) {
             this.readPtr[bank] = this.firstPtr[bank];
+          }
+          unsigned timeStamp = get(retVal);
+          return {(char * unsafe) (retVal+4), nBytes-4, timeStamp};
         }
-        unsigned timeStamp = get(retVal);
-        return {(char * unsafe) (retVal+4), nBytes-4, timeStamp};
     }
     return {(char * unsafe) 0, 0, 0};
   }
@@ -231,11 +237,19 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
             set(this.wrPtr[bn]-4, 1);          // this is now the head of the queue.
 
             // Log which bank this packet was written to
-            this.readBank |= bn << this.readBankWrPtr;
-            this.readBankWrPtr = (this.readBankWrPtr + 1) % 32;
+            unsigned newReadBankWrPtr = (this.readBankWrPtr + 1) % 32;
 
-            // Ensure the pointers haven't overflowed the 32 slots
-            assert(this.readBankRdPtr != this.readBankWrPtr);
+            // If the pointers have overflowed the 32 slots then
+            // drop the packet.
+            if (this.readBankRdPtr == newReadBankWrPtr) {
+              this.nextBuffer = -1;
+              this.refillBankNumber = bn;
+              return;
+            }
+
+            this.readBank &= ~(1 << this.readBankWrPtr);
+            this.readBank |= bn << this.readBankWrPtr;
+            this.readBankWrPtr = newReadBankWrPtr;
 
             if (this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) { // Test if there is room for packet
                 this.nextBuffer = this.wrPtr[bn];     // if so, record packet pointer
@@ -248,8 +262,19 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
         set(this.wrPtr[bn]-4, 1);            // record that this is now the head of the queue.
 
         // Log which bank this packet was written to
+        unsigned newReadBankWrPtr = (this.readBankWrPtr + 1) % 32;
+
+        // If the pointers have overflowed the 32 slots then
+        // drop the packet.
+        if (this.readBankRdPtr == newReadBankWrPtr) {
+          this.nextBuffer = -1;
+          this.refillBankNumber = bn;
+          return;
+        }
+
+        this.readBank &= ~(1 << this.readBankWrPtr);
         this.readBank |= bn << this.readBankWrPtr;
-        this.readBankWrPtr = (this.readBankWrPtr + 1) % 32;
+        this.readBankWrPtr = newReadBankWrPtr;
 
         // Ensure the pointers haven't overflowed the 32 slots
         assert(this.readBankRdPtr != this.readBankWrPtr);
@@ -337,19 +362,18 @@ void miiClientUser(struct mii_lite_data_t &this, int base, int end, chanend noti
 }
 
 #pragma unsafe arrays
-int mii_lite_out_packet(chanend c_out, int b[], int index, int length) {
+int mii_lite_out_packet(chanend c_out, int * unsafe b, int index, int length) {
     int a, roundedLength;
     int oddBytes = length & 3;
     int precise;
-
-    asm(" mov %0, %1" : "=r"(a) : "r"(b));
-
-    roundedLength = length >> 2;
-    b[roundedLength+1] = tailValues[oddBytes];
-    b[roundedLength] &= (1 << (oddBytes << 3)) - 1;
-    b[roundedLength+2] = -roundedLength + 1;
-    outuint(c_out, a + length - oddBytes - 4);
-
+    unsafe {
+      a = (int) b;
+      roundedLength = length >> 2;
+      b[roundedLength+1] = tailValues[oddBytes];
+      b[roundedLength] &= (1 << (oddBytes << 3)) - 1;
+      b[roundedLength+2] = -roundedLength + 1;
+      outuint(c_out, a + length - oddBytes - 4);
+    }
     precise = inuint(c_out);
 
     // 64 takes you from the start of the preamble to the start of the destination address
