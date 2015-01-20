@@ -2,6 +2,8 @@
 #define _smi_h_
 #include <stdint.h>
 
+#ifdef __XC__
+
 typedef interface smi_if {
   uint16_t read_reg(uint8_t regnum);
   void write_reg(uint8_t regnum, uint16_t val);
@@ -27,5 +29,6 @@ unsigned smi_get_id(client smi_if smi);
 
 int smi_is_link_up(client smi_if smi);
 
+#endif
 
 #endif // _smi_h_
