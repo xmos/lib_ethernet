@@ -7,10 +7,11 @@
 #include "print.h"
 #include "xassert.h"
 
+extern inline void enable_rgmii (unsigned delay, unsigned divide);
+
 // Re-define as a select handler until changed in xs1.h
 #pragma select handler
 void sin_char_array(streaming chanend c, char src[size], unsigned size);
-
 
 #if ETHERNET_USE_HARDWARE_LOCKS
 hwlock_t rgmii_memory_lock = 0;
