@@ -1,17 +1,24 @@
+#include <string.h>
 #include "mii_buffering.h"
 #include "debug_print.h"
+#include "xassert.h"
 
-#define MII_PACKET_HEADER_SIZE (sizeof(mii_packet_t) - ((ETHERNET_MAX_PACKET_SIZE+3)/4)*4)
-#define MIN_USAGE (MII_PACKET_HEADER_SIZE+sizeof(malloc_hdr_t)+4*10)
+/* A compile-time assertion macro that can contain sizeof and other operators */
+#define CASSERT(predicate, msg) _impl_CASSERT_LINE(predicate,msg)
+#define _impl_CASSERT_LINE(predicate, msg) \
+    typedef char assertion_failed_##msg[2*!!(predicate)-1];
 
-#if ETHERNET_USE_HARDWARE_LOCKS
+/* Ensure that the define required by the assembler stays inline with the structure */
+CASSERT(MII_PACKET_HEADER_BYTES == (sizeof(mii_packet_t) - (((ETHERNET_MAX_PACKET_SIZE+3)/4) * 4)), \
+        header_bytes_defines_does_not_match_structure)
+
+// There needs to be a block big enough to put the packet header
+#define MIN_USAGE (MII_PACKET_HEADER_BYTES)
+
 hwlock_t ethernet_memory_lock = 0;
-#endif
 
-static unsigned dummy_buf[(sizeof(mempool_info_t) +
-                           sizeof(malloc_hdr_t) +
-                           MII_PACKET_HEADER_SIZE +
-                           4*10)/4];
+// Allocate enough room to store the mempool and one packet header
+static unsigned dummy_buf[(sizeof(mempool_info_t) + MIN_USAGE + 4)/4];
 
 static mii_packet_t *dummy_packet;
 static unsigned * dummy_end_ptr;
@@ -19,48 +26,74 @@ static unsigned * dummy_end_ptr;
 static void init_dummy_buf()
 {
   mempool_info_t *info = (mempool_info_t *) (void *) &dummy_buf[0];
-  info->start = (int *) (((char *) dummy_buf) + sizeof(mempool_info_t));
-  info->end = (int *) (((char *) dummy_buf) + sizeof(dummy_buf) - 4);
-  info->rdptr = info->start;
+  info->start = (unsigned *) (((char *) dummy_buf) + sizeof(mempool_info_t));
+  info->end = (unsigned *) (((char *) dummy_buf) + sizeof(dummy_buf) - 4);
   info->wrptr = info->start;
+
+  /* Record the last safe address to start a packet. Need to use the word
+   * count in the operation. */
+  info->last_safe_wrptr = info->end - ((MIN_USAGE + 3) / 4);
+
   *(info->start) = 0;
-  *(info->end) = (int) (info->start);
+  *(info->end) = (unsigned) (info->start);
 #if !ETHERNET_USE_HARDWARE_LOCKS
   swlock_init(&info->lock);
 #endif
-  dummy_packet = (mii_packet_t *) ((char *) info->wrptr + (sizeof(malloc_hdr_t)));
-  dummy_end_ptr = (unsigned *) ((char*) dummy_packet + MII_PACKET_HEADER_SIZE + 4*10);
-  ((malloc_hdr_t *) (info->wrptr))->info = info;
+  dummy_packet = (mii_packet_t *)info->wrptr;
+  dummy_end_ptr = (unsigned *) ((char *) dummy_packet + MII_PACKET_HEADER_BYTES);
 }
 
-mii_mempool_t mii_init_mempool(unsigned * buf, int size)
+void mii_init_packet_queue(mii_packet_queue_t queue)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  info->rd_index = 0;
+  info->wr_index = 0;
+}
+
+mii_mempool_t mii_init_mempool(unsigned *buf, int size)
 {
   if (size < 4)
     return 0;
   if (dummy_buf[0] == 0)
     init_dummy_buf();
   mempool_info_t *info = (mempool_info_t *) buf;
-  info->start = (int *) (((char *) buf) + sizeof(mempool_info_t));
-  info->end = (int *) (((char *) buf) + size - 4);
-  info->rdptr = info->start;
+  info->start = (unsigned *) (((char *) buf) + sizeof(mempool_info_t));
+  info->end = (unsigned *) (((char *) buf) + size - 4);
   info->wrptr = info->start;
-  *(info->start) = 0;
-  *(info->end) = (int) (info->start);
 
-#if !ETHERNET_USE_HARDWARE_LOCKS
-  swlock_init(&info->lock);
-#endif
+  /* Record the last safe address to start a packet. Need to use the word
+   * count in the operation. */
+  info->last_safe_wrptr = info->end - ((MIN_USAGE + 3) / 4);
+
+  *(info->start) = 0;
+  *(info->end) = (unsigned) (info->start);
+
+  if (!ETHERNET_USE_HARDWARE_LOCKS) {
+    swlock_init(&info->lock);
+  }
 
   return ((mii_mempool_t) info);
 }
 
 void mii_init_lock()
 {
-#if ETHERNET_USE_HARDWARE_LOCKS
-  if (ethernet_memory_lock == 0) {
-    ethernet_memory_lock = hwlock_alloc();
+  if (ETHERNET_USE_HARDWARE_LOCKS) {
+    if (ethernet_memory_lock == 0) {
+      ethernet_memory_lock = hwlock_alloc();
+    }
   }
-#endif
+}
+
+int mii_packet_queue_full(mii_packet_queue_t queue)
+{
+  // The queue is full if the write pointer is pointing
+  // to a non-zero entry
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+
+  if (info->ptrs[info->wr_index])
+    return 1;
+  else
+    return 0;
 }
 
 unsigned *mii_get_wrap_ptr(mii_mempool_t mempool)
@@ -70,39 +103,37 @@ unsigned *mii_get_wrap_ptr(mii_mempool_t mempool)
 }
 
 mii_packet_t *mii_reserve_at_least(mii_mempool_t mempool,
+                                   unsigned *rdptr,
                                    int min_size)
 {
-  mempool_info_t *info = (mempool_info_t *) mempool;
-  int *rdptr = info->rdptr;
-  int *wrptr = info->wrptr;
-  malloc_hdr_t *hdr;
-  int space_left;
+  mempool_info_t *info = (mempool_info_t *)mempool;
+  unsigned *wrptr = info->wrptr;
 
-  space_left = (char *) rdptr - (char *) wrptr;
+  if (!rdptr) {
+    // There are no currenlty allocate packets so there is enough room
+    return (mii_packet_t *)wrptr;
+  }
+
+  int space_left = (char *)rdptr - (char *)wrptr;
 
   if (space_left <= 0)
-    space_left += (char *) info->end - (char *) info->start;
+    space_left += (char *)info->end - (char *)info->start;
 
   if (space_left < min_size)
     return 0;
 
-  hdr = (malloc_hdr_t *) wrptr;
-  hdr->info = info;
-
-  return (mii_packet_t *) (wrptr+(sizeof(malloc_hdr_t)>>2));
+  return (mii_packet_t *)wrptr;
 }
 
 mii_packet_t *mii_reserve(mii_mempool_t mempool,
+                          unsigned *rdptr,
                           unsigned **end_ptr)
 {
-  mempool_info_t *info = (mempool_info_t *) mempool;
-  int *rdptr = info->rdptr;
-  int *wrptr = info->wrptr;
-  malloc_hdr_t *hdr;
-  int space_left;
+  mempool_info_t *info = (mempool_info_t *)mempool;
+  unsigned *wrptr = info->wrptr;
 
   if (rdptr > wrptr) {
-    space_left = (char *) rdptr - (char *) wrptr;
+    int space_left = (char *)rdptr - (char *)wrptr;
     if (space_left < MIN_USAGE) {
       *end_ptr = dummy_end_ptr;
       return dummy_packet;
@@ -113,161 +144,137 @@ mii_packet_t *mii_reserve(mii_mempool_t mempool,
     // at least MIN_USAGE space left
   }
 
-  hdr = (malloc_hdr_t *) wrptr;
-  hdr->info = info;
-
-  *end_ptr = (unsigned *) rdptr;
-  return (mii_packet_t *) (wrptr+(sizeof(malloc_hdr_t)>>2));
+  *end_ptr = (unsigned *)rdptr;
+  return (mii_packet_t *)wrptr;
 }
 
-void mii_commit(mii_packet_t *buf, unsigned *endptr0)
+void mii_commit(mii_mempool_t mempool, unsigned *end_ptr)
 {
-  // The filter thread will set the stage quickly in the case of a length error so
-  // set stage before the filter thread does.
-  mii_packet_t *pkt = (mii_packet_t *) buf;
-  pkt->stage = MII_STAGE_EMPTY;
-
-  int *end_ptr = (int *) endptr0;
-  malloc_hdr_t *hdr = (malloc_hdr_t *) ((char *) buf - sizeof(malloc_hdr_t));
-  mempool_info_t *info = (mempool_info_t *) hdr->info;
-  int *end = info->end;
+  mempool_info_t *info = (mempool_info_t *) mempool;
 
 #if 0 && (NUM_ETHERNET_PORTS > 1) && !defined(DISABLE_ETHERNET_PORT_FORWARDING)
-  pkt->forwarding = 0;
+  buf->forwarding = 0;
 #endif
 
-  if (((int) (char *) end - (int) (char *) end_ptr) < MIN_USAGE)
+  if (end_ptr > info->last_safe_wrptr)
     end_ptr = info->start;
 
-  hdr->next = (int) end_ptr;
-
   info->wrptr = end_ptr;
-
-  return;
 }
 
-void mii_free(mii_packet_t *buf) {
-  malloc_hdr_t *hdr = (malloc_hdr_t *) ((char *) buf - sizeof(malloc_hdr_t));
-  mempool_info_t *info = (mempool_info_t *) hdr->info;
+void mii_add_packet(mii_packet_queue_t queue, mii_packet_t *buf)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  unsigned wr_index = info->wr_index;
 
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-  swlock_acquire(&info->lock);
-#else
-  hwlock_acquire(ethernet_memory_lock);
-#endif
+  info->ptrs[wr_index] = (unsigned *)buf;
+  info->wr_index = increment_and_wrap_power_of_2(wr_index, ETHERNET_NUM_PACKET_POINTERS);
+}
+
+unsigned mii_free_current(mii_packet_queue_t queue)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  return mii_free_index(queue, info->rd_index);
+}
+
+unsigned mii_free_index(mii_packet_queue_t queue, unsigned index)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+
+  // Indicate that this entry is free
+  info->ptrs[index] = 0;
+
+  if (info->rd_index == index) {
+    // If this the oldest free entry then skip to the next used buffer
+    info->rd_index = mii_move_my_rd_index(queue, index);
+  }
+
+  return info->rd_index;
+}
+
+unsigned mii_init_my_rd_index(mii_packet_queue_t queue)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *) queue;
+  return info->rd_index;
+}
+
+void mii_move_rd_index(mii_packet_queue_t queue)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *) queue;
+  info->ptrs[info->rd_index] = 0;
+  info->rd_index = increment_and_wrap_power_of_2(info->rd_index, ETHERNET_NUM_PACKET_POINTERS);
+}
+
+unsigned mii_move_my_rd_index(mii_packet_queue_t queue, unsigned rd_index)
+{
+  // Move the read index forward until a non-zero buffer is found or the entire
+  // list is empty
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
 
   while (1) {
-	// If we are freeing the oldest packet in the fifo then actually
-	// move the rd_ptr.
-    if ((char *) hdr == (char *) info->rdptr) {
-      malloc_hdr_t *old_hdr = hdr;
+    rd_index = increment_and_wrap_power_of_2(rd_index, ETHERNET_NUM_PACKET_POINTERS);
 
-      int next = hdr->next;
-      if (next < 0) next = -next;
-
-      // Move to the next packet
-      hdr = (malloc_hdr_t *) next;
-      info->rdptr = (int *) hdr;
-
-      // Mark as empty
-      old_hdr->next = 0;
-
-      // If we have an unfreed packet, or have hit the end of the
-      // mempool fifo then stop (order of test is important due to lock
-      // free mii_commit)
-      if ((char *) hdr == (char *) info->wrptr || hdr->next > 0) {
-          break;
-      }
-    } else {
-      // If this isn't the oldest packet in the queue then just mark it
-      // as free by making the next = -next
-      hdr->next = -(hdr->next);
+    if (rd_index == info->wr_index) {
+      // All buffers free, done
       break;
     }
-  };
 
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-  swlock_release(&info->lock);
-#else
-  hwlock_release(ethernet_memory_lock);
-#endif
-}
-
-
-mii_rdptr_t mii_init_my_rdptr(mii_mempool_t mempool)
-{
-  mempool_info_t *info = (mempool_info_t *) mempool;
-  return (mii_rdptr_t) info->rdptr;
-}
-
-
-mii_rdptr_t mii_update_my_rdptr(mii_mempool_t mempool, mii_rdptr_t rdptr0)
-{
-  int *rdptr = (int *) rdptr0;
-  malloc_hdr_t *hdr;
-  int next;
-
-  hdr = (malloc_hdr_t *) rdptr;
-  next = hdr->next;
-
-#ifdef MII_MALLOC_ASSERT
-  // Should always be a positive next pointer
-  if (next <= 0) {
-	  __builtin_trap();
+    if (info->ptrs[rd_index] != 0) {
+      // Found a used buffer, done
+      break;
+    }
   }
-#endif
 
-  return (mii_rdptr_t) next;
+  return rd_index;
 }
 
-mii_packet_t *mii_get_my_next_buf(mii_mempool_t mempool, mii_rdptr_t rdptr0)
+mii_packet_t *mii_get_next_buf(mii_packet_queue_t queue)
 {
-  mempool_info_t *info = (mempool_info_t *) mempool;
-  int *rdptr = (int *) rdptr0;
-  int *wrptr = info->wrptr;
-
-  if (rdptr == wrptr)
-    return 0;
-
-  return (mii_packet_t *) ((char *) rdptr + sizeof(malloc_hdr_t));
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  return mii_get_my_next_buf(queue, info->rd_index);
 }
 
-mii_packet_t *mii_get_next_buf(mii_mempool_t mempool)
+mii_packet_t *mii_get_my_next_buf(mii_packet_queue_t queue, unsigned rd_index)
 {
-  mempool_info_t *info = (mempool_info_t *) mempool;
-  int *rdptr = info->rdptr;
-  int *wrptr = info->wrptr;
-
-  if (rdptr == wrptr)
-    return 0;
-
-
-  return (mii_packet_t *) ((char *) rdptr + sizeof(malloc_hdr_t));
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  return (mii_packet_t *) (info->ptrs[rd_index]);
 }
 
-unsigned *mii_packet_get_wrap_ptr(mii_packet_t *buf)
+unsigned *mii_get_next_rdptr(mii_packet_queue_t queue_lp, mii_packet_queue_t queue_hp)
 {
-  malloc_hdr_t *hdr = (malloc_hdr_t *) (((char *) buf) - sizeof(malloc_hdr_t));
-  mempool_info_t *info = hdr->info;
-  return (unsigned *) (info->end);
-}
+  packet_queue_info_t *info_lp = (packet_queue_info_t *)queue_lp;
+  packet_queue_info_t *info_hp = (packet_queue_info_t *)queue_hp;
 
+  // NOTE: The assumption is that the high priority traffic will be pulled out faster
+  // than the low priority traffic and therefore if there are low priority pointers
+  // they are the ones to use.
+  if (info_lp->ptrs[info_lp->rd_index])
+    return info_lp->ptrs[info_lp->rd_index];
+  else
+    return info_hp->ptrs[info_hp->rd_index];
+}
 
 int mii_get_and_dec_transmit_count(mii_packet_t *buf)
 {
   int count;
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-  swlock_acquire(&tc_lock);
-#else
-  hwlock_acquire(ethernet_memory_lock);
-#endif
+  if (!ETHERNET_USE_HARDWARE_LOCKS) {
+    //    swlock_acquire(&tc_lock);
+    assert(0);
+  }
+  else {
+    hwlock_acquire(ethernet_memory_lock);
+  }
+
   count = buf->tcount;
   if (count)
     buf->tcount = count - 1;
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-  swlock_release(&tc_lock);
-#else
-  hwlock_release(ethernet_memory_lock);
-#endif
+
+  if (!ETHERNET_USE_HARDWARE_LOCKS) {
+    //    swlock_release(&tc_lock);
+    assert(0);
+  }
+  else {
+    hwlock_release(ethernet_memory_lock);
+  }
   return count;
 }

@@ -21,9 +21,9 @@ enum status_update_state_t {
 typedef struct
 {
   unsigned dropped_pkt_cnt;
-  int rdIndex;
-  int wrIndex;
-  mii_packet_t *fifo[ETHERNET_RX_CLIENT_QUEUE_SIZE];
+  unsigned rd_index;
+  unsigned wr_index;
+  void *fifo[ETHERNET_RX_CLIENT_QUEUE_SIZE];
   int status_update_state;
   size_t num_etype_filters;
   uint16_t etype_filters[ETHERNET_MAX_ETHERTYPE_FILTERS];

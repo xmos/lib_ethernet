@@ -243,8 +243,6 @@ void mii_ethernet_rt(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned 
                      clock txclk,
                      static const unsigned rx_bufsize_words,
                      static const unsigned tx_bufsize_words,
-                     static const unsigned rx_hp_bufsize_words,
-                     static const unsigned tx_hp_bufsize_words,
                      enum ethernet_enable_shaper_t enable_shaper);
 
 /** Ethernet component to connect to an MII interface.

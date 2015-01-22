@@ -1,5 +1,6 @@
 #include "xs1.h"
 #include "ethernet_defines.h"
+#include "mii_buffering_defines.h"
 
 // Register allocation. Don't re-map r11 as some instructions must write to it
 #define chan      r0
@@ -31,10 +32,6 @@
 
 #define SP_RX_ERR        (SP_NUM_WORDS + 3)
 #define SP_RX_DV         (SP_NUM_WORDS + 2)
-
-// The number of bytes in the mii_packet_t before the data
-#define MII_PACKET_HEADER_BYTES 40
-#define MII_PACKET_HEADER_WORDS (MII_PACKET_HEADER_BYTES / 4)
 
 .align 4
 .globl sof_value

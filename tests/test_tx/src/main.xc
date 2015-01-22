@@ -71,8 +71,6 @@ void test_tx(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
   p_test_ctrl <: 1;
 }
 
-#define ETH_RX_BUFFER_SIZE_WORDS 1600
-
 #define NUM_CFG_IF 1
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
@@ -118,7 +116,7 @@ int main()
                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
-                                2000, 2000, 2000, 2000, 1);
+                                4000, 4000, 1);
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
@@ -137,7 +135,7 @@ int main()
                              p_eth_txclk, p_eth_txen, p_eth_txd,
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
-                             ETH_RX_BUFFER_SIZE_WORDS);
+                             1600);
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);

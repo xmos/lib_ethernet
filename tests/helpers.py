@@ -59,34 +59,41 @@ def run_on(**kwargs):
         return True
 
     for name,value in kwargs.iteritems():
-        options = getattr(args,name)
-        if options is not None and value not in options:
+        arg_value = getattr(args,name)
+        if arg_value is not None and value != arg_value:
             return False
 
     return True
 
 def runall_rx(test_fn):
+    if args.seed:
+        random.seed(args.seed)
+
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy()
+    seed = random.randint(0, sys.maxint)
     if run_on(phy='mii', rate='100Mbs', mac='standard'):
-        test_fn("standard", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
+        test_fn("standard", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+    seed = random.randint(0, sys.maxint)
     if run_on(phy='mii', rate='100Mbs', mac='rt'):
-        test_fn("rt", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
+        test_fn("rt", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 #    if run_on(phy='mii', rate='100Mbs', mac='rt_hp'):
 #        test_fn("rt_hp", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz)
+    seed = random.randint(0, sys.maxint)
     if run_on(phy='rgmii', rate='100Mbs', mac='rt'):
-        test_fn("rt", rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, random.randint(0, sys.maxint))
+        test_fn("rt", rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
     # Test 1000 MBit - RGMII
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz)
+    seed = random.randint(0, sys.maxint)
     if run_on(phy='rgmii', rate='1Gbs', mac='rt'):
-        test_fn("rt", rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, random.randint(0, sys.maxint))
+        test_fn("rt", rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
 
 def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, level='nightly'):

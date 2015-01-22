@@ -126,8 +126,6 @@ void control(port p_ctrl, server control_if ctrl)
   }
 }
 
-#define ETH_RX_BUFFER_SIZE_WORDS 1600
-
 #define NUM_CFG_IF 1
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
@@ -167,7 +165,7 @@ int main()
                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
-                                2000, 2000, 2000, 2000, 1);
+                                4000, 4000, 1);
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
 
@@ -181,6 +179,8 @@ int main()
 
     #else // RT
 
+    // Having 2300 words gives enough for 3 full-sized frames in each bank of the
+    // lite buffers. (4500 bytes * 2) / 4 => 2250 words.
     on tile[0]: mii_ethernet(i_cfg, NUM_CFG_IF,
                              i_rx_lp, NUM_RX_LP_IF,
                              i_tx_lp, NUM_TX_LP_IF,
@@ -188,7 +188,7 @@ int main()
                              p_eth_txclk, p_eth_txen, p_eth_txd,
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
-                             ETH_RX_BUFFER_SIZE_WORDS);
+                             2300);
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);

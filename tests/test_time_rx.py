@@ -9,7 +9,7 @@ from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
-from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy
+from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, run_on, args
 
 def do_test(impl, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -88,11 +88,19 @@ def create_expect(packets, filename):
         f.write("Received {} bytes\n".format(num_bytes))
     
 def runtest():
-    random.seed(1)
+    if (args.seed):
+        random.seed(args.seed)
+    else:
+        random.seed(1)
 
     xmostest.build('test_time_rx')
 
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C')
-    do_test("standard", tx_clk_25, tx_mii, random.randint(0, sys.maxint))
-    do_test("rt", tx_clk_25, tx_mii, random.randint(0, sys.maxint))
+    seed = random.randint(0, sys.maxint)
+    if run_on(phy='mii', rate='100Mbs', mac='standard'):
+        do_test("standard", tx_clk_25, tx_mii, seed)
+
+    seed = random.randint(0, sys.maxint)
+    if run_on(phy='mii', rate='100Mbs', mac='rt'):
+        do_test("rt", tx_clk_25, tx_mii, seed)

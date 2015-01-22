@@ -47,7 +47,7 @@ void mii_handler(chanend c_in, chanend c_out,
     case i_mii.get_incoming_packet() -> {int * unsafe data,
                                          size_t nbytes,
                                          unsigned timestamp}:
-      {data, nbytes, timestamp} = mii_lite_get_in_buffer(mii_lite_data);
+      {data, nbytes, timestamp} = mii_lite_get_in_buffer(mii_lite_data, notifications);
       break;
     case i_mii.send_packet(int * unsafe txbuf, size_t n):
       unsafe {

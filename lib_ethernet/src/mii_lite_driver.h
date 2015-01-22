@@ -57,11 +57,13 @@ void mii_lite_close(chanend cNotifications, chanend cIn, chanend cOut);
  * is no packet awaiting processing. When the packet has been processed,
  * freeInBuffer() should be called to free the packet buffer.
  *
- * \param this  structure that contains persistent data for this MII connection.
+ * \param this                 Structure that contains persistent data for this MII connection.
+ * \param notificationChannel  A channel-end that synchronises the user
  *
  * \return The address of the buffer, the number of bytes and the timestamp
  */
-{char * unsafe, unsigned, unsigned} extern mii_lite_get_in_buffer(mii_lite_data_t &this);
+{char * unsafe, unsigned, unsigned} extern mii_lite_get_in_buffer(mii_lite_data_t &this,
+                                                                  chanend notificationChannel);
 
 /** This function is called to informs the input layer that the packet has
  * been processed and that the buffer can be reused. The address should be

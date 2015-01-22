@@ -9,6 +9,7 @@
 #include "hwtimer.h"
 #include "xassert.h"
 #include "print.h"
+#include "mii_buffering.h"
 
 // TODO: implement miiDriver straight in miiLLD.
 void mii_lite_driver(in buffered port:32 p_rxd,
@@ -196,7 +197,8 @@ case inuchar_byref(notificationChannel, this.notifySeen):
 }
 
 #pragma unsafe arrays
-{char * unsafe, unsigned, unsigned} mii_lite_get_in_buffer(struct mii_lite_data_t &this) {
+{char * unsafe, unsigned, unsigned} mii_lite_get_in_buffer(struct mii_lite_data_t &this,
+                                                           chanend notificationChannel) {
   unsafe {
     if (this.readBankRdPtr != this.readBankWrPtr) {
         unsigned bank = (this.readBank >> this.readBankRdPtr) & 0x1;
@@ -207,17 +209,24 @@ case inuchar_byref(notificationChannel, this.notifySeen):
         }
 
         if (nBytes != 1) {
-          unsigned retVal = this.readPtr[bank] + 4;
-          this.readPtr[bank] += ((nBytes + 3) & ~3) + 4;
+            unsigned retVal = this.readPtr[bank] + 4;
+            this.readPtr[bank] += ((nBytes + 3) & ~3) + 4;
 
-          // Move the read bank pointer
-          this.readBankRdPtr = (this.readBankRdPtr + 1) % 32;
+            // Move the read bank pointer
+            this.readBankRdPtr = increment_and_wrap_power_of_2(this.readBankRdPtr, 32);
 
-          if (get(this.readPtr[bank]) == 0) {
-            this.readPtr[bank] = this.firstPtr[bank];
-          }
-          unsigned timeStamp = get(retVal);
-          return {(char * unsafe) (retVal+4), nBytes-4, timeStamp};
+            if (get(this.readPtr[bank]) == 0) {
+                this.readPtr[bank] = this.firstPtr[bank];
+            }
+
+            if (this.readBankRdPtr != this.readBankWrPtr)
+              miiNotify(this, notificationChannel);
+
+            unsigned timeStamp = get(retVal);
+
+            // Discount the CRC from the length
+            return {(char * unsafe) (retVal+4), nBytes-4, timeStamp};
+
         }
     }
     return {(char * unsafe) 0, 0, 0};
@@ -225,7 +234,8 @@ case inuchar_byref(notificationChannel, this.notifySeen):
 }
 
 #pragma unsafe arrays
-static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBuffer, unsigned int length, chanend notificationChannel) {
+static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBuffer,
+                            unsigned int length, chanend notificationChannel) {
     int bn = currentBuffer < this.firstPtr[1] ? 0 : 1;
     set(this.wrPtr[bn]-4, length);       // record length of current packet.
     this.wrPtr[bn] = this.wrPtr[bn] + ((length+3)&~3) + 4; // new end pointer.
@@ -237,7 +247,7 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
             set(this.wrPtr[bn]-4, 1);          // this is now the head of the queue.
 
             // Log which bank this packet was written to
-            unsigned newReadBankWrPtr = (this.readBankWrPtr + 1) % 32;
+            unsigned newReadBankWrPtr = increment_and_wrap_power_of_2(this.readBankWrPtr, 32);
 
             // If the pointers have overflowed the 32 slots then
             // drop the packet.
@@ -251,7 +261,7 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
             this.readBank |= bn << this.readBankWrPtr;
             this.readBankWrPtr = newReadBankWrPtr;
 
-            if (this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) { // Test if there is room for packet
+            if (this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) { // Test if there is room for a packet
                 this.nextBuffer = this.wrPtr[bn];     // if so, record packet pointer
                 return;                            // fall out - default is no room
             }
@@ -262,7 +272,7 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
         set(this.wrPtr[bn]-4, 1);            // record that this is now the head of the queue.
 
         // Log which bank this packet was written to
-        unsigned newReadBankWrPtr = (this.readBankWrPtr + 1) % 32;
+        unsigned newReadBankWrPtr = increment_and_wrap_power_of_2(this.readBankWrPtr, 32);
 
         // If the pointers have overflowed the 32 slots then
         // drop the packet.
@@ -275,9 +285,6 @@ static void miiCommitBuffer(struct mii_lite_data_t &this, unsigned int currentBu
         this.readBank &= ~(1 << this.readBankWrPtr);
         this.readBank |= bn << this.readBankWrPtr;
         this.readBankWrPtr = newReadBankWrPtr;
-
-        // Ensure the pointers haven't overflowed the 32 slots
-        assert(this.readBankRdPtr != this.readBankWrPtr);
 
         if (this.wrPtr[bn] > this.freePtr[bn] || // Test if there is room for a packet
               this.freePtr[bn] - this.wrPtr[bn] >= MAXPACKET) {
@@ -341,6 +348,7 @@ void mii_lite_free_in_buffer(struct mii_lite_data_t &this, char * unsafe base0) 
     }
     // Note - wrptr may have been stuck
   }
+  mii_lite_restart_buffer(this);
 }
 
 static int globalOffset;
@@ -403,7 +411,7 @@ int mii_out_packet_(chanend c_out, int a, int length) {
 }
 
 void mii_lite_out_packet_done(chanend c_out) {
-	chkct(c_out, 1);
+    chkct(c_out, 1);
 }
 
 void mii_lite_out_init(chanend c_out) {
@@ -421,7 +429,7 @@ static void drain(chanend c) {
 void mii_close(chanend cNotifications, chanend cIn, chanend cOut) {
     asm("clrsr 2");        // disable interrupts
     drain(cNotifications); // disconnect channel to ourselves
-	outct(cOut, 1);        // disconnect channel to output - stops mii
+    outct(cOut, 1);        // disconnect channel to output - stops mii
     chkct(cOut, 1);
     drain(cIn);            // disconnect input side.
 }

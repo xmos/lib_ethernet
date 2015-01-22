@@ -1,5 +1,6 @@
 #include "xs1.h"
 #include "ethernet_defines.h"
+#include "mii_buffering_defines.h"
 
 #if (ETHERNET_MAX_PACKET_SIZE != 1518)
 #error "The RGMII TX code is written for maximum 1518 byte packets. Must be modified for other packet sizes."
@@ -26,9 +27,6 @@
 #define SP_NUM_WORDS     11
 
 #define MAX_PACKET_WORDS (ETHERNET_MAX_PACKET_SIZE/4)
-
-// The number of bytes in the mii_packet_t before the data
-#define MII_PACKET_HEADER_BYTES 40
 
 #if defined(__XS2A__)
 .align 4

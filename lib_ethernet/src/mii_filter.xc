@@ -47,12 +47,15 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
 }
 
 unsafe void mii_ethernet_filter(streaming chanend c,
-                                chanend c_conf)
+                                chanend c_conf,
+                                mii_packet_queue_t incoming_packets,
+                                mii_packet_queue_t rx_packets_lp,
+                                mii_packet_queue_t rx_packets_hp)
 {
   eth_global_filter_info_t filter_info;
   ethernet_init_filter_table(filter_info);
-  mii_packet_t * unsafe buf;
   debug_printf("Starting filter\n");
+
   while (1) {
     select {
 #pragma xta endpoint "rx_packet"
@@ -64,55 +67,65 @@ unsafe void mii_ethernet_filter(streaming chanend c,
         c_conf :> int;
       }
       break;
-#pragma xta endpoint "rx_packet"
-    case c :> buf :
-      if (buf) {
-        unsigned length = buf->length; // Number of bytes in the frame minus the CRC
-        unsigned crc;
-        debug_printf("Filtering incoming packet (length %d)\n", buf->length);
 
-        if (ETHERNET_RX_CRC_ERROR_CHECK)
-          crc = buf->crc;
-
-        debug_printf("Filter CRC result: %x\n", crc);
-
-        if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc) || (length > ETHERNET_MAX_PACKET_SIZE)) {
-          buf->filter_result = 0;
-          buf->stage = MII_STAGE_FILTERED;
-          break;
-        }
-
-        int *unsafe p_len_type = (int *unsafe) &buf->data[3];
-        uint16_t len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
-        unsigned header_len = 14;
-        if (len_type == 0x8100) {
-          header_len += 4;
-          p_len_type = (int *unsafe) &buf->data[4];
-          len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
-        }
-        const unsigned rx_data_len = length - header_len;
-
-        if ((len_type < 1536) && (len_type > rx_data_len)) {
-          buf->filter_result = 0;
-          buf->stage = MII_STAGE_FILTERED;
-          break;
-        }
-
-        buf->src_port = 0;
-        buf->timestamp_id = 0;
-
-        char * unsafe data = (char * unsafe) buf->data;
-        int filter_result = ethernet_do_filtering(filter_info,
-                                                  (char *) buf->data,
-                                                  length,
-                                                  buf->filter_data);
-        int filter_data = 0;
-        debug_printf("Filter result: %x\n", filter_result);
-        buf->filter_result = filter_result;
-        buf->filter_data = filter_data;
-        buf->stage = MII_STAGE_FILTERED;
-      }
+    default:
       break;
+    }
+
+    mii_packet_t * unsafe buf = mii_get_next_buf(incoming_packets);
+
+    if (buf == null)
+      continue;
+
+    mii_move_rd_index(incoming_packets);
+
+    unsigned length = buf->length; // Number of bytes in the frame minus the CRC
+    unsigned crc;
+    debug_printf("Filtering incoming packet (length %d)\n", buf->length);
+
+    if (ETHERNET_RX_CRC_ERROR_CHECK)
+      crc = buf->crc;
+
+    debug_printf("Filter CRC result: %x\n", crc);
+
+    if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc) || (length > ETHERNET_MAX_PACKET_SIZE)) {
+      // Drop the packet
+      continue;
+    }
+
+    int *unsafe p_len_type = (int *unsafe) &buf->data[3];
+    uint16_t len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
+    unsigned header_len = 14;
+    if (len_type == 0x8100) {
+      header_len += 4;
+      p_len_type = (int *unsafe) &buf->data[4];
+      len_type = (uint16_t) NTOH_U16_ALIGNED(p_len_type);
+    }
+    const unsigned rx_data_len = length - header_len;
+
+    if ((len_type < 1536) && (len_type > rx_data_len)) {
+      // Drop the packet
+      continue;
+    }
+
+    buf->src_port = 0;
+    buf->timestamp_id = 0;
+
+    char * unsafe data = (char * unsafe) buf->data;
+    int filter_result = ethernet_do_filtering(filter_info,
+                                              (char *) buf->data,
+                                              length,
+                                              buf->filter_data);
+    int filter_data = 0;
+    debug_printf("Filter result: %x\n", filter_result);
+    buf->filter_result = filter_result;
+    buf->filter_data = filter_data;
+
+    if (ethernet_filter_result_is_hp(filter_result)) {
+      mii_add_packet(rx_packets_hp, buf);
+    }
+    else {
+      mii_add_packet(rx_packets_lp, buf);
     }
   }
 }

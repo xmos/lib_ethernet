@@ -6,21 +6,30 @@
 extern "C" {
 #endif
 
+typedef struct mii_ts_queue_entry_t {
+  unsigned timestamp_id;
+  unsigned timestamp;
+} mii_ts_queue_entry_t;
+
 typedef struct mii_ts_queue_info_t {
-  int lock;
-  int rdIndex;
-  int wrIndex;
-  int num_entries;
-  unsigned *fifo;
+  unsigned rd_index;
+  unsigned wr_index;
+  unsigned num_entries;
+  mii_ts_queue_entry_t *fifo;
+  swlock_t lock;
 } mii_ts_queue_info_t;
 
 typedef mii_ts_queue_info_t *mii_ts_queue_t;
 
-mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, unsigned *buf, int n);
+mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, mii_ts_queue_entry_t *buf, int n);
 
-void mii_ts_queue_add_entry(mii_ts_queue_t q, mii_packet_t *buf);
+void mii_ts_queue_add_entry(mii_ts_queue_t q, unsigned id, unsigned timestamp);
 
-mii_packet_t *mii_ts_queue_get_entry(mii_ts_queue_t q);
+/** Get an entry.
+ *
+ *  \returns  1 if there was an entry available, 0 otherwise.
+ */
+int mii_ts_queue_get_entry(mii_ts_queue_t q, unsigned *id, unsigned *timestamp);
 
 #ifdef __XC__
 } // extern "C"

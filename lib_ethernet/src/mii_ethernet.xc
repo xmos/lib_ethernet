@@ -269,6 +269,10 @@ static void mii_ethernet_aux(client mii_if i_mii,
                             filter_result, len_type, incoming_tcount);
           }
         }
+        if (incoming_tcount == 0) {
+          i_mii.release_packet(incoming_data);
+          incoming_data = null;
+        }
       }
       break;
     }

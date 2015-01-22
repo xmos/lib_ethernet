@@ -51,8 +51,6 @@ void test_task(client ethernet_cfg_if cfg,
   }
 }
 
-#define ETH_RX_BUFFER_SIZE_WORDS 1600
-
 #define NUM_CFG_IF 2
 #define NUM_RX_LP_IF 2
 #define NUM_TX_LP_IF 1
@@ -89,7 +87,7 @@ int main()
                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
-                                2000, 2000, 2000, 2000, 1);
+                                4000, 4000, 1);
     on tile[0]: filler(0x66);
     on tile[0]: filler(0x77);
 
@@ -102,7 +100,7 @@ int main()
                              p_eth_txclk, p_eth_txen, p_eth_txd,
                              p_eth_dummy,
                              eth_rxclk, eth_txclk,
-                             ETH_RX_BUFFER_SIZE_WORDS);
+                             1600);
     on tile[0]: filler(0x44);
     on tile[0]: filler(0x55);
     on tile[0]: filler(0x66);

@@ -3,7 +3,6 @@
 // University of Illinois/NCSA Open Source License posted in
 // LICENSE.txt and at <http://github.xcore.com/>
 
-#include <xs1.h>
 #include "helpers.h"
 #include "random.xc"
 #include "random_init.c"

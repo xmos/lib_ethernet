@@ -8,9 +8,10 @@ if __name__ == "__main__":
     global trace
     argparser = argparse.ArgumentParser(description="XMOS lib_ethernet tests")
     argparser.add_argument('--trace', action='store_true', help='Run tests with simulator and VCD traces')
-    argparser.add_argument('--phy', nargs='+', type=str, help='Run tests only on specified PHY (mii, rgmii)')
-    argparser.add_argument('--rate', nargs='+', type=str, help='Run tests only at specified data rate (100Mbs, 1Gbs)')
-    argparser.add_argument('--mac', nargs='+', type=str, help='Run tests only on specified MAC (rt, standard)')
+    argparser.add_argument('--phy', choices=['mii', 'rgmii'], type=str, help='Run tests only on specified PHY')
+    argparser.add_argument('--rate', choices=['100Mbs', '1Gbs'], type=str, help='Run tests only at specified data rate')
+    argparser.add_argument('--mac', choices=['rt', 'standard'], type=str, help='Run tests only on specified MAC')
+    argparser.add_argument('--seed', help='The seed', default=None)
     helpers.args = xmostest.init(argparser)
 
     xmostest.register_group("lib_ethernet",

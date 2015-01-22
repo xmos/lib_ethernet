@@ -19,7 +19,9 @@ clock eth_rxclk             = on tile[1]: XS1_CLKBLK_1;
 clock eth_rxclk_interframe  = on tile[1]: XS1_CLKBLK_2;
 clock eth_txclk             = on tile[1]: XS1_CLKBLK_3;
 clock eth_txclk_out         = on tile[1]: XS1_CLKBLK_4;
-#else
+
+#else // !RGMII
+
 port p_eth_rxclk  = on tile[0]: XS1_PORT_1J;
 port p_eth_rxd    = on tile[0]: XS1_PORT_4E;
 port p_eth_txd    = on tile[0]: XS1_PORT_4F;
@@ -32,7 +34,8 @@ port p_eth_dummy  = on tile[0]: XS1_PORT_8C;
 
 clock eth_rxclk   = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk   = on tile[0]: XS1_CLKBLK_2;
-#endif
+
+#endif // RGMII
 
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;

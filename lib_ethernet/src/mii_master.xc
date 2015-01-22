@@ -53,26 +53,21 @@
 #pragma xta command "remove exclusion *"
 
 #pragma xta command "add exclusion mii_rx_begin"
-#pragma xta command "add exclusion mii_eof_case_1"
-#pragma xta command "add exclusion mii_eof_case_2"
+#pragma xta command "add exclusion mii_eof_case"
 //#pragma xta command "add exclusion mii_wait_for_buffers"
 
 // Start of frame to first word is 32 bits = 320ns
-#pragma xta command "analyze endpoints mii_rx_sof mii_rx_first_words"
+// But the buffers can hold two words so it can take a bit longer
+#pragma xta command "analyze endpoints mii_rx_sof mii_rx_word"
+#pragma xta command "set required - 380 ns"
+
+// Word reception timing
+#pragma xta command "analyze endpoints mii_rx_word mii_rx_word"
 #pragma xta command "set required - 320 ns"
 
-// Have to be commented out due to BUG 16264
-//#pragma xta command "add exclusion mii_rx_sof"
-//#pragma xta command "analyze endpoints mii_rx_first_words mii_rx_first_words"
-//#pragma xta command "set required - 300 ns"
-
-//#pragma xta command "analyze endpoints mii_rx_first_words mii_rx_word"
-//#pragma xta command "set required - 320 ns"
-
-#pragma xta command "analyze endpoints mii_rx_word mii_rx_word"
-#pragma xta command "set required - 300 ns"
-
 // The end of frame timing is 12 octets IFS + 7 octets preamble + 1 nibble preamble = 156 bits - 1560ns
+// However, in the case where there is one byte in the buffer as the last word is processed then
+// there is actually only 1360ns available for that path.
 //
 // note: the RXDV will come low with the start of the pre-amble, but the code
 //       checks for a valid RXDV and then starts hunting for the 'D' nibble at
@@ -83,16 +78,12 @@
 #pragma xta command "add exclusion mii_rx_after_preamble"
 #pragma xta command "add exclusion mii_rx_eof"
 #pragma xta command "add exclusion mii_rx_word"
-#pragma xta command "add exclusion mii_reserve_hp"
 #pragma xta command "analyze endpoints mii_rx_eof mii_rx_sof"
-#pragma xta command "set required - 1560 ns"
+#pragma xta command "set required - 1360 ns"
 
-#if ETHERNET_SUPPORT_HP_QUEUES
-#pragma xta command "remove exclusion mii_reserve_hp"
-#pragma xta command "add exclusion mii_reserve_lp"
+#pragma xta command "add exclusion mii_rx_no_tail"
 #pragma xta command "analyze endpoints mii_rx_eof mii_rx_sof"
-#pragma xta command "set required - 1560 ns"
-#endif
+#pragma xta command "set required - 1240 ns"
 
 #endif
 // check the transmit interframe space.  It should ideally be quite close to 1560, which will
@@ -100,7 +91,6 @@
 
 //#pragma xta command "remove exclusion *"
 //#pragma xta command "add exclusion mii_tx_sof"
-//#pragma xta command "add exclusion mii_tx_buffer_not_marked_for_transmission"
 //#pragma xta command "add exclusion mii_tx_not_valid_to_transmit"
 
 //#pragma xta command "analyze endpoints mii_tx_end mii_tx_start"
@@ -166,51 +156,45 @@ void mii_master_init(in port p_rxclk, in buffered port:32 p_rxd, in port p_rxdv,
   clearbuf(p_txd);
 }
 
-unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
-                               mii_mempool_t rxmem_lp,
+unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
+                               mii_packet_queue_t incoming_packets,
+                               unsigned * unsafe rdptr,
                                in port p_mii_rxdv,
                                in buffered port:32 p_mii_rxd,
                                in buffered port:1 p_mii_rxer,
                                streaming chanend c)
 {
   timer tmr;
-  unsigned * unsafe wrap_ptr;
-  unsigned * unsafe wrap_ptr_hp;
 
+  /* Pointers to data that needs the latest value being read */
   volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer);
-
-  if (!ETHERNET_SUPPORT_HP_QUEUES)
-    rxmem_hp = 0;
+  volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
 
   /* Set up the wrap markers for the two memory buffers. These are the
      points at which we must wrap data back to the beginning of the buffer */
-  wrap_ptr = mii_get_wrap_ptr(rxmem_lp);
-
-  if (rxmem_hp)
-    wrap_ptr_hp = mii_get_wrap_ptr(rxmem_hp);
+  unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
 
   /* Make sure we do not start in the middle of a packet */
   p_mii_rxdv when pinseq(0) :> int lo;
 
-    /* Grab buffers to read the packet into. mii_reserve always returns a
-       buffer we can use (though it may be a dummy buffer that gets thrown
-       away later if we are out of buffer space). */
-
-  unsigned * unsafe end_ptr, * unsafe end_ptr_hp;
-  mii_packet_t * unsafe buf_lp = mii_reserve(rxmem_lp, end_ptr);
-  mii_packet_t * unsafe buf_hp = null;
-  if (rxmem_hp)
-    buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
-
   while (1) {
-    unsigned word;
-    unsigned num_rx_words = 0;
 
-    mii_packet_t * unsafe buf = buf_lp;
+    /* Discount the CRC word */
+    int num_rx_bytes = -4;
+
+    /* Read the shared pointer where the read pointer is kept up to date
+     * by the management process (mii_ethernet_server_aux). */
+    unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
+
+    /* Grab buffers to read the packet into. mii_reserve always returns a
+     * buffer we can use (though it may be a dummy buffer that gets thrown
+     * away later if we are out of buffer space). */
+    unsigned * unsafe end_ptr;
+    mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr);
 
     unsigned crc = 0x9226F562;
     unsigned poly = 0xEDB88320;
-    unsigned * unsafe dptr;
+    unsigned * unsafe dptr = &buf->data[0];
 
     /* Wait for the start of the packet and timestamp it */
     unsigned sfd_preamble;
@@ -218,56 +202,22 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
     p_mii_rxd when pinseq(0xD) :> sfd_preamble;
 
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
-      // Corrupt the CRC so that the packet is discarded
-      crc = 0;
+      /* Corrupt the CRC so that the packet is discarded */
+      crc = ~crc;
     }
 
+    /* Timestamp the start of packet and record it in the packet structure */
     #pragma xta endpoint "mii_rx_after_preamble"
     unsigned time;
     tmr :> time;
+    buf->timestamp = time;
 
-    // Enable interrupts
+    /* Enable interrupts as the rx_err port is configured to raise an interrupt
+     * that logs the error and continues. */
     asm("setsr 0x2");
 
     unsigned end_of_frame = 0;
-    unsigned header_done = 0;
-    do {
-      /* Read in the first 3 words of the packet into the header array.
-         This gets copied into the packet buffer later */
-      select {
-#pragma xta endpoint "mii_rx_first_words"
-      case p_mii_rxd :> word:
-        if (num_rx_words < 3) {
-          buf_lp->data[num_rx_words] = word;
-          if (rxmem_hp)
-            buf_hp->data[num_rx_words] = word;
-
-          crc32(crc, word, poly);
-        } else {
-          unsigned short etype = (unsigned short) word;
-          crc32(crc, word, poly);
-          if (rxmem_hp && etype == 0x0081) {
-            buf = buf_hp;
-            wrap_ptr = wrap_ptr_hp;
-            end_ptr = end_ptr_hp;
-          }
-          buf->data[3] = word;
-          buf->timestamp = time;
-          dptr = &buf->data[4];
-          header_done = 1;
-        }
-        num_rx_words++;
-        break;
-      case p_mii_rxdv when pinseq(0) :> int:
-#pragma xta label "mii_eof_case_1"
-        header_done = 1;
-        end_of_frame = 1;
-        break;
-      }
-    } while (!header_done);
-
-    if (end_of_frame)
-      continue;
+    unsigned word;
 
     do {
      select
@@ -276,26 +226,32 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
        case p_mii_rxd :> word:
          *dptr = word;
          crc32(crc, word, poly);
+
+         /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
+          * then this packet will be dropped as there is not enough room in the buffer. */
          if (dptr != end_ptr) {
            dptr++;
+
+           /* The wrap pointer contains the address of the start of the buffer */
            if (dptr == wrap_ptr)
              dptr = (unsigned * unsafe) *dptr;
          }
-         num_rx_words++;
+
+         num_rx_bytes += 4;
          break;
+
 #pragma xta endpoint "mii_rx_eof"
-      case p_mii_rxdv when pinseq(0) :> int:
-        {
-#pragma xta label "mii_eof_case_2"
-          end_of_frame = 1;
-          break;
-        }
+       case p_mii_rxdv when pinseq(0) :> int:
+#pragma xta label "mii_eof_case"
+         end_of_frame = 1;
+         break;
       }
     } while (!end_of_frame);
 
-    // Clear interrupts
+    /* Clear interrupts used by rx_err port handler */
     asm("clrsr 0x2");
 
+    /* If the rx_err port detects an error then drop the packet */
     if (*error_ptr) {
       endin(p_mii_rxd);
       p_mii_rxd :> void;
@@ -303,45 +259,44 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
       continue;
     }
 
+    /* Note: we don't store the last word since it contains the CRC and
+     * we don't need it from this point on. */
+
 #pragma xta label "mii_rx_begin"
     unsigned taillen = endin(p_mii_rxd);
-    const unsigned num_rx_bytes_minus_crc = (num_rx_words-1)*sizeof(word) + (taillen>>3);
-    buf->length = num_rx_bytes_minus_crc;
-
-    // Ensure that the mask is byte-aligned
-    unsigned mask = ~0U >> (taillen & ~0x7);
 
     unsigned tail;
     p_mii_rxd :> tail;
 
-    // Correct for non byte-aligned frames
-    if (taillen & 0x7)
+    if (taillen & ~0x7) {
+      #pragma xta label "mii_rx_no_tail"
+
+      num_rx_bytes += (taillen>>3);
+
+      /* Ensure that the mask is byte-aligned */
+      unsigned mask = ~0U >> (taillen & ~0x7);
+
+      /* Correct for non byte-aligned frames */
       tail <<= taillen & 0x7;
 
-    /* Mask out junk bits in last input */
-    tail &= ~mask;
+      /* Mask out junk bits in last input */
+      tail &= ~mask;
 
-    /* Incorporate tailbits of input data,
-       see https://github.com/xcore/doc_tips_and_tricks for details. */
-    { tail, crc } = mac(crc, mask, tail, crc);
-    crc32(crc, tail, poly);
+      /* Incorporate tailbits of input data,
+       * see https://github.com/xcore/doc_tips_and_tricks for details. */
+      { tail, crc } = mac(crc, mask, tail, crc);
+      crc32(crc, tail, poly);
+    }
 
+    buf->length = num_rx_bytes;
     buf->crc = crc;
 
     if (dptr != end_ptr) {
-      /* We don't store the last word since it contains the CRC and
-         we don't need it from this point on. */
-      c <: buf;
-      mii_commit(buf, dptr);
-    }
+      /* Update where the write pointer is in memory */
+      mii_commit(rx_mem, dptr);
 
-    if (rxmem_hp && buf == buf_hp) {
-#pragma xta label "mii_reserve_hp"
-      buf_hp = mii_reserve(rxmem_hp, end_ptr_hp);
-    }
-    else {
-#pragma xta label "mii_reserve_lp"
-      buf_lp = mii_reserve(rxmem_lp, end_ptr);
+      /* Record the fact that there is a valid packet ready for filtering */
+      mii_add_packet(incoming_packets, buf);
     }
   }
 
@@ -408,9 +363,10 @@ unsafe void mii_master_rx_pins(mii_mempool_t rxmem_hp,
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-unsafe unsigned mii_transmit_packet(mii_packet_t * unsafe buf,
-                                                out buffered port:32 p_mii_txd,
-                                                timer tmr, unsigned &ifg_time)
+unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
+                                    mii_packet_t * unsafe buf,
+                                    out buffered port:32 p_mii_txd,
+                                    timer tmr, unsigned &ifg_time)
 {
   unsigned time;
   register const unsigned poly = 0xEDB88320;
@@ -421,7 +377,7 @@ unsafe unsigned mii_transmit_packet(mii_packet_t * unsafe buf,
   int tail_byte_count = buf->length & 3;
   unsigned * unsafe wrap_ptr;
   dptr = &buf->data[0];
-  wrap_ptr = mii_packet_get_wrap_ptr(buf);
+  wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
   // Check that we are out of the inter-frame gap
 #pragma xta endpoint "mii_tx_start"
@@ -490,9 +446,10 @@ unsafe unsigned mii_transmit_packet(mii_packet_t * unsafe buf,
 }
 
 
-unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
-                               mii_mempool_t lp_queue,
-                               mii_ts_queue_t ts_queue_lp,
+unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
+                               mii_packet_queue_t packets_lp,
+                               mii_packet_queue_t packets_hp,
+                               mii_ts_queue_t ts_queue,
                                out buffered port:32 p_mii_txd,
                                int enable_shaper,
                                volatile int * unsafe idle_slope)
@@ -502,13 +459,10 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
   timer tmr;
   unsigned ifg_time;
 
-  if (!ETHERNET_SUPPORT_HP_QUEUES)
-    hp_queue = 0;
-
   if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER)
     enable_shaper = 0;
 
-  if (hp_queue && enable_shaper)
+  if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper)
     tmr :> credit_time;
 
   tmr :> ifg_time;
@@ -518,16 +472,15 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
     mii_packet_t * unsafe buf = null;
     int bytes_left;
 
-    int stage;
     int prev_credit_time;
     int elapsed;
     mii_ts_queue_t *p_ts_queue = null;
 
-    if (hp_queue)
-      buf = mii_get_next_buf(hp_queue);
+    if (ETHERNET_SUPPORT_HP_QUEUES)
+      buf = mii_get_next_buf(packets_hp);
 
     if (enable_shaper) {
-      if (buf && buf->stage == MII_STAGE_FILTERED) {
+      if (buf) {
 
         if (credit < 0) {
           prev_credit_time = credit_time;
@@ -552,9 +505,9 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
       }
     }
 
-    if (!hp_queue || !buf || buf->stage != MII_STAGE_FILTERED) {
-      buf = mii_get_next_buf(lp_queue);
-      p_ts_queue = &ts_queue_lp;
+    if (!ETHERNET_SUPPORT_HP_QUEUES || !buf) {
+      buf = mii_get_next_buf(packets_lp);
+      p_ts_queue = &ts_queue;
     }
 
     if (!buf) {
@@ -562,24 +515,24 @@ unsafe void mii_master_tx_pins(mii_mempool_t hp_queue,
       continue;
     }
 
-    if (buf->stage != MII_STAGE_FILTERED) {
-#pragma xta endpoint "mii_tx_buffer_not_marked_for_transmission"
-      continue;
-    }
-
-    unsigned time = mii_transmit_packet(buf, p_mii_txd, tmr, ifg_time);
+    unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, tmr, ifg_time);
 
     ifg_time += ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += (buf->length & 0x3) * 8;
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {
-      if (buf->timestamp_id && p_ts_queue) {
-        buf->timestamp = time;
-        mii_ts_queue_add_entry(*p_ts_queue, buf);
-        buf->stage = MII_STAGE_SENT;
+
+      /* The timestamp queue is only set for low-priority packets */
+      if (p_ts_queue) {
+        if (buf->timestamp_id) {
+          buf->timestamp = time;
+          mii_ts_queue_add_entry(*p_ts_queue, buf->timestamp_id, time);
+        }
+
+        mii_free_current(packets_lp);
       }
       else {
-        mii_free(buf);
+        mii_free_current(packets_hp);
       }
     }
   }

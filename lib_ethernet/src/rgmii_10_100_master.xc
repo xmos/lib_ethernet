@@ -45,10 +45,6 @@
 
 #endif
 
-// The number of bytes in the mii_packet_t before the data
-#define MII_PACKET_HEADER_BYTES 40
-#define MII_PACKET_HEADER_WORDS (MII_PACKET_HEADER_BYTES / 4)
-
 unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
                                  in buffered port:32 p_rxd_10_100,
                                  in port p_rxdv,

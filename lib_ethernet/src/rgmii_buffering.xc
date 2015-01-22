@@ -144,15 +144,6 @@ static unsafe inline mii_packet_t * unsafe buffers_used_take(buffers_used_t &use
 }
 
 #pragma unsafe arrays
-static inline mii_packet_t * unsafe buffers_used_head(buffers_used_t &used)
-{
-  unsigned index = used.tail_index % RGMII_MAC_BUFFER_COUNT;
-  unsafe {
-    return (mii_packet_t *)used.pointers[index];
-  }
-}
-
-#pragma unsafe arrays
 static unsafe inline int buffers_used_empty(buffers_used_t &used)
 {
   // Ensure that the compiler does not keep this value in a register
@@ -212,7 +203,6 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
           // There was a buffer free
 
           // Ensure it is marked as invalid
-          ((mii_packet_t *)next_buffer)->stage = MII_STAGE_EMPTY;
           c_rx <: next_buffer;
 
           // TODO: filter packet - needs to be fixed time filtering
@@ -221,7 +211,6 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
           if (filter_result) {
             mii_packet_t *buf = (mii_packet_t *)buffer;
             buf->filter_result = filter_result;
-            buf->stage = MII_STAGE_FILTERED;
             buf->filter_data = 0;
 
             if (ethernet_filter_result_is_hp(filter_result))
@@ -236,7 +225,6 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
         }
         else {
           // There are no buffers available. Drop this packet and reuse buffer.
-          ((mii_packet_t *)buffer)->stage = MII_STAGE_EMPTY;
           c_rx <: buffer;
         }
         break;
@@ -260,33 +248,26 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_state[n],
   if (buffers_used_empty(used_buffers))
     return;
 
-  mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_head(used_buffers);
-  if (buf->stage != MII_STAGE_FILTERED)
-    return;
-
-  // This buffer will now be passed on or dropped - remove from list
-  buffers_used_take(used_buffers);
+  mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers);
 
   int tcount = 0;
-  if (buf->stage == MII_STAGE_FILTERED) {
-    if (buf->filter_result) {
-      for (int i = 0; i < n; i++) {
-        int client_wants_packet = 1;
-        if (client_wants_packet) {
-          int wrptr = client_state[i].wrIndex;
-          int new_wrptr = wrptr + 1;
-          if (new_wrptr >= ETHERNET_RX_CLIENT_QUEUE_SIZE) {
-            new_wrptr = 0;
-          }
-          if (new_wrptr != client_state[i].rdIndex) {
-            client_state[i].fifo[wrptr] = buf;
-            tcount++;
-            i_rx[i].packet_ready();
-            client_state[i].wrIndex = new_wrptr;
+  if (buf->filter_result) {
+    for (int i = 0; i < n; i++) {
+      int client_wants_packet = 1;
+      if (client_wants_packet) {
+        int wrptr = client_state[i].wr_index;
+        int new_wrptr = wrptr + 1;
+        if (new_wrptr >= ETHERNET_RX_CLIENT_QUEUE_SIZE) {
+          new_wrptr = 0;
+        }
+        if (new_wrptr != client_state[i].rd_index) {
+          client_state[i].fifo[wrptr] = (void *)buf;
+          tcount++;
+          i_rx[i].packet_ready();
+          client_state[i].wr_index = new_wrptr;
 
-          } else {
-            client_state[i].dropped_pkt_cnt += 1;
-          }
+        } else {
+          client_state[i].dropped_pkt_cnt += 1;
         }
       }
     }
@@ -337,10 +318,10 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
           desc.type = ETH_IF_STATUS;
           client_state_lp[i].status_update_state = STATUS_UPDATE_WAITING;
         }
-        else if (client_state_lp[i].rdIndex != client_state_lp[i].wrIndex) {
+        else if (client_state_lp[i].rd_index != client_state_lp[i].wr_index) {
           // send received packet
-          int rdIndex = client_state_lp[i].rdIndex;
-          mii_packet_t * unsafe buf = client_state_lp[i].fifo[rdIndex];
+          int rd_index = client_state_lp[i].rd_index;
+          mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state_lp[i].fifo[rd_index];
           ethernet_packet_info_t info;
           info.type = ETH_DATA;
           info.src_ifnum = 0; // There is only one RGMII port
@@ -352,13 +333,13 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
           if (mii_get_and_dec_transmit_count(buf) == 0) {
             buffers_free_add(free_buffers, buf);
           }
-          if (rdIndex == ETHERNET_RX_CLIENT_QUEUE_SIZE - 1) {
-            client_state_lp[i].rdIndex = 0;
+          if (rd_index == ETHERNET_RX_CLIENT_QUEUE_SIZE - 1) {
+            client_state_lp[i].rd_index = 0;
           }
           else {
-            client_state_lp[i].rdIndex++;
+            client_state_lp[i].rd_index++;
           }
-          if (client_state_lp[i].rdIndex != client_state_lp[i].wrIndex) {
+          if (client_state_lp[i].rd_index != client_state_lp[i].wr_index) {
             i_rx_lp[i].packet_ready();
           }
         }
@@ -383,11 +364,8 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
       if (buffers_used_empty(used_buffers_rx_hp))
         break;
 
-      mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_head(used_buffers_rx_hp);
-      if (buf->stage != MII_STAGE_FILTERED)
-        break;
+      mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers_rx_hp);
 
-      buffers_used_take(used_buffers_rx_hp);
       ethernet_packet_info_t info;
       info.type = ETH_DATA;
       info.src_ifnum = 0;
@@ -460,7 +438,6 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         work_pending++;
         buffers_used_add(used_buffers_tx, buf);
         buf->tcount = 0;
-        buf->stage = 1;
         client_state_lp[i].send_buffer = null;
         client_state_lp[i].requested_send_buffer_size = 0;
         prioritize_ack += 2;
@@ -472,7 +449,6 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         tx_buf_hp->length = n_bytes;
         buffers_used_add(used_buffers_tx, tx_buf_hp);
         tx_buf_hp->tcount = 0;
-        tx_buf_hp->stage = 1;
         tx_buf_hp = buffers_free_take(free_buffers);
         prioritize_ack += 2;
         break;

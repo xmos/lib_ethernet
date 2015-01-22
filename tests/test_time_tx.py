@@ -5,7 +5,7 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args, create_if_needed, get_mii_rx_clk_phy
+from helpers import get_sim_args, create_if_needed, get_mii_rx_clk_phy, run_on
 
 num_test_packets = 150
 
@@ -88,5 +88,7 @@ def runtest():
     xmostest.build('test_time_tx')
 
     (clk_25, mii) = get_mii_rx_clk_phy(packet_fn=packet_checker)
-    do_test('standard', clk_25, mii)
-    do_test('rt', clk_25, mii)
+    if run_on(phy='mii', rate='100Mbs', mac='standard'):
+        do_test('standard', clk_25, mii)
+    if run_on(phy='mii', rate='100Mbs', mac='rt'):
+        do_test('rt', clk_25, mii)
