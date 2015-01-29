@@ -30,7 +30,6 @@ typedef struct ethernet_packet_info_t {
 } ethernet_packet_info_t;
 
 typedef struct ethernet_macaddr_filter_t {
-  uint16_t vlan;
   unsigned char addr[6];
   unsigned appdata;
 } ethernet_macaddr_filter_t;
@@ -232,18 +231,18 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
  *                             or disable the traffice shaper within the
  *                             MAC.
  */
-void mii_ethernet_rt(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                     server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                     server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                     streaming chanend ? c_rx_hp,
-                     streaming chanend ? c_tx_hp,
-                     in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
-                     in port p_txclk, out port p_txen, out port p_txd,
-                     clock rxclk,
-                     clock txclk,
-                     static const unsigned rx_bufsize_words,
-                     static const unsigned tx_bufsize_words,
-                     enum ethernet_enable_shaper_t enable_shaper);
+void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                         server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                         server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                         streaming chanend ? c_rx_hp,
+                         streaming chanend ? c_tx_hp,
+                         in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
+                         in port p_txclk, out port p_txen, out port p_txd,
+                         clock rxclk,
+                         clock txclk,
+                         static const unsigned rx_bufsize_words,
+                         static const unsigned tx_bufsize_words,
+                         enum ethernet_enable_shaper_t enable_shaper);
 
 /** Ethernet component to connect to an MII interface.
  *
@@ -276,15 +275,15 @@ void mii_ethernet_rt(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned 
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
  */
-void mii_ethernet(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                  server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
-                  server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
-                  in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
-                  in port p_txclk, out port p_txen, out port p_txd,
-                  port p_timing,
-                  clock rxclk,
-                  clock txclk,
-                  static const unsigned rx_bufsize_words);
+void mii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                      server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
+                      server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
+                      in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
+                      in port p_txclk, out port p_txen, out port p_txd,
+                      port p_timing,
+                      clock rxclk,
+                      clock txclk,
+                      static const unsigned rx_bufsize_words);
 #endif
 
 #endif // __ethernet__h__

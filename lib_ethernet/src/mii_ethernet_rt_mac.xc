@@ -11,6 +11,12 @@
 #include "xassert.h"
 #include "print.h"
 
+#ifndef MII_RX_THRESHOLD_BYTES
+// When using the high priority queue and there are less than this number of bytes
+// free then low priority packets start to be dropped
+#define MII_RX_THRESHOLD_BYTES 2000
+#endif
+
 unsafe static void reserve(tx_client_state_t client_state[n], unsigned n, mii_mempool_t mem, unsigned * unsafe rdptr)
 {
   for (int i = 0; i < n; i++) {
@@ -27,9 +33,9 @@ unsafe static void reserve(tx_client_state_t client_state[n], unsigned n, mii_me
 
 unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
                                           unsigned &rd_index,
-                                          rx_client_state_t client_state[n],
+                                          rx_client_state_t client_states[n],
                                           server ethernet_rx_if i_rx[n],
-                                          unsigned n, int is_hp)
+                                          unsigned n)
 {
   mii_packet_t * unsafe buf = mii_get_my_next_buf(packets, rd_index);
   if (!buf)
@@ -38,69 +44,9 @@ unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
   int tcount = 0;
   if (buf->filter_result) {
     for (int i = 0; i < n; i++) {
+      rx_client_state_t &client_state = client_states[i];
+
       int client_wants_packet = ((buf->filter_result >> i) & 1);
-      if (client_state[i].num_etype_filters != 0) {
-        char * unsafe data = (char * unsafe) buf->data;
-        int passed_etype_filter = 0;
-        uint16_t etype = ((uint16_t) data[12] << 8) + data[13];
-        int qhdr = (etype == 0x8100);
-        if (qhdr) {
-          // has a 802.1q tag - read etype from next word
-          etype = ((uint16_t) data[16] << 8) + data[17];
-        }
-        for (int j = 0; j < client_state[i].num_etype_filters; j++) {
-          if (client_state[i].etype_filters[j] == etype) {
-            passed_etype_filter = 1;
-            break;
-          }
-        }
-        client_wants_packet &= passed_etype_filter;
-      }
-
-      if (client_wants_packet) {
-        debug_printf("Trying to queue for client %d\n", i);
-        int wrptr = client_state[i].wr_index;
-        int new_wrptr = increment_and_wrap_to_zero(wrptr, ETHERNET_RX_CLIENT_QUEUE_SIZE);
-
-        if (new_wrptr != client_state[i].rd_index) {
-          debug_printf("Putting in client queue %d\n", i);
-          client_state[i].fifo[wrptr] = (void *)rd_index;
-          tcount++;
-          i_rx[i].packet_ready();
-          client_state[i].wr_index = new_wrptr;
-        } else {
-          client_state[i].dropped_pkt_cnt += 1;
-        }
-      }
-    }
-  }
-
-  // Only move the rd_index after any clients register using it
-  if (tcount == 0) {
-    rd_index = mii_free_index(packets, rd_index);
-  }
-  else {
-    rd_index = mii_move_my_rd_index(packets, rd_index);
-    buf->tcount = tcount - 1;
-  }
-}
-
-unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
-                                              mii_packet_queue_t packets,
-                                              unsigned &rd_index,
-                                              rx_client_state_t &client_state,
-                                              streaming chanend c_rx_hp)
-{
-  while (1) {
-    mii_packet_t * unsafe buf = mii_get_my_next_buf(packets, rd_index);
-    if (!buf)
-      return;
-
-    int client_wants_packet = 0;
-    if (buf->filter_result && ethernet_filter_result_is_hp(buf->filter_result)) {
-
-      int client_wants_packet = (buf->filter_result & 1);
-
       if (client_state.num_etype_filters != 0) {
         char * unsafe data = (char * unsafe) buf->data;
         int passed_etype_filter = 0;
@@ -118,6 +64,76 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
         }
         client_wants_packet &= passed_etype_filter;
       }
+
+      if (client_wants_packet) {
+        debug_printf("Trying to queue for client %d\n", i);
+        int wr_index = client_state.wr_index;
+        int new_wr_index = increment_and_wrap_to_zero(wr_index,
+                                                      ETHERNET_RX_CLIENT_QUEUE_SIZE);
+
+        if (new_wr_index != client_state.rd_index) {
+          debug_printf("Putting in client queue %d\n", i);
+
+          // Store the index into the packet queue
+          client_state.fifo[wr_index] = (void *)rd_index;
+          tcount++;
+          i_rx[i].packet_ready();
+          client_state.wr_index = new_wr_index;
+        } else {
+          client_state.dropped_pkt_cnt += 1;
+        }
+      }
+    }
+  }
+
+  if (tcount == 0) {
+    mii_free_index(packets, rd_index);
+  }
+  else {
+    buf->tcount = tcount - 1;
+  }
+  // Only move the rd_index after any clients register using it
+  rd_index = mii_move_my_rd_index(packets, rd_index);
+}
+
+unsafe static void drop_lp_packets(mii_packet_queue_t packets,
+                                   rx_client_state_t client_states[n],
+                                   unsigned n)
+{
+  for (int i = 0; i < n; i++) {
+    rx_client_state_t &client_state = client_states[i];
+    
+    if (client_state.rd_index != client_state.wr_index) {
+      unsigned client_rd_index = client_state.rd_index;
+      unsigned packets_rd_index = (unsigned)client_state.fifo[client_rd_index];
+
+      packet_queue_info_t * unsafe p_packets = (packet_queue_info_t * unsafe)packets;
+      mii_packet_t * unsafe buf = (mii_packet_t * unsafe)p_packets->ptrs[packets_rd_index];
+
+      if (mii_get_and_dec_transmit_count(buf) == 0) {
+        mii_free_index(packets, packets_rd_index);
+      }
+      client_state.rd_index = increment_and_wrap_to_zero(client_state.rd_index,
+                                                         ETHERNET_RX_CLIENT_QUEUE_SIZE);
+      client_state.dropped_pkt_cnt += 1;
+    }
+  }
+}
+
+unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
+                                              mii_packet_queue_t packets,
+                                              unsigned &rd_index,
+                                              rx_client_state_t &client_state,
+                                              streaming chanend c_rx_hp)
+{
+  while (1) {
+    mii_packet_t * unsafe buf = mii_get_my_next_buf(packets, rd_index);
+    if (!buf)
+      return;
+
+    int client_wants_packet = 0;
+    if (buf->filter_result && ethernet_filter_result_is_hp(buf->filter_result)) {
+      client_wants_packet = (buf->filter_result & 1);
     }
 
     if (client_wants_packet)
@@ -137,7 +153,7 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
       int len2 = prewrap > len ? 0 : len - prewrap;
       sout_char_array(c_rx_hp, (char *)dptr, len1);
       if (len2) {
-        sout_char_array(c_rx_hp, (char *)dptr, len2);
+        sout_char_array(c_rx_hp, (char *)*wrap_ptr, len2);
       }
     }
 
@@ -219,9 +235,6 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
 
       rx_client_state_t &client_state = rx_client_state_lp[i];
 
-      // Default value
-      desc.type = ETH_NO_DATA;
-
       if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
         data[0] = 1;
         data[1] = link_status;
@@ -234,11 +247,6 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
 
         packet_queue_info_t * unsafe p_packets_lp = (packet_queue_info_t * unsafe)rx_packets_lp;
         mii_packet_t * unsafe buf = (mii_packet_t * unsafe)p_packets_lp->ptrs[packets_rd_index];
-
-        if (buf == null) {
-          // The packet pointer has already been freed - ETH_NO_DATA will be returned
-          break;
-        }
 
         ethernet_packet_info_t info;
         info.type = ETH_DATA;
@@ -263,10 +271,14 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
           mii_free_index(rx_packets_lp, packets_rd_index);
         }
 
-        client_state.rd_index = increment_and_wrap_to_zero(client_state.rd_index, ETHERNET_RX_CLIENT_QUEUE_SIZE);
+        client_state.rd_index = increment_and_wrap_to_zero(client_state.rd_index,
+                                                           ETHERNET_RX_CLIENT_QUEUE_SIZE);
         if (client_state.rd_index != client_state.wr_index) {
           i_rx_lp[i].packet_ready();
         }
+      }
+      else  {
+        desc.type = ETH_NO_DATA;
       }
       break;
     }
@@ -320,6 +332,9 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       break;
 
     case i_cfg[int i].add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
+      if (is_hp)
+        fail("RT ethernet does not support ethertype filters for the high priority queue");
+
       rx_client_state_t &client_state = is_hp ? rx_client_state_hp[client_num] : rx_client_state_lp[client_num];
       size_t n = client_state.num_etype_filters;
       assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
@@ -423,16 +438,26 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, rx_client_state_hp[0], c_rx_hp);
     }
 
-    handle_incoming_packet(rx_packets_lp, rd_index_lp, rx_client_state_lp, i_rx_lp, n_rx_lp, 0);
+    handle_incoming_packet(rx_packets_lp, rd_index_lp, rx_client_state_lp, i_rx_lp, n_rx_lp);
 
     unsigned * unsafe rx_rdptr = mii_get_next_rdptr(rx_packets_lp, rx_packets_hp);
 
     // Keep the shared read pointer up to date
     *p_rx_rdptr = (unsigned)rx_rdptr;
 
+    if (ETHERNET_SUPPORT_HP_QUEUES) {
+      // Test to see whether the buffer has reached a critical fullness level. If so, then start
+      // dropping LP packets
+      rx_rdptr = mii_get_rdptr(rx_packets_lp);
+      mii_packet_t * unsafe packet_space = mii_reserve_at_least(rx_mem, rx_rdptr, MII_RX_THRESHOLD_BYTES);
+      if (packet_space == null) {
+        drop_lp_packets(rx_packets_lp, rx_client_state_lp, n_rx_lp);
+      }
+    }
+    
     unsigned * unsafe tx_rdptr = mii_get_next_rdptr(tx_packets_lp, tx_packets_hp);
 
-    if (ETHERNET_SUPPORT_HP_QUEUES) {
+    if (ETHERNET_SUPPORT_HP_QUEUES && !isnull(c_tx_hp)) {
       if (!mii_packet_queue_full(tx_packets_hp)) {
         reserve(tx_client_state_hp, 1, tx_mem, tx_rdptr);
       }
@@ -446,17 +471,17 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
 }
 
 
-void mii_ethernet_rt(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                     server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                     server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                     streaming chanend ? c_rx_hp,
-                     streaming chanend ? c_tx_hp,
-                      in port p_rxclk, in port p_rxer0, in port p_rxd0, in port p_rxdv,
-                     in port p_txclk, out port p_txen, out port p_txd0,
-                     clock rxclk, clock txclk,
-                     static const unsigned rx_bufsize_words,
-                     static const unsigned tx_bufsize_words,
-                     enum ethernet_enable_shaper_t enable_shaper)
+void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                         server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                         server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                         streaming chanend ? c_rx_hp,
+                         streaming chanend ? c_tx_hp,
+                         in port p_rxclk, in port p_rxer0, in port p_rxd0, in port p_rxdv,
+                         in port p_txclk, out port p_txen, out port p_txd0,
+                         clock rxclk, clock txclk,
+                         static const unsigned rx_bufsize_words,
+                         static const unsigned tx_bufsize_words,
+                         enum ethernet_enable_shaper_t enable_shaper)
 {
   in port * movable pp_rxd0 = &p_rxd0;
   in buffered port:32 * movable pp_rxd = reconfigure_port(move(pp_rxd0), in buffered port:32);

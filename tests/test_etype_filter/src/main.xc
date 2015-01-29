@@ -10,19 +10,23 @@
 #include "debug_print.h"
 #include "syscall.h"
 #include "xta_test_pragmas.h"
-#include "helpers.xc"
 
 #include "ports.h"
 
+port p_ctrl = on tile[0]: XS1_PORT_1A;
+#include "control.xc"
+
+#include "helpers.xc"
+
 void test_task(client ethernet_cfg_if cfg,
                client ethernet_rx_if rx,
-               uint16_t etype)
+               uint16_t etype,
+               client control_if ctrl)
 {
   ethernet_macaddr_filter_t macaddr_filter;
   timer tmr;
   unsigned t;
   tmr :> t;
-  macaddr_filter.vlan = 0;
   macaddr_filter.appdata = 0;
   for (int i = 0; i < 6; i++)
     macaddr_filter.addr[i] = i;
@@ -32,7 +36,8 @@ void test_task(client ethernet_cfg_if cfg,
 
   cfg.add_ethertype_filter(index, 0, etype);
 
-  while (1) {
+  int done = 0;
+  while (!done) {
     select {
     case rx.packet_ready():
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
@@ -43,12 +48,16 @@ void test_task(client ethernet_cfg_if cfg,
                    packet_info.type, packet_info.len,
                    rxbuf[15]);
       break;
-    case tmr when timerafter(t + 10000) :> void:
-      if (index == 1)
-        _exit(0);
+
+    case ctrl.status_changed():
+      status_t status;
+      ctrl.get_status(status);
+      if (status == STATUS_DONE)
+        done = 1;
       break;
     }
   }
+  ctrl.set_done();
 }
 
 #define NUM_CFG_IF 2
@@ -62,6 +71,7 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_rx_hp;
   streaming chan c_tx_hp;
+  control_if i_ctrl[NUM_CFG_IF];
 
   par {
     #if RGMII
@@ -80,37 +90,36 @@ int main()
 
     #if RT
 
-    on tile[0]: mii_ethernet_rt(i_cfg, NUM_CFG_IF,
-                                i_rx_lp, NUM_RX_LP_IF,
-                                i_tx_lp, NUM_TX_LP_IF,
-                                c_rx_hp, c_tx_hp,
-                                p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                p_eth_txclk, p_eth_txen, p_eth_txd,
-                                eth_rxclk, eth_txclk,
-                                4000, 4000, 1);
-    on tile[0]: filler(0x66);
+    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                    i_rx_lp, NUM_RX_LP_IF,
+                                    i_tx_lp, NUM_TX_LP_IF,
+                                    c_rx_hp, c_tx_hp,
+                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                    p_eth_txclk, p_eth_txen, p_eth_txd,
+                                    eth_rxclk, eth_txclk,
+                                    4000, 4000, 1);
     on tile[0]: filler(0x77);
 
     #else // RT
 
-    on tile[0]: mii_ethernet(i_cfg, NUM_CFG_IF,
-                             i_rx_lp, NUM_RX_LP_IF,
-                             i_tx_lp, NUM_TX_LP_IF,
-                             p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                             p_eth_txclk, p_eth_txen, p_eth_txd,
-                             p_eth_dummy,
-                             eth_rxclk, eth_txclk,
-                             1600);
+    on tile[0]: mii_ethernet_mac(i_cfg, NUM_CFG_IF,
+                                 i_rx_lp, NUM_RX_LP_IF,
+                                 i_tx_lp, NUM_TX_LP_IF,
+                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                 p_eth_txclk, p_eth_txen, p_eth_txd,
+                                 p_eth_dummy,
+                                 eth_rxclk, eth_txclk,
+                                 1600);
     on tile[0]: filler(0x44);
     on tile[0]: filler(0x55);
     on tile[0]: filler(0x66);
-    on tile[0]: filler(0x77);
 
     #endif // RT
     #endif // RGMII
 
-    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], 0x1111);
-    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], 0x2222);
+    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], 0x1111, i_ctrl[0]);
+    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], 0x2222, i_ctrl[1]);
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
   }
   return 0;
 }

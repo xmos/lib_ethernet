@@ -24,8 +24,7 @@ unsigned ethernet_filter_result_set_hp(unsigned value, int is_hp)
 void ethernet_init_filter_table(eth_global_filter_info_t table)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
-    table[i].vlan = 0;
-    memset(table[i].addr, 6, 0);
+    memset(table[i].addr, 0, 6);
     table[i].result = 0;
     table[i].appdata = 0;
   }
@@ -33,16 +32,12 @@ void ethernet_init_filter_table(eth_global_filter_info_t table)
 
 ethernet_macaddr_filter_result_t
 ethernet_add_filter_table_entry(eth_global_filter_info_t table,
-                                unsigned client_id, int is_hp,
+                                unsigned client_num, int is_hp,
                                 ethernet_macaddr_filter_t entry)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
     // Skip this entry if it is not used
     if (table[i].result == 0)
-      continue;
-
-    // Skip this entry if it doesn't match the entry to add.
-    if (table[i].vlan != entry.vlan)
       continue;
 
     int mac_match = 1;
@@ -60,7 +55,7 @@ ethernet_add_filter_table_entry(eth_global_filter_info_t table,
     }
 
     // Update the entry.
-    table[i].result |= (1 << client_id);
+    table[i].result |= (1 << client_num);
     return ETHERNET_MACADDR_FILTER_SUCCESS;
   }
 
@@ -70,10 +65,9 @@ ethernet_add_filter_table_entry(eth_global_filter_info_t table,
       continue;
 
     // Found an empty entry, use it
-    table[i].vlan = entry.vlan;
     memcpy(table[i].addr, entry.addr, 6);
     table[i].appdata = entry.appdata;
-    table[i].result = ethernet_filter_result_set_hp(1 << client_id, is_hp);
+    table[i].result = ethernet_filter_result_set_hp(1 << client_num, is_hp);
     return ETHERNET_MACADDR_FILTER_SUCCESS;
   }
 
@@ -82,7 +76,7 @@ ethernet_add_filter_table_entry(eth_global_filter_info_t table,
 }
 
 void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
-                                     unsigned client_id, int is_hp,
+                                     unsigned client_num, int is_hp,
                                      ethernet_macaddr_filter_t entry)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
@@ -90,9 +84,6 @@ void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
     if (table[i].result == 0)
       continue;
 
-    // Skip this entry if it doesn't match the entry to add.
-    if (table[i].vlan != entry.vlan)
-      continue;
     int mac_match = 1;
     for (size_t j = 0; j < 6; j++)
       if (table[i].addr[j] != entry.addr[j])
@@ -101,11 +92,11 @@ void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
       continue;
 
     // Ensure the entry is the correct priority
-    if (ethernet_filter_result_is_hp(table[i].result != is_hp))
+    if (ethernet_filter_result_is_hp(table[i].result) != is_hp)
       continue;
 
     // Update the entry.
-    table[i].result &= ~(1 << client_id);
+    table[i].result &= ~(1 << client_num);
 
     // Clear the high priority bit if there are no more clients
     if (is_hp && (ethernet_filter_result_interfaces(table[i].result) == 0)) {
@@ -115,11 +106,11 @@ void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
 }
 
 void ethernet_clear_filter_table(eth_global_filter_info_t table,
-                                 unsigned client_id, int is_hp)
+                                 unsigned client_num, int is_hp)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
     // Update the entry.
-    table[i].result &= ~(1 << client_id);
+    table[i].result &= ~(1 << client_num);
 
     // Clear the high priority bit if there are no more clients
     if (is_hp && (ethernet_filter_result_interfaces(table[i].result) == 0)) {
@@ -133,17 +124,8 @@ unsigned ethernet_do_filtering(eth_global_filter_info_t table,
                                size_t packet_size,
                                unsigned &appdata)
 {
-  uint16_t vlan = 0;
-
-  // Check if there is a vlan tag
-  if (buf[13] == 0x80 && buf[14] == 0x00)
-    vlan = buf[15]&0xf + buf[16];
-
   for (size_t i = 0;i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
     if (table[i].result == 0)
-      continue;
-    // Skip this entry if it doesn't match the
-    if (table[i].vlan != vlan)
       continue;
     int mac_match = 1;
     for (size_t j = 0; j < 6; j++) {

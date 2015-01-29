@@ -40,8 +40,9 @@
 #ifndef RGMII_MAC_BUFFER_COUNT
 // Provide enough buffers to receive all minumum sized frames after
 // a maximum sized frame
-// Keep this as a power of 2 for performance reasons
-#define RGMII_MAC_BUFFER_COUNT 32
+// Keep these as a power of 2 for performance reasons
+#define RGMII_MAC_BUFFER_COUNT_RX 32
+#define RGMII_MAC_BUFFER_COUNT_TX 8
 #endif
 
 #ifndef ETHERNET_USE_HARDWARE_LOCKS
@@ -52,3 +53,8 @@
 // Keep this as a power of 2 for performance reasons
 #define ETHERNET_NUM_PACKET_POINTERS 32
 #endif
+
+#ifndef MII_MACADDR_HASH_TABLE_SIZE
+#define MII_MACADDR_HASH_TABLE_SIZE 256
+#endif
+

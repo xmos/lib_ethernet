@@ -2,7 +2,7 @@
 #define __mii_lite_lld_h__
 #include "hwtimer.h"
 
-extern unsigned int tailValues[4];
+extern unsigned int tail_values[4];
 extern void mii_lite_lld(buffered in port:32 rxd, in port rxdv,
                          buffered out port:32 txd,
                          chanend INchannel, chanend OUTchannel, in port timing,

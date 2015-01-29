@@ -9,7 +9,7 @@ class TxPhy(xmostest.SimThread):
     END_OF_TEST_TIME = 5000
 
     def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay, verbose,
-                 test_ctrl, do_timeout, complete_fn):
+                 test_ctrl, do_timeout, complete_fn, expect_loopback):
         self._name = name
         self._test_ctrl = test_ctrl
         self._rxd = rxd
@@ -21,6 +21,7 @@ class TxPhy(xmostest.SimThread):
         self._verbose = verbose
         self._do_timeout = do_timeout
         self._complete_fn = complete_fn
+        self._expect_loopback = expect_loopback
 
     def get_name(self):
         return self._name
@@ -52,15 +53,16 @@ class TxPhy(xmostest.SimThread):
             total_data_bits = total_packet_bytes * 8
 
             # Allow 2 cycles per bit
-            loopback_time = 2 * total_data_bits
-
-            # The packets are copied to and from the user application
-            loopback_time *= 2
+            copy_time = 2 * total_data_bits
 
             # The clock ticks are 2ns long
-            loopback_time *= 2
+            copy_time *= 2
 
-            timeout_time += loopback_time
+            if self._expect_loopback:
+                # The packets are copied to and from the user application
+                copy_time *= 2
+
+            timeout_time += copy_time
 
             self.wait_until(self.xsi.get_time() + timeout_time)
 
@@ -69,7 +71,7 @@ class TxPhy(xmostest.SimThread):
                 self.xsi.drive_port_pins(self._test_ctrl, 1)
 
             # Allow time for the DUT to exit
-            self.wait_until(self.xsi.get_time() + 10000)
+            self.wait_until(self.xsi.get_time() + 25000)
 
             print "ERROR: Test timed out"
             self.xsi.terminate()
@@ -84,11 +86,11 @@ class TxPhy(xmostest.SimThread):
 class MiiTransmitter(TxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
-                 initial_delay=80000, verbose=False, test_ctrl=None,
-                 do_timeout=True, complete_fn=None):
+                 initial_delay=85000, verbose=False, test_ctrl=None,
+                 do_timeout=True, complete_fn=None, expect_loopback=True):
         super(MiiTransmitter, self).__init__('mii', rxd, rxdv, rxer, clock,
                                              initial_delay, verbose, test_ctrl,
-                                             do_timeout, complete_fn)
+                                             do_timeout, complete_fn, expect_loopback)
 
     def run(self):
         xsi = self.xsi

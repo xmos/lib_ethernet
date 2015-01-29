@@ -5,7 +5,7 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
-def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -30,7 +30,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     bit_time = ifg/96
 
     # Allow lots of time for the DUT to recover between test bursts
-    recovery_time = 4*packet_processing_time(tx_phy, 46)
+    recovery_time = 4*packet_processing_time(tx_phy, 46, mac)
 
     # Test shrinking the IFG by different amounts. Use the shrink as the step for debug purposes
     for gap_shrink in [5, 10]:
@@ -47,7 +47,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             inter_frame_gap=new_ifg
           ))
 
-    do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
+    do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 def runtest():
     random.seed(26)

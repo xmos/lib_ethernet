@@ -103,19 +103,23 @@ int main()
                                    p_eth_txd, eth_rxclk, eth_rxclk_interframe, eth_txclk,
                                    eth_txclk_out);
 
+    #if ETHERNET_SUPPORT_HP_QUEUES
     on tile[0]: test_tx(i_tx_lp[0], c_tx_hp);
+    #else
+    on tile[0]: test_tx(i_tx_lp[0], null);
+    #endif
 
     #else // RGMII
 
     #if RT
-    on tile[0]: mii_ethernet_rt(i_cfg, NUM_CFG_IF,
-                                i_rx_lp, NUM_RX_LP_IF,
-                                i_tx_lp, NUM_TX_LP_IF,
-                                c_rx_hp, c_tx_hp,
-                                p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                p_eth_txclk, p_eth_txen, p_eth_txd,
-                                eth_rxclk, eth_txclk,
-                                4000, 4000, 1);
+    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                    i_rx_lp, NUM_RX_LP_IF,
+                                    i_tx_lp, NUM_TX_LP_IF,
+                                    c_rx_hp, c_tx_hp,
+                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                    p_eth_txclk, p_eth_txen, p_eth_txd,
+                                    eth_rxclk, eth_txclk,
+                                    4000, 4000, 1);
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
@@ -127,14 +131,14 @@ int main()
     #endif
 
     #else
-    on tile[0]: mii_ethernet(i_cfg, NUM_CFG_IF,
-                             i_rx_lp, NUM_RX_LP_IF,
-                             i_tx_lp, NUM_TX_LP_IF,
-                             p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                             p_eth_txclk, p_eth_txen, p_eth_txd,
-                             p_eth_dummy,
-                             eth_rxclk, eth_txclk,
-                             1600);
+    on tile[0]: mii_ethernet_mac(i_cfg, NUM_CFG_IF,
+                                 i_rx_lp, NUM_RX_LP_IF,
+                                 i_tx_lp, NUM_TX_LP_IF,
+                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                 p_eth_txclk, p_eth_txen, p_eth_txd,
+                                 p_eth_dummy,
+                                 eth_rxclk, eth_txclk,
+                                 1600);
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);

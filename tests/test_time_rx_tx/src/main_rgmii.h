@@ -77,13 +77,13 @@ void test_rx(client ethernet_cfg_if cfg,
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
-  macaddr_filter.vlan = 0;
   macaddr_filter.appdata = 0;
   for (int i = 0; i < 6; i++)
     macaddr_filter.addr[i] = i;
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
   int num_bytes = 0;
+  int num_packets = 0;
   int done = 0;
   while (!done) {
     ethernet_packet_info_t packet_info;
@@ -94,6 +94,7 @@ void test_rx(client ethernet_cfg_if cfg,
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       sin_char_array(c_rx_hp, rxbuf, packet_info.len);
       num_bytes += packet_info.len;
+      num_packets += 1;
       break;
 
     case ctrl.status_changed():
@@ -104,7 +105,7 @@ void test_rx(client ethernet_cfg_if cfg,
       break;
     }
   }
-  debug_printf("Received %d bytes\n", num_bytes);
+  debug_printf("Received %d packets, %d bytes\n", num_packets, num_bytes);
   while (1) {
     // Wait for the test to be terminated by testbench
   }
@@ -121,7 +122,7 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_rx_hp;
   streaming chan c_tx_hp;
-  control_if i_ctrl;
+  control_if i_ctrl[NUM_CFG_IF];
 
   par {
     on tile[1]: rgmii_ethernet_mac(i_cfg, NUM_CFG_IF,
@@ -135,8 +136,8 @@ int main()
                                    eth_txclk_out);
 
     on tile[0]: test_tx(i_tx_lp[0], c_tx_hp);
-    on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_ctrl);
-    on tile[0]: control(p_ctrl, i_ctrl);
+    on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_ctrl[0]);
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
   }
   return 0;
 }

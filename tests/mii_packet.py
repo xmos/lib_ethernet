@@ -14,6 +14,10 @@ def create_data_step(args):
     step,num_data_bytes = args
     return [(step * i) & 0xff for i in range(num_data_bytes)]
 
+def create_data_same(args):
+    value,num_data_bytes = args
+    return [value & 0xff for i in range(num_data_bytes)]
+
 
 # Functions for creating the expected output that the DUT will print given
 # this packet
@@ -25,6 +29,10 @@ def create_data_expect(args):
 def create_data_expect_step(args):
     step,num_data_bytes = args
     return "Step = {0}\n".format(step)
+
+def create_data_expect_same(args):
+    value,num_data_bytes = args
+    return "Value = {0}\n".format(value)
 
 
 class MiiPacket(object):

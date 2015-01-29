@@ -10,6 +10,7 @@ from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, run_on, args
 from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, get_mii_rx_clk_phy
+from helpers import get_rgmii_tx_clk_phy, get_rgmii_rx_clk_phy
 
 tx_complete = False
 rx_complete = False
@@ -75,7 +76,7 @@ def packet_checker(packet, phy):
             rx_complete = True
 
 
-def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     start_test(rx_phy)
     
     rand = random.Random()
@@ -85,8 +86,8 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     testname = 'test_time_rx_tx'
     level = 'nightly'
 
-    binary = '{test}/bin/{impl}_{phy}/{test}_{impl}_{phy}.xe'.format(
-        test=testname, impl=impl, phy=tx_phy.get_name())
+    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
+        test=testname, mac=mac, phy=tx_phy.get_name())
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
         print "Running {test}: {phy} phy at {clk} (seed {seed})".format(
@@ -128,17 +129,17 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         print "Sending {n} packets with {b} bytes at the DUT".format(n=len(packets), b=num_data_bytes)
 
     expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{impl}.expect'.format(
-        folder=expect_folder, test=testname, impl=impl)
+    expect_filename = '{folder}/{test}_{mac}.expect'.format(
+        folder=expect_folder, test=testname, mac=mac)
     create_expect(packets, expect_filename)
     tester = xmostest.ComparisonTester(open(expect_filename),
                                      'lib_ethernet', 'basic_tests', testname,
-                                      {'impl':impl, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()},
+                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()},
                                       regexp=True)
 
     tester.set_min_testlevel('nightly')
 
-    simargs = get_sim_args(testname, impl, tx_clk, tx_phy)
+    simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
                               tester=tester,
@@ -152,26 +153,44 @@ def create_expect(packets, filename):
             f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0 => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
 
         num_bytes = 0
+        num_packets = 0
         for i,packet in enumerate(packets):
             if not packet.dropped:
                 num_bytes += len(packet.get_packet_bytes())
-        f.write("Received {} bytes\n".format(num_bytes))
+                num_packets += 1
+        f.write("Received {} packets, {} bytes\n".format(num_packets, num_bytes))
     
 def runtest():
-    if (args.seed):
-        random.seed(args.seed)
-    else:
-        random.seed(100)
+    random.seed(100)
 
     xmostest.build('test_time_rx_tx')
 
     # Test 100 MBit - MII
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl="tile[0]:XS1_PORT_1A")
+    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker,
+                                             test_ctrl="tile[0]:XS1_PORT_1A")
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete)
-    seed = random.randint(0, sys.maxint)
-    if run_on(phy='mii', rate='100Mbs', mac='standard'):
-        do_test("standard", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+    if run_on(phy='mii', clk='25Mhz', mac='standard'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    seed = random.randint(0, sys.maxint)
-    if run_on(phy='mii', rate='100Mbs', mac='rt'):
-        do_test("rt", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+    if run_on(phy='mii', clk='25Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
+    # Test 100 MBit - RGMII
+    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
+                                                 test_ctrl="tile[0]:XS1_PORT_1A")
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False,
+                                                 complete_fn=set_tx_complete)
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+
+    # Test 1000 MBit - RGMII
+    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
+                                                  test_ctrl="tile[0]:XS1_PORT_1A")
+    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False,
+                                                  complete_fn=set_tx_complete)
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)

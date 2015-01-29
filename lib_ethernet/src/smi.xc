@@ -55,20 +55,20 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
                          unsigned SMI_MDIO_BIT,
                          unsigned SMI_MDC_BIT)
 {
-    int i = count, dataBit = 0, t;
+    int i = count, data_bit = 0, t;
 
     if (isnull(p_smi_mdio)) {
         p_smi_mdc :> void @ t;
         if (inning) {
             while (i != 0) {
                 i--;
-                p_smi_mdc @ (t + 30) :> dataBit;
-                dataBit &= (1 << SMI_MDIO_BIT);
+                p_smi_mdc @ (t + 30) :> data_bit;
+                data_bit &= (1 << SMI_MDIO_BIT);
                 if (SMI_MDIO_RESET_MUX)
-                  dataBit |= SMI_MDIO_REST;
-                p_smi_mdc            <: dataBit;
-                data = (data << 1) | (dataBit >> SMI_MDIO_BIT);
-                p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | dataBit;
+                  data_bit |= SMI_MDIO_REST;
+                p_smi_mdc            <: data_bit;
+                data = (data << 1) | (data_bit >> SMI_MDIO_BIT);
+                p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | data_bit;
                 p_smi_mdc            :> void;
                 t += 60;
             }
@@ -76,14 +76,14 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
         } else {
           while (i != 0) {
                 i--;
-                dataBit = ((data >> i) & 1) << SMI_MDIO_BIT;
+                data_bit = ((data >> i) & 1) << SMI_MDIO_BIT;
                 if (SMI_MDIO_RESET_MUX)
-                  dataBit |= SMI_MDIO_REST;
-                p_smi_mdc @ (t + 30) <:                    dataBit;
-                p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | dataBit;
+                  data_bit |= SMI_MDIO_REST;
+                p_smi_mdc @ (t + 30) <:                    data_bit;
+                p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | data_bit;
                 t += 60;
             }
-            p_smi_mdc @ (t+30) <: 1 << SMI_MDC_BIT | dataBit;
+            p_smi_mdc @ (t+30) <: 1 << SMI_MDC_BIT | data_bit;
         }
         return data;
     }
@@ -93,17 +93,17 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
         i--;
         p_smi_mdc @ (t+30) <: 0;
         if (!inning) {
-          int dataBit;
-          dataBit = ((data >> i) & 1) << SMI_MDIO_BIT;
+          int data_bit;
+          data_bit = ((data >> i) & 1) << SMI_MDIO_BIT;
           if (SMI_MDIO_RESET_MUX)
-            dataBit |= SMI_MDIO_REST;
-          p_smi_mdio <: dataBit;
+            data_bit |= SMI_MDIO_REST;
+          p_smi_mdio <: data_bit;
         }
         p_smi_mdc @ (t+60) <: ~0;
         if (inning) {
-          p_smi_mdio :> dataBit;
-          dataBit = dataBit >> SMI_MDIO_BIT;
-          data = (data << 1) | dataBit;
+          p_smi_mdio :> data_bit;
+          data_bit = data_bit >> SMI_MDIO_BIT;
+          data = (data << 1) | data_bit;
         }
         t += 60;
       }
@@ -218,58 +218,58 @@ unsigned smi_get_id(client smi_if smi) {
 void smi_configure(client smi_if smi, int is_eth_100, int is_auto)
 {
   if (is_auto) {
-    int autoNegAdvertReg;
-    autoNegAdvertReg = smi.read_reg(AUTONEG_ADVERT_REG);
+    int auto_neg_advert_reg;
+    auto_neg_advert_reg = smi.read_reg(AUTONEG_ADVERT_REG);
 
     // Clear bits [9:5]
-    autoNegAdvertReg &= 0xfc1f;
+    auto_neg_advert_reg &= 0xfc1f;
 
     // Set 100 or 10 Mpbs bits
     if (is_eth_100) {
-      autoNegAdvertReg |= 1 << AUTONEG_ADVERT_100_BIT;
+      auto_neg_advert_reg |= 1 << AUTONEG_ADVERT_100_BIT;
     } else {
-      autoNegAdvertReg |= 1 << AUTONEG_ADVERT_10_BIT;
+      auto_neg_advert_reg |= 1 << AUTONEG_ADVERT_10_BIT;
     }
 
     // Write back
-    smi.write_reg(AUTONEG_ADVERT_REG, autoNegAdvertReg);
+    smi.write_reg(AUTONEG_ADVERT_REG, auto_neg_advert_reg);
   }
 
-  int basicControl = smi.read_reg(BASIC_CONTROL_REG);
+  int basic_control = smi.read_reg(BASIC_CONTROL_REG);
   if (is_auto) {
     // set autoneg bit
-    basicControl |= 1 << BASIC_CONTROL_AUTONEG_EN_BIT;
-    smi.write_reg(BASIC_CONTROL_REG, basicControl);
+    basic_control |= 1 << BASIC_CONTROL_AUTONEG_EN_BIT;
+    smi.write_reg(BASIC_CONTROL_REG, basic_control);
     // restart autoneg
-    basicControl |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
+    basic_control |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
   }
   else {
     // set duplex mode, clear autoneg and 100 Mbps.
-    basicControl |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
-    basicControl &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
+    basic_control |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
+    basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
                        (1 << BASIC_CONTROL_100_MBPS_BIT));
     if (is_eth_100) {                // Optionally set 100 Mbps
-      basicControl |= 1 << BASIC_CONTROL_100_MBPS_BIT;
+      basic_control |= 1 << BASIC_CONTROL_100_MBPS_BIT;
     }
   }
-  smi.write_reg(BASIC_CONTROL_REG, basicControl);
+  smi.write_reg(BASIC_CONTROL_REG, basic_control);
 }
 
 void smi_set_loopback_mode(client smi_if smi, int enable)
 {
-  int controlReg = smi.read_reg(BASIC_CONTROL_REG);
+  int control_reg = smi.read_reg(BASIC_CONTROL_REG);
 
   // First clear both autoneg and loopback
-  controlReg = controlReg & ~ ((1 << BASIC_CONTROL_AUTONEG_EN_BIT) |
+  control_reg = control_reg & ~ ((1 << BASIC_CONTROL_AUTONEG_EN_BIT) |
                                (1 << BASIC_CONTROL_LOOPBACK_BIT));
   // Now selectively set one of them
   if (enable) {
-    controlReg = controlReg | (1 << BASIC_CONTROL_LOOPBACK_BIT);
+    control_reg = control_reg | (1 << BASIC_CONTROL_LOOPBACK_BIT);
   } else {
-    controlReg = controlReg | (1 << BASIC_CONTROL_AUTONEG_EN_BIT);
+    control_reg = control_reg | (1 << BASIC_CONTROL_AUTONEG_EN_BIT);
   }
 
-  smi.write_reg(BASIC_CONTROL_REG, controlReg);
+  smi.write_reg(BASIC_CONTROL_REG, control_reg);
 }
 
 

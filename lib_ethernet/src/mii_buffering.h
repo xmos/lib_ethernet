@@ -21,6 +21,11 @@ inline unsigned increment_and_wrap_power_of_2(unsigned value, unsigned max) {
   return value;
 }
 
+// Allocate an extra two words of data per packet buffer because when the RGMII
+// receiver gets a frame that just exceeds the maximum size it will write up to
+// these extra two words of data that are returned by the ENDIN.
+#define MII_PACKET_DATA_BYTES (ETHERNET_MAX_PACKET_SIZE + 8)
+
 // NOTE: If this structure is modified then the MII_PACKET_HEADER_BYTES define in
 //       mii_buffering_defines.h
 typedef struct mii_packet_t {
@@ -36,7 +41,7 @@ typedef struct mii_packet_t {
   int forwarding;       //!< A bitfield for tracking forwarding of the packet
                         //   to other ports
   unsigned filter_data; //!< Word of data returned by the mac filter
-  unsigned int data[(ETHERNET_MAX_PACKET_SIZE+3)/4];
+  unsigned int data[(MII_PACKET_DATA_BYTES+3)/4];
 } mii_packet_t;
 
 /*
@@ -102,7 +107,7 @@ mii_packet_t *mii_reserve_at_least(mii_mempool_t mempool,
 void mii_commit(mii_mempool_t mempool, unsigned *endptr0);
 void mii_add_packet(mii_packet_queue_t queue, mii_packet_t *buf);
 
-unsigned mii_free_current(mii_packet_queue_t queue);
+void mii_free_current(mii_packet_queue_t queue);
 unsigned mii_free_index(mii_packet_queue_t queue, unsigned index);
 
 unsigned mii_init_my_rd_index(mii_packet_queue_t queue);
@@ -113,6 +118,7 @@ mii_packet_t *mii_get_my_next_buf(mii_packet_queue_t queue, unsigned rd_index);
 
 unsigned *mii_get_next_rdptr(mii_packet_queue_t queue0,
                              mii_packet_queue_t queue1);
+unsigned *mii_get_rdptr(mii_packet_queue_t queue);
 
 int mii_get_and_dec_transmit_count(mii_packet_t *buf);
 

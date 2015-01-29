@@ -13,35 +13,17 @@
 
 #include "ports.h"
 
-port p_ctrl = on tile[0]: XS1_PORT_1A;
+port p_ctrl = on tile[0]: XS1_PORT_1C;
 #include "control.xc"
+
+port p_rx_lp_control = on tile[0]: XS1_PORT_1D;
 
 #include "helpers.xc"
 
-#if ETHERNET_SUPPORT_HP_QUEUES
-
-void test_rx_loopback(streaming chanend c_tx_hp,
-                      streaming chanend c_loopback)
-{
-  unsafe {
-    while (1) {
-      unsigned len;
-      uintptr_t buf;
-      c_loopback :> len;
-      c_loopback :> buf;
-
-      c_tx_hp <: len;
-      sout_char_array(c_tx_hp, (char *)buf, len);
-    }
-  }
-}
-
-#define NUM_BUF 4
-
-void test_rx(client ethernet_cfg_if cfg,
-             streaming chanend c_rx_hp,
-             streaming chanend c_loopback,
-             client control_if ctrl)
+void test_rx_hp(client ethernet_cfg_if cfg,
+                streaming chanend c_rx_hp,
+                client control_if ctrl,
+                chanend c_shutdown)
 {
   set_core_fast_mode_on();
 
@@ -52,22 +34,23 @@ void test_rx(client ethernet_cfg_if cfg,
     macaddr_filter.addr[i] = i;
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
-  unsigned char rxbuf[NUM_BUF][ETHERNET_MAX_PACKET_SIZE];
-  unsigned index = 0;
-
+  unsigned num_rx_bytes = 0;
   int done = 0;
+  char seq_id = 0;
   while (!done) {
     ethernet_packet_info_t packet_info;
 
     #pragma ordered
     select {
     case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      sin_char_array(c_rx_hp, rxbuf[index], packet_info.len);
+      unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
+      sin_char_array(c_rx_hp, rxbuf, packet_info.len);
 
-      uintptr_t buf = (uintptr_t)&rxbuf[index];
-      c_loopback <: packet_info.len;
-      c_loopback <: buf;
-      index = (index + 1) % NUM_BUF;
+      // Check the first byte after the header (which can be VLAN tagged)
+      if (rxbuf[18] != seq_id)
+        debug_printf("Packet %d instead of %d\n", rxbuf[18], seq_id);
+      seq_id++;
+      num_rx_bytes += packet_info.len;
       break;
 
     case ctrl.status_changed():
@@ -78,15 +61,17 @@ void test_rx(client ethernet_cfg_if cfg,
       break;
     }
   }
+  debug_printf("Received %d hp bytes\n", num_rx_bytes);
+
+  // Indicate that this core has printed its message
+  c_shutdown <: done;
   ctrl.set_done();
 }
 
-#else
-
-void test_rx(client ethernet_cfg_if cfg,
-             client ethernet_rx_if rx,
-             client ethernet_tx_if tx,
-             client control_if ctrl)
+void test_rx_lp(client ethernet_cfg_if cfg,
+                client ethernet_rx_if rx,
+                client control_if ctrl,
+                chanend c_shutdown)
 {
   set_core_fast_mode_on();
 
@@ -96,18 +81,41 @@ void test_rx(client ethernet_cfg_if cfg,
 
   macaddr_filter.appdata = 0;
   for (int i = 0; i < 6; i++)
-    macaddr_filter.addr[i] = i;
+    macaddr_filter.addr[i] = i + 1;
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
+  unsigned num_rx_bytes = 0;
   int done = 0;
   while (!done) {
+
+    select {
+      // Allow the testbench to control when packets are consumed
+    case p_rx_lp_control when pinseq(1) :> int tmp:
+      break;
+        
+    case ctrl.status_changed():
+      status_t status;
+      ctrl.get_status(status);
+      if (status == STATUS_DONE)
+        done = 1;
+      break;
+    }
+
+    if (done)
+      break;
+    
     #pragma ordered
     select {
     case rx.packet_ready():
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
       rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
-      tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
+
+      if (packet_info.type != ETH_DATA) {
+        continue;
+      }
+
+      num_rx_bytes += packet_info.len;
       break;
 
     case ctrl.status_changed():
@@ -118,12 +126,15 @@ void test_rx(client ethernet_cfg_if cfg,
       break;
     }
   }
+
+  // Wait until the high priority core has finished
+  c_shutdown :> done;
+  
+  debug_printf("Received %d lp bytes\n", num_rx_bytes);
   ctrl.set_done();
 }
 
-#endif
-
-#define NUM_CFG_IF 1
+#define NUM_CFG_IF 2
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
 
@@ -133,9 +144,8 @@ int main()
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_rx_hp;
-  streaming chan c_tx_hp;
-  streaming chan c_loopback;
   control_if i_ctrl[NUM_CFG_IF];
+  chan c_shutdown;
 
   par {
     #if RGMII
@@ -143,62 +153,30 @@ int main()
     on tile[1]: rgmii_ethernet_mac(i_cfg, NUM_CFG_IF,
                                    i_rx_lp, NUM_RX_LP_IF,
                                    i_tx_lp, NUM_TX_LP_IF,
-                                   c_rx_hp, c_tx_hp,
+                                   c_rx_hp, null,
                                    p_eth_rxclk, p_eth_rxer, p_eth_rxd_1000, p_eth_rxd_10_100,
                                    p_eth_rxd_interframe, p_eth_rxdv, p_eth_rxdv_interframe,
                                    p_eth_txclk_in, p_eth_txclk_out, p_eth_txer, p_eth_txen,
                                    p_eth_txd, eth_rxclk, eth_rxclk_interframe, eth_txclk,
                                    eth_txclk_out);
 
-    #if ETHERNET_SUPPORT_HP_QUEUES
-    on tile[0]: test_rx(i_cfg[0], c_rx_hp, c_loopback, i_ctrl[0]);
-    on tile[0]: test_rx_loopback(c_tx_hp, c_loopback);
-    #else
-    on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-    #endif
 
-    #else // RGMII
-
-    #if RT
+    #else // !RGMII
 
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
-                                    c_rx_hp, c_tx_hp,
+                                    c_rx_hp, null,
                                     p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, 1);
     on tile[0]: filler(0x1111);
 
-    #if ETHERNET_SUPPORT_HP_QUEUES
-    on tile[0]: test_rx(i_cfg[0], c_rx_hp, c_loopback, i_ctrl[0]);
-    on tile[0]: test_rx_loopback(c_tx_hp, c_loopback);
-    #else
-    on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-    #endif
-
-    #else // RT
-
-    // Having 2300 words gives enough for 3 full-sized frames in each bank of the
-    // lite buffers. (4500 bytes * 2) / 4 => 2250 words.
-    on tile[0]: mii_ethernet_mac(i_cfg, NUM_CFG_IF,
-                                 i_rx_lp, NUM_RX_LP_IF,
-                                 i_tx_lp, NUM_TX_LP_IF,
-                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                 p_eth_txclk, p_eth_txen, p_eth_txd,
-                                 p_eth_dummy,
-                                 eth_rxclk, eth_txclk,
-                                 2300);
-    on tile[0]: filler(0x1111);
-    on tile[0]: filler(0x2222);
-    on tile[0]: filler(0x3333);
-    on tile[0]: filler(0x4444);
-    on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-
-    #endif // RT
     #endif // RGMII
 
+    on tile[0]: test_rx_hp(i_cfg[0], c_rx_hp, i_ctrl[0], c_shutdown);
+    on tile[0]: test_rx_lp(i_cfg[1], i_rx_lp[0], i_ctrl[1], c_shutdown);
     on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
   }
   return 0;

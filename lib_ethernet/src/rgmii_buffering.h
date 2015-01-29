@@ -12,28 +12,29 @@
 
 void rgmii_init_lock();
 
+#ifdef __XC__
+extern "C" {
+#endif
+
 typedef struct buffers_free_t {
   unsigned top_index;
-  uintptr_t stack[RGMII_MAC_BUFFER_COUNT];
-
-#if !ETHERNET_USE_HARDWARE_LOCKS
-  swlock_t lock;
-#endif
+  uintptr_t *stack;
 } buffers_free_t;
-
-void buffers_free_initialize(REFERENCE_PARAM(buffers_free_t, free), unsigned char *buffer);
 
 typedef struct buffers_used_t {
   unsigned tail_index;
   unsigned head_index;
-  uintptr_t pointers[RGMII_MAC_BUFFER_COUNT + 1];
-
-#if !ETHERNET_USE_HARDWARE_LOCKS
-  swlock_t lock;
-#endif
+  uintptr_t * pointers;
 } buffers_used_t;
 
-void buffers_used_initialize(REFERENCE_PARAM(buffers_used_t, used));
+#ifdef __XC__
+}
+#endif
+
+void buffers_free_initialize(REFERENCE_PARAM(buffers_free_t, free), unsigned char *buffer,
+                             unsigned *pointers, unsigned buffer_count);
+
+void buffers_used_initialize(REFERENCE_PARAM(buffers_used_t, used), unsigned *pointers);
 
 void empty_channel(streaming_chanend_t c);
 
@@ -42,11 +43,13 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
                                  streaming chanend c_speed_change,
                                  buffers_used_t &used_buffers_rx_lp,
                                  buffers_used_t &used_buffers_rx_hp,
-                                 buffers_free_t &free_buffers);
+                                 buffers_free_t &free_buffers,
+                                 unsigned filter_num);
 
 unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
                                          server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
                                          streaming chanend ? c_rx_hp,
+                                         streaming chanend c_status_update,
                                          streaming chanend c_speed_change,
                                          out port p_txclk_out,
                                          in buffered port:4 p_rxd_interframe,
@@ -63,8 +66,11 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
                                          buffers_used_t &used_buffers_tx,
                                          buffers_free_t &free_buffers);
 
-unsafe void rgmii_ethernet_config_server_aux(server ethernet_cfg_if i_cfg[n],
+unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
+                                             unsigned n_rx_lp,
+                                             server ethernet_cfg_if i_cfg[n],
                                              unsigned n,
+                                             streaming chanend c_status_update,
                                              streaming chanend c_speed_change);
 #endif
 

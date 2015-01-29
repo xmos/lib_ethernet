@@ -6,62 +6,43 @@
 #include "debug_print.h"
 #include "print.h"
 #include "xassert.h"
+#include "macaddr_filter_hash.h"
 
-extern inline void enable_rgmii (unsigned delay, unsigned divide);
+extern inline void enable_rgmii(unsigned delay, unsigned divide);
 
-// Re-define as a select handler until changed in xs1.h
-#pragma select handler
-void sin_char_array(streaming chanend c, char src[size], unsigned size);
-
-#if ETHERNET_USE_HARDWARE_LOCKS
-hwlock_t rgmii_memory_lock = 0;
+#ifndef RGMII_RX_BUFFERS_THRESHOLD
+// When using the high priority queue and there are less than this number of buffers
+// free then low priority packets start to be dropped
+#define RGMII_RX_BUFFERS_THRESHOLD (RGMII_MAC_BUFFER_COUNT_RX / 2)
 #endif
 
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-  #define LOCK(buffers) swlock_acquire((buffers)->lock)
-#else
-  #define LOCK(buffers) hwlock_acquire(ethernet_memory_lock)
-#endif
+#define LOCK(buffers) hwlock_acquire(ethernet_memory_lock)
+#define UNLOCK(buffers) hwlock_release(ethernet_memory_lock)
 
-#ifndef ETHERNET_USE_HARDWARE_LOCKS
-  #define UNLOCK(buffers) swlock_release((buffers)->lock)
-#else
-  #define UNLOCK(buffers) hwlock_release(ethernet_memory_lock)
-#endif
-
-extern "C" {
-  extern void buffers_free_initialize_c(buffers_free_t *free, unsigned char *buffer);
-}
-
-void rgmii_init_lock()
+void buffers_free_initialize(buffers_free_t &free, unsigned char *buffer,
+                             unsigned *pointers, unsigned buffer_count)
 {
-#if ETHERNET_USE_HARDWARE_LOCKS
-  if (rgmii_memory_lock == 0) {
-    rgmii_memory_lock = hwlock_alloc();
+  free.top_index = buffer_count;
+  unsafe {
+    free.stack = (unsigned * unsafe)pointers;
+    free.stack[0] = (uintptr_t)buffer;
+    for (unsigned i = 1; i < buffer_count; i++)
+      free.stack[i] = free.stack[i - 1] + sizeof(mii_packet_t);
   }
-#endif
 }
 
-void buffers_free_initialize(buffers_free_t &free, unsigned char *buffer)
-{
-  free.top_index = RGMII_MAC_BUFFER_COUNT;
-  buffers_free_initialize_c(&free, buffer);
-  for (unsigned i = 1; i < RGMII_MAC_BUFFER_COUNT; i++)
-    free.stack[i] = free.stack[i - 1] + sizeof(mii_packet_t);
-
-#if !ETHERNET_USE_HARDWARE_LOCKS
-  swlock_init(&free->lock);
-#endif
-}
-
-void buffers_used_initialize(buffers_used_t &used)
+void buffers_used_initialize(buffers_used_t &used, unsigned *pointers)
 {
   used.head_index = 0;
   used.tail_index = 0;
+  unsafe {
+    used.pointers = pointers;
+  }
+}
 
-#if !ETHERNET_USE_HARDWARE_LOCKS
-  swlock_init(&used->lock);
-#endif
+static inline unsigned buffers_free_available(buffers_free_t &free)
+{
+  return free.top_index;
 }
 
 #pragma unsafe arrays
@@ -104,42 +85,42 @@ static unsafe inline void buffers_free_add(buffers_free_t &free, mii_packet_t * 
 }
 
 #pragma unsafe arrays
-static unsafe inline unsafe uintptr_t * unsafe buffers_used_add(buffers_used_t &used, mii_packet_t * unsafe buf)
+static unsafe inline unsafe uintptr_t * unsafe buffers_used_add(buffers_used_t &used,
+                                                                mii_packet_t * unsafe buf,
+                                                                unsigned buffer_count)
 {
-  LOCK(used);
+  LOCK(free);
 
   // Ensure that the compiler does not keep this value in a register
   volatile unsigned * unsafe p_head_index = (volatile unsigned * unsafe)(&used.head_index);
   unsigned head_index = *p_head_index;
 
-  unsigned index = head_index % RGMII_MAC_BUFFER_COUNT;
+  unsigned index = head_index % buffer_count;
   used.pointers[index] = (uintptr_t)buf;
   head_index++;
   *p_head_index = head_index;
 
-  UNLOCK(used);
+  UNLOCK(free);
 
   return &used.pointers[index];
 }
 
 #pragma unsafe arrays
-static unsafe inline mii_packet_t * unsafe buffers_used_take(buffers_used_t &used)
+static unsafe inline mii_packet_t * unsafe buffers_used_take(buffers_used_t &used, unsigned buffer_count)
 {
-  LOCK(used);
+  LOCK(free);
 
   // Ensure that the compiler does not keep this value in a register
   volatile unsigned * unsafe p_tail_index = (volatile unsigned * unsafe)(&used.tail_index);
   unsigned tail_index = *p_tail_index;
 
-  unsigned index = tail_index % RGMII_MAC_BUFFER_COUNT;
+  unsigned index = tail_index % buffer_count;
   tail_index++;
   *p_tail_index = tail_index;
 
   unsafe {
     mii_packet_t * unsafe buf = (mii_packet_t *)used.pointers[index];
-
-    UNLOCK(used);
-
+    UNLOCK(free);
     return buf;
   }
 }
@@ -183,7 +164,8 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
                                  streaming chanend c_speed_change,
                                  buffers_used_t &used_buffers_rx_lp,
                                  buffers_used_t &used_buffers_rx_hp,
-                                 buffers_free_t &free_buffers)
+                                 buffers_free_t &free_buffers,
+                                 unsigned filter_num)
 {
   set_core_fast_mode_on();
 
@@ -195,6 +177,8 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
 
   int done = 0;
   while (!done) {
+    mii_macaddr_hash_table_t * unsafe table = mii_macaddr_get_hash_table(filter_num);
+
     select {
       case c_rx :> uintptr_t buffer :
         // Get the next available buffer
@@ -202,22 +186,23 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
 
         if (next_buffer) {
           // There was a buffer free
+          mii_packet_t *buf = (mii_packet_t *)buffer;
 
           // Ensure it is marked as invalid
           c_rx <: next_buffer;
 
-          // TODO: filter packet - needs to be fixed time filtering
-          int filter_result = ethernet_filter_result_set_hp(1, 1);
-
+          // Use the destination MAC addresses as the key for the hash
+          unsigned key0 = buf->data[0];
+          unsigned key1 = buf->data[1] & 0xffff;
+          unsigned filter_result = mii_macaddr_hash_lookup(table, key0, key1, &buf->filter_data);
           if (filter_result) {
-            mii_packet_t *buf = (mii_packet_t *)buffer;
             buf->filter_result = filter_result;
             buf->filter_data = 0;
 
             if (ethernet_filter_result_is_hp(filter_result))
-                buffers_used_add(used_buffers_rx_hp, (mii_packet_t *)buffer);
+              buffers_used_add(used_buffers_rx_hp, (mii_packet_t *)buffer, RGMII_MAC_BUFFER_COUNT_RX);
             else
-                buffers_used_add(used_buffers_rx_lp, (mii_packet_t *)buffer);
+              buffers_used_add(used_buffers_rx_lp, (mii_packet_t *)buffer, RGMII_MAC_BUFFER_COUNT_RX);
           }
           else {
             // Drop the packet
@@ -233,6 +218,11 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
       case c_speed_change :> unsigned tmp:
         done = 1;
         break;
+
+      default:
+        // Ensure that the hash table pointer is being updated even when
+        // there are no packets on the wire
+        break;
     }
   }
 
@@ -240,7 +230,7 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
   empty_channel(c_rx);
 }
 
-unsafe static void handle_incoming_packet(rx_client_state_t client_state[n],
+unsafe static void handle_incoming_packet(rx_client_state_t client_states[n],
                                           server ethernet_rx_if i_rx[n],
                                           unsigned n,
                                           buffers_used_t &used_buffers,
@@ -249,26 +239,46 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_state[n],
   if (buffers_used_empty(used_buffers))
     return;
 
-  mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers);
+  mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers, RGMII_MAC_BUFFER_COUNT_RX);
 
   int tcount = 0;
   if (buf->filter_result) {
     for (int i = 0; i < n; i++) {
-      int client_wants_packet = 1;
+      rx_client_state_t &client_state = client_states[i];
+
+      int client_wants_packet = ((buf->filter_result >> i) & 1);
+      if (client_state.num_etype_filters != 0) {
+        char * unsafe data = (char * unsafe) buf->data;
+        int passed_etype_filter = 0;
+        uint16_t etype = ((uint16_t) data[12] << 8) + data[13];
+        int qhdr = (etype == 0x8100);
+        if (qhdr) {
+          // has a 802.1q tag - read etype from next word
+          etype = ((uint16_t) data[16] << 8) + data[17];
+        }
+        for (int j = 0; j < client_state.num_etype_filters; j++) {
+          if (client_state.etype_filters[j] == etype) {
+            passed_etype_filter = 1;
+            break;
+          }
+        }
+        client_wants_packet &= passed_etype_filter;
+      }
+
       if (client_wants_packet) {
-        int wrptr = client_state[i].wr_index;
+        int wrptr = client_state.wr_index;
         int new_wrptr = wrptr + 1;
         if (new_wrptr >= ETHERNET_RX_CLIENT_QUEUE_SIZE) {
           new_wrptr = 0;
         }
-        if (new_wrptr != client_state[i].rd_index) {
-          client_state[i].fifo[wrptr] = (void *)buf;
+        if (new_wrptr != client_state.rd_index) {
+          client_state.fifo[wrptr] = (void *)buf;
           tcount++;
           i_rx[i].packet_ready();
-          client_state[i].wr_index = new_wrptr;
+          client_state.wr_index = new_wrptr;
 
         } else {
-          client_state[i].dropped_pkt_cnt += 1;
+          client_state.dropped_pkt_cnt += 1;
         }
       }
     }
@@ -282,9 +292,31 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_state[n],
   }
 }
 
+unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned n,
+                                   buffers_used_t &used_buffers_rx_lp,
+                                   buffers_free_t &free_buffers)
+{
+  for (int i = 0; i < n; i++) {
+    rx_client_state_t &client_state = client_states[i];
+
+    unsigned rd_index = client_state.rd_index;
+    if (rd_index != client_state.wr_index) {
+      mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state.fifo[rd_index];
+
+      if (mii_get_and_dec_transmit_count(buf) == 0) {
+        buffers_free_add(free_buffers, buf);
+      }
+      client_state.rd_index = increment_and_wrap_power_of_2(rd_index,
+                                                            ETHERNET_RX_CLIENT_QUEUE_SIZE);
+      client_state.dropped_pkt_cnt += 1;
+    }
+  }
+}
+
 unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
                                          server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
                                          streaming chanend ? c_rx_hp,
+                                         streaming chanend c_status_update,
                                          streaming chanend c_speed_change,
                                          out port p_txclk_out,
                                          in buffered port:4 p_rxd_interframe,
@@ -313,16 +345,18 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
         break;
 
       case i_rx_lp[int i].get_packet(ethernet_packet_info_t &desc, char data[n], unsigned n):
-        if (client_state_lp[i].status_update_state == STATUS_UPDATE_PENDING) {
+        rx_client_state_t &client_state = client_state_lp[i];
+
+        if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
           data[0] = 1;
           data[1] = link_status;
           desc.type = ETH_IF_STATUS;
-          client_state_lp[i].status_update_state = STATUS_UPDATE_WAITING;
+          client_state.status_update_state = STATUS_UPDATE_WAITING;
         }
-        else if (client_state_lp[i].rd_index != client_state_lp[i].wr_index) {
+        else if (client_state.rd_index != client_state.wr_index) {
           // send received packet
-          int rd_index = client_state_lp[i].rd_index;
-          mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state_lp[i].fifo[rd_index];
+          int rd_index = client_state.rd_index;
+          mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state.fifo[rd_index];
           ethernet_packet_info_t info;
           info.type = ETH_DATA;
           info.src_ifnum = 0; // There is only one RGMII port
@@ -334,13 +368,11 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
           if (mii_get_and_dec_transmit_count(buf) == 0) {
             buffers_free_add(free_buffers, buf);
           }
-          if (rd_index == ETHERNET_RX_CLIENT_QUEUE_SIZE - 1) {
-            client_state_lp[i].rd_index = 0;
-          }
-          else {
-            client_state_lp[i].rd_index++;
-          }
-          if (client_state_lp[i].rd_index != client_state_lp[i].wr_index) {
+
+          client_state.rd_index = increment_and_wrap_power_of_2(client_state.rd_index,
+                                                                ETHERNET_RX_CLIENT_QUEUE_SIZE);
+
+          if (client_state.rd_index != client_state.wr_index) {
             i_rx_lp[i].packet_ready();
           }
         }
@@ -348,6 +380,15 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
           desc.type = ETH_NO_DATA;
         }
         break;
+
+    case c_status_update :> link_status:
+      for (int i = 0; i < n_rx_lp; i += 1) {
+        if (client_state_lp[i].status_update_state == STATUS_UPDATE_WAITING) {
+          client_state_lp[i].status_update_state = STATUS_UPDATE_PENDING;
+          i_rx_lp[i].packet_ready();
+        }
+      }
+      break;
 
       case c_speed_change :> unsigned tmp:
         done = 1;
@@ -365,7 +406,8 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
       if (buffers_used_empty(used_buffers_rx_hp))
         break;
 
-      mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers_rx_hp);
+      mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers_rx_hp,
+                                                                    RGMII_MAC_BUFFER_COUNT_RX);
 
       ethernet_packet_info_t info;
       info.type = ETH_DATA;
@@ -379,6 +421,10 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
     }
 
     handle_incoming_packet(client_state_lp, i_rx_lp, n_rx_lp, used_buffers_rx_lp, free_buffers);
+
+    if (buffers_free_available(free_buffers) <= RGMII_RX_BUFFERS_THRESHOLD) {
+      drop_lp_packets(client_state_lp, n_rx_lp, used_buffers_rx_lp, free_buffers);
+    }
   }
 }
 
@@ -437,7 +483,7 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         else
           buf->timestamp_id = 0;
         work_pending++;
-        buffers_used_add(used_buffers_tx, buf);
+        buffers_used_add(used_buffers_tx, buf, RGMII_MAC_BUFFER_COUNT_TX);
         buf->tcount = 0;
         client_state_lp[i].send_buffer = null;
         client_state_lp[i].requested_send_buffer_size = 0;
@@ -448,7 +494,7 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         sin_char_array(c_tx_hp, (char *)tx_buf_hp->data, n_bytes);
         work_pending++;
         tx_buf_hp->length = n_bytes;
-        buffers_used_add(used_buffers_tx, tx_buf_hp);
+        buffers_used_add(used_buffers_tx, tx_buf_hp, RGMII_MAC_BUFFER_COUNT_TX);
         tx_buf_hp->tcount = 0;
         tx_buf_hp = buffers_free_take(free_buffers);
         prioritize_ack += 2;
@@ -469,14 +515,15 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
 
     if (work_pending && (sender_count < 2)) {
       // Send a pointer out to the outputter
-      c_tx_to_mac <: (uintptr_t)buffers_used_take(used_buffers_tx);
+      c_tx_to_mac <: (uintptr_t)buffers_used_take(used_buffers_tx, RGMII_MAC_BUFFER_COUNT_TX);
       work_pending--;
       sender_count++;
     }
 
     // Ensure there is always a high priority buffer
-    if (tx_buf_hp == null)
+    if (!isnull(c_tx_hp) && (tx_buf_hp == null)) {
       tx_buf_hp = buffers_free_take(free_buffers);
+    }
 
     for (int i = 0; i < n_tx_lp; i++) {
       if (client_state_lp[i].requested_send_buffer_size != 0 && client_state_lp[i].send_buffer == null) {
@@ -486,11 +533,16 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
   }
 
   empty_channel(c_tx_to_mac);
-  empty_channel(c_tx_hp);
+  if (!isnull(c_tx_hp)) {
+    empty_channel(c_tx_hp);
+  }
 }
 
-unsafe void rgmii_ethernet_config_server_aux(server ethernet_cfg_if i_cfg[n],
+unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
+                                             unsigned n_rx_lp,
+                                             server ethernet_cfg_if i_cfg[n],
                                              unsigned n,
+                                             streaming chanend c_status_update,
                                              streaming chanend c_speed_change)
 {
   set_core_fast_mode_on();
@@ -509,73 +561,55 @@ unsafe void rgmii_ethernet_config_server_aux(server ethernet_cfg_if i_cfg[n],
         break;
 
       case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
-        /*        if (link_status != status) {
+        if (link_status != status) {
           link_status = status;
-          for (int i = 0; i < n; i+=1) {
-            if (client_state[i].status_update_state == STATUS_UPDATE_WAITING) {
-              client_state[i].status_update_state = STATUS_UPDATE_PENDING;
-              i_eth[i].packet_ready();
-            }
-          }
-        }*/
+          c_status_update <: status;
+        }
         break;
 
       case i_cfg[int i].add_macaddr_filter(size_t client_num, int is_hp,
                                            ethernet_macaddr_filter_t entry) ->
                                              ethernet_macaddr_filter_result_t result:
-        /*unsafe {
-          c_macaddr_filter <: 0;
-          eth_global_filter_info_t * unsafe p;
-          c_macaddr_filter :> p;
-          result = ethernet_add_filter_table_entry(*p, i, entry);
-          c_macaddr_filter <: 0;
-          }*/
-        result = 0;
+        result = mii_macaddr_hash_table_add_entry(client_num, is_hp, entry);
         break;
 
       case i_cfg[int i].del_macaddr_filter(size_t client_num, int is_hp,
                                            ethernet_macaddr_filter_t entry):
-        /*        unsafe {
-          c_macaddr_filter <: 0;
-          eth_global_filter_info_t * unsafe p;
-          c_macaddr_filter :> p;
-          ethernet_del_filter_table_entry(*p, i, entry);
-          c_macaddr_filter <: 0;
-          }*/
+        mii_macaddr_hash_table_delete_entry(client_num, is_hp, entry);
         break;
 
       case i_cfg[int i].del_all_macaddr_filters(size_t client_num, int is_hp):
-        /*unsafe {
-          c_macaddr_filter <: 0;
-          eth_global_filter_info_t * unsafe p;
-          c_macaddr_filter :> p;
-          ethernet_clear_filter_table(*p, i);
-          c_macaddr_filter <: 0;
-          }*/
+        mii_macaddr_hash_table_clear();
         break;
 
       case i_cfg[int i].add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-        /*        size_t n = client_state[i].num_etype_filters;
+        if (is_hp)
+          fail("Standard MII ethernet does not support the high priority queue");
+
+        rx_client_state_t &client_state = client_state_lp[client_num];
+        size_t n = client_state.num_etype_filters;
         assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
-        client_state[i].etype_filters[n] = ethertype;
-        client_state[i].num_etype_filters = n + 1;
-        */
+        client_state.etype_filters[n] = ethertype;
+        client_state.num_etype_filters = n + 1;
         break;
 
       case i_cfg[int i].del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-      /*        size_t j = 0;
-        size_t n = client_state[i].num_etype_filters;
+        if (is_hp)
+          fail("Standard MII ethernet does not support the high priority queue");
+
+        rx_client_state_t &client_state = client_state_lp[client_num];
+        size_t j = 0;
+        size_t n = client_state.num_etype_filters;
         while (j < n) {
-          if (client_state[i].etype_filters[j] == ethertype) {
-            client_state[i].etype_filters[j] = client_state[i].etype_filters[n-1];
+          if (client_state.etype_filters[j] == ethertype) {
+            client_state.etype_filters[j] = client_state.etype_filters[n-1];
             n--;
           }
           else {
             j++;
           }
         }
-        client_state[i].num_etype_filters = n;
-      */
+        client_state.num_etype_filters = n;
         break;
 
       case c_speed_change :> unsigned tmp:

@@ -24,14 +24,16 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
                       verbose=verbose, test_ctrl=test_ctrl)
     return (clk, phy)
 
-def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True, complete_fn=None):
+def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
+                       complete_fn=None, expect_loopback=True):
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
                          'tile[0]:XS1_PORT_1P',
                          clk,
                          verbose=verbose, test_ctrl=test_ctrl,
-                         do_timeout=do_timeout, complete_fn=complete_fn)
+                         do_timeout=do_timeout, complete_fn=complete_fn,
+                         expect_loopback=expect_loopback)
     return (clk, phy)
 
 def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None):
@@ -42,7 +44,8 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
                         verbose=verbose, test_ctrl=test_ctrl)
     return (clk, phy)
 
-def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None, do_timeout=True, complete_fn=None):
+def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
+                          do_timeout=True, complete_fn=None, expect_loopback=True):
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_1B',
@@ -51,7 +54,8 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None, do_timeout=Tru
                            'tile[1]:XS1_PORT_1A',
                            clk,
                            verbose=verbose, test_ctrl=test_ctrl,
-                           do_timeout=do_timeout, complete_fn=complete_fn)
+                           do_timeout=do_timeout, complete_fn=complete_fn,
+                           expect_loopback=expect_loopback)
     return (clk, phy)
 
 def run_on(**kwargs):
@@ -66,66 +70,76 @@ def run_on(**kwargs):
     return True
 
 def runall_rx(test_fn):
-    if args.seed:
-        random.seed(args.seed)
+    xmostest.build('test_rx')
 
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy()
-    seed = random.randint(0, sys.maxint)
-    if run_on(phy='mii', rate='100Mbs', mac='standard'):
-        test_fn("standard", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-    seed = random.randint(0, sys.maxint)
-    if run_on(phy='mii', rate='100Mbs', mac='rt'):
-        test_fn("rt", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-#    if run_on(phy='mii', rate='100Mbs', mac='rt_hp'):
-#        test_fn("rt_hp", rx_clk_25, rx_mii, tx_clk_25, tx_mii, random.randint(0, sys.maxint))
+    if run_on(phy='mii', clk='25Mhz', mac='standard'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
+    if run_on(phy='mii', clk='25Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
+    if run_on(phy='mii', clk='25Mhz', mac='rt_hp'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn("rt_hp", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz)
-    seed = random.randint(0, sys.maxint)
-    if run_on(phy='rgmii', rate='100Mbs', mac='rt'):
-        test_fn("rt", rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('rt_hp', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
     # Test 1000 MBit - RGMII
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz)
-    seed = random.randint(0, sys.maxint)
-    if run_on(phy='rgmii', rate='1Gbs', mac='rt'):
-        test_fn("rt", rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('rt_hp', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
 
-def do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, level='nightly'):
+def do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, level='nightly'):
     """ Shared test code for all RX tests using the test_rx application.
     """
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_rx/bin/{impl}_{phy}/test_rx_{impl}_{phy}.xe'.format(
-        impl=impl, phy=tx_phy.get_name())
+    binary = 'test_rx/bin/{mac}_{phy}/test_rx_{mac}_{phy}.xe'.format(
+        mac=mac, phy=tx_phy.get_name())
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
         print "Running {test}: {mac} mac, {phy} phy sending {n} packets at {clk} (seed {seed})".format(
-            test=testname, n=len(packets), mac=impl,
+            test=testname, n=len(packets), mac=mac,
             phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
 
     expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{impl}_{phy}_{clk}.expect'.format(
-        folder=expect_folder, test=testname, impl=impl, phy=tx_phy.get_name(), clk=tx_clk.get_name())
+    expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}.expect'.format(
+        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name(), clk=tx_clk.get_name())
     create_expect(packets, expect_filename)
 
     tester = xmostest.ComparisonTester(open(expect_filename),
                                       'lib_ethernet', 'basic_tests', testname,
-                                     {'impl':impl, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
+                                     {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
 
     tester.set_min_testlevel(level)
 
-    simargs = get_sim_args(testname, impl, tx_clk, tx_phy)
+    simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
                               tester=tester,
@@ -140,13 +154,13 @@ def create_expect(packets, filename):
                 f.write("Received packet {} ok\n".format(i))
         f.write("Test done\n")
 
-def get_sim_args(testname, impl, clk, phy):
+def get_sim_args(testname, mac, clk, phy):
     sim_args = []
 
     if args and args.trace:
         log_folder = create_if_needed("logs")
-        filename = "{log}/xsim_trace_{test}_{impl}_{phy}_{clk}".format(
-            log=log_folder, test=testname, impl=impl,
+        filename = "{log}/xsim_trace_{test}_{mac}_{phy}_{clk}".format(
+            log=log_folder, test=testname, mac=mac,
             clk=clk.get_name(), phy=phy.get_name())
 
         sim_args += ['--trace-to', '{0}.txt'.format(filename), '--enable-fnop-tracing']
@@ -166,11 +180,15 @@ def get_sim_args(testname, impl, clk, phy):
 
     return sim_args
 
-def packet_processing_time(phy, data_bytes):
+def packet_processing_time(phy, data_bytes, mac):
     """ Returns the time it takes the DUT to process a given frame
     """
-    # An overhead for forwarding
-    return 1500 * phy.get_clock().get_bit_time()
+    if mac == 'standard':
+        return 4000 * phy.get_clock().get_bit_time()
+    elif phy.get_name() == 'rgmii' and mac == 'rt':
+        return 6000 * phy.get_clock().get_bit_time()
+    else:
+        return 2000 * phy.get_clock().get_bit_time()
 
 def get_dut_mac_address():
     """ Returns the MAC address of the DUT

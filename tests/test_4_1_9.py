@@ -7,7 +7,7 @@ from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
-def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -35,7 +35,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
-        inter_frame_gap=packet_processing_time(tx_phy, 46)
+        inter_frame_gap=packet_processing_time(tx_phy, 46, mac)
       ))
 
     # Part C - Invalid preamble nibbles, but the packet should still be received
@@ -45,7 +45,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
-        inter_frame_gap=packet_processing_time(tx_phy, 46)
+        inter_frame_gap=packet_processing_time(tx_phy, 46, mac)
       ))
 
     # Part D - Parts A, B and C with valid frames before/after the errror frame
@@ -59,7 +59,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(MiiPacket(
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
-          inter_frame_gap=3*packet_processing_time(tx_phy, 46)
+          inter_frame_gap=3*packet_processing_time(tx_phy, 46, mac)
         ))
 
       # Take a copy to ensure that the original is not modified
@@ -76,7 +76,7 @@ def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, seed):
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(impl, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
+    do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 def runtest():
     random.seed(19)

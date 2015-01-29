@@ -16,9 +16,10 @@ typedef enum {
 typedef interface control_if {
   [[notification]] slave void status_changed();
   [[clears_notification]] void get_status(status_t &status);
+  void set_done();
 } control_if;
 
-void control(port p_ctrl, server control_if ctrl);
+void control(port p_ctrl, server control_if ctrl[n], unsigned n);
 
 #endif // __XC__
 

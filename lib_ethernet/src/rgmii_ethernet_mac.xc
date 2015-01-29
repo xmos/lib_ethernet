@@ -4,6 +4,7 @@
 #include "rgmii_common.h"
 #include "rgmii_10_100_master.h"
 #include "rgmii_buffering.h"
+#include "macaddr_filter_hash.h"
 
 rgmii_inband_status_t get_current_rgmii_mode(in buffered port:4 p_rxd_interframe)
 {
@@ -106,24 +107,35 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
   init_rx_client_state(rx_client_state_lp, n_rx_lp);
   init_tx_client_state(tx_client_state_lp, n_tx_lp);
 
+  mii_macaddr_hash_table_init();
+
   mii_init_lock();
 
   unsafe {
-    unsigned int buffer[RGMII_MAC_BUFFER_COUNT * sizeof(mii_packet_t) / 4];
+    unsigned int buffer_rx[RGMII_MAC_BUFFER_COUNT_RX * sizeof(mii_packet_t) / 4];
+    unsigned int buffer_free_pointers_rx[RGMII_MAC_BUFFER_COUNT_RX];
+    unsigned int buffer_used_pointers_rx_lp[RGMII_MAC_BUFFER_COUNT_RX + 1];
+    unsigned int buffer_used_pointers_rx_hp[RGMII_MAC_BUFFER_COUNT_RX + 1];
     buffers_used_t used_buffers_rx_lp;
     buffers_used_t used_buffers_rx_hp;
+    buffers_free_t free_buffers_rx;
+
+    unsigned int buffer_tx[RGMII_MAC_BUFFER_COUNT_TX * sizeof(mii_packet_t) / 4];
+    unsigned int buffer_free_pointers_tx[RGMII_MAC_BUFFER_COUNT_RX];
+    unsigned int buffer_used_pointers_tx[RGMII_MAC_BUFFER_COUNT_RX + 1];
     buffers_used_t used_buffers_tx;
-    buffers_free_t free_buffers;
+    buffers_free_t free_buffers_tx;
 
     // Create unsafe pointers to pass to two parallel tasks
     buffers_used_t * unsafe p_used_buffers_rx_lp = &used_buffers_rx_lp;
     buffers_used_t * unsafe p_used_buffers_rx_hp = &used_buffers_rx_hp;
-    buffers_free_t * unsafe p_free_buffers = &free_buffers;
+    buffers_free_t * unsafe p_free_buffers_rx = &free_buffers_rx;
     in buffered port:32 * unsafe p_rxd_1000 = &p_rxd_1000_safe;
     in port * unsafe p_rxdv_unsafe = &p_rxdv;
     in buffered port:1 * unsafe p_rxer_unsafe = &p_rxer_safe;
+    rx_client_state_t * unsafe p_rx_client_state_lp = (rx_client_state_t * unsafe)&rx_client_state_lp[0];
 
-    streaming chan c_rx_to_manager[2], c_manager_to_tx, c_ping_pong;
+    streaming chan c_rx_to_manager[2], c_manager_to_tx, c_ping_pong, c_status_update;
     streaming chanend * unsafe c_speed_change;
     int speed_change_ids[8];
     rgmii_inband_status_t current_mode = INITIAL_MODE;
@@ -139,13 +151,18 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
     while(1)
     {
       // Setup the buffer pointers
-      buffers_used_initialize(used_buffers_rx_lp);
-      buffers_used_initialize(used_buffers_rx_hp);
-      buffers_used_initialize(used_buffers_tx);
-      buffers_free_initialize(free_buffers, (unsigned char*)buffer);
+      buffers_used_initialize(used_buffers_rx_lp, buffer_used_pointers_rx_lp);
+      buffers_used_initialize(used_buffers_rx_hp, buffer_used_pointers_rx_lp);
+      buffers_free_initialize(free_buffers_rx, (unsigned char*)buffer_rx,
+                              buffer_free_pointers_rx, RGMII_MAC_BUFFER_COUNT_RX);
+
+      buffers_used_initialize(used_buffers_tx, buffer_used_pointers_tx);
+      buffers_free_initialize(free_buffers_tx, (unsigned char*)buffer_tx,
+                              buffer_free_pointers_tx, RGMII_MAC_BUFFER_COUNT_TX);
 
       if (current_mode == INBAND_STATUS_1G_FULLDUPLEX)
       {
+        mii_macaddr_set_num_active_filters(2);
         par
         {
           {
@@ -170,21 +187,21 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
               }
               {
                 rgmii_buffer_manager(c_rx_to_manager[0], c_speed_change[3],
-                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers);
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers_rx, 0);
               }
               {
                 rgmii_buffer_manager(c_rx_to_manager[1], c_speed_change[4],
-                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers);
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers_rx, 1);
               }
             }
           }
 
           {
-            rgmii_ethernet_rx_server_aux(rx_client_state_lp, i_rx_lp, n_rx_lp,
-                                         c_rx_hp,
+            rgmii_ethernet_rx_server_aux((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
+                                         c_rx_hp, c_status_update,
                                          c_speed_change[5], p_txclk_out, p_rxd_interframe,
                                          *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
-                                         *p_free_buffers, current_mode);
+                                         *p_free_buffers_rx, current_mode);
             current_mode = get_current_rgmii_mode(p_rxd_interframe);
           }
 
@@ -192,16 +209,19 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
             rgmii_ethernet_tx_server_aux(tx_client_state_lp, i_tx_lp, n_tx_lp,
                                          c_tx_hp,
                                          c_manager_to_tx, c_speed_change[6],
-                                         used_buffers_tx, *p_free_buffers);
+                                         used_buffers_tx, free_buffers_tx);
           }
           {
-            rgmii_ethernet_config_server_aux(i_cfg, n_cfg, c_speed_change[7]);
+            rgmii_ethernet_config_server_aux((rx_client_state_t *)p_rx_client_state_lp, n_rx_lp,
+                                             i_cfg, n_cfg, c_status_update, c_speed_change[7]);
           }
         }
       }
       else if (current_mode == INBAND_STATUS_100M_FULLDUPLEX ||
                current_mode == INBAND_STATUS_10M_FULLDUPLEX)
       {
+        mii_macaddr_set_num_active_filters(1);
+
         par
         {
           {
@@ -219,7 +239,7 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
               }
               {
                 rgmii_buffer_manager(c_rx_to_manager[0], c_speed_change[3],
-                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers);
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers_rx, 0);
               }
               {
                 // Just wait for a change from 100Mb mode and empty those channels
@@ -230,11 +250,11 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
           }
 
           {
-            rgmii_ethernet_rx_server_aux(rx_client_state_lp, i_rx_lp, n_rx_lp,
-                                         c_rx_hp,
+            rgmii_ethernet_rx_server_aux((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
+                                         c_rx_hp, c_status_update,
                                          c_speed_change[5], p_txclk_out, p_rxd_interframe,
                                          *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
-                                         *p_free_buffers, current_mode);
+                                         *p_free_buffers_rx, current_mode);
             current_mode = get_current_rgmii_mode(p_rxd_interframe);
           }
 
@@ -242,10 +262,11 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
             rgmii_ethernet_tx_server_aux(tx_client_state_lp, i_tx_lp, n_tx_lp,
                                          c_tx_hp,
                                          c_manager_to_tx, c_speed_change[6],
-                                         used_buffers_tx, *p_free_buffers);
+                                         used_buffers_tx, free_buffers_tx);
           }
           {
-            rgmii_ethernet_config_server_aux(i_cfg, n_cfg, c_speed_change[7]);
+            rgmii_ethernet_config_server_aux((rx_client_state_t *)p_rx_client_state_lp, n_rx_lp,
+                                             i_cfg, n_cfg, c_status_update, c_speed_change[7]);
           }
         }
       }

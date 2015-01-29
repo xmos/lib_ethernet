@@ -93,8 +93,8 @@ log_speed_change_pointers:
 install_speed_change_handler:
         entsp 0
 
-        in r11, res[r0] // empty tReg
-        in r11, res[r0] // empty sReg
+        in r11, res[r0] // empty transfer register
+        in r11, res[r0] // empty shift register
 
         // Set up the handler for when the mode changes
         ldap r11, speed_change_handler

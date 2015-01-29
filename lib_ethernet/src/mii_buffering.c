@@ -9,11 +9,13 @@
     typedef char assertion_failed_##msg[2*!!(predicate)-1];
 
 /* Ensure that the define required by the assembler stays inline with the structure */
-CASSERT(MII_PACKET_HEADER_BYTES == (sizeof(mii_packet_t) - (((ETHERNET_MAX_PACKET_SIZE+3)/4) * 4)), \
+CASSERT(MII_PACKET_HEADER_BYTES == (sizeof(mii_packet_t) - (((MII_PACKET_DATA_BYTES+3)/4) * 4)), \
         header_bytes_defines_does_not_match_structure)
 
 // There needs to be a block big enough to put the packet header
-#define MIN_USAGE (MII_PACKET_HEADER_BYTES)
+// There also needs to be an extra word because the address which
+// is compared is pre-incremented.
+#define MIN_USAGE (MII_PACKET_HEADER_BYTES + 4)
 
 hwlock_t ethernet_memory_lock = 0;
 
@@ -171,10 +173,10 @@ void mii_add_packet(mii_packet_queue_t queue, mii_packet_t *buf)
   info->wr_index = increment_and_wrap_power_of_2(wr_index, ETHERNET_NUM_PACKET_POINTERS);
 }
 
-unsigned mii_free_current(mii_packet_queue_t queue)
+void mii_free_current(mii_packet_queue_t queue)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
-  return mii_free_index(queue, info->rd_index);
+  mii_free_index(queue, info->rd_index);
 }
 
 unsigned mii_free_index(mii_packet_queue_t queue, unsigned index)
@@ -252,6 +254,12 @@ unsigned *mii_get_next_rdptr(mii_packet_queue_t queue_lp, mii_packet_queue_t que
     return info_lp->ptrs[info_lp->rd_index];
   else
     return info_hp->ptrs[info_hp->rd_index];
+}
+
+unsigned *mii_get_rdptr(mii_packet_queue_t queue)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  return info->ptrs[info->rd_index];
 }
 
 int mii_get_and_dec_transmit_count(mii_packet_t *buf)

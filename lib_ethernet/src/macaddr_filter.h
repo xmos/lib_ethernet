@@ -9,7 +9,6 @@
 #define ETHERNET_MACADDR_FILTER_TABLE_SIZE 10
 
 typedef struct eth_global_filter_entry_t {
-  uint16_t vlan;
   char addr[6];
   unsigned result;
   unsigned appdata;
@@ -25,15 +24,15 @@ void ethernet_init_filter_table(eth_global_filter_info_t table);
 
 ethernet_macaddr_filter_result_t
 ethernet_add_filter_table_entry(eth_global_filter_info_t table,
-                                unsigned client_id, int is_hp,
+                                unsigned client_num, int is_hp,
                                 ethernet_macaddr_filter_t entry);
 
 void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
-                                     unsigned client_id, int is_hp,
+                                     unsigned client_num, int is_hp,
                                      ethernet_macaddr_filter_t entry);
 
 void ethernet_clear_filter_table(eth_global_filter_info_t table,
-                                 unsigned client_id, int is_hp);
+                                 unsigned client_num, int is_hp);
 
 #ifdef __XC__
 

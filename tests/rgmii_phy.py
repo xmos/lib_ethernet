@@ -17,11 +17,11 @@ class RgmiiTransmitter(TxPhy):
     (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
     def __init__(self, rxd, rxdv, mode_rxd, mode_rxdv, rxer, clock,
-                 initial_delay=45000, verbose=False, test_ctrl=None,
-                 do_timeout=True, complete_fn=None):
+                 initial_delay=130000, verbose=False, test_ctrl=None,
+                 do_timeout=True, complete_fn=None, expect_loopback=True):
         super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, rxer, clock,
                                                initial_delay, verbose, test_ctrl,
-                                               do_timeout, complete_fn)
+                                               do_timeout, complete_fn, expect_loopback)
         self._mode_rxd = mode_rxd
         self._mode_rxdv = mode_rxdv
         self._phy_status = (self.FULL_DUPLEX | self.LINK_UP | clock.get_rate())

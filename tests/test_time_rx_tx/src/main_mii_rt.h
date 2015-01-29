@@ -79,7 +79,6 @@ void test_rx(client ethernet_cfg_if cfg,
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
-  macaddr_filter.vlan = 0;
   macaddr_filter.appdata = 0;
   for (int i = 0; i < 6; i++)
     macaddr_filter.addr[i] = i;
@@ -120,7 +119,6 @@ void test_rx(client ethernet_cfg_if cfg,
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
-  macaddr_filter.vlan = 0;
   for (int i = 0; i < 6; i++)
     macaddr_filter.addr[i] = i;
 
@@ -128,6 +126,7 @@ void test_rx(client ethernet_cfg_if cfg,
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   int num_bytes = 0;
+  int num_packets = 0;
   int done = 0;
   while (!done) {
     #pragma ordered
@@ -137,6 +136,7 @@ void test_rx(client ethernet_cfg_if cfg,
       ethernet_packet_info_t packet_info;
       rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
       num_bytes += packet_info.len;
+      num_packets += 1;
       break;
 
     case ctrl.status_changed():
@@ -147,7 +147,7 @@ void test_rx(client ethernet_cfg_if cfg,
       break;
     }
   }
-  debug_printf("Received %d bytes\n", num_bytes);
+  debug_printf("Received %d packets, %d bytes\n", num_packets, num_bytes);
   while (1) {
     // Wait for the test to be terminated by testbench
   }
@@ -166,28 +166,28 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_rx_hp;
   streaming chan c_tx_hp;
-  control_if i_ctrl;
+  control_if i_ctrl[NUM_CFG_IF];
 
   par {
-    on tile[0]: mii_ethernet_rt(i_cfg, NUM_CFG_IF,
-                                i_rx_lp, NUM_RX_LP_IF,
-                                i_tx_lp, NUM_TX_LP_IF,
-                                c_rx_hp, c_tx_hp,
-                                p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                p_eth_txclk, p_eth_txen, p_eth_txd,
-                                eth_rxclk, eth_txclk,
-                                4000, 4000, 1);
+    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                    i_rx_lp, NUM_RX_LP_IF,
+                                    i_tx_lp, NUM_TX_LP_IF,
+                                    c_rx_hp, c_tx_hp,
+                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                    p_eth_txclk, p_eth_txen, p_eth_txd,
+                                    eth_rxclk, eth_txclk,
+                                    4000, 4000, 1);
     on tile[0]: filler(0x1111);
 
     #if ETHERNET_SUPPORT_HP_QUEUES
     on tile[0]: test_tx(i_tx_lp[0], c_tx_hp);
-    on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_ctrl);
+    on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_ctrl[0]);
     #else
     on tile[0]: test_tx(i_tx_lp[0], null);
-    on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_ctrl);
+    on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_ctrl[0]);
     #endif
 
-    on tile[0]: control(p_ctrl, i_ctrl);
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
   }
   return 0;
 }

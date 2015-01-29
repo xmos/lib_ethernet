@@ -31,22 +31,22 @@ def packet_checker(packet, phy):
             # Only print one error per packet
             break
 
-def do_test(impl, rx_clk, rx_phy, tx_clk, tx_phy):
+def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
     resources = xmostest.request_resource("xsim")
 
     testname = 'test_tx'
 
-    binary = '{test}/bin/{impl}_{phy}/{test}_{impl}_{phy}.xe'.format(
-        test=testname, impl=impl, phy=rx_phy.get_name())
+    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
+        test=testname, mac=mac, phy=rx_phy.get_name())
 
-    print "Running {test}: {impl} {phy} phy at {clk}".format(
-        test=testname, impl=impl, phy=rx_phy.get_name(), clk=rx_clk.get_name())
+    print "Running {test}: {mac} {phy} phy at {clk}".format(
+        test=testname, mac=mac, phy=rx_phy.get_name(), clk=rx_clk.get_name())
 
     tester = xmostest.ComparisonTester(open('{test}.expect'.format(test=testname)),
                                      'lib_ethernet', 'basic_tests', testname,
-                                     {'impl':impl, 'phy':rx_phy.get_name(), 'clk':rx_clk.get_name()})
+                                     {'mac':mac, 'phy':rx_phy.get_name(), 'clk':rx_clk.get_name()})
 
-    simargs = get_sim_args(testname, impl, rx_clk, rx_phy)
+    simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
                               tester=tester,
@@ -60,21 +60,27 @@ def runtest():
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
-    if run_on(phy='mii', rate='100Mbs', mac='standard'):
+    if run_on(phy='mii', clk='25Mhz', mac='standard'):
         do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
-    if run_on(phy='mii', rate='100Mbs', mac='rt'):
+    if run_on(phy='mii', clk='25Mhz', mac='rt'):
         do_test('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+    if run_on(phy='mii', clk='25Mhz', mac='rt_hp'):
+        do_test('rt_hp', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
                                                 test_ctrl='tile[0]:XS1_PORT_1C', verbose=True)
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
-    if run_on(phy='rgmii', rate='100Mbs', mac='rt'):
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
+        do_test('rt_hp', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
 
     # Test 1000 MBit - RGMII
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
                                                test_ctrl='tile[0]:XS1_PORT_1C')
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
-    if run_on(phy='rgmii', rate='1Gbs', mac='rt'):
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
         do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp'):
+        do_test('rt_hp', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)

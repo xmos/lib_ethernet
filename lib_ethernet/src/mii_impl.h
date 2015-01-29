@@ -25,14 +25,14 @@ static inline unsafe chanend * unsafe mii_convert_pointer(unsigned * unsafe x) {
   return (chanend * unsafe) x;
 }
 
-#define mii_incoming_packet(x) mii_incoming_packet_(*(mii_convert_pointer(&((mii_lite_data_t * unsafe) x)->notificationChannelEnd)),((mii_lite_data_t * unsafe) x)->notifySeen)
+#define mii_incoming_packet(x) mii_incoming_packet_(*(mii_convert_pointer(&((mii_lite_data_t * unsafe) x)->notification_channel_end)),((mii_lite_data_t * unsafe) x)->notify_seen)
 
 #pragma select handler
 inline void mii_incoming_packet_(chanend c, char &v) {
   v = inuchar(c);
 }
 
-#define mii_packet_sent(x) mii_packet_sent_(*(mii_convert_pointer(&((mii_lite_data_t * unsafe) x)->miiOutChannel)))
+#define mii_packet_sent(x) mii_packet_sent_(*(mii_convert_pointer(&((mii_lite_data_t * unsafe) x)->mii_out_channel)))
 
 #pragma select handler
 inline void mii_packet_sent_(chanend c) {

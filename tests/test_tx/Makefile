@@ -26,10 +26,15 @@ COMMON_FLAGS  = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -
 COMMON_FLAGS += $(XTA_PRAGMA_INCLUDES)
 
 XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
+XCC_FLAGS_rt_hp_mii    = $(COMMON_FLAGS) -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1
 XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
 XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
+XCC_FLAGS_rt_hp_rgmii  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
 
 ifeq ($(CONFIG),rt_rgmii)
+	TARGET = XS2-MODULE
+endif
+ifeq ($(CONFIG),rt_hp_rgmii)
 	TARGET = XS2-MODULE
 endif
 
