@@ -112,7 +112,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             burst_len = rand.randint(1, 16)
 
         for i in range(burst_len):
-            packets.append(MiiPacket(
+            packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address, inter_frame_gap=ifg, num_data_bytes=length
               ))
             
@@ -168,7 +168,8 @@ def runtest():
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker,
                                              test_ctrl="tile[0]:XS1_PORT_1A")
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete)
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete,
+                                             verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='standard'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
@@ -181,7 +182,7 @@ def runtest():
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
                                                  test_ctrl="tile[0]:XS1_PORT_1A")
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False,
-                                                 complete_fn=set_tx_complete)
+                                                 complete_fn=set_tx_complete, verbose=args.verbose)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
@@ -190,7 +191,7 @@ def runtest():
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
                                                   test_ctrl="tile[0]:XS1_PORT_1A")
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False,
-                                                  complete_fn=set_tx_complete)
+                                                  complete_fn=set_tx_complete, verbose=args.verbose)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)

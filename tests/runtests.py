@@ -11,7 +11,8 @@ if __name__ == "__main__":
     argparser.add_argument('--phy', choices=['mii', 'rgmii'], type=str, help='Run tests only on specified PHY')
     argparser.add_argument('--clk', choices=['25Mhz', '125Mhz'], type=str, help='Run tests only at specified clock speed')
     argparser.add_argument('--mac', choices=['rt', 'rt_hp', 'standard'], type=str, help='Run tests only on specified MAC')
-    argparser.add_argument('--seed', help='The seed', default=None)
+    argparser.add_argument('--seed', type=int, help='The seed', default=None)
+    argparser.add_argument('--verbose', action='store_true', help='Enable verbose tracing in the phys')
 
     argparser.add_argument('--num-packets', type=int, help='Number of packets in the test', default='50')
     argparser.add_argument('--weight-hp', type=int, help='Weight of high priority traffic', default='50')

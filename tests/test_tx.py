@@ -69,7 +69,7 @@ def runtest():
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
-                                                test_ctrl='tile[0]:XS1_PORT_1C', verbose=True)
+                                                test_ctrl='tile[0]:XS1_PORT_1C')
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)

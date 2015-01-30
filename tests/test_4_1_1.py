@@ -14,25 +14,25 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packets = []
 
     # Part A
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         create_data_args=['step', (3, choose_small_frame_size(rand))],
         corrupt_crc=True,
         dropped=True
       ))
 
     # Part B
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         create_data_args=['step', (4, choose_small_frame_size(rand))]
       ))
 
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         inter_frame_gap=tx_clk.get_min_ifg(),
         create_data_args=['step', (5, choose_small_frame_size(rand))],
         corrupt_crc=True,
         dropped=True
       ))
 
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         inter_frame_gap=tx_clk.get_min_ifg(),
         create_data_args=['step', (6, choose_small_frame_size(rand))]
       ))

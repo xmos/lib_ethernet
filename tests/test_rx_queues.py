@@ -187,7 +187,7 @@ def do_test(mac, tx_clk, tx_phy, seed,
 
             ifg = limiter.get_ifg(packet_type, frame_size, tag)
                 
-            packets.append(MiiPacket(
+            packets.append(MiiPacket(rand,
                 dst_mac_addr=dst_mac_addr,
                 create_data_args=['same', (seq_id, frame_size)],
                 vlan_prio_tag=tag,
@@ -240,7 +240,7 @@ def create_expect(packets, filename, hp_mac_address, lp_mac_address):
     
     with open(filename, 'w') as f:
         num_bytes = 0
-        f.write("Received {} hp bytes\n".format(num_bytes_hp)) 
+        f.write("Received {} hp bytes\n".format(num_bytes_hp))
         f.write("Received \d+ lp bytes\n".format(num_bytes_lp))
    
 
@@ -256,7 +256,8 @@ def runtest():
     xmostest.build('test_rx_queues')
 
     # Test 100 MBit - MII
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False)
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,
+                                             verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', tx_clk_25, tx_mii, seed,
@@ -284,7 +285,7 @@ def runtest():
 
     # Test 100 MBit - RGMII
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C',
-                                                 expect_loopback=False)
+                                                 expect_loopback=False, verbose=args.verbose)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', tx_clk_25, tx_rgmii, seed,
@@ -296,7 +297,7 @@ def runtest():
 
     # Test 1GBit - RGMII
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C',
-                                                  expect_loopback=False)
+                                                  expect_loopback=False, verbose=args.verbose)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', tx_clk_125, tx_rgmii, seed,
@@ -304,7 +305,7 @@ def runtest():
                 weight_hp=100, weight_lp=0, weight_other=0,
                 data_len_min=46, data_len_max=46,
                 weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                max_hp_mbps=400)
+                max_hp_mbps=300)
 
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', tx_clk_125, tx_rgmii, seed,

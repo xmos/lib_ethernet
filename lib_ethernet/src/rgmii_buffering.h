@@ -24,7 +24,7 @@ typedef struct buffers_free_t {
 typedef struct buffers_used_t {
   unsigned tail_index;
   unsigned head_index;
-  uintptr_t * pointers;
+  uintptr_t *pointers;
 } buffers_used_t;
 
 #ifdef __XC__

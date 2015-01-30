@@ -22,7 +22,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         test_lengths = [5, 7, 9, 61, 127]
 
     for num_preamble_nibbles in test_lengths:
-        packets.append(MiiPacket(
+        packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             num_preamble_nibbles=num_preamble_nibbles,
             create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],

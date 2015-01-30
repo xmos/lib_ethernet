@@ -1,3 +1,4 @@
+import random
 import xmostest
 import sys
 import zlib
@@ -18,10 +19,12 @@ class RgmiiTransmitter(TxPhy):
 
     def __init__(self, rxd, rxdv, mode_rxd, mode_rxdv, rxer, clock,
                  initial_delay=130000, verbose=False, test_ctrl=None,
-                 do_timeout=True, complete_fn=None, expect_loopback=True):
+                 do_timeout=True, complete_fn=None, expect_loopback=True,
+                 dut_exit_time=25000):
         super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, rxer, clock,
                                                initial_delay, verbose, test_ctrl,
-                                               do_timeout, complete_fn, expect_loopback)
+                                               do_timeout, complete_fn, expect_loopback,
+                                               dut_exit_time)
         self._mode_rxd = mode_rxd
         self._mode_rxdv = mode_rxdv
         self._phy_status = (self.FULL_DUPLEX | self.LINK_UP | clock.get_rate())
@@ -116,6 +119,10 @@ class RgmiiReceiver(RxPhy):
         xsi = self.xsi
         self.wait(lambda x: xsi.sample_port_pins(self._txen) == 0)
 
+        # Need a random number generator for the MiiPacket constructor but it shouldn't
+        # have any affect as only blank packets are being created
+        rand = random.Random()
+
         packet_count = 0
         last_frame_end_time = None
         while True:
@@ -130,7 +137,7 @@ class RgmiiReceiver(RxPhy):
                     xsi.terminate()
 
             # Start with a blank packet to ensure they are filled in by the receiver
-            packet = MiiPacket(blank=True)
+            packet = MiiPacket(rand, blank=True)
 
             frame_start_time = self.xsi.get_time()
             in_preamble = True

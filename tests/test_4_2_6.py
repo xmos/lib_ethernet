@@ -16,11 +16,11 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     ifg = tx_clk.get_min_ifg()
 
     # Part A - Ensure that two packets separated by minimum IFG are received ok
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))]
       ))
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
         inter_frame_gap=ifg
@@ -36,12 +36,12 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     for gap_shrink in [5, 10]:
         new_ifg = ifg - gap_shrink * bit_time
 
-        packets.append(MiiPacket(
+        packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (gap_shrink, choose_small_frame_size(rand))],
             inter_frame_gap=recovery_time
           ))
-        packets.append(MiiPacket(
+        packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (gap_shrink, choose_small_frame_size(rand))],
             inter_frame_gap=new_ifg

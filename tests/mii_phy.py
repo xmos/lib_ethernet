@@ -1,3 +1,4 @@
+import random
 import xmostest
 import sys
 import zlib
@@ -9,7 +10,7 @@ class TxPhy(xmostest.SimThread):
     END_OF_TEST_TIME = 5000
 
     def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay, verbose,
-                 test_ctrl, do_timeout, complete_fn, expect_loopback):
+                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time):
         self._name = name
         self._test_ctrl = test_ctrl
         self._rxd = rxd
@@ -22,6 +23,7 @@ class TxPhy(xmostest.SimThread):
         self._do_timeout = do_timeout
         self._complete_fn = complete_fn
         self._expect_loopback = expect_loopback
+        self._dut_exit_time = dut_exit_time
 
     def get_name(self):
         return self._name
@@ -48,21 +50,20 @@ class TxPhy(xmostest.SimThread):
             # Allow time for a maximum sized packet to arrive
             timeout_time = (self._clock.get_bit_time() * 1522 * 8)
 
-            # And allow some time for the packets to get through the buffers internally
-            total_packet_bytes = sum([len(packet.get_packet_bytes()) for packet in self._packets])
-            total_data_bits = total_packet_bytes * 8
-
-            # Allow 2 cycles per bit
-            copy_time = 2 * total_data_bits
-
-            # The clock ticks are 2ns long
-            copy_time *= 2
-
             if self._expect_loopback:
-                # The packets are copied to and from the user application
-                copy_time *= 2
+                # If looping back then take into account all the data
+                total_packet_bytes = sum([len(packet.get_packet_bytes()) for packet in self._packets])
 
-            timeout_time += copy_time
+                total_data_bits = total_packet_bytes * 8
+
+                # Allow 2 cycles per bit
+                timeout_time += 2 * total_data_bits
+
+                # The clock ticks are 2ns long
+                timeout_time *= 2
+
+                # The packets are copied to and from the user application
+                timeout_time *= 2
 
             self.wait_until(self.xsi.get_time() + timeout_time)
 
@@ -71,7 +72,7 @@ class TxPhy(xmostest.SimThread):
                 self.xsi.drive_port_pins(self._test_ctrl, 1)
 
             # Allow time for the DUT to exit
-            self.wait_until(self.xsi.get_time() + 25000)
+            self.wait_until(self.xsi.get_time() + self._dut_exit_time)
 
             print "ERROR: Test timed out"
             self.xsi.terminate()
@@ -87,10 +88,12 @@ class MiiTransmitter(TxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
                  initial_delay=85000, verbose=False, test_ctrl=None,
-                 do_timeout=True, complete_fn=None, expect_loopback=True):
+                 do_timeout=True, complete_fn=None, expect_loopback=True,
+                 dut_exit_time=25000):
         super(MiiTransmitter, self).__init__('mii', rxd, rxdv, rxer, clock,
                                              initial_delay, verbose, test_ctrl,
-                                             do_timeout, complete_fn, expect_loopback)
+                                             do_timeout, complete_fn, expect_loopback,
+                                             dut_exit_time)
 
     def run(self):
         xsi = self.xsi
@@ -176,6 +179,10 @@ class MiiReceiver(RxPhy):
         xsi = self.xsi
         self.wait(lambda x: xsi.sample_port_pins(self._txen) == 0)
 
+        # Need a random number generator for the MiiPacket constructor but it shouldn't
+        # have any affect as only blank packets are being created
+        rand = random.Random()
+
         packet_count = 0
         last_frame_end_time = None
         while True:
@@ -191,7 +198,7 @@ class MiiReceiver(RxPhy):
                     xsi.terminate()
 
             # Start with a blank packet to ensure they are filled in by the receiver
-            packet = MiiPacket(blank=True)
+            packet = MiiPacket(rand, blank=True)
 
             frame_start_time = self.xsi.get_time()
             in_preamble = True

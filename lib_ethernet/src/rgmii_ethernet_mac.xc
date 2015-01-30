@@ -152,7 +152,7 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
     {
       // Setup the buffer pointers
       buffers_used_initialize(used_buffers_rx_lp, buffer_used_pointers_rx_lp);
-      buffers_used_initialize(used_buffers_rx_hp, buffer_used_pointers_rx_lp);
+      buffers_used_initialize(used_buffers_rx_hp, buffer_used_pointers_rx_hp);
       buffers_free_initialize(free_buffers_rx, (unsigned char*)buffer_rx,
                               buffer_free_pointers_rx, RGMII_MAC_BUFFER_COUNT_RX);
 

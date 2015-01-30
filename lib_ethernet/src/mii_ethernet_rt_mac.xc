@@ -138,19 +138,21 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
 
     if (client_wants_packet)
     {
+      unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rxmem);
+      unsigned * unsafe dptr = buf->data;
+      unsigned prewrap = ((char *) wrap_ptr - (char *) dptr);
+      unsigned len = buf->length;
+      unsigned len1 = prewrap > len ? len : prewrap;
+      unsigned len2 = prewrap > len ? 0 : len - prewrap;
+
       ethernet_packet_info_t info;
       info.type = ETH_DATA;
       info.src_ifnum = buf->src_port;
       info.timestamp = buf->timestamp;
-      info.len = buf->length;
+      info.len = len1 | len2 << 16;
       info.filter_data = buf->filter_data;
+
       sout_char_array(c_rx_hp, (char *)&info, sizeof(info));
-      int len = buf->length;
-      unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rxmem);
-      unsigned * unsafe dptr = buf->data;
-      int prewrap = ((char *) wrap_ptr - (char *) dptr);
-      int len1 = prewrap > len ? len : prewrap;
-      int len2 = prewrap > len ? 0 : len - prewrap;
       sout_char_array(c_rx_hp, (char *)dptr, len1);
       if (len2) {
         sout_char_array(c_rx_hp, (char *)*wrap_ptr, len2);
@@ -378,10 +380,15 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       int prewrap = ((char *) wrap_ptr - (char *) dptr);
       int len1 = prewrap > len ? len : prewrap;
       int len2 = prewrap > len ? 0 : len - prewrap;
+      unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
+
+      // sout_char_array sends bytes in reverse order so the second
+      // half must be received first
+      if (len2) {
+        sin_char_array(c_tx_hp, (char*)start_ptr, len2);
+      }
       sin_char_array(c_tx_hp, (char*)dptr, len1);
       if (len2) {
-        unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
-        sin_char_array(c_tx_hp, (char*)start_ptr, len2);
         dptr = start_ptr + (len2+3)/4;
       }
       else {
@@ -524,7 +531,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          p_rx_rdptr,
                          p_rxdv, p_rxd, p_rxer, c);
 
-      mii_master_tx_pins(rx_mem,
+      mii_master_tx_pins(tx_mem,
                          (mii_packet_queue_t)&tx_packets_lp,
                          (mii_packet_queue_t)&tx_packets_hp,
                          ts_queue, p_txd,

@@ -20,7 +20,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     if tx_clk.get_rate() == Clock.CLK_125MHz:
         preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5]
 
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))]
@@ -31,7 +31,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     if tx_clk.get_rate() == Clock.CLK_125MHz:
         preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0x5]
 
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
@@ -41,7 +41,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Part C - Invalid preamble nibbles, but the packet should still be received
     preamble_nibbles = [0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x5, 0x8, 0x5, 0xf, 0x5]
 
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=preamble_nibbles,
         create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
@@ -56,7 +56,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     ifg = tx_clk.get_min_ifg()
     for i,packet in enumerate(error_packets):
       # First valid frame (allowing time to process previous two valid frames)
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
           inter_frame_gap=3*packet_processing_time(tx_phy, 46, mac)
@@ -70,7 +70,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (2 * ((i+1)%10), choose_small_frame_size(rand))],
           inter_frame_gap=ifg

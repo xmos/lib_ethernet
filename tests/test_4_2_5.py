@@ -16,7 +16,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Part A - Test the sending of all valid size untagged frames
     processing_time = packet_processing_time(tx_phy, 46, mac)
     for num_data_bytes in [46, choose_small_frame_size(rand), 1500]:
-        packets.append(MiiPacket(
+        packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (rand.randint(1, 254), num_data_bytes)],
             inter_frame_gap=processing_time
@@ -26,7 +26,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Part B - Test the sending of sub 46 bytes of data in the length field but valid minimum packet sizes
     # The packet sizes longer than this are covered by Part A
     for len_type in [1, 2, 3, 4, 15, 45]:
-        packets.append(MiiPacket(
+        packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             ether_len_type=[(len_type >> 8) & 0xff, len_type & 0xff],
             create_data_args=['step', (rand.randint(1, 254), 46)],
@@ -36,7 +36,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Part C - Test the sending of all valid size tagged frames
     processing_time = packet_processing_time(tx_phy, 46, mac)
     for num_data_bytes in [42, choose_small_frame_size(rand), 1500]:
-        packets.append(MiiPacket(
+        packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             vlan_prio_tag=[0x81, 0x00, 0x00, 0x00],
             create_data_args=['step', (rand.randint(1, 254), num_data_bytes)],

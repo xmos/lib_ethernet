@@ -10,7 +10,6 @@
 #include "print.h"
 #include "debug_print.h"
 #include "syscall.h"
-#include "xta_test_pragmas.h"
 
 #include "ports.h"
 
@@ -34,6 +33,7 @@ void test_rx(client ethernet_cfg_if cfg,
     macaddr_filter.addr[i] = i;
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
+  char seq_id = 0;
   int num_bytes = 0;
   int num_packets = 0;
   int done = 0;
@@ -44,9 +44,15 @@ void test_rx(client ethernet_cfg_if cfg,
     select {
     case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-      sin_char_array(c_rx_hp, rxbuf, packet_info.len);
+      mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
       num_bytes += packet_info.len;
       num_packets += 1;
+      if (rxbuf[18] != seq_id) {
+        debug_printf("Packet %d instead of %d\n", rxbuf[18], seq_id);
+        _exit(1);
+      }
+
+      seq_id += 1;
       break;
 
     case ctrl.status_changed():

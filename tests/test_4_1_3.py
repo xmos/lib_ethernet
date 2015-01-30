@@ -18,12 +18,12 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Part A - untagged frame
 
     # Valid maximum size untagged frame (1500 data + 18 header & CRC bytes)
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address, create_data_args=['step', (1, 1500)]
       ))
 
     # Oversized untagged frame - one byte too big for the 1522 bytes allowed per frame
-    packet = MiiPacket(
+    packet = MiiPacket(rand,
         dst_mac_addr=dut_mac_address, create_data_args=['step', (2, 1505)],
         inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
         dropped=True
@@ -32,7 +32,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     error_packets.append(packet)
 
     # Oversized untagged frame - too big for the 1522 bytes allowed per frame
-    packet = MiiPacket(
+    packet = MiiPacket(rand,
         dst_mac_addr=dut_mac_address, create_data_args=['step', (3, 1600)],
         inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
         dropped=True
@@ -44,13 +44,13 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     vlan_prio_tag = [0x81, 0x00, 0x00, 0x00]
 
     # Valid maximum size tagged frame (1500 data + 22 header & CRC bytes)
-    packets.append(MiiPacket(
+    packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address, vlan_prio_tag=vlan_prio_tag,
         create_data_args=['step', (10, 1500)]
       ))
 
     # Oversized tagged frame - just one byte too big
-    packet = MiiPacket(
+    packet = MiiPacket(rand,
         dst_mac_addr=dut_mac_address, vlan_prio_tag=vlan_prio_tag,
         create_data_args=['step', (11, 1501)],
         inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
@@ -60,7 +60,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     error_packets.append(packet)
 
     # Oversized tagged frame
-    packet = MiiPacket(
+    packet = MiiPacket(rand,
         dst_mac_addr=dut_mac_address, vlan_prio_tag=vlan_prio_tag,
         create_data_args=['step', (12, 1549)],
         inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
@@ -80,7 +80,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     ifg = tx_clk.get_min_ifg()
     for i,packet in enumerate(error_packets):
       # First valid frame (allowing time to process previous two valid frames)
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
           inter_frame_gap=2*packet_processing_time(tx_phy, 46, mac)
@@ -94,7 +94,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (2 * ((i+1)%10), choose_small_frame_size(rand))],
           inter_frame_gap=ifg

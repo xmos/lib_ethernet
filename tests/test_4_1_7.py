@@ -15,7 +15,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     error_packets = []
 
     # Part A - Invalid SFD nibble: use preamble nibble (0x5)
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         sfd_nibble=0x5,
         create_data_args=['step', (19, choose_small_frame_size(rand))],
@@ -23,7 +23,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       ))
 
     # Part B - Invalid SFD: replace last byte of preamble with 0x9 instead of 0x5
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         dst_mac_addr=dut_mac_address,
         preamble_nibbles=[0x5 for x in range(14)] + [0x9],
         create_data_args=['step', (20, choose_small_frame_size(rand))],
@@ -38,7 +38,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     ifg = tx_clk.get_min_ifg()
     for i,packet in enumerate(error_packets):
       # First valid frame (allowing time to process previous two valid frames)
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, choose_small_frame_size(rand))],
           inter_frame_gap=2*packet_processing_time(tx_phy, 46, mac)
@@ -52,7 +52,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (2 * ((i+1)%10), choose_small_frame_size(rand))],
           inter_frame_gap=ifg

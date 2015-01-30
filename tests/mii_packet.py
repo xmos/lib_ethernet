@@ -47,7 +47,7 @@ class MiiPacket(object):
     # The maximum payload value (1500 bytes)
     MAX_ETHER_LEN = 0x5dc
 
-    def __init__(self, **kwargs):
+    def __init__(self, rand, **kwargs):
         blank = kwargs.pop('blank', False)
 
         self.dropped = False
@@ -94,11 +94,11 @@ class MiiPacket(object):
 
         # Destination MAC address - use a random one if not user-defined
         if self.dst_mac_addr is None:
-            self.dst_mac_addr = [random.randint(0, 255) for x in range(6)]
+            self.dst_mac_addr = [rand.randint(0, 255) for x in range(6)]
 
         # Source MAC address - use a random one if not user-defined
         if self.src_mac_addr is None:
-            self.src_mac_addr = [random.randint(0, 255) for x in range(6)]
+            self.src_mac_addr = [rand.randint(0, 255) for x in range(6)]
 
         # If the data is defined, then record the length. Otherwise create random
         # data of the length specified
@@ -106,7 +106,7 @@ class MiiPacket(object):
             if self.create_data_args:
                 self.data_bytes = create_data(self.create_data_args)
             else:
-                self.data_bytes = [random.randint(0, 255) for x in range(self.num_data_bytes)]
+                self.data_bytes = [rand.randint(0, 255) for x in range(self.num_data_bytes)]
 
         # Ensure that however the data has been created, the length is correct
         if self.data_bytes is None:
@@ -120,6 +120,10 @@ class MiiPacket(object):
                 self.ether_len_type = [ (self.num_data_bytes >> 8) & 0xff, self.num_data_bytes & 0xff ]
             else:
                 self.ether_len_type = [ 0x00, 0x00 ]
+
+        # If there is an extra nibble, choose it now
+        if self.extra_nibble:
+            self.extra_nibble = rand.randint(0, 15)
 
     def get_ifg(self):
         return self.inter_frame_gap
@@ -147,6 +151,10 @@ class MiiPacket(object):
             crc = ~crc
         return crc
 
+    def get_packet_time(self, bit_time):
+        data_time = len(self.get_nibbles()) * 4 * bit_time
+        return data_time + self.inter_frame_gap
+
     def get_nibbles(self):
         nibbles = []
 
@@ -168,7 +176,7 @@ class MiiPacket(object):
 
         # Add an extra random nibble for alignment test
         if self.extra_nibble:
-            nibbles.append(random.randint(0, 15))
+            nibbles.append(self.extra_nibble)
 
         return nibbles
 
@@ -300,7 +308,7 @@ class MiiPacket(object):
         sys.stdout.write("\n]\n")
         if self.send_crc_word:
             crc = self.get_crc(self.get_packet_bytes())
-            sys.stdout.write("CRC: 0x{0:0>8x}\n".format(crc))
+            sys.stdout.write("CRC: 0x{0:0>8x}\n".format(crc & 0xffffffff))
 
     def get_data_expect(self):
         """ Return the expected DUT print for the given data contents

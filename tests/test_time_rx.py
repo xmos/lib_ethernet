@@ -33,6 +33,7 @@ def do_test(mac, tx_clk, tx_phy, seed):
     packets = []
     done = False
     num_data_bytes = 0
+    seq_id = 0
     while not done:
         do_small_packet = rand.randint(0, 100) > 30
         if do_small_packet:
@@ -46,10 +47,12 @@ def do_test(mac, tx_clk, tx_phy, seed):
             burst_len = rand.randint(1, 16)
 
         for i in range(burst_len):
-            packets.append(MiiPacket(
-                dst_mac_addr=dut_mac_address, inter_frame_gap=ifg, num_data_bytes=length
+            packets.append(MiiPacket(rand,
+                dst_mac_addr=dut_mac_address, inter_frame_gap=ifg,
+                create_data_args=['same', (seq_id, length)],
               ))
-            
+            seq_id = (seq_id + 1) & 0xff
+
             # Add on the overhead of the packet header
             num_data_bytes += length + 14
 
@@ -96,7 +99,7 @@ def runtest():
     xmostest.build('test_time_rx')
 
     # Test 100 MBit - MII
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C')
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='standard'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('standard', tx_clk_25, tx_mii, seed)
@@ -110,7 +113,8 @@ def runtest():
         do_test('rt_hp', tx_clk_25, tx_mii, seed)
 
     # Test 100 MBit - RGMII
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C')
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C',
+                                                 verbose=args.verbose)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', tx_clk_25, tx_rgmii, seed)
@@ -120,11 +124,4 @@ def runtest():
         do_test('rt_hp', tx_clk_25, tx_rgmii, seed)
 
     # Test 1000 MBit - RGMII
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C')
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', tx_clk_125, tx_rgmii, seed)
-
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt_hp', tx_clk_125, tx_rgmii, seed)
+    # The RGMII application cannot keep up with line-rate gigabit data

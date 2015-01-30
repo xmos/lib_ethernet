@@ -23,7 +23,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(2, max_fragment_len, 1))
     for m in [2, max_fragment_len/3, max_fragment_len/2, max_fragment_len]:
-      error_packets.append(MiiPacket(
+      error_packets.append(MiiPacket(rand,
           num_preamble_nibbles=m, num_data_bytes=0,
           sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
           send_crc_word=False,
@@ -36,7 +36,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     #  - The data contents will be the DUT MAC address when long enough to contain a dst address
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(5, 45, 1))
     for n in [5, 25, 45]:
-      error_packets.append(MiiPacket(
+      error_packets.append(MiiPacket(rand,
           dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
           data_bytes=[(x & 0xff) for x in range(n - 4)],
           dropped=True
@@ -48,7 +48,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     # Part B
 
     # Test Frame 5 - send a 7-octect preamble
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         num_preamble_nibbles=15, num_data_bytes=0,
         sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
         ether_len_type=[], send_crc_word=False,
@@ -56,7 +56,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       ))
 
     # Test Frame 6 - send a 7-octect preamble with SFD
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         num_preamble_nibbles=15, num_data_bytes=0,
         dst_mac_addr=[], src_mac_addr=[],
         ether_len_type=[], send_crc_word=False,
@@ -64,7 +64,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       ))
 
     # Test Frame 7 - send a 7-octect preamble with SFD and dest MAC
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         num_preamble_nibbles=15, num_data_bytes=6,
         dst_mac_addr=dut_mac_address,
         src_mac_addr=[], ether_len_type=[], send_crc_word=False,
@@ -72,7 +72,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       ))
 
     # Test Frame 8 - send a 7-octect preamble with SFD, dest and src MAC
-    error_packets.append(MiiPacket(
+    error_packets.append(MiiPacket(rand,
         num_preamble_nibbles=15, num_data_bytes=12,
         dst_mac_addr=dut_mac_address,
         ether_len_type=[], send_crc_word=False,
@@ -94,7 +94,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     ifg = tx_clk.get_min_ifg()
     for i,packet in enumerate(error_packets):
       # First valid frame (allowing time to process previous two valid frames)
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (i%10, 46)],
           inter_frame_gap=2*packet_processing_time(tx_phy, 46, mac)
@@ -108,7 +108,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
       packets.append(packet_copy)
 
       # Second valid frame with minimum IFG
-      packets.append(MiiPacket(
+      packets.append(MiiPacket(rand,
           dst_mac_addr=dut_mac_address,
           create_data_args=['step', (2 * ((i+1)%10), 46)],
           inter_frame_gap=ifg

@@ -23,7 +23,7 @@ typedef enum ethernet_link_state_t {
 
 typedef struct ethernet_packet_info_t {
   eth_packet_type_t type;
-  int len;
+  unsigned len;
   unsigned timestamp;
   unsigned src_ifnum;
   unsigned filter_data;
@@ -109,6 +109,25 @@ typedef interface ethernet_rx_if {
                                           char data[n],
                                           unsigned n);
 } ethernet_rx_if;
+
+/** Function to receive a packet over a high priority channel
+ *
+ * The packet can be split into two transactions due to internal buffering
+ * and therefore this function must be used to receive the packet.
+ *
+ */
+inline void mii_receive_hp_packet(streaming chanend c_rx_hp,
+                                  unsigned char *buf,
+                                  ethernet_packet_info_t &packet_info)
+{
+  unsigned len1 = packet_info.len & 0xffff;
+  sin_char_array(c_rx_hp, buf, len1);
+  unsigned len2 = packet_info.len >> 16;
+  if (len2) {
+    sin_char_array(c_rx_hp, &buf[len1], len2);
+  }
+  packet_info.len = len1 + len2;
+}
 
 extends client interface ethernet_tx_if : {
 

@@ -5,7 +5,7 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args, create_if_needed, run_on
+from helpers import get_sim_args, create_if_needed, run_on, args
 from helpers import get_mii_rx_clk_phy, get_mii_tx_clk_phy, get_rgmii_rx_clk_phy, get_rgmii_tx_clk_phy
 
 num_test_packets = 150
@@ -90,7 +90,7 @@ def runtest():
 
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker)
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='standard'):
         do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
     if run_on(phy='mii', clk='25Mhz', mac='rt'):
@@ -100,7 +100,8 @@ def runtest():
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker)
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False,
+                                                 verbose=args.verbose)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
@@ -108,7 +109,8 @@ def runtest():
 
     # Test 1000 MBit - RGMII
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker)
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
+    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False,
+                                                  verbose=args.verbose)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
         do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp'):

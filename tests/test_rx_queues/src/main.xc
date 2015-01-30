@@ -1,4 +1,4 @@
-// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 // This software is freely distributable under a derivative of the
 // University of Illinois/NCSA Open Source License posted in
 // LICENSE.txt and at <http://github.xcore.com/>
@@ -9,7 +9,6 @@
 #include "print.h"
 #include "debug_print.h"
 #include "syscall.h"
-#include "xta_test_pragmas.h"
 
 #include "ports.h"
 
@@ -44,7 +43,7 @@ void test_rx_hp(client ethernet_cfg_if cfg,
     select {
     case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-      sin_char_array(c_rx_hp, rxbuf, packet_info.len);
+      mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
 
       // Check the first byte after the header (which can be VLAN tagged)
       if (rxbuf[18] != seq_id)

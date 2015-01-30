@@ -22,11 +22,13 @@ def do_test(mac, tx_clk, tx_phy):
     print "Running {test}: {phy} phy at {clk}".format(
         test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
 
+    rand = random.Random()
+
     dut_mac_address = get_dut_mac_address()
     packets = [
-        MiiPacket(dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
+        MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x11, 0x11], data_bytes=[1,2,3,4] + [0 for x in range(50)]),
-        MiiPacket(dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
+        MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x22, 0x22], data_bytes=[5,6,7,8] + [0 for x in range(60)])
       ]
 

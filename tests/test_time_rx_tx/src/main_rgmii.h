@@ -92,7 +92,7 @@ void test_rx(client ethernet_cfg_if cfg,
     select {
     case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-      sin_char_array(c_rx_hp, rxbuf, packet_info.len);
+      mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
       num_bytes += packet_info.len;
       num_packets += 1;
       break;

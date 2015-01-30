@@ -25,7 +25,8 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
     return (clk, phy)
 
 def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
-                       complete_fn=None, expect_loopback=True):
+                       complete_fn=None, expect_loopback=True,
+                       dut_exit_time=25000, initial_delay=85000):
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
@@ -33,7 +34,8 @@ def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                          clk,
                          verbose=verbose, test_ctrl=test_ctrl,
                          do_timeout=do_timeout, complete_fn=complete_fn,
-                         expect_loopback=expect_loopback)
+                         expect_loopback=expect_loopback,
+                         dut_exit_time=dut_exit_time, initial_delay=initial_delay)
     return (clk, phy)
 
 def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None):
@@ -45,7 +47,8 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
     return (clk, phy)
 
 def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
-                          do_timeout=True, complete_fn=None, expect_loopback=True):
+                          do_timeout=True, complete_fn=None, expect_loopback=True,
+                          dut_exit_time=25000, initial_delay=130000):
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_1B',
@@ -55,7 +58,8 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                            clk,
                            verbose=verbose, test_ctrl=test_ctrl,
                            do_timeout=do_timeout, complete_fn=complete_fn,
-                           expect_loopback=expect_loopback)
+                           expect_loopback=expect_loopback,
+                           dut_exit_time=dut_exit_time, initial_delay=initial_delay)
     return (clk, phy)
 
 def run_on(**kwargs):
@@ -74,7 +78,7 @@ def runall_rx(test_fn):
 
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy()
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='standard'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         test_fn('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
@@ -89,7 +93,7 @@ def runall_rx(test_fn):
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz)
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         test_fn('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
@@ -100,7 +104,7 @@ def runall_rx(test_fn):
 
     # Test 1000 MBit - RGMII
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz)
+    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         test_fn('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)

@@ -6,7 +6,6 @@
 #include <platform.h>
 #include "ethernet.h"
 #include "mii.h"
-#include "xta_test_pragmas.h"
 #include "debug_print.h"
 #include "syscall.h"
 
