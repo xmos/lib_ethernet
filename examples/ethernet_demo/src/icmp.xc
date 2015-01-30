@@ -252,7 +252,6 @@ void icmp_server(client ethernet_cfg_if cfg,
   size_t index = rx.get_index();
   cfg.set_macaddr(0, mac_address);
 
-  macaddr_filter.vlan = 0;
   memcpy(macaddr_filter.addr, mac_address, sizeof(mac_address));
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
