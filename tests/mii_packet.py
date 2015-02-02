@@ -311,7 +311,7 @@ class MiiPacket(object):
             crc = self.get_crc(self.get_packet_bytes())
             output += "CRC: 0x{0:0>8x}".format(crc & 0xffffffff)
             if show_ifg:
-                output += "IFG: {i}\n".format(i=self.inter_frame_gap)
+                output += ", IFG: {i}\n".format(i=self.inter_frame_gap)
             else:
                 output += "\n"
 
