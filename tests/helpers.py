@@ -222,9 +222,9 @@ def check_received_packet(packet, phy):
                 n=phy.expect_packet_index)
 
             print "Received:"
-            packet.dump()
+            sys.stdout.write(packet.dump())
             print "Expected:"
-            expected.dump()
+            sys.stdout.write(expected.dump())
 
         print "Received packet {} ok".format(phy.expect_packet_index)
         # Skip this packet
@@ -236,7 +236,7 @@ def check_received_packet(packet, phy):
     else:
         print "ERROR: received unexpected packet from DUT"
         print "Received:"
-        packet.dump()
+        sys.stdout.write(packet.dump())
 
     if phy.expect_packet_index >= phy.num_expected_packets:
         print "Test done"

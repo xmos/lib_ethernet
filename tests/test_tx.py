@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import xmostest
 import os
+import sys
 from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
@@ -11,7 +12,7 @@ from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 
 def packet_checker(packet, phy):
     print "Packet received:"
-    packet.dump()
+    sys.stdout.write(packet.dump(show_ifg=False))
 
     # Ignore the CRC bytes (-4)
     data = packet.data_bytes[:-4]

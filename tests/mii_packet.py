@@ -285,31 +285,37 @@ class MiiPacket(object):
             print "ERROR: Invalid crc (got {got}, expecting {expect})".format(
                 got=self.packet_crc, expect=expected_crc)
 
-    def dump(self):
+    def dump(self, show_ifg=True):
+        output = ""
         # Discount the CRC word from the bytes received
-        sys.stdout.write("Packet len={len}, dst=[{dst}], src=[{src}]".format(
+        output += "Packet len={len}, dst=[{dst}], src=[{src}]".format(
             len=self.num_data_bytes,
             dst=" ".join(["0x{0:0>2x}".format(i) for i in self.dst_mac_addr]),
-            src=" ".join(["0x{0:0>2x}".format(i) for i in self.src_mac_addr])))
+            src=" ".join(["0x{0:0>2x}".format(i) for i in self.src_mac_addr]))
 
         if self.vlan_prio_tag:
-            sys.stdout.write(", vlan/prio=[{vp}]".format(
-                vp=" ".join(["0x{0:0>2x}".format(i) for i in self.vlan_prio_tag])))
+            output += ", vlan/prio=[{vp}]".format(
+                vp=" ".join(["0x{0:0>2x}".format(i) for i in self.vlan_prio_tag]))
 
-        sys.stdout.write(", len/type=[{lt}]".format(
-            lt=" ".join(["0x{0:0>2x}".format(i) for i in self.ether_len_type])))
-        sys.stdout.write("\n")
+        output += ", len/type=[{lt}]".format(
+            lt=" ".join(["0x{0:0>2x}".format(i) for i in self.ether_len_type]))
+        output += "\n"
 
-        sys.stdout.write("data=[\n    ")
+        output += "data=[\n    "
         for i,x in enumerate(self.data_bytes):
             if i and ((i%16) == 0):
-                sys.stdout.write("\n    ")
-            sys.stdout.write("0x{0:0>2x}, ".format(x))
-        sys.stdout.write("\n]\n")
+                output += "\n    "
+            output += "0x{0:0>2x}, ".format(x)
+        output += "\n]\n"
         if self.send_crc_word:
             crc = self.get_crc(self.get_packet_bytes())
-            sys.stdout.write("CRC: 0x{0:0>8x}, IFG: {i}\n".format(crc & 0xffffffff,
-                                                                  i=self.inter_frame_gap))
+            output += "CRC: 0x{0:0>8x}".format(crc & 0xffffffff)
+            if show_ifg:
+                output += "IFG: {i}\n".format(i=self.inter_frame_gap)
+            else:
+                output += "\n"
+
+        return output
 
     def get_data_expect(self):
         """ Return the expected DUT print for the given data contents

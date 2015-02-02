@@ -107,7 +107,7 @@ class MiiTransmitter(TxPhy):
 
             if self._verbose:
                 print "Sending packet {i}: {p}".format(i=i, p=packet)
-                packet.dump()
+                sys.stdout.write(packet.dump())
 
             for (i, nibble) in enumerate(packet.get_nibbles()):
                 self.wait(lambda x: self._clock.is_low())
@@ -229,7 +229,7 @@ class MiiReceiver(RxPhy):
             packet.complete()
 
             if self._print_packets:
-                packet.dump()
+                sys.stdout.write(packet.dump())
 
             if self._packet_fn:
                 self._packet_fn(packet, self)

@@ -57,7 +57,7 @@ class RgmiiTransmitter(TxPhy):
 
             if self._verbose:
                 print "Sending packet {i}: {p}".format(i=i, p=packet)
-                packet.dump()
+                sys.stdout.write(packet.dump())
 
             if packet_rate == Clock.CLK_125MHz:
                 # The RGMII phy puts a nibble on each edge at 1Gb/s. This is mapped
@@ -186,7 +186,7 @@ class RgmiiReceiver(RxPhy):
             packet.complete()
 
             if self._print_packets:
-                packet.dump()
+                sys.stdout.write(packet.dump())
 
             if self._packet_fn:
                 self._packet_fn(packet, self)
