@@ -188,10 +188,4 @@ def runtest():
         do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
     # Test 1000 MBit - RGMII
-    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
-                                                  test_ctrl="tile[0]:XS1_PORT_1A")
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False,
-                                                  complete_fn=set_tx_complete, verbose=args.verbose)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+    # The RGMII application cannot keep up with line-rate gigabit data

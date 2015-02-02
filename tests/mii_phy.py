@@ -101,15 +101,13 @@ class MiiTransmitter(TxPhy):
         self.start_test()
 
         for i,packet in enumerate(self._packets):
+            error_nibbles = packet.get_error_nibbles()
+
+            self.wait_until(xsi.get_time() + packet.inter_frame_gap)
+
             if self._verbose:
                 print "Sending packet {i}: {p}".format(i=i, p=packet)
                 packet.dump()
-
-            error_nibbles = packet.get_error_nibbles()
-
-            # Don't wait the inter-frame gap on the first packet
-            if i:
-                self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
             for (i, nibble) in enumerate(packet.get_nibbles()):
                 self.wait(lambda x: self._clock.is_low())

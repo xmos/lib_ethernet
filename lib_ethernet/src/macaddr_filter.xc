@@ -124,6 +124,9 @@ unsigned ethernet_do_filtering(eth_global_filter_info_t table,
                                size_t packet_size,
                                unsigned &appdata)
 {
+  unsigned result = 0;
+
+  // Do all entries without an early exit so that it is always worst-case timing
   for (size_t i = 0;i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
     if (table[i].result == 0)
       continue;
@@ -134,9 +137,9 @@ unsigned ethernet_do_filtering(eth_global_filter_info_t table,
     }
     if (!mac_match)
       continue;
-    // We have a match.
+
     appdata = table[i].appdata;
-    return table[i].result;
+    result = table[i].result;
   }
-  return 0;
+  return result;
 }

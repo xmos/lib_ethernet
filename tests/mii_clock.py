@@ -8,6 +8,7 @@ class Clock(xmostest.SimThread):
     (CLK_125MHz, CLK_25MHz, CLK_2_5MHz) = (0x4, 0x2, 0x0)
 
     def __init__(self, port, clk):
+        self._running = True
         self._clk = clk
         if clk == self.CLK_125MHz:
             self._period = float(1000000000) / 125000000
@@ -30,7 +31,9 @@ class Clock(xmostest.SimThread):
         while True:
             self.wait_until(self.xsi.get_time() + self._period/2)
             self._val = 1 - self._val
-            self.xsi.drive_port_pins(self._port, self._val)
+
+            if self._running:
+                self.xsi.drive_port_pins(self._port, self._val)
 
     def is_high(self):
         return (self._val == 1)
@@ -49,3 +52,9 @@ class Clock(xmostest.SimThread):
 
     def get_bit_time(self):
         return self._bit_time
+
+    def stop(self):
+        self._running = False
+
+    def start(self):
+        self._running = True

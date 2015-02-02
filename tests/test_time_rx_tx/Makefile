@@ -20,10 +20,7 @@ APP_NAME =
 
 SHARED_CODE = ../../include
 
-XTA_PRAGMA_INCLUDES = -I'../../xta'
-
-COMMON_FLAGS  = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
-COMMON_FLAGS += $(XTA_PRAGMA_INCLUDES)
+COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
 
 XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
 XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0

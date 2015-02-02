@@ -93,18 +93,18 @@ unsigned mii_macaddr_hash_lookup(mii_macaddr_hash_table_t *table,
   unsigned int x = hash(key0, key1, table->polys[0]);
   unsigned int y = hash(key0, key1, table->polys[1]);
   
-  if (key0 == table->entries[x].id[0] &&
-      key1 == table->entries[x].id[1]) {
-    *appdata = table->entries[x].appdata;
-    return table->entries[x].result;
-  }
-  
   if (key0 == table->entries[y].id[0] &&
       key1 == table->entries[y].id[1]) {
     *appdata = table->entries[y].appdata;
     return table->entries[y].result;
   }
   
+  if (key0 == table->entries[x].id[0] &&
+      key1 == table->entries[x].id[1]) {
+    *appdata = table->entries[x].appdata;
+    return table->entries[x].result;
+  }
+
   return 0;
 }
 

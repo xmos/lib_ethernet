@@ -308,7 +308,8 @@ class MiiPacket(object):
         sys.stdout.write("\n]\n")
         if self.send_crc_word:
             crc = self.get_crc(self.get_packet_bytes())
-            sys.stdout.write("CRC: 0x{0:0>8x}\n".format(crc & 0xffffffff))
+            sys.stdout.write("CRC: 0x{0:0>8x}, IFG: {i}\n".format(crc & 0xffffffff,
+                                                                  i=self.inter_frame_gap))
 
     def get_data_expect(self):
         """ Return the expected DUT print for the given data contents
