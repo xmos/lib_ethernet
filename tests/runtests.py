@@ -14,7 +14,7 @@ if __name__ == "__main__":
     argparser.add_argument('--seed', type=int, help='The seed', default=None)
     argparser.add_argument('--verbose', action='store_true', help='Enable verbose tracing in the phys')
 
-    argparser.add_argument('--num-packets', type=int, help='Number of packets in the test', default='50')
+    argparser.add_argument('--num-packets', type=int, help='Number of packets in the test', default='100')
     argparser.add_argument('--weight-hp', type=int, help='Weight of high priority traffic', default='50')
     argparser.add_argument('--weight-lp', type=int, help='Weight of low priority traffic', default='25')
     argparser.add_argument('--weight-other', type=int, help='Weight of other (dropped) traffic', default='25')

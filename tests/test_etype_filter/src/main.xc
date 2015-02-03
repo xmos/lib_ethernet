@@ -118,7 +118,8 @@ int main()
 
     on tile[0]: test_task(i_cfg[0], i_rx_lp[0], 0x1111, i_ctrl[0]);
     on tile[0]: test_task(i_cfg[1], i_rx_lp[1], 0x2222, i_ctrl[1]);
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
+
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

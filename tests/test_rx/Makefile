@@ -28,6 +28,8 @@ XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
 XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
 XCC_FLAGS_rt_hp_rgmii  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
 
+XCC_FLAGS_macaddr_filter.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
+
 ifeq ($(CONFIG),rt_mii)
 	TARGET = STARTKIT
 endif

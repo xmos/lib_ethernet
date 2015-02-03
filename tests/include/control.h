@@ -19,7 +19,7 @@ typedef interface control_if {
   void set_done();
 } control_if;
 
-void control(port p_ctrl, server control_if ctrl[n], unsigned n);
+void control(port p_ctrl, server control_if ctrl[n], unsigned n, unsigned need_to_exit);
 
 #endif // __XC__
 

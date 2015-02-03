@@ -5,13 +5,13 @@
 
 #include "control.h"
 
-void control(port p_ctrl, server control_if ctrl[n], unsigned n)
+void control(port p_ctrl, server control_if ctrl[n], unsigned n, unsigned need_to_exit)
 {
   // Enable fast mode to ensure that this core is active
   set_core_fast_mode_on();
 
   status_t current_status = STATUS_ACTIVE;
-  unsigned n_active_processes = n;
+  unsigned n_active_processes = need_to_exit;
 
   while (1) {
     select {

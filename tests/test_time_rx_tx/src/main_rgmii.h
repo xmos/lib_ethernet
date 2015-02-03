@@ -137,7 +137,8 @@ int main()
 
     on tile[0]: test_tx(i_tx_lp[0], c_tx_hp);
     on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_ctrl[0]);
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
+
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

@@ -7,7 +7,7 @@
 #endif
 
 // This is the worst-case that can be supported for line-rate processing
-#define ETHERNET_MACADDR_FILTER_TABLE_SIZE 7
+#define ETHERNET_MACADDR_FILTER_TABLE_SIZE 30
 
 typedef struct eth_global_filter_entry_t {
   char addr[6];

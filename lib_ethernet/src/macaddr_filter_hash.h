@@ -17,9 +17,9 @@ typedef struct mii_macaddr_hash_table_entry_t
 
 typedef struct mii_macaddr_hash_table_t
 {
-  mii_macaddr_hash_table_entry_t entries[MII_MACADDR_HASH_TABLE_SIZE];
   unsigned polys[2];
   unsigned num_entries;
+  mii_macaddr_hash_table_entry_t entries[MII_MACADDR_HASH_TABLE_SIZE];
 } mii_macaddr_hash_table_t;
   
 

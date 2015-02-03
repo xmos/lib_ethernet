@@ -30,20 +30,21 @@ void ethernet_init_filter_table(eth_global_filter_info_t table)
   }
 }
 
+#pragma unsafe arrays
 ethernet_macaddr_filter_result_t
 ethernet_add_filter_table_entry(eth_global_filter_info_t table,
                                 unsigned client_num, int is_hp,
                                 ethernet_macaddr_filter_t entry)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
-    // Skip this entry if it is not used
-    if (table[i].result == 0)
-      continue;
+    unsigned *words = (unsigned *)entry.addr;
+    unsigned *addr = (unsigned *)table[i].addr;
 
-    int mac_match = 1;
-    for (size_t j = 0; j < 6; j++)
-      if (table[i].addr[j] != entry.addr[j])
-        mac_match = 0;
+    int mac_match =
+      (table[i].result != 0) &&
+      (words[0] == addr[0]) &&
+      ((words[1] & 0xffff) == (addr[1] & 0xffff));
+
     if (!mac_match)
       continue;
 
@@ -75,19 +76,20 @@ ethernet_add_filter_table_entry(eth_global_filter_info_t table,
   return ETHERNET_MACADDR_FILTER_TABLE_FULL;
 }
 
+#pragma unsafe arrays
 void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
                                      unsigned client_num, int is_hp,
                                      ethernet_macaddr_filter_t entry)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
-    // Skip this entry if it is not used
-    if (table[i].result == 0)
-      continue;
+    unsigned *words = (unsigned *)entry.addr;
+    unsigned *addr = (unsigned *)table[i].addr;
 
-    int mac_match = 1;
-    for (size_t j = 0; j < 6; j++)
-      if (table[i].addr[j] != entry.addr[j])
-        mac_match = 0;
+    int mac_match =
+      (table[i].result != 0) &&
+      (words[0] == addr[0]) &&
+      ((words[1] & 0xffff) == (addr[1] & 0xffff));
+
     if (!mac_match)
       continue;
 
@@ -119,6 +121,7 @@ void ethernet_clear_filter_table(eth_global_filter_info_t table,
   }
 }
 
+#pragma unsafe arrays
 unsigned ethernet_do_filtering(eth_global_filter_info_t table,
                                char buf[packet_size],
                                size_t packet_size,
@@ -128,13 +131,14 @@ unsigned ethernet_do_filtering(eth_global_filter_info_t table,
 
   // Do all entries without an early exit so that it is always worst-case timing
   for (size_t i = 0;i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
-    if (table[i].result == 0)
-      continue;
-    int mac_match = 1;
-    for (size_t j = 0; j < 6; j++) {
-      if (table[i].addr[j] != buf[j])
-        mac_match = 0;
-    }
+    unsigned *words = (unsigned *)buf;
+    unsigned *addr = (unsigned *)table[i].addr;
+
+    int mac_match =
+      (table[i].result != 0) &&
+      (words[0] == addr[0]) &&
+      ((words[1] & 0xffff) == (addr[1] & 0xffff));
+
     if (!mac_match)
       continue;
 

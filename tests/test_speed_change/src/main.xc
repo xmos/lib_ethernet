@@ -145,7 +145,7 @@ int main()
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_ctrl[0]);
     #endif
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

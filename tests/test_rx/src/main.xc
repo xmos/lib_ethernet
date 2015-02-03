@@ -19,8 +19,13 @@ port p_ctrl = on tile[0]: XS1_PORT_1A;
 
 #if ETHERNET_SUPPORT_HP_QUEUES
 
+typedef interface loopback_if {
+  [[notification]] slave void packet_ready();
+  [[clears_notification]] void get_packet(unsigned &len, uintptr_t &buf);
+} loopback_if;
+
 void test_rx_loopback(streaming chanend c_tx_hp,
-                      streaming chanend c_loopback)
+                      client loopback_if i_loopback)
 {
   set_core_fast_mode_on();
 
@@ -28,20 +33,23 @@ void test_rx_loopback(streaming chanend c_tx_hp,
     while (1) {
       unsigned len;
       uintptr_t buf;
-      c_loopback :> len;
-      c_loopback :> buf;
 
+      select {
+      case i_loopback.packet_ready():
+        i_loopback.get_packet(len, buf);
+        break;
+      }
       c_tx_hp <: len;
       sout_char_array(c_tx_hp, (char *)buf, len);
     }
   }
 }
 
-#define NUM_BUF 4
+#define NUM_BUF 8
 
 void test_rx(client ethernet_cfg_if cfg,
              streaming chanend c_rx_hp,
-             streaming chanend c_loopback,
+             server loopback_if i_loopback,
              client control_if ctrl)
 {
   set_core_fast_mode_on();
@@ -54,7 +62,9 @@ void test_rx(client ethernet_cfg_if cfg,
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
   unsigned char rxbuf[NUM_BUF][ETHERNET_MAX_PACKET_SIZE];
-  unsigned index = 0;
+  unsigned rxlen[NUM_BUF];
+  unsigned wr_index = 0;
+  unsigned rd_index = 0;
 
   int done = 0;
   while (!done) {
@@ -63,13 +73,25 @@ void test_rx(client ethernet_cfg_if cfg,
     #pragma ordered
     select {
     case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      mii_receive_hp_packet(c_rx_hp, rxbuf[index], packet_info);
-
-      uintptr_t buf = (uintptr_t)&rxbuf[index];
-      c_loopback <: packet_info.len;
-      c_loopback <: buf;
-      index = (index + 1) % NUM_BUF;
+      mii_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info);
+      rxlen[wr_index] = packet_info.len;
+      wr_index = (wr_index + 1) % NUM_BUF;
+      if (wr_index == rd_index) {
+        debug_printf("test_rx ran out of buffers\n");
+        _exit(1);
+      }
+      i_loopback.packet_ready();
       break;
+
+    case i_loopback.get_packet(unsigned &len, uintptr_t &buf): {
+      len = rxlen[rd_index];
+      buf = (uintptr_t)&rxbuf[rd_index];
+      rd_index = (rd_index + 1) % NUM_BUF;
+
+      if (rd_index != wr_index)
+        i_loopback.packet_ready();
+      break;
+    }
 
     case ctrl.status_changed():
       status_t status;
@@ -124,7 +146,7 @@ void test_rx(client ethernet_cfg_if cfg,
 
 #endif
 
-#define NUM_CFG_IF 1
+#define NUM_CFG_IF 2
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
 
@@ -135,8 +157,12 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_rx_hp;
   streaming chan c_tx_hp;
-  streaming chan c_loopback;
   control_if i_ctrl[NUM_CFG_IF];
+
+#if ETHERNET_SUPPORT_HP_QUEUES
+  loopback_if i_loopback;
+#endif
+
 
   par {
     #if RGMII
@@ -152,10 +178,12 @@ int main()
                                    eth_txclk_out);
 
     #if ETHERNET_SUPPORT_HP_QUEUES
-    on tile[0]: test_rx(i_cfg[0], c_rx_hp, c_loopback, i_ctrl[0]);
-    on tile[0]: test_rx_loopback(c_tx_hp, c_loopback);
+    on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
+    on tile[0]: test_rx_loopback(c_tx_hp, i_loopback);
+    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 1, 5000);
     #else
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
+    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 0, 5000);
     #endif
 
     #else // RGMII
@@ -170,13 +198,14 @@ int main()
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, 1);
-    on tile[0]: filler(0x1111);
 
     #if ETHERNET_SUPPORT_HP_QUEUES
-    on tile[0]: test_rx(i_cfg[0], c_rx_hp, c_loopback, i_ctrl[0]);
-    on tile[0]: test_rx_loopback(c_tx_hp, c_loopback);
+    on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
+    on tile[0]: test_rx_loopback(c_tx_hp, i_loopback);
+    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 1, 5000);
     #else
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
+    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 0, 5000);
     #endif
 
     #else // RT
@@ -194,13 +223,14 @@ int main()
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
-    on tile[0]: filler(0x4444);
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
+    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 0, 10000);
 
     #endif // RT
     #endif // RGMII
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
+    // The mac_addr_filler core take a config interface but won't call done
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF - 1);
   }
   return 0;
 }

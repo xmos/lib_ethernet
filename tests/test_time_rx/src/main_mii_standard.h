@@ -55,7 +55,9 @@ int main()
                     p_eth_txen, p_eth_txd, p_eth_dummy,
                     eth_rxclk, eth_txclk, 2300)
     on tile[0]: test_rx(i_mii, i_ctrl[0]);
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF);
+
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+
     on tile[0]: filler(0x22);
     on tile[0]: filler(0x33);
     on tile[0]: filler(0x44);
