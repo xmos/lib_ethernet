@@ -45,7 +45,7 @@
 // that reads the timer is the next instruction after the out at the
 // end of the packet and the timer wait is an instruction before the
 // out of the pre-amble
-#define ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 10)
+#define ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
 // Receive timing constraints
 #if ETHERNET_ENABLE_FULL_TIMINGS
@@ -446,7 +446,8 @@ unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
 }
 
 
-unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
+unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
+                               mii_mempool_t tx_mem_hp,
                                mii_packet_queue_t packets_lp,
                                mii_packet_queue_t packets_hp,
                                mii_ts_queue_t ts_queue,
@@ -475,40 +476,33 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
     int prev_credit_time;
     int elapsed;
     mii_ts_queue_t *p_ts_queue = null;
+    mii_mempool_t tx_mem = tx_mem_hp;
 
     if (ETHERNET_SUPPORT_HP_QUEUES)
       buf = mii_get_next_buf(packets_hp);
 
     if (enable_shaper) {
+      prev_credit_time = credit_time;
+      tmr :> credit_time;
+
+      elapsed = credit_time - prev_credit_time;
+      credit += elapsed * (*idle_slope);
+
       if (buf) {
-
-        if (credit < 0) {
-          prev_credit_time = credit_time;
-          tmr :> credit_time;
-
-          elapsed = credit_time - prev_credit_time;
-          credit += elapsed * (*idle_slope);
-        }
-
         if (credit < 0) {
           buf = 0;
         }
-        else {
-          int len = buf->length;
-          credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
-        }
-
       }
       else {
-        if (credit >= 0)
+        if (credit > 0)
           credit = 0;
-        tmr :> credit_time;
       }
     }
 
     if (!buf) {
       buf = mii_get_next_buf(packets_lp);
       p_ts_queue = &ts_queue;
+      tx_mem = tx_mem_lp;
     }
 
     if (!buf) {
@@ -521,10 +515,21 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
     ifg_time += ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += (buf->length & 0x3) * 8;
 
+    const int packet_is_high_priority = (p_ts_queue == null);
+    if (enable_shaper) {
+      if (packet_is_high_priority) {
+        const int preamble_bytes = 8;
+        const int ifg_bytes = 96/8;
+        const int crc_bytes = 4;
+        int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
+        credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
+      }
+    }
+
     if (mii_get_and_dec_transmit_count(buf) == 0) {
 
       /* The timestamp queue is only set for low-priority packets */
-      if (p_ts_queue) {
+      if (!packet_is_high_priority) {
         if (buf->timestamp_id) {
           mii_ts_queue_add_entry(*p_ts_queue, buf->timestamp_id, time);
         }

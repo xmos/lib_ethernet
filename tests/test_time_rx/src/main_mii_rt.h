@@ -24,7 +24,7 @@ int main()
                                     p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
-                                    4000, 4000, 1);
+                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
     on tile[0]: filler(0x222);
     on tile[0]: filler(0x333);
 

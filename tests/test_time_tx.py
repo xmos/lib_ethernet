@@ -57,8 +57,8 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
         test=testname, mac=mac, phy=rx_phy.get_name())
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {phy} phy at {clk}".format(
-            test=testname, phy=rx_phy.get_name(), clk=rx_clk.get_name())
+        print "Running {test}: {mac} {phy} phy at {clk}".format(
+            test=testname, mac=mac, phy=rx_phy.get_name(), clk=rx_clk.get_name())
 
     expect_folder = create_if_needed("expect")
     expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}.expect'.format(

@@ -18,7 +18,8 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
                                in buffered port:1 p_rxer,
                                streaming chanend c);
 
-unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
+unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
+                               mii_mempool_t tx_mem_hp,
                                mii_packet_queue_t hp_packets,
                                mii_packet_queue_t lp_packets,
                                mii_ts_queue_t ts_queue_lp,

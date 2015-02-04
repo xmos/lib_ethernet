@@ -146,7 +146,7 @@ void test_rx(client ethernet_cfg_if cfg,
 
 #endif
 
-#define NUM_CFG_IF 2
+#define NUM_CFG_IF 1
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
 
@@ -180,10 +180,8 @@ int main()
     #if ETHERNET_SUPPORT_HP_QUEUES
     on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
     on tile[0]: test_rx_loopback(c_tx_hp, i_loopback);
-    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 1, 5000);
     #else
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 0, 5000);
     #endif
 
     #else // RGMII
@@ -197,15 +195,14 @@ int main()
                                     p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
-                                    4000, 4000, 1);
+                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
 
+    on tile[0]: filler(0x1111);
     #if ETHERNET_SUPPORT_HP_QUEUES
     on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
     on tile[0]: test_rx_loopback(c_tx_hp, i_loopback);
-    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 1, 5000);
     #else
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 0, 5000);
     #endif
 
     #else // RT
@@ -223,14 +220,13 @@ int main()
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
+    on tile[0]: filler(0x4444);
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-    on tile[0]: mac_addr_filler(i_cfg[1], 0x8888, 1, 0, 0, 10000);
 
     #endif // RT
     #endif // RGMII
 
-    // The mac_addr_filler core take a config interface but won't call done
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF - 1);
+    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

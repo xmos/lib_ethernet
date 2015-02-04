@@ -486,10 +486,12 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         unsigned * unsafe dptr = &buf->data[0];
         memcpy(buf->data, data, n);
         buf->length = n;
-        if (request_timestamp)
+        if (request_timestamp) {
           buf->timestamp_id = i+1;
-        else
+        }
+        else {
           buf->timestamp_id = 0;
+        }
         work_pending++;
         buffers_used_add(used_buffers_tx, buf, RGMII_MAC_BUFFER_COUNT_TX);
         buf->tcount = 0;
@@ -502,6 +504,7 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         sin_char_array(c_tx_hp, (char *)tx_buf_hp->data, n_bytes);
         work_pending++;
         tx_buf_hp->length = n_bytes;
+        tx_buf_hp->timestamp_id = 0;
         buffers_used_add(used_buffers_tx, tx_buf_hp, RGMII_MAC_BUFFER_COUNT_TX);
         tx_buf_hp->tcount = 0;
         tx_buf_hp = buffers_free_take(free_buffers);
