@@ -20,25 +20,20 @@ APP_NAME =
 
 SHARED_CODE = ../../include
 
-COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
+COMMON_FLAGS  = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
+COMMON_FLAGS += -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1
 
-XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
-XCC_FLAGS_rt_hp_mii    = $(COMMON_FLAGS) -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1
-XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
-XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
-XCC_FLAGS_rt_hp_rgmii  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
+XCC_FLAGS_mii_25Mhz       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1 -DCLK_125=0
+XCC_FLAGS_rgmii_25Mhz     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DCLK_125=0 -fno-xta-info
+XCC_FLAGS_rgmii_125Mhz    = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DCLK_125=1 -fno-xta-info
 
-ifeq ($(CONFIG),rt_mii)
+ifeq ($(CONFIG),mii_25Mhz)
 	TARGET = STARTKIT
 endif
-ifeq ($(CONFIG),rt_hp_mii)
-	TARGET = STARTKIT
-endif
-
-ifeq ($(CONFIG),rt_rgmii)
+ifeq ($(CONFIG),rgmii_25Mhz)
 	TARGET = XS2-MODULE
 endif
-ifeq ($(CONFIG),rt_hp_rgmii)
+ifeq ($(CONFIG),rgmii_125Mhz)
 	TARGET = XS2-MODULE
 endif
 

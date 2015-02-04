@@ -11,6 +11,12 @@
 #include "xassert.h"
 #include "print.h"
 
+static inline unsigned int get_tile_id_from_chanend(chanend c) {
+  unsigned int tile_id;
+  asm("shr %0, %1, 16":"=r"(tile_id):"r"(c));
+  return tile_id;
+}
+
 #ifndef MII_RX_THRESHOLD_BYTES
 // When using the high priority queue and there are less than this number of bytes
 // free then low priority packets start to be dropped
@@ -183,8 +189,9 @@ unsafe static inline void handle_ts_queue(mii_ts_queue_t ts_queue,
   unsigned timestamp = 0;
   int found = mii_ts_queue_get_entry(ts_queue, &index, &timestamp);
   if (found) {
-    client_state[index].has_outgoing_timestamp_info = 1;
-    client_state[index].outgoing_timestamp = timestamp;
+    size_t client_id = index - 1;
+    client_state[client_id].has_outgoing_timestamp_info = 1;
+    client_state[client_id].outgoing_timestamp = timestamp;
   }
 }
 
@@ -201,7 +208,8 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
                                            server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
                                            streaming chanend ? c_rx_hp,
                                            streaming chanend ? c_tx_hp,
-                                           chanend c_macaddr_filter)
+                                           chanend c_macaddr_filter,
+                                           volatile int * unsafe p_idle_slope)
 {
   char mac_address[6] = {0};
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
@@ -360,6 +368,19 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       client_state.num_etype_filters = n;
       break;
 
+    case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
+      tile_id = get_tile_id_from_chanend(c_macaddr_filter);
+
+      timer tmr;
+      tmr :> time_on_tile;
+      break;
+    }
+
+    case i_cfg[int i].set_tx_qav_idle_slope(unsigned slope): {
+      *p_idle_slope = slope;
+      break;
+    }
+
     case i_tx_lp[int i]._init_send_packet(unsigned n, unsigned dst_port):
       if (tx_client_state_lp[i].send_buffer == null)
         tx_client_state_lp[i].requested_send_buffer_size = n;
@@ -441,7 +462,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       break;
     }
 
-    if (ETHERNET_SUPPORT_HP_QUEUES) {
+    if (!isnull(c_rx_hp)) {
       handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, rx_client_state_hp[0], c_rx_hp);
     }
 
@@ -452,7 +473,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
     // Keep the shared read pointer up to date
     *p_rx_rdptr = (unsigned)rx_rdptr;
 
-    if (ETHERNET_SUPPORT_HP_QUEUES) {
+    if (!isnull(c_rx_hp)) {
       // Test to see whether the buffer has reached a critical fullness level. If so, then start
       // dropping LP packets
       rx_rdptr = mii_get_rdptr(rx_packets_lp);
@@ -464,7 +485,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
     
     unsigned * unsafe tx_rdptr = mii_get_next_rdptr(tx_packets_lp, tx_packets_hp);
 
-    if (ETHERNET_SUPPORT_HP_QUEUES && !isnull(c_tx_hp)) {
+    if (!isnull(c_tx_hp)) {
       if (!mii_packet_queue_full(tx_packets_hp)) {
         reserve(tx_client_state_hp, 1, tx_mem, tx_rdptr);
       }
@@ -517,13 +538,18 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
     unsigned * unsafe p_rx_rdptr = &rx_rdptr;
 
     mii_init_lock();
-    mii_ts_queue_entry_t ts_fifo[n_rx_lp];
+    mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
     mii_ts_queue_info_t ts_queue_info;
-    mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp);
+
+    if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE)
+      fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in mii_ethernet_conf.h");
+
+    mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
     streaming chan c;
     mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk);
 
     int idle_slope = (11<<MII_CREDIT_FRACTIONAL_BITS);
+    int * unsafe p_idle_slope = (int * unsafe)&idle_slope;
     chan c_conf;
     par {
       mii_master_rx_pins(rx_mem,
@@ -535,7 +561,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          (mii_packet_queue_t)&tx_packets_lp,
                          (mii_packet_queue_t)&tx_packets_hp,
                          ts_queue, p_txd,
-                         enable_shaper == ETHERNET_ENABLE_SHAPER, &idle_slope);
+                         enable_shaper == ETHERNET_ENABLE_SHAPER, p_idle_slope);
 
       mii_ethernet_filter(c, c_conf,
                           (mii_packet_queue_t)&incoming_packets,
@@ -555,7 +581,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                               i_tx_lp, n_tx_lp,
                               c_rx_hp,
                               c_tx_hp,
-                              c_conf);
+                              c_conf,
+                              p_idle_slope);
     }
   }
 }

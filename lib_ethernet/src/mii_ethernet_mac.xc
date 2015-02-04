@@ -210,6 +210,15 @@ static void mii_ethernet_aux(client mii_if i_mii,
         client_state.num_etype_filters = n;
         break;
 
+      case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
+        fail("Outgoing timestamps are not supported in standard MII ethernet");
+        break;
+      }
+
+      case i_cfg[int i].set_tx_qav_idle_slope(unsigned slope):
+        fail("Shaper not supported in standard MII ethernet");
+        break;
+
       case i_tx[int i]._init_send_packet(unsigned n, unsigned dst_port):
         // Do nothing
         break;

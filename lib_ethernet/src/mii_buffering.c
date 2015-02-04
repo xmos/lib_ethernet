@@ -12,6 +12,10 @@
 CASSERT(MII_PACKET_HEADER_BYTES == (sizeof(mii_packet_t) - (((MII_PACKET_DATA_BYTES+3)/4) * 4)), \
         header_bytes_defines_does_not_match_structure)
 
+// Need to have a single implemenation of this somewhere
+extern unsigned increment_and_wrap_to_zero(unsigned value, unsigned max);
+extern unsigned increment_and_wrap_power_of_2(unsigned value, unsigned max);
+
 // There needs to be a block big enough to put the packet header
 // There also needs to be an extra word because the address which
 // is compared is pre-incremented.

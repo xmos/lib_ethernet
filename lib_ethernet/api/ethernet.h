@@ -82,6 +82,11 @@ typedef interface ethernet_cfg_if {
 
   void add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype);
   void del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype);
+
+  void get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile);
+
+  void set_tx_qav_idle_slope(unsigned slope);
+
 } ethernet_cfg_if;
 
 /** Ethernet endpoint receive interface.

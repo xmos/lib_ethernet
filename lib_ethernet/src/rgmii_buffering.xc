@@ -10,6 +10,12 @@
 
 extern inline void enable_rgmii(unsigned delay, unsigned divide);
 
+static inline unsigned int get_tile_id_from_chanend(streaming chanend c) {
+  unsigned int tile_id;
+  asm("shr %0, %1, 16":"=r"(tile_id):"r"(c));
+  return tile_id;
+}
+
 #ifndef RGMII_RX_BUFFERS_THRESHOLD
 // When using the high priority queue and there are less than this number of buffers
 // free then low priority packets start to be dropped
@@ -409,14 +415,16 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
       mii_packet_t * unsafe buf = (mii_packet_t *)buffers_used_take(used_buffers_rx_hp,
                                                                     RGMII_MAC_BUFFER_COUNT_RX);
 
-      ethernet_packet_info_t info;
-      info.type = ETH_DATA;
-      info.src_ifnum = 0;
-      info.timestamp = buf->timestamp;
-      info.len = buf->length;
-      info.filter_data = buf->filter_data;
-      sout_char_array(c_rx_hp, (char *)&info, sizeof(info));
-      sout_char_array(c_rx_hp, (char *)buf->data, buf->length);
+      if (!isnull(c_rx_hp)) {
+        ethernet_packet_info_t info;
+        info.type = ETH_DATA;
+        info.src_ifnum = 0;
+        info.timestamp = buf->timestamp;
+        info.len = buf->length;
+        info.filter_data = buf->filter_data;
+        sout_char_array(c_rx_hp, (char *)&info, sizeof(info));
+        sout_char_array(c_rx_hp, (char *)buf->data, buf->length);
+      }
       buffers_free_add(free_buffers, buf);
     }
 
@@ -500,10 +508,17 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
         prioritize_ack += 2;
         break;
 
-      case c_tx_to_mac :> uintptr_t buffer:
+      case c_tx_to_mac :> uintptr_t buffer: {
         sender_count--;
-        buffers_free_add(free_buffers, (mii_packet_t *)buffer);
+        mii_packet_t *buf = (mii_packet_t *)buffer;
+        if (buf->timestamp_id) {
+          size_t client_id = buf->timestamp_id - 1;
+          client_state_lp[client_id].has_outgoing_timestamp_info = 1;
+          client_state_lp[client_id].outgoing_timestamp = buf->timestamp;
+        }
+        buffers_free_add(free_buffers, buf);
         break;
+      }
 
       case c_speed_change :> unsigned tmp:
         done = 1;
@@ -543,7 +558,8 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
                                              server ethernet_cfg_if i_cfg[n],
                                              unsigned n,
                                              streaming chanend c_status_update,
-                                             streaming chanend c_speed_change)
+                                             streaming chanend c_speed_change,
+                                             volatile int * unsafe p_idle_slope)
 {
   set_core_fast_mode_on();
 
@@ -611,6 +627,19 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
         }
         client_state.num_etype_filters = n;
         break;
+
+      case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
+        tile_id = get_tile_id_from_chanend(c_speed_change);
+  
+        timer tmr;
+        tmr :> time_on_tile;
+        break;
+      }
+
+      case i_cfg[int i].set_tx_qav_idle_slope(unsigned slope): {
+        *p_idle_slope = slope;
+        break;
+      }
 
       case c_speed_change :> unsigned tmp:
         done = 1;

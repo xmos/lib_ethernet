@@ -490,11 +490,12 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
           credit += elapsed * (*idle_slope);
         }
 
-        if (credit < 0)
+        if (credit < 0) {
           buf = 0;
+        }
         else {
           int len = buf->length;
-          credit = credit - len << (MII_CREDIT_FRACTIONAL_BITS+3);
+          credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
         }
 
       }
@@ -505,7 +506,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
       }
     }
 
-    if (!ETHERNET_SUPPORT_HP_QUEUES || !buf) {
+    if (!buf) {
       buf = mii_get_next_buf(packets_lp);
       p_ts_queue = &ts_queue;
     }
@@ -525,7 +526,6 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem,
       /* The timestamp queue is only set for low-priority packets */
       if (p_ts_queue) {
         if (buf->timestamp_id) {
-          buf->timestamp = time;
           mii_ts_queue_add_entry(*p_ts_queue, buf->timestamp_id, time);
         }
 

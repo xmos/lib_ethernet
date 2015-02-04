@@ -71,7 +71,8 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
                                              server ethernet_cfg_if i_cfg[n],
                                              unsigned n,
                                              streaming chanend c_status_update,
-                                             streaming chanend c_speed_change);
+                                             streaming chanend c_speed_change,
+                                             volatile int * unsafe p_idle_slope);
 #endif
 
 #endif // __RGMII_BUFFERING_H__

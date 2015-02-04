@@ -18,5 +18,6 @@ MODULE_XCC_C_FLAGS = $(XCC_FLAGS) -g -Os
 
 XCC_FLAGS_mii_buffering.c = $(XCC_FLAGS) -O3 -g
 XCC_FLAGS_mii_master.xc = $(XCC_FLAGS) -O3 -fschedule -g0
+XCC_FLAGS_macaddr_filter.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
 
 VERSION = 3.0.0

@@ -148,6 +148,9 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
     log_speed_change_pointers(speed_change_ids);
     c_speed_change = (streaming chanend * unsafe)speed_change_ids;
 
+    int idle_slope = (11<<MII_CREDIT_FRACTIONAL_BITS);
+    int * unsafe p_idle_slope = (int * unsafe)&idle_slope;
+
     while(1)
     {
       // Setup the buffer pointers
@@ -213,7 +216,7 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
           }
           {
             rgmii_ethernet_config_server_aux((rx_client_state_t *)p_rx_client_state_lp, n_rx_lp,
-                                             i_cfg, n_cfg, c_status_update, c_speed_change[7]);
+                                             i_cfg, n_cfg, c_status_update, c_speed_change[7], p_idle_slope);
           }
         }
       }
@@ -266,7 +269,7 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
           }
           {
             rgmii_ethernet_config_server_aux((rx_client_state_t *)p_rx_client_state_lp, n_rx_lp,
-                                             i_cfg, n_cfg, c_status_update, c_speed_change[7]);
+                                             i_cfg, n_cfg, c_status_update, c_speed_change[7], p_idle_slope);
           }
         }
       }

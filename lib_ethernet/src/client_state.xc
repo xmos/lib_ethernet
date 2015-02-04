@@ -1,8 +1,5 @@
 #include "client_state.h"
 
-// Need to have a single implemenation of this somewhere
-extern unsigned increment_and_wrap_to_zero(unsigned value, unsigned max);
-
 void init_rx_client_state(rx_client_state_t client_state[n], unsigned n)
 {
   for (int i = 0; i < n; i ++) {
