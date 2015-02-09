@@ -16,6 +16,7 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 #define VLAN_TAGGED 1
 
 #define MII_CREDIT_FRACTIONAL_BITS 16
+
 static int calc_idle_slope(int bps)
 {
   long long slope = ((long long) bps) << (MII_CREDIT_FRACTIONAL_BITS);
@@ -163,7 +164,7 @@ int main()
                                    p_eth_rxd_interframe, p_eth_rxdv, p_eth_rxdv_interframe,
                                    p_eth_txclk_in, p_eth_txclk_out, p_eth_txer, p_eth_txen,
                                    p_eth_txd, eth_rxclk, eth_rxclk_interframe, eth_txclk,
-                                   eth_txclk_out);
+                                   eth_txclk_out, ETHERNET_ENABLE_SHAPER);
 
     on tile[0]: {
       // Give time for the MAC layer to detect the speed of the PHY and set itself up

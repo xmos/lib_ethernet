@@ -16,9 +16,15 @@ def packet_checker(packet, phy):
     if phy._verbose:
         sys.stdout.write(packet.dump())
     if packet.dst_mac_addr == high_priority_mac_addr:
+        phy.n_hp_packets += 1
         done = phy.timeout_monitor.packet_received()
         if done:
+            if phy.n_hp_packets >= phy.n_lp_packets:
+                print "ERROR: Only {} low priority packets received vs {} high priority".format(
+                    phy.n_lp_packets, phy.n_hp_packets)
             phy.xsi.terminate()
+    else:
+        phy.n_lp_packets += 1
 
 
 class TimeoutMonitor(xmostest.SimThread):
@@ -97,6 +103,8 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
     num_expected_packets = 30
     timeout_monitor = TimeoutMonitor(20000, packet_period, num_expected_packets, args.verbose)
     rx_phy.timeout_monitor = timeout_monitor
+    rx_phy.n_hp_packets = 0
+    rx_phy.n_lp_packets = 0
    
     expect_folder = create_if_needed("expect")
     expect_filename = '{folder}/{test}_{phy}_{clk}.expect'.format(

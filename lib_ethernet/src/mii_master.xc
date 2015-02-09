@@ -471,10 +471,6 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
   while (1) {
 #pragma xta label "mii_tx_main_loop"
     mii_packet_t * unsafe buf = null;
-    int bytes_left;
-
-    int prev_credit_time;
-    int elapsed;
     mii_ts_queue_t *p_ts_queue = null;
     mii_mempool_t tx_mem = tx_mem_hp;
 
@@ -482,10 +478,10 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       buf = mii_get_next_buf(packets_hp);
 
     if (enable_shaper) {
-      prev_credit_time = credit_time;
+      int prev_credit_time = credit_time;
       tmr :> credit_time;
 
-      elapsed = credit_time - prev_credit_time;
+      int elapsed = credit_time - prev_credit_time;
       credit += elapsed * (*idle_slope);
 
       if (buf) {
@@ -516,14 +512,12 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
     ifg_time += (buf->length & 0x3) * 8;
 
     const int packet_is_high_priority = (p_ts_queue == null);
-    if (enable_shaper) {
-      if (packet_is_high_priority) {
-        const int preamble_bytes = 8;
-        const int ifg_bytes = 96/8;
-        const int crc_bytes = 4;
-        int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
-        credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
-      }
+    if (enable_shaper && packet_is_high_priority) {
+      const int preamble_bytes = 8;
+      const int ifg_bytes = 96/8;
+      const int crc_bytes = 4;
+      int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
+      credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
     }
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {

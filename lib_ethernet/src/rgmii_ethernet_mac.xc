@@ -83,7 +83,8 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
                         clock rxclk,
                         clock rxclk_interframe,
                         clock txclk,
-                        clock txclk_out)
+                        clock txclk_out,
+                        enum ethernet_enable_shaper_t enable_shaper)
 {
   in port * movable _pp_rxd_1000 = &_p_rxd_1000;
   in buffered port:32 * movable pp_rxd_1000 = reconfigure_port(move(_pp_rxd_1000), in buffered port:32);
@@ -116,15 +117,20 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
     unsigned int buffer_free_pointers_rx[RGMII_MAC_BUFFER_COUNT_RX];
     unsigned int buffer_used_pointers_rx_lp[RGMII_MAC_BUFFER_COUNT_RX + 1];
     unsigned int buffer_used_pointers_rx_hp[RGMII_MAC_BUFFER_COUNT_RX + 1];
+    buffers_free_t free_buffers_rx;
     buffers_used_t used_buffers_rx_lp;
     buffers_used_t used_buffers_rx_hp;
-    buffers_free_t free_buffers_rx;
 
-    unsigned int buffer_tx[RGMII_MAC_BUFFER_COUNT_TX * sizeof(mii_packet_t) / 4];
-    unsigned int buffer_free_pointers_tx[RGMII_MAC_BUFFER_COUNT_RX];
-    unsigned int buffer_used_pointers_tx[RGMII_MAC_BUFFER_COUNT_RX + 1];
-    buffers_used_t used_buffers_tx;
-    buffers_free_t free_buffers_tx;
+    unsigned int buffer_tx_lp[RGMII_MAC_BUFFER_COUNT_TX * sizeof(mii_packet_t) / 4];
+    unsigned int buffer_tx_hp[RGMII_MAC_BUFFER_COUNT_TX * sizeof(mii_packet_t) / 4];
+    unsigned int buffer_free_pointers_tx_lp[RGMII_MAC_BUFFER_COUNT_TX];
+    unsigned int buffer_free_pointers_tx_hp[RGMII_MAC_BUFFER_COUNT_TX];
+    unsigned int buffer_used_pointers_tx_lp[RGMII_MAC_BUFFER_COUNT_TX + 1];
+    unsigned int buffer_used_pointers_tx_hp[RGMII_MAC_BUFFER_COUNT_TX + 1];
+    buffers_free_t free_buffers_tx_lp;
+    buffers_free_t free_buffers_tx_hp;
+    buffers_used_t used_buffers_tx_lp;
+    buffers_used_t used_buffers_tx_hp;
 
     // Create unsafe pointers to pass to two parallel tasks
     buffers_used_t * unsafe p_used_buffers_rx_lp = &used_buffers_rx_lp;
@@ -159,9 +165,12 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
       buffers_free_initialize(free_buffers_rx, (unsigned char*)buffer_rx,
                               buffer_free_pointers_rx, RGMII_MAC_BUFFER_COUNT_RX);
 
-      buffers_used_initialize(used_buffers_tx, buffer_used_pointers_tx);
-      buffers_free_initialize(free_buffers_tx, (unsigned char*)buffer_tx,
-                              buffer_free_pointers_tx, RGMII_MAC_BUFFER_COUNT_TX);
+      buffers_used_initialize(used_buffers_tx_lp, buffer_used_pointers_tx_lp);
+      buffers_used_initialize(used_buffers_tx_hp, buffer_used_pointers_tx_hp);
+      buffers_free_initialize(free_buffers_tx_lp, (unsigned char*)buffer_tx_lp,
+                              buffer_free_pointers_tx_lp, RGMII_MAC_BUFFER_COUNT_TX);
+      buffers_free_initialize(free_buffers_tx_hp, (unsigned char*)buffer_tx_hp,
+                              buffer_free_pointers_tx_hp, RGMII_MAC_BUFFER_COUNT_TX);
 
       if (current_mode == INBAND_STATUS_1G_FULLDUPLEX)
       {
@@ -212,7 +221,9 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
             rgmii_ethernet_tx_server_aux(tx_client_state_lp, i_tx_lp, n_tx_lp,
                                          c_tx_hp,
                                          c_manager_to_tx, c_speed_change[6],
-                                         used_buffers_tx, free_buffers_tx);
+                                         used_buffers_tx_lp, free_buffers_tx_lp,
+                                         used_buffers_tx_hp, free_buffers_tx_hp,
+                                         enable_shaper == ETHERNET_ENABLE_SHAPER, p_idle_slope);
           }
           {
             rgmii_ethernet_config_server_aux((rx_client_state_t *)p_rx_client_state_lp, n_rx_lp,
@@ -265,7 +276,9 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
             rgmii_ethernet_tx_server_aux(tx_client_state_lp, i_tx_lp, n_tx_lp,
                                          c_tx_hp,
                                          c_manager_to_tx, c_speed_change[6],
-                                         used_buffers_tx, free_buffers_tx);
+                                         used_buffers_tx_lp, free_buffers_tx_lp,
+                                         used_buffers_tx_hp, free_buffers_tx_hp,
+                                         enable_shaper == ETHERNET_ENABLE_SHAPER, p_idle_slope);
           }
           {
             rgmii_ethernet_config_server_aux((rx_client_state_t *)p_rx_client_state_lp, n_rx_lp,

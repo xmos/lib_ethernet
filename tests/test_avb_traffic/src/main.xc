@@ -180,7 +180,7 @@ int main()
                                    p_eth_rxd_interframe, p_eth_rxdv, p_eth_rxdv_interframe,
                                    p_eth_txclk_in, p_eth_txclk_out, p_eth_txer, p_eth_txen,
                                    p_eth_txd, eth_rxclk, eth_rxclk_interframe, eth_txclk,
-                                   eth_txclk_out);
+                                   eth_txclk_out, ETHERNET_DISABLE_SHAPER);
 
 
     #else // !RGMII

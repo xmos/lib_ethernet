@@ -63,8 +63,12 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
                                          streaming chanend ? c_tx_hp,
                                          streaming chanend c_tx_to_mac,
                                          streaming chanend c_speed_change,
-                                         buffers_used_t &used_buffers_tx,
-                                         buffers_free_t &free_buffers);
+                                         buffers_used_t &used_buffers_tx_lp,
+                                         buffers_free_t &free_buffers_lp,
+                                         buffers_used_t &used_buffers_tx_hp,
+                                         buffers_free_t &free_buffers_hp,
+                                         int enable_shaper,
+                                         volatile int * unsafe idle_slope);
 
 unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
                                              unsigned n_rx_lp,

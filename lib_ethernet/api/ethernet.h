@@ -192,6 +192,10 @@ enum ethernet_enable_shaper_t {
  *  \param rxclk_interframe   Clock used for interframe receive timing
  *  \param txclk              Clock used for transmit timing
  *  \param txclk_out          Second clock used for transmit timing
+ *  \param shaper_enabled     This should be set to ``ETHERNET_ENABLE_SHAPER``
+ *                            or ``ETHERNET_DISABLE_SHAPER`` to either enable
+ *                            or disable the traffice shaper within the
+ *                            MAC.
  *
  */
 void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
@@ -209,7 +213,8 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
                         clock rxclk,
                         clock rxclk_interframe,
                         clock txclk,
-                        clock txclk_out);
+                        clock txclk_out,
+                        enum ethernet_enable_shaper_t shaper_enabled);
 
 /** Ethernet component to connect to an MII interface (with real-time features).
  *
@@ -250,7 +255,7 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
  *  \param tx_hp_bufsize_words The number of words to used for a high priority
  *                             transmit buffer.
  *                             This should be at least 500 words.
- *  \param enable_shaper       This should be set to ``ETHERNET_ENABLE_SHAPER``
+ *  \param shaper_enabled      This should be set to ``ETHERNET_ENABLE_SHAPER``
  *                             or ``ETHERNET_DISABLE_SHAPER`` to either enable
  *                             or disable the traffice shaper within the
  *                             MAC.
@@ -266,7 +271,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          clock txclk,
                          static const unsigned rx_bufsize_words,
                          static const unsigned tx_bufsize_words,
-                         enum ethernet_enable_shaper_t enable_shaper);
+                         enum ethernet_enable_shaper_t shaper_enabled);
 
 /** Ethernet component to connect to an MII interface.
  *
