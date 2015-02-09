@@ -112,14 +112,15 @@ static unsafe inline unsafe uintptr_t * unsafe buffers_used_add(buffers_used_t &
   volatile unsigned * unsafe p_head_index = (volatile unsigned * unsafe)(&used.head_index);
   unsigned head_index = *p_head_index;
 
-  used.pointers[head_index] = (uintptr_t)buf;
-  *p_head_index = increment_and_wrap_power_of_2(head_index, buffer_count);
+  unsigned index = head_index % buffer_count;
+  used.pointers[index] = (uintptr_t)buf;
+  *p_head_index = head_index + 1;
 
   if (do_lock) {
     UNLOCK(free);
   }
 
-  return &used.pointers[head_index];
+  return &used.pointers[index];
 }
 
 #pragma unsafe arrays
@@ -134,10 +135,11 @@ static unsafe inline mii_packet_t * unsafe buffers_used_take(buffers_used_t &use
   // Ensure that the compiler does not keep this value in a register
   volatile unsigned * unsafe p_tail_index = (volatile unsigned * unsafe)(&used.tail_index);
   unsigned tail_index = *p_tail_index;
-  *p_tail_index = increment_and_wrap_power_of_2(tail_index, buffer_count);
+  unsigned index = tail_index % buffer_count;
+  *p_tail_index = tail_index + 1;
 
   unsafe {
-    mii_packet_t * unsafe buf = (mii_packet_t *)used.pointers[tail_index];
+    mii_packet_t * unsafe buf = (mii_packet_t *)used.pointers[index];
     if (do_lock) {
       UNLOCK(free);
     }

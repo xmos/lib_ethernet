@@ -85,6 +85,7 @@ void test_rx(client ethernet_cfg_if cfg,
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
   int num_bytes = 0;
+  int num_packets = 0;
   int done = 0;
   while (!done) {
     ethernet_packet_info_t packet_info;
@@ -95,6 +96,7 @@ void test_rx(client ethernet_cfg_if cfg,
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
       num_bytes += packet_info.len;
+      num_packets += 1;
       break;
 
     case ctrl.status_changed():
@@ -105,7 +107,7 @@ void test_rx(client ethernet_cfg_if cfg,
       break;
     }
   }
-  debug_printf("Received %d bytes\n", num_bytes);
+  debug_printf("Received %d packets, %d bytes\n", num_packets, num_bytes);
   while (1) {
     // Wait for the test to be terminated by testbench
   }
@@ -164,9 +166,15 @@ int main()
   ethernet_cfg_if i_cfg[NUM_CFG_IF];
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
+  control_if i_ctrl[NUM_CFG_IF];
+
+  #if ETHERNET_SUPPORT_HP_QUEUES
   streaming chan c_rx_hp;
   streaming chan c_tx_hp;
-  control_if i_ctrl[NUM_CFG_IF];
+  #else
+  #define c_rx_hp null
+  #define c_tx_hp null
+  #endif
 
   par {
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,

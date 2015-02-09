@@ -178,14 +178,18 @@ def runtest():
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
+    if run_on(phy='mii', clk='25Mhz', mac='rt_hp'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt_hp', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
                                                  test_ctrl="tile[0]:XS1_PORT_1A")
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False,
                                                  complete_fn=set_tx_complete, verbose=args.verbose)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+        do_test('rt_hp', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
     # Test 1000 MBit - RGMII
     # The RGMII application cannot keep up with line-rate gigabit data

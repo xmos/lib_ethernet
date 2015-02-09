@@ -19,7 +19,7 @@
  *  - The error flag will simply be non-zero (do not rely on its actual value).
  *
  */
-unsigned * unsafe mii_setup_error_port(in buffered port:1 p_rxer);
+unsigned * unsafe mii_setup_error_port(in buffered port:1 p_rxer, in port p_rxdv);
 
 #endif
 

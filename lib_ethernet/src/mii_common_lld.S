@@ -5,7 +5,8 @@
 // The byte-reversed version of the tag
 .align 4
 .globl mii_per_core_error
-mii_per_core_error:
+mii_per_core_error_and_dv:
+.word 0,0,0,0,0,0,0,0
 .word 0,0,0,0,0,0,0,0
 
 .text
@@ -29,8 +30,8 @@ mii_setup_error_port:
         entsp 0
 
         setc res[r0], XS1_SETC_IE_MODE_INTERRUPT
-        ldc r1, 1
-        setd res[r0], r1
+        ldc r2, 1
+        setd res[r0], r2
         setc res[r0], XS1_SETC_COND_EQ
 
         ldap r11, mii_error_interrupt_handler
@@ -39,8 +40,12 @@ mii_setup_error_port:
 
         // Return the address that the error will be stored in
         get r11, id
-        ldaw r0, dp[mii_per_core_error]
+
+        ldaw r0, dp[mii_per_core_error_and_dv]
         ldaw r0, r0[r11]
+
+        // Store off the DV port ID
+        stw r1, r0[8]
 
         retsp 0
 
@@ -49,16 +54,27 @@ mii_error_interrupt_handler:
         stw r0, sp[0]
         stw r11, sp[1]
 
+        // Compute address of data in memory
+        get r11, id
+        ldaw r0, dp[mii_per_core_error_and_dv]
+        ldaw r0, r0[r11]
+
+        // Load the DV port ID and peek its current value
+        ldw r11, r0[8]
+        peek r11, res[r11]
+
+        // If the DV line is not high then ignore this error
+        bf r11, mii_error_interrupt_handler_igore
+
+        // Signal the error through the shared pointer
+        stw r0, r0[0]
+
+mii_error_interrupt_handler_igore:
         // Clear the interrupt
         get r11, ed
         in r0, res[r11]
         setc res[r11], XS1_SETC_COND_EQ
 
-        // Signal the error through the shared pointer
-        get r11, id
-        ldaw r0, dp[mii_per_core_error]
-        ldaw r0, r0[r11]
-        stw r0, r0[0]
 
         ldw r11, sp[1]
         ldw r0, sp[0]

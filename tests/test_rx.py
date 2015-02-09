@@ -1,9 +1,30 @@
 #!/usr/bin/env python
 
 import random
+import xmostest
 from mii_packet import MiiPacket
+from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
+
+class TxError(xmostest.SimThread):
+
+    def __init__(self, tx_phy, do_error):
+        self._tx_phy = tx_phy
+        self._do_error = do_error
+        self._initial_delay = tx_phy._initial_delay - 5000
+
+    def run(self):
+        xsi = self.xsi
+
+        if not self._do_error:
+            return
+
+        self.wait_until(xsi.get_time() + self._initial_delay)
+        self._tx_phy.drive_error(1)
+        self.wait_until(xsi.get_time() + 100)
+        self._tx_phy.drive_error(0)
+
 
 def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -40,7 +61,16 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             inter_frame_gap=packet_processing_time(tx_phy, 1500, mac)
         ))
 
-    do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, 'smoke')
+    do_error = True
+
+    # The gigabit RGMII can't handle spurious errors
+    if tx_clk.get_rate() == Clock.CLK_125MHz:
+        do_error = False
+
+    error_driver = TxError(tx_phy, do_error)
+
+    do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
+               level='smoke', extra_tasks=[error_driver])
 
 def runtest():
     random.seed(1)

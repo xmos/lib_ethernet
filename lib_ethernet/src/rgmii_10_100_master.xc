@@ -57,7 +57,7 @@ unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
   // uses interrupts
   asm("setc res[%0], %1" : /* no output */ : "r"(p_rxdv), "r"(XS1_SETC_IE_MODE_EVENT));
 
-  volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_rxer);
+  volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_rxer, p_rxdv);
 
   while (1) {
 #pragma xta label "rgmii_10_100_rx_begin"
@@ -83,6 +83,9 @@ unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
         unsigned int word;
         unsigned * unsafe dptr = buf->data;
 
+        // Enable interrupts
+        asm("setsr 0x2");
+
         unsigned sfd_preamble;
         select {
           case c_speed_change :> buffer:
@@ -97,9 +100,6 @@ unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
         unsigned time;
         tmr :> time;
         buf->timestamp = time;
-
-        // Enable interrupts
-        asm("setsr 0x2");
 
         int i = 0;
         int done = 0;

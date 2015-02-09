@@ -167,7 +167,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
   timer tmr;
 
   /* Pointers to data that needs the latest value being read */
-  volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer);
+  volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer, p_mii_rxdv);
   volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
 
   /* Set up the wrap markers for the two memory buffers. These are the
@@ -196,6 +196,10 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
     unsigned poly = 0xEDB88320;
     unsigned * unsafe dptr = &buf->data[0];
 
+    /* Enable interrupts as the rx_err port is configured to raise an interrupt
+     * that logs the error and continues. */
+    asm("setsr 0x2");
+
     /* Wait for the start of the packet and timestamp it */
     unsigned sfd_preamble;
     #pragma xta endpoint "mii_rx_sof"
@@ -212,10 +216,6 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
     tmr :> time;
     buf->timestamp = time;
 
-    /* Enable interrupts as the rx_err port is configured to raise an interrupt
-     * that logs the error and continues. */
-    asm("setsr 0x2");
-
     unsigned end_of_frame = 0;
     unsigned word;
 
@@ -231,7 +231,6 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
           * then this packet will be dropped as there is not enough room in the buffer. */
          if (dptr != end_ptr) {
            dptr++;
-
            /* The wrap pointer contains the address of the start of the buffer */
            if (dptr == wrap_ptr)
              dptr = (unsigned * unsafe) *dptr;

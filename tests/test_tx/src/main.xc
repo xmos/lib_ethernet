@@ -79,8 +79,14 @@ int main()
   ethernet_cfg_if i_cfg[NUM_CFG_IF];
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
+
+  #if ETHERNET_SUPPORT_HP_QUEUES
   streaming chan c_rx_hp;
   streaming chan c_tx_hp;
+  #else
+  #define c_rx_hp null
+  #define c_tx_hp null
+  #endif
 
   par {
     #if RGMII

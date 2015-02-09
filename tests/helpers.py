@@ -114,7 +114,9 @@ def runall_rx(test_fn):
         test_fn('rt_hp', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
 
-def do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, level='nightly'):
+def do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
+               level='nightly', extra_tasks=[]):
+
     """ Shared test code for all RX tests using the test_rx application.
     """
     testname,extension = os.path.splitext(os.path.basename(test_file))
@@ -145,7 +147,7 @@ def do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, le
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
+                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
                               tester=tester,
                               simargs=simargs)
 
