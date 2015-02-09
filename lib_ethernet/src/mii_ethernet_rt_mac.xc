@@ -250,6 +250,10 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
         data[0] = 1;
         data[1] = link_status;
         desc.type = ETH_IF_STATUS;
+        desc.src_ifnum = 0;
+        desc.timestamp = 0;
+        desc.len = 2;
+        desc.filter_data = 0;
         client_state.status_update_state = STATUS_UPDATE_WAITING;
       }
       else if (client_state.rd_index != client_state.wr_index) {
@@ -548,8 +552,13 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
     mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
     mii_ts_queue_info_t ts_queue_info;
 
-    if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE)
+    if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE) {
       fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in mii_ethernet_conf.h");
+    }
+
+    if (!ETHERNET_SUPPORT_HP_QUEUES && (!isnull(c_rx_hp) || !isnull(c_tx_hp))) {
+      fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
+    }
 
     mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
     streaming chan c;

@@ -19,7 +19,8 @@ extern unsigned increment_and_wrap_power_of_2(unsigned value, unsigned max);
 // There needs to be a block big enough to put the packet header
 // There also needs to be an extra word because the address which
 // is compared is pre-incremented.
-#define MIN_USAGE (MII_PACKET_HEADER_BYTES + 4)
+// Need one word extra to ensure dest mac address does not wrap
+#define MIN_USAGE (MII_PACKET_HEADER_BYTES + 4 + 4)
 
 hwlock_t ethernet_memory_lock = 0;
 

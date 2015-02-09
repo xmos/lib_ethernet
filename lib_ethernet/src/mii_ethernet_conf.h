@@ -1,3 +1,10 @@
+#ifndef __mii_ethernet_conf_h__
+#define __mii_ethernet_conf_h__
+
+#ifdef __ethernet_conf_h_exists__
+#include "ethernet_conf.h"
+#endif
+
 #ifndef ETHERNET_SUPPORT_HP_QUEUES
 #define ETHERNET_SUPPORT_HP_QUEUES (0)
 #endif
@@ -61,3 +68,5 @@
 #ifndef MII_TIMESTAMP_QUEUE_MAX_SIZE
 #define MII_TIMESTAMP_QUEUE_MAX_SIZE 10
 #endif
+
+#endif // __mii_ethernet_conf_h__
