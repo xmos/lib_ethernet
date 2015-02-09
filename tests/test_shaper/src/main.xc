@@ -28,7 +28,7 @@ static int calc_idle_slope(int bps)
 void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
 {
   // Request 5MB/s
-  i_cfg.set_tx_qav_idle_slope(calc_idle_slope(5 * 1024 * 1024));
+  i_cfg.set_tx_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
   
   // Indicate the test is not yet complete
   p_test_ctrl <: 0;

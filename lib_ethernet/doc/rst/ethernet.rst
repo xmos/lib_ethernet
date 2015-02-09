@@ -1,12 +1,12 @@
-Ethernet library
-================
+Ethernet MAC library
+====================
 
 .. rheader::
 
    Ethernet |version|
 
-Ethernet Library
-----------------
+Ethernet MAC library
+--------------------
 
 The Ethernet library provides a complete Layer 2 Ethernet MAC.
 
@@ -96,27 +96,30 @@ TODO DIAGRAM + Explanation of how to connect to MAC!!!
 Creating an Ethernet instance
 .............................
 
-.. doxygenfunction:: mii_ethernet
+.. doxygenfunction:: mii_ethernet_mac
 
 |newpage|
 
-.. doxygenfunction:: mii_ethernet_rt
+.. doxygenenum:: ethernet_enable_shaper_t
+
+.. doxygenfunction:: mii_ethernet_rt_mac
+
+|newpage|
+
+.. doxygenfunction:: rgmii_ethernet_mac
 
 |newpage|
 
 The Ethernet configuration interface
 ....................................
 
-.. doxygeninterface:: ethernet_config_if
+.. doxygeninterface:: ethernet_cfg_if
 
 .. doxygenenum:: ethernet_link_state_t
 
-|newpage|
+.. doxygenstruct:: ethernet_macaddr_filter_t
 
-The Ethernet filtering callback interface
-.........................................
-
-.. doxygeninterface:: ethernet_filter_callback_if
+.. doxygenenum:: ethernet_macaddr_filter_result_t
 
 |newpage|
 
@@ -127,4 +130,27 @@ The Ethernet data handling interface
 
 .. doxygenstruct:: ethernet_packet_info_t
 
-.. doxygeninterface:: ethernet_if
+.. doxygeninterface:: ethernet_tx_if
+
+.. doxygeninterface:: ethernet_rx_if
+
+.. doxygenfunction:: mii_receive_hp_packet
+
+|newpage|
+
+The Ethernet SMI/MDIO PHY interface
+...................................
+
+.. doxygeninterface:: smi_if
+
+.. doxygenfunction:: smi_configure
+
+.. doxygenfunction:: smi_set_loopback_mode
+
+.. doxygenfunction:: smi_get_id
+
+.. doxygenfunction:: smi_is_link_up
+
+.. doxygenfunction:: smi
+
+.. doxygenfunction:: smi_singleport

@@ -690,10 +690,7 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
         mii_macaddr_hash_table_clear();
         break;
 
-      case i_cfg[int i].add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-        if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
-
+      case i_cfg[int i].add_ethertype_filter(size_t client_num, uint16_t ethertype):
         rx_client_state_t &client_state = client_state_lp[client_num];
         size_t n = client_state.num_etype_filters;
         assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
@@ -701,10 +698,7 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
         client_state.num_etype_filters = n + 1;
         break;
 
-      case i_cfg[int i].del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-        if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
-
+      case i_cfg[int i].del_ethertype_filter(size_t client_num, uint16_t ethertype):
         rx_client_state_t &client_state = client_state_lp[client_num];
         size_t j = 0;
         size_t n = client_state.num_etype_filters;
@@ -728,7 +722,7 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
         break;
       }
 
-      case i_cfg[int i].set_tx_qav_idle_slope(unsigned slope): {
+      case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope): {
         *p_idle_slope = slope;
         break;
       }

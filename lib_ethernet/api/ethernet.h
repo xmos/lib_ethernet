@@ -21,51 +21,64 @@ typedef enum ethernet_link_state_t {
   ETHERNET_LINK_UP       /**< Ethernet link up event. */
 } ethernet_link_state_t;
 
+/** Structure representing a received data or control packet from the Ethernet MAC */
 typedef struct ethernet_packet_info_t {
-  eth_packet_type_t type;
-  unsigned len;
-  unsigned timestamp;
-  unsigned src_ifnum;
-  unsigned filter_data;
+  eth_packet_type_t type; /**< Type representing the type of packet from the MAC */
+  unsigned len;           /**< Length of the received packet in bytes */
+  unsigned timestamp;     /**< The local time the packet was received by the MAC */
+  unsigned src_ifnum;     /**< The index of the MAC interface that received the packet */
+  unsigned filter_data;   /**< A word of user data that was registered with the MAC address filter */
 } ethernet_packet_info_t;
 
+/** Structure representing MAC address filter data that is registered with the Ethernet MAC */
 typedef struct ethernet_macaddr_filter_t {
-  unsigned char addr[6];
-  unsigned appdata;
+  unsigned char addr[6]; /**< Six-octet destination MAC address to filter to the client that registers it */
+  unsigned appdata;      /**< An optional word of user data that is stored by the Ethernet MAC and
+                              returned to the client when a packet is received with the
+                              destination MAC address indicated by the ``addr`` field */
 } ethernet_macaddr_filter_t;
 
+/** Type representing the result of adding a filter entry to the Ethernet MAC */
 typedef enum ethernet_macaddr_filter_result_t {
-  ETHERNET_MACADDR_FILTER_SUCCESS,
-  ETHERNET_MACADDR_FILTER_TABLE_FULL
+  ETHERNET_MACADDR_FILTER_SUCCESS,    /**< The filter entry was added succesfully */
+  ETHERNET_MACADDR_FILTER_TABLE_FULL  /**< The filter entry was not added because the filter table is full */
 } ethernet_macaddr_filter_result_t;
 
 #ifdef __XC__
 
-/** Ethernet endpoint configuration interface.
+/** Ethernet MAC configuration interface.
  *
- *  This interface allows clients to configure the ethernet endpoint. */
+ *  This interface allows clients to configure the Ethernet MAC  */
 typedef interface ethernet_cfg_if {
+  /** Set the source MAC address of the Ethernet MAC
+   *
+   * \param ifnum       The index of the MAC interface to set
+   * \param mac_address The six-octet MAC address to set
+   */
   void set_macaddr(size_t ifnum, unsigned char mac_address[6]);
 
+  /** Gets the source MAC address of the Ethernet MAC
+   *
+   * \param ifnum       The index of the MAC interface to get
+   * \param mac_address The six-octet MAC address of this interface
+   */
   void get_macaddr(size_t ifnum, unsigned char mac_address[6]);
 
   /** Set the current link state.
    *
    *  This function sets the current link state of the interface component.
    *
-   *  \param portnum   The port number of the ethernet link changing state.
-   *                   For single port ethernet instances this should be
-   *                   set to 0.
-   *  \param new_state The new link state for the port.
+   *  \param ifnum      The index of the MAC interface to set
+   *  \param new_state  The new link state for the port.
    */
   void set_link_state(int ifnum, ethernet_link_state_t new_state);
 
   /** Add MAC addresses to the filter.
    *
-   *  \param client_num   The index into the set of rx clients. Can be acquired by
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
    *                      calling the get_index() method.
-   *  \param is_hp        Indicates whether the rx client is high priority. There is
-   *                      only 1 high priority client, so client_num must be 0 when
+   *  \param is_hp        Indicates whether the RX client is high priority. There is
+   *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
    *  \param entry        The filter entry to add.
    *
@@ -76,16 +89,56 @@ typedef interface ethernet_cfg_if {
   ethernet_macaddr_filter_result_t
     add_macaddr_filter(size_t client_num, int is_hp, ethernet_macaddr_filter_t entry);
 
+  /** Delete MAC addresses from the filter.
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   *  \param is_hp        Indicates whether the RX client is high priority. There is
+   *                      only one high priority client, so client_num must be 0 when
+   *                      is_hp is set.
+   *  \param entry        The filter entry to delete.
+   */
   void del_macaddr_filter(size_t client_num, int is_hp, ethernet_macaddr_filter_t entry);
 
+  /** Delete all MAC addresses from the filter registered for this client.
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   *  \param is_hp        Indicates whether the RX client is high priority. There is
+   *                      only one high priority client, so client_num must be 0 when
+   *                      is_hp is set.
+   */
   void del_all_macaddr_filters(size_t client_num, int is_hp);
 
-  void add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype);
-  void del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype);
+  /** Add an Ethertype to the filter
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   *  \param ethertype    A two-octet Ethertype value to filter.
+   */
+  void add_ethertype_filter(size_t client_num, uint16_t ethertype);
 
+  /** Delete an Ethertype from the filter
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   *  \param ethertype    A two-octet Ethertype value to delete from filter.
+   */
+  void del_ethertype_filter(size_t client_num, uint16_t ethertype);
+
+  /** Get the tile ID that the Ethernet MAC is running on and the current timer value on that tile
+   *
+   *  \param tile_id      The tile ID returned from the Ethernet MAC
+   *  \param time_on_tile The current timer value from the Ethernet MAC
+   */
   void get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile);
 
-  void set_tx_qav_idle_slope(unsigned slope);
+  /** Set the high-priority TX queue's credit based shaper idle slope
+   *
+   * \param ifnum   The index of the MAC interface to set the slope
+   * \param slope   The slope value
+   */
+  void set_tx_qav_idle_slope(size_t ifnum, unsigned slope);
 
 } ethernet_cfg_if;
 
@@ -235,7 +288,6 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
  *  \param c_rx_hp             Streaming channel end for high priority receive data
  *  \param c_tx_hp             Streaming channel end for high priority transmit data
  *
- *  \param n                   The number of clients connected
  *  \param p_rxclk             RX clock port
  *  \param p_rxer              RX error port
  *  \param p_rxd               RX data port
@@ -248,12 +300,6 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
  *                             This should be at least 500 words.
  *  \param tx_bufsize_words    The number of words to used for a transmit buffer.
- *                             This should be at least 500 words.
- *  \param rx_hp_bufsize_words The number of words to used for a high priority
- *                             receive buffer.
- *                             This should be at least 500 words.
- *  \param tx_hp_bufsize_words The number of words to used for a high priority
- *                             transmit buffer.
  *                             This should be at least 500 words.
  *  \param shaper_enabled      This should be set to ``ETHERNET_ENABLE_SHAPER``
  *                             or ``ETHERNET_DISABLE_SHAPER`` to either enable
@@ -289,7 +335,6 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
  *  \param i_tx             Array of transmit clients
  *  \param n_tx             The number of transmit clients connected
  *
- *  \param n                The number of clients connected
  *  \param p_rxclk          RX clock port
  *  \param p_rxer           RX error port
  *  \param p_rxd            RX data port

@@ -256,8 +256,8 @@ void icmp_server(client ethernet_cfg_if cfg,
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   // Only allow ARP and IP packets to the app
-  cfg.add_ethertype_filter(index, 0, 0x0806);
-  cfg.add_ethertype_filter(index, 0, 0x0800);
+  cfg.add_ethertype_filter(index, 0x0806);
+  cfg.add_ethertype_filter(index, 0x0800);
 
   // Set link up on the ethernet mac
   cfg.set_link_state(0, ETHERNET_LINK_UP);

@@ -346,19 +346,16 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       }
       break;
 
-    case i_cfg[int i].add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-      if (is_hp)
-        fail("RT ethernet does not support ethertype filters for the high priority queue");
-
-      rx_client_state_t &client_state = is_hp ? rx_client_state_hp[client_num] : rx_client_state_lp[client_num];
+    case i_cfg[int i].add_ethertype_filter(size_t client_num, uint16_t ethertype):
+      rx_client_state_t &client_state = rx_client_state_lp[client_num];
       size_t n = client_state.num_etype_filters;
       assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
       client_state.etype_filters[n] = ethertype;
       client_state.num_etype_filters = n + 1;
       break;
 
-    case i_cfg[int i].del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-      rx_client_state_t &client_state = is_hp ? rx_client_state_hp[client_num] : rx_client_state_lp[client_num];
+    case i_cfg[int i].del_ethertype_filter(size_t client_num, uint16_t ethertype):
+      rx_client_state_t &client_state = rx_client_state_lp[client_num];
       size_t j = 0;
       size_t n = client_state.num_etype_filters;
       while (j < n) {
@@ -381,7 +378,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       break;
     }
 
-    case i_cfg[int i].set_tx_qav_idle_slope(unsigned slope): {
+    case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope): {
       *p_idle_slope = slope;
       break;
     }

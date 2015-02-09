@@ -180,10 +180,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         ethernet_clear_filter_table(filter_info, client_num, is_hp);
         break;
 
-      case i_cfg[int i].add_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-        if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
-
+      case i_cfg[int i].add_ethertype_filter(size_t client_num, uint16_t ethertype):
         client_state_t &client_state = client_state[client_num];
         size_t n = client_state.num_etype_filters;
         assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
@@ -191,10 +188,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         client_state.num_etype_filters = n + 1;
         break;
 
-      case i_cfg[int i].del_ethertype_filter(size_t client_num, int is_hp, uint16_t ethertype):
-        if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
-
+      case i_cfg[int i].del_ethertype_filter(size_t client_num, uint16_t ethertype):
         client_state_t &client_state = client_state[client_num];
         size_t j = 0;
         size_t n = client_state.num_etype_filters;
@@ -215,7 +209,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         break;
       }
 
-      case i_cfg[int i].set_tx_qav_idle_slope(unsigned slope):
+      case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope):
         fail("Shaper not supported in standard MII ethernet");
         break;
 

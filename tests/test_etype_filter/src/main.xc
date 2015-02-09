@@ -33,7 +33,7 @@ void test_task(client ethernet_cfg_if cfg,
   size_t index = rx.get_index();
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
-  cfg.add_ethertype_filter(index, 0, etype);
+  cfg.add_ethertype_filter(index, etype);
 
   int done = 0;
   while (!done) {
