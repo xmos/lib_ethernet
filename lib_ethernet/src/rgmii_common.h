@@ -1,6 +1,6 @@
 #include <xs1.h>
 
-#define RGMII_DELAY 0
+#define RGMII_DELAY 1
 #define RGMII_DIVIDE_1G 3
 #define RGMII_DELAY_100M 0
 #define RGMII_DIVIDE_100M (((RGMII_DIVIDE_1G + 1) * 5) - 1)
