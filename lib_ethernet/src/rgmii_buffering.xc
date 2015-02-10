@@ -338,14 +338,15 @@ unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned 
 unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
                                          server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
                                          streaming chanend ? c_rx_hp,
-                                         streaming chanend c_status_update,
+                                         streaming chanend c_rgmii_cfg,
                                          streaming chanend c_speed_change,
                                          out port p_txclk_out,
                                          in buffered port:4 p_rxd_interframe,
                                          buffers_used_t &used_buffers_rx_lp,
                                          buffers_used_t &used_buffers_rx_hp,
                                          buffers_free_t &free_buffers,
-                                         rgmii_inband_status_t current_mode)
+                                         rgmii_inband_status_t current_mode,
+                                         volatile int * unsafe p_idle_slope)
 {
   set_core_fast_mode_on();
 
@@ -358,6 +359,16 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
   install_speed_change_handler(p_rxd_interframe, current_mode);
 
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
+  int * new_link_status;
+  volatile int * unsafe p_new_link_status;
+  unsafe {
+    c_rgmii_cfg <: (rx_client_state_t * unsafe) client_state_lp;
+    c_rgmii_cfg <: n_rx_lp;
+    c_rgmii_cfg <: p_idle_slope;
+    new_link_status = ETHERNET_LINK_DOWN;
+    p_new_link_status = (volatile int * unsafe) &new_link_status;
+    c_rgmii_cfg <: p_new_link_status;
+  }
 
   int done = 0;
   while (1) {
@@ -403,14 +414,7 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
         }
         break;
 
-    case c_status_update :> link_status:
-      for (int i = 0; i < n_rx_lp; i += 1) {
-        if (client_state_lp[i].status_update_state == STATUS_UPDATE_WAITING) {
-          client_state_lp[i].status_update_state = STATUS_UPDATE_PENDING;
-          i_rx_lp[i].packet_ready();
-        }
-      }
-      break;
+
 
       case c_speed_change :> unsigned tmp:
         done = 1;
@@ -422,6 +426,18 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
 
     if (done)
       break;
+
+    unsafe {
+      if (link_status != *p_new_link_status) {
+        link_status = *p_new_link_status;
+        for (int i = 0; i < n_rx_lp; i += 1) {
+          if (client_state_lp[i].status_update_state == STATUS_UPDATE_WAITING) {
+            client_state_lp[i].status_update_state = STATUS_UPDATE_PENDING;
+            i_rx_lp[i].packet_ready();
+          }
+        }
+      }
+    }
 
     // Loop until all high priority packets have been handled
     while (1) {
@@ -645,20 +661,31 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
   }
 }
 
-unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
-                                             unsigned n_rx_lp,
-                                             server ethernet_cfg_if i_cfg[n],
-                                             unsigned n,
-                                             streaming chanend c_status_update,
-                                             streaming chanend c_speed_change,
-                                             volatile int * unsafe p_idle_slope)
+[[combinable]]
+void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
+                               unsigned n,
+                               streaming chanend c_rgmii_server)
 {
   set_core_fast_mode_on();
 
   char mac_address[6] = {0};
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
   int done = 0;
-  while (!done) {
+
+  volatile rx_client_state_t * unsafe client_state_lp;
+  unsigned n_rx_lp;
+  volatile int * unsafe p_idle_slope;
+  volatile int * unsafe p_new_link_status;
+
+  // Get shared state from the server
+  unsafe {
+    c_rgmii_server :> client_state_lp;
+    c_rgmii_server :> n_rx_lp;
+    c_rgmii_server :> p_idle_slope;
+    c_rgmii_server :> p_new_link_status;
+  }
+
+  while (1) {
     select {
       case i_cfg[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
         memcpy(r_mac_address, mac_address, 6);
@@ -669,9 +696,8 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
         break;
 
       case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
-        if (link_status != status) {
-          link_status = status;
-          c_status_update <: status;
+        unsafe {
+          *p_new_link_status = status;
         }
         break;
 
@@ -691,31 +717,35 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
         break;
 
       case i_cfg[int i].add_ethertype_filter(size_t client_num, uint16_t ethertype):
-        rx_client_state_t &client_state = client_state_lp[client_num];
-        size_t n = client_state.num_etype_filters;
-        assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
-        client_state.etype_filters[n] = ethertype;
-        client_state.num_etype_filters = n + 1;
+        unsafe {
+          rx_client_state_t &client_state = client_state_lp[client_num];
+          size_t n = client_state.num_etype_filters;
+          assert(n < ETHERNET_MAX_ETHERTYPE_FILTERS);
+          client_state.etype_filters[n] = ethertype;
+          client_state.num_etype_filters = n + 1;
+        }
         break;
 
       case i_cfg[int i].del_ethertype_filter(size_t client_num, uint16_t ethertype):
-        rx_client_state_t &client_state = client_state_lp[client_num];
-        size_t j = 0;
-        size_t n = client_state.num_etype_filters;
-        while (j < n) {
-          if (client_state.etype_filters[j] == ethertype) {
-            client_state.etype_filters[j] = client_state.etype_filters[n-1];
-            n--;
+        unsafe {
+          rx_client_state_t &client_state = client_state_lp[client_num];
+          size_t j = 0;
+          size_t n = client_state.num_etype_filters;
+          while (j < n) {
+            if (client_state.etype_filters[j] == ethertype) {
+              client_state.etype_filters[j] = client_state.etype_filters[n-1];
+              n--;
+            }
+            else {
+              j++;
+            }
           }
-          else {
-            j++;
-          }
+          client_state.num_etype_filters = n;
         }
-        client_state.num_etype_filters = n;
         break;
 
       case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
-        tile_id = get_tile_id_from_chanend(c_speed_change);
+        tile_id = get_tile_id_from_chanend(c_rgmii_server);
   
         timer tmr;
         tmr :> time_on_tile;
@@ -723,12 +753,20 @@ unsafe void rgmii_ethernet_config_server_aux(rx_client_state_t client_state_lp[n
       }
 
       case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope): {
-        *p_idle_slope = slope;
+        unsafe {
+          *p_idle_slope = slope;
+        }
         break;
       }
 
-      case c_speed_change :> unsigned tmp:
-        done = 1;
+      case c_rgmii_server :> unsigned tmp:
+        // Server has reset
+        unsafe {
+          client_state_lp = (volatile rx_client_state_t * unsafe) tmp;
+          c_rgmii_server :> n_rx_lp;
+          c_rgmii_server :> p_idle_slope;
+          c_rgmii_server :> p_new_link_status;
+        }
         break;
     }
   }

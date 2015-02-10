@@ -251,11 +251,11 @@ enum ethernet_enable_shaper_t {
  *                            MAC.
  *
  */
-void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                        server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
                         server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
                         streaming chanend ? c_rx_hp,
                         streaming chanend ? c_tx_hp,
+                        streaming chanend c_rgmii_cfg,
                         in port p_rxclk, in port p_rxer,
                         in port p_rxd_1000, in port p_rxd_10_100,
                         in port p_rxd_interframe,
@@ -268,6 +268,12 @@ void rgmii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsign
                         clock txclk,
                         clock txclk_out,
                         enum ethernet_enable_shaper_t shaper_enabled);
+
+[[combinable]]
+void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
+                               unsigned n,
+                               streaming chanend c_rgmii_server);
+
 
 /** Ethernet component to connect to an MII interface (with real-time features).
  *

@@ -4,7 +4,7 @@
 
 .globl notification_channel_ids
 notification_channel_ids:
-.word 0, 0, 0, 0, 0, 0, 0, 0
+.word 0, 0, 0, 0, 0, 0, 0
 
 saved_word0:
 .word 0
@@ -64,10 +64,6 @@ log_speed_change_pointers:
         setd res[r1], r1
         stw r1, r11[6]
         stw r1, r0[6]
-        getr r1, XS1_RES_TYPE_CHANEND
-        setd res[r1], r1
-        stw r1, r11[7]
-        stw r1, r0[7]
 
         retsp 0
 
@@ -150,8 +146,6 @@ speed_change_handler:
         ldw r0, r11[5]
         out res[r0], r1
         ldw r0, r11[6]
-        out res[r0], r1
-        ldw r0, r11[7]
         out res[r0], r1
 
         // GET resource ID and disable interrupt on it

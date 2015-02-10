@@ -153,18 +153,23 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_tx_hp;
 
+#if RGMII
+  streaming chan c_rgmii_cfg;
+#endif
+
   par {
     #if RGMII
 
-    on tile[1]: rgmii_ethernet_mac(i_cfg, NUM_CFG_IF,
-                                   i_rx_lp, NUM_RX_LP_IF,
+    on tile[1]: rgmii_ethernet_mac(i_rx_lp, NUM_RX_LP_IF,
                                    i_tx_lp, NUM_TX_LP_IF,
                                    null, c_tx_hp,
+                                   c_rgmii_cfg,
                                    p_eth_rxclk, p_eth_rxer, p_eth_rxd_1000, p_eth_rxd_10_100,
                                    p_eth_rxd_interframe, p_eth_rxdv, p_eth_rxdv_interframe,
                                    p_eth_txclk_in, p_eth_txclk_out, p_eth_txer, p_eth_txen,
                                    p_eth_txd, eth_rxclk, eth_rxclk_interframe, eth_txclk,
                                    eth_txclk_out, ETHERNET_ENABLE_SHAPER);
+    on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
 
     on tile[0]: {
       // Give time for the MAC layer to detect the speed of the PHY and set itself up
