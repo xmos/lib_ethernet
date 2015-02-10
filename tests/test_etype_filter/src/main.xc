@@ -80,7 +80,7 @@ int main()
 
     on tile[1]: rgmii_ethernet_mac(i_rx_lp, NUM_RX_LP_IF,
                                    i_tx_lp, NUM_TX_LP_IF,
-                                   c_rx_hp, c_tx_hp,
+                                   null, null,
                                    c_rgmii_cfg,
                                    p_eth_rxclk, p_eth_rxer, p_eth_rxd_1000, p_eth_rxd_10_100,
                                    p_eth_rxd_interframe, p_eth_rxdv, p_eth_rxdv_interframe,
