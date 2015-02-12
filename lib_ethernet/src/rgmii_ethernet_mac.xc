@@ -45,8 +45,6 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
   set_clock_fall_delay(txclk, 2);
   set_clock_rise_delay(txclk, 2);
   set_clock_rise_delay(rxclk, 0);
-  set_clock_fall_delay(rxclk_interframe, 3);
-  set_clock_rise_delay(rxclk_interframe, 3);
 
   // Ensure that the error port is running fast enough to catch errors
   configure_in_port(p_rxer, rxclk);
