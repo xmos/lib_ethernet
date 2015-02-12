@@ -357,9 +357,6 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
     enable_rgmii(RGMII_DELAY_100M, RGMII_DIVIDE_100M);
   }
 
-  // Ensure that interrupts will be generated on this core
-  install_speed_change_handler(p_rxd_interframe, current_mode);
-
   ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
   int * new_link_status;
   volatile int * unsafe p_new_link_status;
@@ -371,6 +368,9 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
     p_new_link_status = (volatile int * unsafe) &new_link_status;
     c_rgmii_cfg <: p_new_link_status;
   }
+
+  // Ensure that interrupts will be generated on this core
+  install_speed_change_handler(p_rxd_interframe, current_mode);
 
   int done = 0;
   while (1) {
