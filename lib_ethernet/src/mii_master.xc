@@ -166,8 +166,9 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
 {
   timer tmr;
 
+  unsigned kernel_stack[MII_COMMON_HANDLER_STACK_WORDS];
   /* Pointers to data that needs the latest value being read */
-  volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer, p_mii_rxdv);
+  volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer, p_mii_rxdv, kernel_stack);
   volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
 
   /* Set up the wrap markers for the two memory buffers. These are the

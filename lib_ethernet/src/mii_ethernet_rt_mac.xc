@@ -396,7 +396,7 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       tx_client_state_lp[i].has_outgoing_timestamp_info = 0;
       break;
 
-    case (tx_client_state_hp[0].send_buffer && !prioritize_rx) => c_tx_hp :> unsigned len:
+    case (!isnull(c_tx_hp) && tx_client_state_hp[0].send_buffer && !prioritize_rx) => c_tx_hp :> unsigned len:
       mii_packet_t * unsafe buf = tx_client_state_hp[0].send_buffer;
       unsigned * unsafe dptr = &buf->data[0];
       unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_hp);

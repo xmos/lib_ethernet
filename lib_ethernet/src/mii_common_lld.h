@@ -1,6 +1,8 @@
 #ifndef _mii_common_lld_h_
 #define _mii_common_lld_h_
 
+#include "mii_buffering_defines.h"
+
 #ifdef __XC__
 
 /** A function to enable the RX_ER port to raise interrupts on errors.
@@ -19,7 +21,8 @@
  *  - The error flag will simply be non-zero (do not rely on its actual value).
  *
  */
-unsigned * unsafe mii_setup_error_port(in buffered port:1 p_rxer, in port p_rxdv);
+unsigned * unsafe mii_setup_error_port(in buffered port:1 p_rxer, in port p_rxdv,
+                                       unsigned kernel_stack_space[MII_COMMON_HANDLER_STACK_WORDS]);
 
 #endif
 

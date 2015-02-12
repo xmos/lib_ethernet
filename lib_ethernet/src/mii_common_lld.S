@@ -1,4 +1,5 @@
 #include "xs1.h"
+#include "mii_buffering_defines.h"
 
 .section .dp.data, "awd", @progbits
 
@@ -29,6 +30,13 @@ mii_per_core_error_and_dv:
 mii_setup_error_port:
         entsp 0
 
+        ldc    r3, MII_COMMON_HANDLER_STACK_WORDS - 1
+        ldaw   r3, r2[r3]                  // Set up kernel stack.
+        ldaw   r11, sp[0]                  // Save SP into R11
+        set    sp, r3                      // Set SP, and place old SP...
+        stw    r11, sp[0]                  // ...where KRESTSP expects it
+        krestsp 0                          // Set KSP, restore SP
+
         setc res[r0], XS1_SETC_IE_MODE_INTERRUPT
         ldc r2, 1
         setd res[r0], r2
@@ -50,7 +58,7 @@ mii_setup_error_port:
         retsp 0
 
 mii_error_interrupt_handler:
-        extsp 2
+        kentsp MII_COMMON_HANDLER_STACK_WORDS - 1
         stw r0, sp[0]
         stw r11, sp[1]
 
@@ -79,7 +87,7 @@ mii_error_interrupt_handler_igore:
         ldw r11, sp[1]
         ldw r0, sp[0]
 
-        ldaw sp, sp[2]
+        krestsp MII_COMMON_HANDLER_STACK_WORDS - 1
         kret
         
         .align 4
