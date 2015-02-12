@@ -5,8 +5,8 @@
 port p_eth_rxclk            = on tile[1]: XS1_PORT_1O;
 port p_eth_rxer             = on tile[1]: XS1_PORT_1A;
 port p_eth_rxd_1000         = on tile[1]: XS1_PORT_8A;
-port p_eth_rxd_10_100       = on tile[1]: XS1_PORT_4A;
-port p_eth_rxd_interframe   = on tile[1]: XS1_PORT_4E;
+port p_eth_rxd_10_100       = on tile[1]: XS1_PORT_4E;
+port p_eth_rxd_interframe   = on tile[1]: XS1_PORT_4F;
 port p_eth_rxdv             = on tile[1]: XS1_PORT_1B;
 port p_eth_rxdv_interframe  = on tile[1]: XS1_PORT_1K;
 port p_eth_txclk_in         = on tile[1]: XS1_PORT_1P;

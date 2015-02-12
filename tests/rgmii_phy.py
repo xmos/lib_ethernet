@@ -17,7 +17,7 @@ class RgmiiTransmitter(TxPhy):
     (FULL_DUPLEX, HALF_DUPLEX) = (0x8, 0x0)
     (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
-    def __init__(self, rxd, rxdv, mode_rxd, mode_rxdv, rxer, clock,
+    def __init__(self, rxd, rxd_100, rxdv, mode_rxd, mode_rxdv, rxer, clock,
                  initial_delay=130000, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
                  dut_exit_time=25000):
@@ -26,6 +26,7 @@ class RgmiiTransmitter(TxPhy):
                                                do_timeout, complete_fn, expect_loopback,
                                                dut_exit_time)
         self._mode_rxd = mode_rxd
+        self._mode_rxd_100 = mode_rxd_100
         self._mode_rxdv = mode_rxdv
         self._phy_status = (self.FULL_DUPLEX | self.LINK_UP | clock.get_rate())
 
@@ -38,6 +39,7 @@ class RgmiiTransmitter(TxPhy):
 
     def set_data(self, value):
         self.xsi.drive_port_pins(self._rxd, value)
+        self.xsi.drive_port_pins(self._rxd_100, value)
         self.xsi.drive_port_pins(self._mode_rxd, value)
 
     def run(self):

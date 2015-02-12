@@ -51,8 +51,9 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                           dut_exit_time=25000, initial_delay=130000):
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
-                           'tile[1]:XS1_PORT_1B',
                            'tile[1]:XS1_PORT_4E',
+                           'tile[1]:XS1_PORT_1B',
+                           'tile[1]:XS1_PORT_4F',
                            'tile[1]:XS1_PORT_1K',
                            'tile[1]:XS1_PORT_1A',
                            clk,

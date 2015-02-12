@@ -350,10 +350,12 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
 {
   set_core_fast_mode_on();
 
-  set_port_inv(p_txclk_out);
-
-  // Signal to the testbench that the device is ready
-  enable_rgmii(RGMII_DELAY, RGMII_DIVIDE_1G);
+  if (current_mode == INBAND_STATUS_1G_FULLDUPLEX) {
+    enable_rgmii(RGMII_DELAY, RGMII_DIVIDE_1G);
+  }
+  else {
+    enable_rgmii(RGMII_DELAY_100M, RGMII_DIVIDE_100M);
+  }
 
   // Ensure that interrupts will be generated on this core
   install_speed_change_handler(p_rxd_interframe, current_mode);

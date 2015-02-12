@@ -28,6 +28,7 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
 {
   // Configure the ports for 1G
   configure_clock_src(rxclk, p_rxclk);
+  set_port_inv(p_rxclk);
   configure_in_port_strobed_slave(p_rxd_1000, p_rxdv, rxclk);
   configure_in_port_strobed_slave(p_rxd_10_100, p_rxdv, rxclk);
 
@@ -52,7 +53,6 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
 
   configure_clock_src(txclk_out, p_txclk_in);
   configure_port_clock_output(p_txclk_out, txclk_out);
-  set_port_inv(p_txclk_out);
 
   // Use this to align the data recived by the rgmii block with TXC,
   // only require the data to arrive before the edge that it should be
@@ -175,7 +175,9 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
 
       if (current_mode == INBAND_STATUS_1G_FULLDUPLEX)
       {
+        set_port_inv(p_txclk_in);
         mii_macaddr_set_num_active_filters(2);
+
         par
         {
           {
@@ -232,6 +234,7 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
       else if (current_mode == INBAND_STATUS_100M_FULLDUPLEX ||
                current_mode == INBAND_STATUS_10M_FULLDUPLEX)
       {
+        set_port_no_inv(p_txclk_in);
         mii_macaddr_set_num_active_filters(1);
 
         par
