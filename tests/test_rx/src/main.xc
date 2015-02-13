@@ -77,8 +77,7 @@ void test_rx(client ethernet_cfg_if cfg,
 
     #pragma ordered
     select {
-    case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      mii_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info);
+    case mii_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info):
       rxlen[wr_index] = packet_info.len;
       wr_index = (wr_index + 1) % NUM_BUF;
       if (wr_index == rd_index) {

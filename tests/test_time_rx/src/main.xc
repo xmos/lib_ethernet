@@ -37,14 +37,13 @@ void test_rx(client ethernet_cfg_if cfg,
   int num_bytes = 0;
   int num_packets = 0;
   int done = 0;
+  unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
   while (!done) {
     ethernet_packet_info_t packet_info;
 
     #pragma ordered
     select {
-    case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-      mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
+    case mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
       num_bytes += packet_info.len;
       num_packets += 1;
       if (rxbuf[18] != seq_id) {

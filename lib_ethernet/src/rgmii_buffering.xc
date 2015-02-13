@@ -219,7 +219,6 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
           unsigned filter_result = mii_macaddr_hash_lookup(table, key0, key1, &buf->filter_data);
           if (filter_result) {
             buf->filter_result = filter_result;
-            buf->filter_data = 0;
 
             if (ethernet_filter_result_is_hp(filter_result))
               buffers_used_add(used_buffers_rx_hp, (mii_packet_t *)buffer, RGMII_MAC_BUFFER_COUNT_RX, 1);

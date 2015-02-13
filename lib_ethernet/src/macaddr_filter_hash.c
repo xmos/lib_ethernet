@@ -60,10 +60,10 @@ static inline void entry_to_keys(ethernet_macaddr_filter_t entry,
 
 static inline int hash(int key0, int key1, int poly)
 {
-  unsigned int x = 0x9226F562;
+  unsigned int x = key0;
 
-  __asm("crc32 %0, %2, %3":"=r"(x):"0"(x),"r"(key0),"r"(poly));
   __asm("crc32 %0, %2, %3":"=r"(x):"0"(x),"r"(key1),"r"(poly));
+  __asm("crc32 %0, %2, %3":"=r"(x):"0"(x),"r"(0),"r"(poly));
 
   x = x & (MII_MACADDR_HASH_TABLE_SIZE-1);
   return x;
@@ -112,14 +112,14 @@ unsigned mii_macaddr_hash_lookup(mii_macaddr_hash_table_t *table,
 static int contains_different_entry(unsigned index, unsigned key[2], int *empty)
 {
   *empty =
-    hash_table->entries[index].id[0] == 0
+    backup_table->entries[index].id[0] == 0
     &&
-    hash_table->entries[index].id[1] == 0;
+    backup_table->entries[index].id[1] == 0;
 
   int different =
-    hash_table->entries[index].id[0] != key[0]
+    backup_table->entries[index].id[0] != key[0]
     ||
-    hash_table->entries[index].id[1] != key[1];
+    backup_table->entries[index].id[1] != key[1];
 
   return (!*empty && different);
 }
@@ -165,8 +165,8 @@ static int insert(unsigned key0, unsigned key1,
 
         backup_table->entries[index].id[0] = current.id[0];
         backup_table->entries[index].id[1] = current.id[1];
-        backup_table->entries[index].result = result;
-        backup_table->entries[index].appdata = appdata;
+        backup_table->entries[index].result = current.result;
+        backup_table->entries[index].appdata = current.appdata;
 
         // There is no need to OR in the result any more
         set_not_or = 1;

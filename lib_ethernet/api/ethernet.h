@@ -174,10 +174,13 @@ typedef interface ethernet_rx_if {
  * and therefore this function must be used to receive the packet.
  *
  */
+#pragma select handler
 inline void mii_receive_hp_packet(streaming chanend c_rx_hp,
-                                  unsigned char *buf,
+                                  unsigned char buf[],
                                   ethernet_packet_info_t &packet_info)
 {
+  sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info));
+
   unsigned len1 = packet_info.len & 0xffff;
   sin_char_array(c_rx_hp, buf, len1);
   unsigned len2 = packet_info.len >> 16;

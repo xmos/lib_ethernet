@@ -48,14 +48,13 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   }
 
   int done = 0;
+  unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
   while (!done) {
     ethernet_packet_info_t packet_info;
 
     #pragma ordered
     select {
-    case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-      mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
+      case mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
 
       unsigned stream_id = rxbuf[0];
       if (stream_id >= NUM_STREAMS) {
