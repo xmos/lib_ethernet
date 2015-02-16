@@ -40,8 +40,7 @@ void test_rx_loopback(streaming chanend c_tx_hp,
         i_loopback.get_packet(len, buf);
         break;
       }
-      c_tx_hp <: len;
-      sout_char_array(c_tx_hp, (char *)buf, len);
+      ethernet_send_hp_packet(c_tx_hp, (char *)buf, len, ETHERNET_ALL_INTERFACES);
     }
   }
 }
@@ -77,7 +76,7 @@ void test_rx(client ethernet_cfg_if cfg,
 
     #pragma ordered
     select {
-    case mii_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info):
+    case ethernet_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info):
       rxlen[wr_index] = packet_info.len;
       wr_index = (wr_index + 1) % NUM_BUF;
       if (wr_index == rd_index) {

@@ -54,7 +54,7 @@ void test_rx_hp(client ethernet_cfg_if cfg,
 
     #pragma ordered
     select {
-      case mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
+      case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
 
       unsigned stream_id = rxbuf[0];
       if (stream_id >= NUM_STREAMS) {

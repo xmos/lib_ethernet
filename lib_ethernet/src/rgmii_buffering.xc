@@ -670,9 +670,6 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
   set_core_fast_mode_on();
 
   char mac_address[6] = {0};
-  ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
-  int done = 0;
-
   volatile rx_client_state_t * unsafe client_state_lp;
   unsigned n_rx_lp;
   volatile int * unsafe p_idle_slope;

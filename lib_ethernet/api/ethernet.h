@@ -175,9 +175,9 @@ typedef interface ethernet_rx_if {
  *
  */
 #pragma select handler
-inline void mii_receive_hp_packet(streaming chanend c_rx_hp,
-                                  unsigned char buf[],
-                                  ethernet_packet_info_t &packet_info)
+inline void ethernet_receive_hp_packet(streaming chanend c_rx_hp,
+                                       char buf[],
+                                       ethernet_packet_info_t &packet_info)
 {
   sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info));
 
@@ -205,6 +205,15 @@ extends client interface ethernet_tx_if : {
     i._complete_send_packet(packet, n, 1, dst_port);
     return i._get_outgoing_timestamp();
   }
+}
+
+inline void ethernet_send_hp_packet(streaming chanend c_tx_hp,
+                                    char packet[n],
+                                    unsigned n,
+                                    unsigned dst_port)
+{
+  c_tx_hp <: n;
+  sout_char_array(c_tx_hp, packet, n);
 }
 
 enum ethernet_enable_shaper_t {

@@ -43,7 +43,7 @@ void test_rx(client ethernet_cfg_if cfg,
 
     #pragma ordered
     select {
-    case mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
+    case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
       num_bytes += packet_info.len;
       num_packets += 1;
       if (rxbuf[18] != seq_id) {

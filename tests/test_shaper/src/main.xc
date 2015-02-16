@@ -56,8 +56,7 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
 
   while (1) {
-    c_tx_hp <: length;
-    sout_char_array(c_tx_hp, (char*)data, length);
+    ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
   }
 
   // Give time for the packet to start to be sent in the case of the RT MAC
