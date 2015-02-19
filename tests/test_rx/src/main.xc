@@ -5,6 +5,7 @@
 
 #include <xs1.h>
 #include <platform.h>
+#include <string.h>
 #include "ethernet.h"
 #include "print.h"
 #include "debug_print.h"
@@ -39,8 +40,7 @@ void test_rx_loopback(streaming chanend c_tx_hp,
         i_loopback.get_packet(len, buf);
         break;
       }
-      c_tx_hp <: len;
-      sout_char_array(c_tx_hp, (char *)buf, len);
+      ethernet_send_hp_packet(c_tx_hp, (char *)buf, len, ETHERNET_ALL_INTERFACES);
     }
   }
 }
@@ -61,6 +61,10 @@ void test_rx(client ethernet_cfg_if cfg,
     macaddr_filter.addr[i] = i;
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
+  // Add the broadcast MAC address
+  memset(macaddr_filter.addr, 0xff, 6);
+  cfg.add_macaddr_filter(0, 1, macaddr_filter);
+
   unsigned char rxbuf[NUM_BUF][ETHERNET_MAX_PACKET_SIZE];
   unsigned rxlen[NUM_BUF];
   unsigned wr_index = 0;
@@ -72,8 +76,7 @@ void test_rx(client ethernet_cfg_if cfg,
 
     #pragma ordered
     select {
-    case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      mii_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info);
+    case ethernet_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info):
       rxlen[wr_index] = packet_info.len;
       wr_index = (wr_index + 1) % NUM_BUF;
       if (wr_index == rd_index) {
@@ -120,6 +123,10 @@ void test_rx(client ethernet_cfg_if cfg,
   macaddr_filter.appdata = 0;
   for (int i = 0; i < 6; i++)
     macaddr_filter.addr[i] = i;
+  cfg.add_macaddr_filter(index, 0, macaddr_filter);
+
+  // Add the broadcast MAC address
+  memset(macaddr_filter.addr, 0xff, 6);
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   int done = 0;

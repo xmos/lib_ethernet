@@ -219,7 +219,6 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
           unsigned filter_result = mii_macaddr_hash_lookup(table, key0, key1, &buf->filter_data);
           if (filter_result) {
             buf->filter_result = filter_result;
-            buf->filter_data = 0;
 
             if (ethernet_filter_result_is_hp(filter_result))
               buffers_used_add(used_buffers_rx_hp, (mii_packet_t *)buffer, RGMII_MAC_BUFFER_COUNT_RX, 1);
@@ -675,9 +674,6 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
   set_core_fast_mode_on();
 
   char mac_address[6] = {0};
-  ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
-  int done = 0;
-
   volatile rx_client_state_t * unsafe client_state_lp;
   unsigned n_rx_lp;
   volatile int * unsafe p_idle_slope;

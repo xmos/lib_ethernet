@@ -64,8 +64,7 @@ void test_tx(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
         tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
       }
       else {
-        c_tx_hp <: length;
-        sout_char_array(c_tx_hp, data, length);
+        ethernet_send_hp_packet(c_tx_hp, data, length, ETHERNET_ALL_INTERFACES);
       }
     }
   }
@@ -87,14 +86,13 @@ void test_rx(client ethernet_cfg_if cfg,
   int num_bytes = 0;
   int num_packets = 0;
   int done = 0;
+  unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
   while (!done) {
     ethernet_packet_info_t packet_info;
 
     #pragma ordered
     select {
-    case sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info)):
-      unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-      mii_receive_hp_packet(c_rx_hp, rxbuf, packet_info);
+    case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
       num_bytes += packet_info.len;
       num_packets += 1;
       break;

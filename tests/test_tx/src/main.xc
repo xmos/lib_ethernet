@@ -55,8 +55,7 @@ void test_tx(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
       tx.send_packet(data, test_packets[i].len, ETHERNET_ALL_INTERFACES);
     }
     else {
-      c_tx_hp <: test_packets[i].len;
-      sout_char_array(c_tx_hp, data, test_packets[i].len);
+      ethernet_send_hp_packet(c_tx_hp, data, test_packets[i].len, ETHERNET_ALL_INTERFACES);
     }
   }
 

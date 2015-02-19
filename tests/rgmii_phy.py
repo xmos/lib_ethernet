@@ -26,7 +26,7 @@ class RgmiiTransmitter(TxPhy):
                                                do_timeout, complete_fn, expect_loopback,
                                                dut_exit_time)
         self._mode_rxd = mode_rxd
-        self._mode_rxd_100 = mode_rxd_100
+        self._rxd_100 = rxd_100
         self._mode_rxdv = mode_rxdv
         self._phy_status = (self.FULL_DUPLEX | self.LINK_UP | clock.get_rate())
 
