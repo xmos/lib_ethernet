@@ -386,6 +386,10 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
           data[0] = 1;
           data[1] = link_status;
           desc.type = ETH_IF_STATUS;
+          desc.src_ifnum = 0;
+          desc.timestamp = 0;
+          desc.len = 2;
+          desc.filter_data = 0;
           client_state.status_update_state = STATUS_UPDATE_WAITING;
         }
         else if (client_state.rd_index != client_state.wr_index) {
