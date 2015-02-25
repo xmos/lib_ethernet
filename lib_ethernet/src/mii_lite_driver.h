@@ -8,8 +8,8 @@
 typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS OR ADD ANY FIELDS.
     int next_buffer;
     int packet_in_lld;
-    unsigned notification_channel_end;
-    unsigned mii_channel_end;
+    unsafe chanend notification_channel_end;
+    unsafe chanend mii_channel_end;
     int mii_packets_overran;
     int refill_bank_number;
     int free_ptr[2], wr_ptr[2], last_safe_ptr[2], first_ptr[2], read_ptr[2];
@@ -19,7 +19,7 @@ typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS O
     unsigned read_bank;
     unsigned read_bank_rd_ptr;
     unsigned read_bank_wr_ptr;
-    unsigned mii_out_channel;
+    unsafe chanend mii_out_channel;
     int kernel_stack[KERNELSTACKWORDS];
 } mii_lite_data_t;
 

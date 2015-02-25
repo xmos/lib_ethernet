@@ -19,24 +19,38 @@ void mii_driver(in port p_rxclk, in port p_rxer, in port p_rxd0,
                 clock txclk,
                 chanend c_in, chanend c_out, chanend c_notif);
 
-// This function is to avoid errors due to the compiler's duplicate
-// resource checks in a select.
-static inline unsafe chanend * unsafe mii_convert_pointer(unsigned * unsafe x) {
-  return (chanend * unsafe) x;
+typedef unsafe chanend mii_unsafe_chanend;
+
+inline mii_unsafe_chanend mii_get_notification_chanend(void * unsafe p)
+{
+  unsafe {
+    return ((mii_lite_data_t * unsafe) p)->notification_channel_end;
+  }
 }
 
-#define mii_incoming_packet(x) mii_incoming_packet_(*(mii_convert_pointer(&((mii_lite_data_t * unsafe) x)->notification_channel_end)),((mii_lite_data_t * unsafe) x)->notify_seen)
+#define mii_incoming_packet(x) mii_incoming_packet_(mii_get_notification_chanend(x), x)
 
 #pragma select handler
-inline void mii_incoming_packet_(chanend c, char &v) {
-  v = inuchar(c);
+inline void mii_incoming_packet_(unsafe chanend c, void * unsafe p) {
+  unsafe {
+    ((mii_lite_data_t * unsafe) p)->notify_seen = inuchar((chanend) c);
+  }
 }
 
-#define mii_packet_sent(x) mii_packet_sent_(*(mii_convert_pointer(&((mii_lite_data_t * unsafe) x)->mii_out_channel)))
+inline mii_unsafe_chanend mii_get_out_chanend(void * unsafe p)
+{
+  unsafe {
+    return ((mii_lite_data_t * unsafe) p)->mii_out_channel;
+  }
+}
+
+#define mii_packet_sent(x) mii_packet_sent_(mii_get_out_chanend(x))
 
 #pragma select handler
-inline void mii_packet_sent_(chanend c) {
-  chkct(c, XS1_CT_END);
+inline void mii_packet_sent_(unsafe chanend c) {
+  unsafe {
+    chkct((chanend) c, XS1_CT_END);
+  }
 }
 
 #define mii(i_mii, p_rxclk, p_rxer, p_rxd, p_rxdv, p_txclk, p_txen, p_txd, p_timing, rxclk, txclk, double_rx_bufsize_words) \

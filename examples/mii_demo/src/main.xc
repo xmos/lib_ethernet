@@ -22,25 +22,23 @@ clock eth_txclk   = on tile[1]: XS1_CLKBLK_2;
 
 void loopback_packets(client interface mii_if mii)
 {
-  unsafe {
-    mii_info_t mii_info = mii.init();
-    while (1) {
-      select {
-      case mii_incoming_packet(mii_info):
-        int * unsafe data = NULL;
-        do {
-          int nbytes;
-          unsigned timestamp;
-          {data, nbytes, timestamp} = mii.get_incoming_packet();
-          if (data) {
-            mii.send_packet(data, nbytes);
-            // Wait fot the packet to send.
-            mii_packet_sent(mii_info);
-            mii.release_packet(data);
-          }
-        } while (data != NULL);
-        break;
-      }
+  mii_info_t mii_info = mii.init();
+  while (1) {
+    select {
+    case mii_incoming_packet(mii_info):
+      int * unsafe data = NULL;
+      do {
+        int nbytes;
+        unsigned timestamp;
+        {data, nbytes, timestamp} = mii.get_incoming_packet();
+        if (data) {
+          mii.send_packet(data, nbytes);
+          // Wait fot the packet to send.
+          mii_packet_sent(mii_info);
+          mii.release_packet(data);
+        }
+      } while (data != NULL);
+      break;
     }
   }
 }

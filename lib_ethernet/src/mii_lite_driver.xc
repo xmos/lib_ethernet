@@ -165,7 +165,7 @@ void mii_lite_buffer_init(struct mii_lite_data_t &this,
   this.read_bank_wr_ptr = 0;
   mii_lite_install_handler(this, this.wr_ptr[0], c_in, c_notifications);
   unsafe {
-    this.mii_out_channel = *((int * unsafe) &c_out);
+    this.mii_out_channel = (unsafe chanend) c_out;
   }
 }
 
