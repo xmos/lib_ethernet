@@ -221,6 +221,45 @@ enum ethernet_enable_shaper_t {
   ETHERNET_DISABLE_SHAPER
 };
 
+/** Structure representing the port and clock resources required by RGMII */
+typedef struct rgmii_ports_t {
+  in port p_rxclk;                      /**< RX clock port */
+  in buffered port:1 p_rxer;            /**< RX error port */
+  in buffered port:32 p_rxd_1000;       /**< 1Gb RX data port */
+  in buffered port:32 p_rxd_10_100;     /**< 10/100Mb RX data port */
+  in buffered port:4 p_rxd_interframe;  /**< Interframe RX data port */
+  in port p_rxdv;                       /**< RX data valid port */
+  in port p_rxdv_interframe;            /**< Interframe RX data valid port */
+  in port p_txclk_in;                   /**< TX clock input port */
+  out port p_txclk_out;                 /**< TX clock output port */
+  out port p_txer;                      /**< TX error port */
+  out port p_txen;                      /**< TX enable port */
+  out buffered port:32 p_txd;           /**< TX data port */
+  clock rxclk;                          /**< Clock used for receive timing */
+  clock rxclk_interframe;               /**< Clock used for interframe receive timing */
+  clock txclk;                          /**< Clock used for transmit timing */
+  clock txclk_out;                      /**< Second clock used for transmit timing */
+} rgmii_ports_t;
+
+#define RGMII_PORTS_INITIALIZER { \
+  XS1_PORT_1O, \
+  XS1_PORT_1A, \
+  XS1_PORT_8A, \
+  XS1_PORT_4E, \
+  XS1_PORT_4F, \
+  XS1_PORT_1B, \
+  XS1_PORT_1K, \
+  XS1_PORT_1P, \
+  XS1_PORT_1G, \
+  XS1_PORT_1E, \
+  XS1_PORT_1F, \
+  XS1_PORT_8B, \
+  XS1_CLKBLK_1, \
+  XS1_CLKBLK_2, \
+  XS1_CLKBLK_3, \
+  XS1_CLKBLK_4 \
+}
+
 /** Ethernet component to connect to an RGMII interface
  *
  *  This function implements an ethernet component connected to an RGMII
@@ -240,23 +279,7 @@ enum ethernet_enable_shaper_t {
  *  \param c_rx_hp            Streaming channel end for high priority receive data
  *  \param c_tx_hp            Streaming channel end for high priority transmit data
  *
- *  \param p_rxclk            RX clock port
- *  \param p_rxer             RX error port
- *  \param p_rxd_1000         1Gb RX data port
- *  \param p_rxd_10_100       10/100Mb RX data port
- *  \param p_rxd_interframe   Interframe RX data port
- *  \param p_rxdv             RX data valid port
- *  \param p_rxdv_interframe  Interframe RX data valid port
- *  \param p_txclk_in         TX clock input port
- *  \param p_txclk_out        TX clock output port
- *  \param p_txer             TX error port
- *  \param p_txen             TX enable port
- *  \param p_txd              TX data port
- *
- *  \param rxclk              Clock used for receive timing
- *  \param rxclk_interframe   Clock used for interframe receive timing
- *  \param txclk              Clock used for transmit timing
- *  \param txclk_out          Second clock used for transmit timing
+ *  \param rgmii_ports        A rgmii_ports_t structure initialized with the RGMII_PORTS_INITIALIZER macro
  *  \param shaper_enabled     This should be set to ``ETHERNET_ENABLE_SHAPER``
  *                            or ``ETHERNET_DISABLE_SHAPER`` to either enable
  *                            or disable the traffice shaper within the
@@ -268,17 +291,7 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
                         streaming chanend ? c_rx_hp,
                         streaming chanend ? c_tx_hp,
                         streaming chanend c_rgmii_cfg,
-                        in port p_rxclk, in port p_rxer,
-                        in port p_rxd_1000, in port p_rxd_10_100,
-                        in port p_rxd_interframe,
-                        in port p_rxdv, in port p_rxdv_interframe,
-                        in port p_txclk_in, out port p_txclk_out,
-                        out port p_txer, out port p_txen,
-                        out port p_txd,
-                        clock rxclk,
-                        clock rxclk_interframe,
-                        clock txclk,
-                        clock txclk_out,
+                        rgmii_ports_t &rgmii_ports,
                         enum ethernet_enable_shaper_t shaper_enabled);
 
 [[combinable]]
