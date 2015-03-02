@@ -6,33 +6,7 @@
 #include <xs1.h>
 #include "smi.h"
 #include "print.h"
-
-
-
-// SMI Registers
-#define BASIC_CONTROL_REG                  0
-#define BASIC_STATUS_REG                   1
-#define PHY_ID1_REG                        2
-#define PHY_ID2_REG                        3
-#define AUTONEG_ADVERT_REG                 4
-#define AUTONEG_LINK_REG                   5
-#define AUTONEG_EXP_REG                    6
-
-#define BASIC_CONTROL_LOOPBACK_BIT        14
-#define BASIC_CONTROL_100_MBPS_BIT        13
-#define BASIC_CONTROL_AUTONEG_EN_BIT      12
-#define BASIC_CONTROL_RESTART_AUTONEG_BIT  9
-#define BASIC_CONTROL_FULL_DUPLEX_BIT      8
-
-#define BASIC_STATUS_LINK_BIT              2
-
-#define AUTONEG_ADVERT_100_BIT             8
-#define AUTONEG_ADVERT_10_BIT              6
-
-
-// Clock is 4 times this rate.
-#define SMI_CLOCK_DIVIDER   (100 / 10)
-
+#include "xassert.h"
 
 // Constants used in calls to smi_bit_shift and smi_reg.
 
@@ -114,7 +88,7 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
 
 
 [[distributable]]
-void smi(server interface smi_if i, unsigned phy_address,
+void smi(server interface smi_if i,
          port p_smi_mdio, port p_smi_mdc)
 {
   if (SMI_MDIO_RESET_MUX) {
@@ -129,27 +103,27 @@ void smi(server interface smi_if i, unsigned phy_address,
 
   while (1) {
     select {
-    case i.read_reg(uint8_t reg) -> uint16_t res:
+    case i.read_reg(uint8_t phy_addr, uint8_t reg_addr) -> uint16_t res:
       int inning = 1;
       int val;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 0xffffffff, 32, SMI_WRITE,
                     0, 0);         // Preamble
-      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+inning) << 10 | phy_address << 5 | reg,
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+inning) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     0, 0);
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, inning,
                     0, 0);
       res = smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, inning, 0, 0);
       break;
-    case i.write_reg(uint8_t reg, uint16_t val):
+    case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int inning = 0;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 0xffffffff, 32, SMI_WRITE,
                     0, 0);         // Preamble
-      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+inning) << 10 | phy_address << 5 | reg,
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+inning) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     0, 0);
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, inning,
@@ -161,7 +135,7 @@ void smi(server interface smi_if i, unsigned phy_address,
 }
 
 [[distributable]]
-void smi_singleport(server interface smi_if i, unsigned phy_address,
+void smi_singleport(server interface smi_if i,
                     port p_smi, unsigned SMI_MDIO_BIT, unsigned SMI_MDC_BIT)
 {
   if (SMI_MDIO_RESET_MUX) {
@@ -176,27 +150,27 @@ void smi_singleport(server interface smi_if i, unsigned phy_address,
 
   while (1) {
     select {
-    case i.read_reg(uint8_t reg) -> uint16_t res:
+    case i.read_reg(uint8_t phy_addr, uint8_t reg_addr) -> uint16_t res:
       int inning = 1;
       int val;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi, null, 0xffffffff, 32, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);         // Preamble
-      smi_bit_shift(p_smi, null, (5+inning) << 10 | phy_address << 5 | reg,
+      smi_bit_shift(p_smi, null, (5+inning) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       smi_bit_shift(p_smi, null, 2, 2, inning,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       res = smi_bit_shift(p_smi, null, val, 16, inning, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
-    case i.write_reg(uint8_t reg, uint16_t val):
+    case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int inning = 0;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi, null, 0xffffffff, 32, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);         // Preamble
-      smi_bit_shift(p_smi, null, (5+inning) << 10 | phy_address << 5 | reg,
+      smi_bit_shift(p_smi, null, (5+inning) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       smi_bit_shift(p_smi, null, 2, 2, inning,
@@ -209,55 +183,70 @@ void smi_singleport(server interface smi_if i, unsigned phy_address,
 
 
 
-unsigned smi_get_id(client smi_if smi) {
-  unsigned lo = smi.read_reg(PHY_ID1_REG);
-  unsigned hi = smi.read_reg(PHY_ID2_REG);
+unsigned smi_get_id(client smi_if smi, uint8_t phy_address) {
+  unsigned lo = smi.read_reg(phy_address, PHY_ID1_REG);
+  unsigned hi = smi.read_reg(phy_address, PHY_ID2_REG);
   return ((hi >> 10) << 16) | lo;
 }
 
-void smi_configure(client smi_if smi, int is_eth_100, int is_auto)
+void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t speed_mbps, int enable_auto_neg)
 {
-  if (is_auto) {
-    int auto_neg_advert_reg;
-    auto_neg_advert_reg = smi.read_reg(AUTONEG_ADVERT_REG);
+  if (speed_mbps != LINK_10_MBPS_FULL_DUPLEX &&
+      speed_mbps != LINK_100_MBPS_FULL_DUPLEX &&
+      speed_mbps != LINK_1000_MBPS_FULL_DUPLEX) {
+    fail("Invalid Ethernet speed provided, must be 10, 100 or 1000");
+  }
+
+  if (enable_auto_neg) {
+    uint16_t auto_neg_advert_100_reg = smi.read_reg(phy_address, AUTONEG_ADVERT_REG);
+    uint16_t gige_control_reg = smi.read_reg(phy_address, GIGE_CONTROL_REG);
 
     // Clear bits [9:5]
-    auto_neg_advert_reg &= 0xfc1f;
+    auto_neg_advert_100_reg &= 0xfc1f;
+    // Clear bits [9:8]
+    gige_control_reg &= 0xfcff;
 
-    // Set 100 or 10 Mpbs bits
-    if (is_eth_100) {
-      auto_neg_advert_reg |= 1 << AUTONEG_ADVERT_100_BIT;
-    } else {
-      auto_neg_advert_reg |= 1 << AUTONEG_ADVERT_10_BIT;
+    switch (speed_mbps) {
+    #pragma fallthrough
+      case LINK_1000_MBPS_FULL_DUPLEX: gige_control_reg |= 1 << AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX;
+    #pragma fallthrough
+      case LINK_100_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX;
+      case LINK_10_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX; break;
+      default: __builtin_unreachable(); break;
     }
 
     // Write back
-    smi.write_reg(AUTONEG_ADVERT_REG, auto_neg_advert_reg);
+    smi.write_reg(phy_address, AUTONEG_ADVERT_REG, auto_neg_advert_100_reg);
+    smi.write_reg(phy_address, GIGE_CONTROL_REG, gige_control_reg);
   }
 
-  int basic_control = smi.read_reg(BASIC_CONTROL_REG);
-  if (is_auto) {
+  uint16_t basic_control = smi.read_reg(phy_address, BASIC_CONTROL_REG);
+  if (enable_auto_neg) {
     // set autoneg bit
     basic_control |= 1 << BASIC_CONTROL_AUTONEG_EN_BIT;
-    smi.write_reg(BASIC_CONTROL_REG, basic_control);
+    smi.write_reg(phy_address, BASIC_CONTROL_REG, basic_control);
     // restart autoneg
     basic_control |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
   }
   else {
-    // set duplex mode, clear autoneg and 100 Mbps.
+    // set duplex mode, clear autoneg and speed
     basic_control |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
     basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
-                       (1 << BASIC_CONTROL_100_MBPS_BIT));
-    if (is_eth_100) {                // Optionally set 100 Mbps
+                          (1 << BASIC_CONTROL_100_MBPS_BIT)|
+                         (1 << BASIC_CONTROL_1000_MBPS_BIT));
+
+    if (speed_mbps == LINK_100_MBPS_FULL_DUPLEX) {
       basic_control |= 1 << BASIC_CONTROL_100_MBPS_BIT;
+    } else if (speed_mbps == LINK_1000_MBPS_FULL_DUPLEX) {
+      fail("Autonegotiation cannot be disabled in 1000 Mbps mode");
     }
   }
-  smi.write_reg(BASIC_CONTROL_REG, basic_control);
+  smi.write_reg(phy_address, BASIC_CONTROL_REG, basic_control);
 }
 
-void smi_set_loopback_mode(client smi_if smi, int enable)
+void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable)
 {
-  int control_reg = smi.read_reg(BASIC_CONTROL_REG);
+  uint16_t control_reg = smi.read_reg(phy_address, BASIC_CONTROL_REG);
 
   // First clear both autoneg and loopback
   control_reg = control_reg & ~ ((1 << BASIC_CONTROL_AUTONEG_EN_BIT) |
@@ -269,11 +258,11 @@ void smi_set_loopback_mode(client smi_if smi, int enable)
     control_reg = control_reg | (1 << BASIC_CONTROL_AUTONEG_EN_BIT);
   }
 
-  smi.write_reg(BASIC_CONTROL_REG, control_reg);
+  smi.write_reg(phy_address, BASIC_CONTROL_REG, control_reg);
 }
 
 
-int smi_is_link_up(client smi_if smi) {
-  int link_up = ((smi.read_reg(BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
+int smi_is_link_up(client smi_if smi, uint8_t phy_address) {
+  int link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
   return link_up;
 }

@@ -4,11 +4,13 @@
 .section .dp.data, "awd", @progbits
 
 // The byte-reversed version of the tag
+.cc_top mii_common.data
 .align 4
 .globl mii_per_core_error
 mii_per_core_error_and_dv:
 .word 0,0,0,0,0,0,0,0
 .word 0,0,0,0,0,0,0,0
+.cc_bottom mii_common.data
 
 .text
         .cc_top mii_setup_error_port.function

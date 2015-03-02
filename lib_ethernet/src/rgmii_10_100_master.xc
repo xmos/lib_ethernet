@@ -15,7 +15,7 @@
 #endif
 
 // Receive timing constraints
-#if ETHERNET_ENABLE_FULL_TIMINGS
+#if ETHERNET_ENABLE_FULL_TIMINGS && defined(__XS1B__)
 #pragma xta command "config Terror on"
 #pragma xta command "remove exclusion *"
 

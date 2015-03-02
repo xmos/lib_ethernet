@@ -13,3 +13,11 @@
 **/pdf/*
 **/html/*
 **/.settings/*
+.DS_Store
+*.yml
+*.pdf
+*.zip
+*.expect
+*.log
+*.xmt
+*.csv

@@ -15,6 +15,13 @@ typedef enum eth_packet_type_t {
 
 #define ETHERNET_ALL_INTERFACES  (-1)
 
+/** Type representing the PHY link speed and duplex */
+typedef enum ethernet_speed_t {
+  LINK_10_MBPS_FULL_DUPLEX,   /**< 10 Mbps full duplex */
+  LINK_100_MBPS_FULL_DUPLEX,  /**< 100 Mbps full duplex */
+  LINK_1000_MBPS_FULL_DUPLEX  /**< 1000 Mbps full duplex */
+} ethernet_speed_t;
+
 /** Type representing link events. */
 typedef enum ethernet_link_state_t {
   ETHERNET_LINK_DOWN,    /**< Ethernet link down event. */

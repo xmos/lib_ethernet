@@ -48,7 +48,7 @@
 #define ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
 // Receive timing constraints
-#if ETHERNET_ENABLE_FULL_TIMINGS
+#if ETHERNET_ENABLE_FULL_TIMINGS && defined(__XS1B__)
 #pragma xta command "config Terror on"
 #pragma xta command "remove exclusion *"
 
@@ -307,7 +307,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
 ////////////////////////////////// TRANSMIT ////////////////////////////////
 
 // Transmit timing constraints
-
+#ifdef __XS1B__
 #pragma xta command "remove exclusion *"
 #pragma xta command "add exclusion mii_tx_start"
 #pragma xta command "add exclusion mii_tx_end"
@@ -353,7 +353,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
 
 #pragma xta command "analyze endpoints mii_tx_final_partword_1 mii_tx_end"
 #pragma xta command "set required - 80 ns"
-
+#endif
 
 
 #undef crc32

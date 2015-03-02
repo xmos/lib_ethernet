@@ -961,7 +961,6 @@ tx_done:
         // Must be a 32-bit instruction for long branch
         bu tx_sof
         .align 4
-        .cc_bottom rgmii_tx_lld.function
 
 .align 4
 // A table of branch distance using a modulo three of the word count. This selects
@@ -1096,6 +1095,7 @@ mod3_table:
 .byte (start_zero - bru_from) / 4, (start_one - bru_from) / 4, (start_two - bru_from) / 4
 .byte (start_zero - bru_from) / 4, (start_one - bru_from) / 4, (start_two - bru_from) / 4
 .byte (start_zero - bru_from) / 4, (start_one - bru_from) / 4, (start_two - bru_from) / 4
+.cc_bottom rgmii_tx_lld.function
 
 #else
         .cc_top rgmii_tx_lld.function

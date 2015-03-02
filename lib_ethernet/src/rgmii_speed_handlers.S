@@ -2,6 +2,7 @@
 
 .section .dp.data, "awd", @progbits
 
+.cc_top notification_channel_ids.globl
 .globl notification_channel_ids
 notification_channel_ids:
 .word 0, 0, 0, 0, 0, 0, 0
@@ -14,6 +15,7 @@ saved_word2:
 .word 0
 saved_word3:
 .word 0
+.cc_bottom notification_channel_ids.globl
 
 .text
 #if defined(__XS2A__)

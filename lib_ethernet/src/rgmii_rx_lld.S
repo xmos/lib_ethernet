@@ -33,6 +33,9 @@
 #define SP_RX_ERR        (SP_NUM_WORDS + 3)
 #define SP_RX_DV         (SP_NUM_WORDS + 2)
 
+.section .dp.data, "awd", @progbits
+.cc_top rxconsts.data
+
 .align 4
 .globl sof_value
 sof_value:
@@ -40,8 +43,6 @@ sof_value:
 .globl crc_poly
 crc_poly:
 .word 0xEDB88320
-
-.section .dp.data, "awd", @progbits
 
 // The byte-reversed version of the tag
 .globl vlan_prio_tag
@@ -66,6 +67,7 @@ mii_count_crc_error:
 .globl mii_count_len_error
 mii_count_len_error:
 .word 0
+.cc_bottom rxconsts.data
 
 .text
 #if defined(__XS2A__)
