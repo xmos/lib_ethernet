@@ -274,9 +274,6 @@ typedef struct rgmii_ports_t {
  *  Interaction to the component is via the connected filtering, configuration
  *  and data interfaces.
  *
- *  \param i_cfg              Array of client configuration interfaces
- *  \param n_cfg              The number of configuration clients connected
- *
  *  \param i_rx_lp            Array of low priority receive clients
  *  \param n_rx_lp            The number of low priority receive clients connected
  *
@@ -301,6 +298,15 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
                         rgmii_ports_t &rgmii_ports,
                         enum ethernet_enable_shaper_t shaper_enabled);
 
+/** RGMII Ethernet MAC configuation task
+ *
+ *  This function implements the server side of the ethernet_cfg_if interface and
+ *  communicates internally with the RGMII Ethernet MAC via a streaming channel end
+ *
+ *  \param i_cfg              Array of client configuration interfaces
+ *  \param n                  The number of configuration clients connected
+ *  \param c_rgmii_server     A streaming channel end connected to rgmii_ethernet_mac()
+ */
 [[combinable]]
 void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
                                unsigned n,

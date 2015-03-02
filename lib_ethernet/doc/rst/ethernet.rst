@@ -134,7 +134,7 @@ The Ethernet data handling interface
 
 .. doxygeninterface:: ethernet_rx_if
 
-.. doxygenfunction:: mii_receive_hp_packet
+.. doxygenfunction:: ethernet_receive_hp_packet
 
 |newpage|
 
