@@ -39,13 +39,12 @@ void phy_driver(client interface smi_if smi,
   const int ethernet_phy_address = 0x4;
   timer tmr;
   int t;
+  tmr :> t;
   p_eth_reset <: 0;
   delay_milliseconds(ethernet_phy_reset_delay_ms);
   p_eth_reset <: 1;
 
-  tmr :> t;
-
-  delay_milliseconds(100);
+  while (smi_phy_is_powered_down(smi, ethernet_phy_address));
   smi_configure(smi, ethernet_phy_address, LINK_1000_MBPS_FULL_DUPLEX, SMI_ENABLE_AUTONEG);
 
   while (1) {

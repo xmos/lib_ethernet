@@ -181,12 +181,15 @@ void smi_singleport(server interface smi_if i,
   }
 }
 
-
-
 unsigned smi_get_id(client smi_if smi, uint8_t phy_address) {
   unsigned lo = smi.read_reg(phy_address, PHY_ID1_REG);
   unsigned hi = smi.read_reg(phy_address, PHY_ID2_REG);
   return ((hi >> 10) << 16) | lo;
+}
+
+unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
+{
+  return ((smi.read_reg(phy_address, BASIC_CONTROL_REG) >> BASIC_CONTROL_POWER_DOWN_BIT) & 1);
 }
 
 void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t speed_mbps, int enable_auto_neg)
@@ -262,7 +265,7 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable)
 }
 
 
-int smi_is_link_up(client smi_if smi, uint8_t phy_address) {
-  int link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
+unsigned smi_is_link_up(client smi_if smi, uint8_t phy_address) {
+  unsigned link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
   return link_up;
 }

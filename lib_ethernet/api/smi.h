@@ -17,6 +17,7 @@
 #define BASIC_CONTROL_100_MBPS_BIT        13
 #define BASIC_CONTROL_1000_MBPS_BIT        6
 #define BASIC_CONTROL_AUTONEG_EN_BIT      12
+#define BASIC_CONTROL_POWER_DOWN_BIT      11
 #define BASIC_CONTROL_RESTART_AUTONEG_BIT  9
 #define BASIC_CONTROL_FULL_DUPLEX_BIT      8
 
@@ -51,7 +52,9 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable);
 
 unsigned smi_get_id(client smi_if smi, uint8_t phy_address);
 
-int smi_is_link_up(client smi_if smi, uint8_t phy_address);
+unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address);
+
+unsigned smi_is_link_up(client smi_if smi, uint8_t phy_address);
 
 #endif
 

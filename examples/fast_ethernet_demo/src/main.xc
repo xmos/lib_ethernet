@@ -52,6 +52,7 @@ void phy_driver(client interface smi_if smi,
   int t;
   tmr :> t;
 
+  while (smi_phy_is_powered_down(smi, ethernet_phy_address));
   smi_configure(smi, ethernet_phy_address, LINK_100_MBPS_FULL_DUPLEX, SMI_ENABLE_AUTONEG);
 
   while (1) {
