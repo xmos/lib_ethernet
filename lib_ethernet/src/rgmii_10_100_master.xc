@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "ethernet.h"
 #include "rgmii_10_100_master.h"
-#include "rgmii_common.h"
+#include "rgmii_consts.h"
 #include "rgmii.h"
 #include "mii_common_lld.h"
 #include "mii_buffering.h"
@@ -328,7 +328,7 @@ unsafe void rgmii_10_100_master_tx_pins(streaming chanend c,
     c <: buffer;
 
     // Compute next valid packet start time
-    ifg_time = eof_time + ETHERNET_IFS_AS_REF_CLOCK_COUNT;
+    ifg_time = eof_time + RGMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += tail_byte_count * 8;
   }
 }

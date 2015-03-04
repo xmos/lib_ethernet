@@ -13,6 +13,8 @@ void log_speed_change_pointers(int speed_change_ids[4]);
 
 void install_speed_change_handler(in buffered port:4 p_rxd_interframe, rgmii_inband_status_t current_mode);
 
+void enable_rgmii(unsigned delay, unsigned divide);
+
 void rgmii_rx_lld(streaming chanend c,
                   streaming chanend ping_pong,
                   int first,

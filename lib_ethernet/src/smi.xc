@@ -264,8 +264,16 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable)
   smi.write_reg(phy_address, BASIC_CONTROL_REG, control_reg);
 }
 
-
 unsigned smi_is_link_up(client smi_if smi, uint8_t phy_address) {
   unsigned link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
   return link_up;
+}
+
+ethernet_speed_t smi_get_link_speed(client smi_if smi, uint8_t phy_address) {
+  unsigned speed_resolved = 0;
+  do {
+    speed_resolved = ((smi.read_reg(phy_address, PHY_SPECIFIC_STATUS_REG) >> PHY_SPECIFIC_STATUS_SPEED_RESOLVED_BIT) & 1);
+  } while(!speed_resolved);
+
+  return (ethernet_speed_t)(smi.read_reg(phy_address, PHY_SPECIFIC_STATUS_REG) >> 14) & 3;
 }

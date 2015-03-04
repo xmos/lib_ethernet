@@ -25,20 +25,4 @@
 #define RGMII_DIVIDE RGMII_DIVIDE_100M
 #endif
 
-#define ETHERNET_IFS_AS_REF_CLOCK_COUNT  ((96 + 96 - 10) * (RGMII_DIVIDE + 1)/2)
-
-inline void enable_rgmii (unsigned delay, unsigned divide) {
-#if defined(__XS2A__)
-  unsigned int rdata;
-  rdata = getps(XS1_PS_XCORE_CTRL0);
-
-  // Clear RGMII enable to get a posedge
-  setps(XS1_PS_XCORE_CTRL0,  XS1_XCORE_CTRL0_RGMII_ENABLE_SET(rdata, 0x0));
-  // Set all control values now
-  setps(XS1_PS_XCORE_CTRL0, XS1_XCORE_CTRL0_RGMII_DELAY_SET (
-        XS1_XCORE_CTRL0_RGMII_DIVIDE_SET(
-          XS1_XCORE_CTRL0_RGMII_ENABLE_SET(rdata, 0x1), divide), delay));
-#else
-  __builtin_trap();
-#endif
-}
+#define RGMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  ((96 + 96 - 10) * (RGMII_DIVIDE + 1)/2)

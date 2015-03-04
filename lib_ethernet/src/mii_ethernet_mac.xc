@@ -97,8 +97,9 @@ static void mii_ethernet_aux(client mii_if i_mii,
                              static const unsigned n_tx)
 {
   unsafe {
-    char mac_address[6] = {0};
+    uint8_t mac_address[6] = {0};
     ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
+    ethernet_speed_t link_speed = LINK_100_MBPS_FULL_DUPLEX;
     client_state_t client_state[n_rx];
     int txbuf[(ETHERNET_MAX_PACKET_SIZE+3)/4];
     mii_info_t mii_info;
@@ -124,9 +125,13 @@ static void mii_ethernet_aux(client mii_if i_mii,
                                    char data[n],
                                    unsigned n):
         if (client_state[i].status_update_state == STATUS_UPDATE_PENDING) {
-          data[0] = 1;
-          data[1] = link_status;
+          data[0] = link_status;
+          data[1] = link_speed;
           desc.type = ETH_IF_STATUS;
+          desc.src_ifnum = 0;
+          desc.timestamp = 0;
+          desc.len = 2;
+          desc.filter_data = 0;
           client_state[i].status_update_state = STATUS_UPDATE_WAITING;
         } else if (client_state[i].incoming_packet) {
           ethernet_packet_info_t info;
@@ -148,11 +153,11 @@ static void mii_ethernet_aux(client mii_if i_mii,
         }
         break;
 
-      case i_cfg[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
+      case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
         memcpy(r_mac_address, mac_address, 6);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, char r_mac_address[6]):
+      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
         memcpy(mac_address, r_mac_address, 6);
         break;
 
@@ -209,7 +214,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         break;
       }
 
-      case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope):
+      case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope):
         fail("Shaper not supported in standard MII ethernet");
         break;
 
@@ -230,9 +235,10 @@ static void mii_ethernet_aux(client mii_if i_mii,
         mii_packet_sent(mii_info);
         break;
 
-      case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
+      case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
         if (link_status != status) {
           link_status = status;
+          link_speed = speed;
           update_client_state(client_state, i_rx, n_rx);
         }
         break;

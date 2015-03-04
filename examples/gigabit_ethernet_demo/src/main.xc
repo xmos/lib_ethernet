@@ -53,9 +53,10 @@ void phy_driver(client interface smi_if smi,
       int link_up = smi_is_link_up(smi, ethernet_phy_address);
       ethernet_link_state_t new_state = link_up ? ETHERNET_LINK_UP :
                                                   ETHERNET_LINK_DOWN;
+      ethernet_speed_t link_speed = smi_get_link_speed(smi, ethernet_phy_address);
       if (new_state != link_state) {
         link_state = new_state;
-        eth.set_link_state(0, new_state);
+        eth.set_link_state(0, new_state, link_speed);
       }
       t += ethernet_link_poll_period_ms * XS1_TIMER_KHZ;
       break;

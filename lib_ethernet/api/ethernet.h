@@ -19,7 +19,8 @@ typedef enum eth_packet_type_t {
 typedef enum ethernet_speed_t {
   LINK_10_MBPS_FULL_DUPLEX,   /**< 10 Mbps full duplex */
   LINK_100_MBPS_FULL_DUPLEX,  /**< 100 Mbps full duplex */
-  LINK_1000_MBPS_FULL_DUPLEX  /**< 1000 Mbps full duplex */
+  LINK_1000_MBPS_FULL_DUPLEX, /**< 1000 Mbps full duplex */
+  NUM_ETHERNET_SPEEDS
 } ethernet_speed_t;
 
 /** Type representing link events. */
@@ -62,14 +63,14 @@ typedef interface ethernet_cfg_if {
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
    */
-  void set_macaddr(size_t ifnum, unsigned char mac_address[6]);
+  void set_macaddr(size_t ifnum, uint8_t mac_address[6]);
 
   /** Gets the source MAC address of the Ethernet MAC
    *
    * \param ifnum       The index of the MAC interface to get
    * \param mac_address The six-octet MAC address of this interface
    */
-  void get_macaddr(size_t ifnum, unsigned char mac_address[6]);
+  void get_macaddr(size_t ifnum, uint8_t mac_address[6]);
 
   /** Set the current link state.
    *
@@ -77,8 +78,9 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum      The index of the MAC interface to set
    *  \param new_state  The new link state for the port.
+   *  \param speed      The active link speed and duplex of the port.
    */
-  void set_link_state(int ifnum, ethernet_link_state_t new_state);
+  void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
 
   /** Add MAC addresses to the filter.
    *
@@ -145,7 +147,7 @@ typedef interface ethernet_cfg_if {
    * \param ifnum   The index of the MAC interface to set the slope
    * \param slope   The slope value
    */
-  void set_tx_qav_idle_slope(size_t ifnum, unsigned slope);
+  void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
 
 } ethernet_cfg_if;
 

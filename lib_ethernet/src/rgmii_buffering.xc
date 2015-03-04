@@ -1,14 +1,14 @@
 #include <string.h>
 #include <platform.h>
 #include "rgmii_buffering.h"
-#include "rgmii_common.h"
+#include "rgmii.h"
+#include "rgmii_consts.h"
 #define DEBUG_UNIT RGMII_CLIENT_HANDLER
 #include "debug_print.h"
 #include "print.h"
 #include "xassert.h"
 #include "macaddr_filter_hash.h"
-
-extern inline void enable_rgmii(unsigned delay, unsigned divide);
+#include "server_state.h"
 
 static inline unsigned int get_tile_id_from_chanend(streaming chanend c) {
   unsigned int tile_id;
@@ -334,18 +334,18 @@ unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned 
   }
 }
 
-unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
-                                         server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
-                                         streaming chanend ? c_rx_hp,
-                                         streaming chanend c_rgmii_cfg,
-                                         streaming chanend c_speed_change,
-                                         out port p_txclk_out,
-                                         in buffered port:4 p_rxd_interframe,
-                                         buffers_used_t &used_buffers_rx_lp,
-                                         buffers_used_t &used_buffers_rx_hp,
-                                         buffers_free_t &free_buffers,
-                                         rgmii_inband_status_t current_mode,
-                                         volatile int * unsafe p_idle_slope)
+unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
+                                     server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
+                                     streaming chanend ? c_rx_hp,
+                                     streaming chanend c_rgmii_cfg,
+                                     streaming chanend c_speed_change,
+                                     out port p_txclk_out,
+                                     in buffered port:4 p_rxd_interframe,
+                                     buffers_used_t &used_buffers_rx_lp,
+                                     buffers_used_t &used_buffers_rx_hp,
+                                     buffers_free_t &free_buffers,
+                                     rgmii_inband_status_t current_mode,
+                                     volatile ethernet_port_state_t * unsafe p_port_state)
 {
   set_core_fast_mode_on();
 
@@ -356,16 +356,12 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
     enable_rgmii(RGMII_DELAY_100M, RGMII_DIVIDE_100M);
   }
 
-  ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
-  int * new_link_status;
-  volatile int * unsafe p_new_link_status;
+  ethernet_link_state_t cur_link_state = ETHERNET_LINK_DOWN;
+
   unsafe {
     c_rgmii_cfg <: (rx_client_state_t * unsafe) client_state_lp;
     c_rgmii_cfg <: n_rx_lp;
-    c_rgmii_cfg <: p_idle_slope;
-    new_link_status = ETHERNET_LINK_DOWN;
-    p_new_link_status = (volatile int * unsafe) &new_link_status;
-    c_rgmii_cfg <: p_new_link_status;
+    c_rgmii_cfg <: p_port_state;
   }
 
   // Ensure that interrupts will be generated on this core
@@ -382,8 +378,8 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
         rx_client_state_t &client_state = client_state_lp[i];
 
         if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
-          data[0] = 1;
-          data[1] = link_status;
+          data[0] = p_port_state->link_state;
+          data[1] = p_port_state->link_speed;
           desc.type = ETH_IF_STATUS;
           desc.src_ifnum = 0;
           desc.timestamp = 0;
@@ -433,8 +429,8 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
       break;
 
     unsafe {
-      if (link_status != *p_new_link_status) {
-        link_status = *p_new_link_status;
+      if (cur_link_state != p_port_state->link_state) {
+        cur_link_state = p_port_state->link_state;
         for (int i = 0; i < n_rx_lp; i += 1) {
           if (client_state_lp[i].status_update_state == STATUS_UPDATE_WAITING) {
             client_state_lp[i].status_update_state = STATUS_UPDATE_PENDING;
@@ -473,19 +469,20 @@ unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_
   }
 }
 
-unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_lp],
-                                         server ethernet_tx_if i_tx_lp[n_tx_lp], unsigned n_tx_lp,
-                                         streaming chanend ? c_tx_hp,
-                                         streaming chanend c_tx_to_mac,
-                                         streaming chanend c_speed_change,
-                                         buffers_used_t &used_buffers_tx_lp,
-                                         buffers_free_t &free_buffers_lp,
-                                         buffers_used_t &used_buffers_tx_hp,
-                                         buffers_free_t &free_buffers_hp,
-                                         int enable_shaper,
-                                         volatile int * unsafe idle_slope)
+unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
+                                     server ethernet_tx_if i_tx_lp[n_tx_lp], unsigned n_tx_lp,
+                                     streaming chanend ? c_tx_hp,
+                                     streaming chanend c_tx_to_mac,
+                                     streaming chanend c_speed_change,
+                                     buffers_used_t &used_buffers_tx_lp,
+                                     buffers_free_t &free_buffers_lp,
+                                     buffers_used_t &used_buffers_tx_hp,
+                                     buffers_free_t &free_buffers_hp,
+                                     volatile ethernet_port_state_t * unsafe p_port_state)
 {
   set_core_fast_mode_on();
+  int enable_shaper = p_port_state->qav_shaper_enabled;
+  int idle_slope = p_port_state->qav_idle_slope;
 
   timer tmr;
   int credit = 0;
@@ -597,7 +594,7 @@ unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_
       tmr :> credit_time;
 
       int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * (*idle_slope);
+      credit += elapsed * idle_slope;
 
       if (buffers_used_empty(used_buffers_tx_hp)) {
         // Keep the credit 0 when there are no high priority buffers
@@ -673,33 +670,32 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
 {
   set_core_fast_mode_on();
 
-  char mac_address[6] = {0};
+  uint8_t mac_address[6] = {0};
   volatile rx_client_state_t * unsafe client_state_lp;
   unsigned n_rx_lp;
-  volatile int * unsafe p_idle_slope;
-  volatile int * unsafe p_new_link_status;
+  volatile ethernet_port_state_t * unsafe p_port_state;
 
   // Get shared state from the server
   unsafe {
     c_rgmii_server :> client_state_lp;
     c_rgmii_server :> n_rx_lp;
-    c_rgmii_server :> p_idle_slope;
-    c_rgmii_server :> p_new_link_status;
+    c_rgmii_server :> p_port_state;
   }
 
   while (1) {
     select {
-      case i_cfg[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
+      case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
         memcpy(r_mac_address, mac_address, 6);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, char r_mac_address[6]):
+      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
         memcpy(mac_address, r_mac_address, 6);
         break;
 
-      case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
+      case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
         unsafe {
-          *p_new_link_status = status;
+          p_port_state->link_state = status;
+          p_port_state->link_speed = speed;
         }
         break;
 
@@ -754,9 +750,9 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         break;
       }
 
-      case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope): {
+      case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope): {
         unsafe {
-          *p_idle_slope = slope;
+          p_port_state->qav_idle_slope = slope;
         }
         break;
       }
@@ -766,8 +762,7 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         unsafe {
           client_state_lp = (volatile rx_client_state_t * unsafe) tmp;
           c_rgmii_server :> n_rx_lp;
-          c_rgmii_server :> p_idle_slope;
-          c_rgmii_server :> p_new_link_status;
+          c_rgmii_server :> p_port_state;
         }
         break;
     }

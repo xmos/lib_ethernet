@@ -46,30 +46,29 @@ unsafe void rgmii_buffer_manager(streaming chanend c_rx,
                                  buffers_free_t &free_buffers,
                                  unsigned filter_num);
 
-unsafe void rgmii_ethernet_rx_server_aux(rx_client_state_t client_state_lp[n_rx_lp],
-                                         server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
-                                         streaming chanend ? c_rx_hp,
-                                         streaming chanend c_rgmii_cfg,
-                                         streaming chanend c_speed_change,
-                                         out port p_txclk_out,
-                                         in buffered port:4 p_rxd_interframe,
-                                         buffers_used_t &used_buffers_rx_lp,
-                                         buffers_used_t &used_buffers_rx_hp,
-                                         buffers_free_t &free_buffers,
-                                         rgmii_inband_status_t current_mode,
-                                         volatile int * unsafe p_idle_slope);
+unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
+                                     server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
+                                     streaming chanend ? c_rx_hp,
+                                     streaming chanend c_rgmii_cfg,
+                                     streaming chanend c_speed_change,
+                                     out port p_txclk_out,
+                                     in buffered port:4 p_rxd_interframe,
+                                     buffers_used_t &used_buffers_rx_lp,
+                                     buffers_used_t &used_buffers_rx_hp,
+                                     buffers_free_t &free_buffers,
+                                     rgmii_inband_status_t current_mode,
+                                     volatile ethernet_port_state_t * unsafe p_port_state);
 
-unsafe void rgmii_ethernet_tx_server_aux(tx_client_state_t client_state_lp[n_tx_lp],
-                                         server ethernet_tx_if i_tx_lp[n_tx_lp], unsigned n_tx_lp,
-                                         streaming chanend ? c_tx_hp,
-                                         streaming chanend c_tx_to_mac,
-                                         streaming chanend c_speed_change,
-                                         buffers_used_t &used_buffers_tx_lp,
-                                         buffers_free_t &free_buffers_lp,
-                                         buffers_used_t &used_buffers_tx_hp,
-                                         buffers_free_t &free_buffers_hp,
-                                         int enable_shaper,
-                                         volatile int * unsafe idle_slope);
+unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
+                                     server ethernet_tx_if i_tx_lp[n_tx_lp], unsigned n_tx_lp,
+                                     streaming chanend ? c_tx_hp,
+                                     streaming chanend c_tx_to_mac,
+                                     streaming chanend c_speed_change,
+                                     buffers_used_t &used_buffers_tx_lp,
+                                     buffers_free_t &free_buffers_lp,
+                                     buffers_used_t &used_buffers_tx_hp,
+                                     buffers_free_t &free_buffers_hp,
+                                     volatile ethernet_port_state_t * unsafe p_port_state);
 #endif
 
 #endif // __RGMII_BUFFERING_H__

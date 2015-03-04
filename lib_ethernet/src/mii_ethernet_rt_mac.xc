@@ -10,6 +10,7 @@
 #include "debug_print.h"
 #include "xassert.h"
 #include "print.h"
+#include "server_state.h"
 
 static inline unsigned int get_tile_id_from_chanend(chanend c) {
   unsigned int tile_id;
@@ -195,25 +196,24 @@ unsafe static inline void handle_ts_queue(mii_ts_queue_t ts_queue,
   }
 }
 
-unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
-                                           mii_packet_queue_t rx_packets_lp,
-                                           mii_packet_queue_t rx_packets_hp,
-                                           unsigned * unsafe rx_rdptr,
-                                           mii_mempool_t tx_mem_lp,
-                                           mii_mempool_t tx_mem_hp,
-                                           mii_packet_queue_t tx_packets_lp,
-                                           mii_packet_queue_t tx_packets_hp,
-                                           mii_ts_queue_t ts_queue_lp,
-                                           server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                                           server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                                           server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                                           streaming chanend ? c_rx_hp,
-                                           streaming chanend ? c_tx_hp,
-                                           chanend c_macaddr_filter,
-                                           volatile int * unsafe p_idle_slope)
+unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
+                                       mii_packet_queue_t rx_packets_lp,
+                                       mii_packet_queue_t rx_packets_hp,
+                                       unsigned * unsafe rx_rdptr,
+                                       mii_mempool_t tx_mem_lp,
+                                       mii_mempool_t tx_mem_hp,
+                                       mii_packet_queue_t tx_packets_lp,
+                                       mii_packet_queue_t tx_packets_hp,
+                                       mii_ts_queue_t ts_queue_lp,
+                                       server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                                       server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                                       server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                                       streaming chanend ? c_rx_hp,
+                                       streaming chanend ? c_tx_hp,
+                                       chanend c_macaddr_filter,
+                                       volatile ethernet_port_state_t * unsafe p_port_state)
 {
-  char mac_address[6] = {0};
-  ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
+  uint8_t mac_address[6] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
   rx_client_state_t rx_client_state_hp[1];
   tx_client_state_t tx_client_state_lp[n_tx_lp];
@@ -247,8 +247,8 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       rx_client_state_t &client_state = rx_client_state_lp[i];
 
       if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
-        data[0] = 1;
-        data[1] = link_status;
+        data[0] = p_port_state->link_state;
+        data[1] = p_port_state->link_speed;
         desc.type = ETH_IF_STATUS;
         desc.src_ifnum = 0;
         desc.timestamp = 0;
@@ -298,17 +298,18 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       break;
     }
 
-    case i_cfg[int i].get_macaddr(size_t ifnum, char r_mac_address[6]):
+    case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
       memcpy(r_mac_address, mac_address, 6);
       break;
 
-    case i_cfg[int i].set_macaddr(size_t ifnum, char r_mac_address[6]):
+    case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
       memcpy(mac_address, r_mac_address, 6);
       break;
 
-    case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status):
-      if (link_status != status) {
-        link_status = status;
+    case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
+      if (p_port_state->link_state != status) {
+        p_port_state->link_state = status;
+        p_port_state->link_speed = speed;
         update_client_state(rx_client_state_lp, i_rx_lp, n_rx_lp);
       }
       break;
@@ -378,8 +379,8 @@ unsafe static void mii_ethernet_server_aux(mii_mempool_t rx_mem,
       break;
     }
 
-    case i_cfg[int i].set_tx_qav_idle_slope(size_t ifnum, unsigned slope): {
-      *p_idle_slope = slope;
+    case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope): {
+      p_port_state->qav_idle_slope = slope;
       break;
     }
 
@@ -561,8 +562,11 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
     streaming chan c;
     mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk);
 
-    int idle_slope = (11<<MII_CREDIT_FRACTIONAL_BITS);
-    int * unsafe p_idle_slope = (int * unsafe)&idle_slope;
+    ethernet_port_state_t port_state;
+    init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
+
+    ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
+
     chan c_conf;
     par {
       mii_master_rx_pins(rx_mem,
@@ -575,29 +579,29 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          (mii_packet_queue_t)&tx_packets_lp,
                          (mii_packet_queue_t)&tx_packets_hp,
                          ts_queue, p_txd,
-                         enable_shaper == ETHERNET_ENABLE_SHAPER, p_idle_slope);
+                         p_port_state);
 
       mii_ethernet_filter(c, c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
                           (mii_packet_queue_t)&rx_packets_hp);
 
-      mii_ethernet_server_aux(rx_mem,
-                              (mii_packet_queue_t)&rx_packets_lp,
-                              (mii_packet_queue_t)&rx_packets_hp,
-                              p_rx_rdptr,
-                              tx_mem_lp,
-                              tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
-                              (mii_packet_queue_t)&tx_packets_hp,
-                              ts_queue,
-                              i_cfg, n_cfg,
-                              i_rx_lp, n_rx_lp,
-                              i_tx_lp, n_tx_lp,
-                              c_rx_hp,
-                              c_tx_hp,
-                              c_conf,
-                              p_idle_slope);
+      mii_ethernet_server(rx_mem,
+                          (mii_packet_queue_t)&rx_packets_lp,
+                          (mii_packet_queue_t)&rx_packets_hp,
+                          p_rx_rdptr,
+                          tx_mem_lp,
+                          tx_mem_hp,
+                          (mii_packet_queue_t)&tx_packets_lp,
+                          (mii_packet_queue_t)&tx_packets_hp,
+                          ts_queue,
+                          i_cfg, n_cfg,
+                          i_rx_lp, n_rx_lp,
+                          i_tx_lp, n_tx_lp,
+                          c_rx_hp,
+                          c_tx_hp,
+                          c_conf,
+                          p_port_state);
     }
   }
 }

@@ -45,7 +45,7 @@
 // that reads the timer is the next instruction after the out at the
 // end of the packet and the timer wait is an instruction before the
 // out of the pre-amble
-#define ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
+#define MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
 // Receive timing constraints
 #if ETHERNET_ENABLE_FULL_TIMINGS && defined(__XS1B__)
@@ -452,13 +452,14 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                mii_packet_queue_t packets_hp,
                                mii_ts_queue_t ts_queue,
                                out buffered port:32 p_mii_txd,
-                               int enable_shaper,
-                               volatile int * unsafe idle_slope)
+                               volatile ethernet_port_state_t * unsafe p_port_state)
 {
   int credit = 0;
   int credit_time;
   timer tmr;
   unsigned ifg_time;
+  unsigned enable_shaper = p_port_state->qav_shaper_enabled;
+  unsigned idle_slope = p_port_state->qav_idle_slope;
 
   if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER)
     enable_shaper = 0;
@@ -482,7 +483,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       tmr :> credit_time;
 
       int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * (*idle_slope);
+      credit += elapsed * idle_slope;
 
       if (buf) {
         if (credit < 0) {
@@ -508,7 +509,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, tmr, ifg_time);
 
-    ifg_time += ETHERNET_IFS_AS_REF_CLOCK_COUNT;
+    ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += (buf->length & 0x3) * 8;
 
     const int packet_is_high_priority = (p_ts_queue == null);

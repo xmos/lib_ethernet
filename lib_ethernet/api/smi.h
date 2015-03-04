@@ -4,14 +4,15 @@
 #include "ethernet.h"
 
 // SMI Registers
-#define BASIC_CONTROL_REG                  0
-#define BASIC_STATUS_REG                   1
-#define PHY_ID1_REG                        2
-#define PHY_ID2_REG                        3
-#define AUTONEG_ADVERT_REG                 4
-#define AUTONEG_LINK_REG                   5
-#define AUTONEG_EXP_REG                    6
-#define GIGE_CONTROL_REG                   9
+#define BASIC_CONTROL_REG                  0x0
+#define BASIC_STATUS_REG                   0x1
+#define PHY_ID1_REG                        0x2
+#define PHY_ID2_REG                        0x3
+#define AUTONEG_ADVERT_REG                 0x4
+#define AUTONEG_LINK_REG                   0x5
+#define AUTONEG_EXP_REG                    0x6
+#define GIGE_CONTROL_REG                   0x9
+#define PHY_SPECIFIC_STATUS_REG            0x11
 
 #define BASIC_CONTROL_LOOPBACK_BIT        14
 #define BASIC_CONTROL_100_MBPS_BIT        13
@@ -26,6 +27,8 @@
 #define AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX             9
 #define AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX             8
 #define AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX              6
+
+#define PHY_SPECIFIC_STATUS_SPEED_RESOLVED_BIT 11
 
 #define SMI_ENABLE_AUTONEG 1
 #define SMI_DISABLE_AUTONEG 0
@@ -55,6 +58,8 @@ unsigned smi_get_id(client smi_if smi, uint8_t phy_address);
 unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address);
 
 unsigned smi_is_link_up(client smi_if smi, uint8_t phy_address);
+
+ethernet_speed_t smi_get_link_speed(client smi_if smi, uint8_t phy_address);
 
 #endif
 
