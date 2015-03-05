@@ -164,7 +164,61 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
       buffers_free_initialize(free_buffers_tx_hp, (unsigned char*)buffer_tx_hp,
                               buffer_free_pointers_tx_hp, RGMII_MAC_BUFFER_COUNT_TX);
 
-      if (current_mode == INBAND_STATUS_1G_FULLDUPLEX)
+      if (current_mode == INBAND_STATUS_100M_FULLDUPLEX_UP ||
+          current_mode == INBAND_STATUS_100M_FULLDUPLEX_DOWN ||
+          current_mode == INBAND_STATUS_10M_FULLDUPLEX_UP ||
+          current_mode == INBAND_STATUS_10M_FULLDUPLEX_DOWN)
+      {
+        set_port_no_inv(rgmii_ports.p_txclk_in);
+        mii_macaddr_set_num_active_filters(1);
+
+        par
+        {
+          {
+            rgmii_10_100_master_tx_pins(c_manager_to_tx, rgmii_ports.p_txd, c_speed_change[0]);
+            empty_channel(c_manager_to_tx);
+          }
+
+          {
+            clearbuf(rgmii_ports.p_rxd_10_100);
+            par {
+              {
+                rgmii_10_100_master_rx_pins(c_rx_to_manager[0], rgmii_ports.p_rxd_10_100, rgmii_ports.p_rxdv,
+                                            rgmii_ports.p_rxer, c_speed_change[1]);
+                empty_channel(c_rx_to_manager[0]);
+              }
+              {
+                rgmii_buffer_manager(c_rx_to_manager[0], c_speed_change[3],
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers_rx, 0);
+              }
+              {
+                // Just wait for a change from 100Mb mode and empty those channels
+                c_speed_change[2] :> unsigned tmp;
+                c_speed_change[4] :> unsigned tmp;
+              }
+            }
+          }
+
+          {
+            rgmii_ethernet_rx_server((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
+                                     c_rx_hp, c_rgmii_cfg,
+                                     c_speed_change[5], rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
+                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
+                                     *p_free_buffers_rx, current_mode, p_port_state);
+            current_mode = get_current_rgmii_mode(rgmii_ports.p_rxd_interframe);
+          }
+
+          {
+            rgmii_ethernet_tx_server(tx_client_state_lp, i_tx_lp, n_tx_lp,
+                                     c_tx_hp,
+                                     c_manager_to_tx, c_speed_change[6],
+                                     used_buffers_tx_lp, free_buffers_tx_lp,
+                                     used_buffers_tx_hp, free_buffers_tx_hp,
+                                     p_port_state);
+          }
+        }
+      }
+      else
       {
         set_port_inv(rgmii_ports.p_txclk_in);
         mii_macaddr_set_num_active_filters(2);
@@ -221,63 +275,6 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
                                      p_port_state);
           }
         }
-      }
-      else if (current_mode == INBAND_STATUS_100M_FULLDUPLEX ||
-               current_mode == INBAND_STATUS_10M_FULLDUPLEX)
-      {
-        set_port_no_inv(rgmii_ports.p_txclk_in);
-        mii_macaddr_set_num_active_filters(1);
-
-        par
-        {
-          {
-            rgmii_10_100_master_tx_pins(c_manager_to_tx, rgmii_ports.p_txd, c_speed_change[0]);
-            empty_channel(c_manager_to_tx);
-          }
-
-          {
-            clearbuf(rgmii_ports.p_rxd_10_100);
-            par {
-              {
-                rgmii_10_100_master_rx_pins(c_rx_to_manager[0], rgmii_ports.p_rxd_10_100, rgmii_ports.p_rxdv,
-					                                  rgmii_ports.p_rxer, c_speed_change[1]);
-                empty_channel(c_rx_to_manager[0]);
-              }
-              {
-                rgmii_buffer_manager(c_rx_to_manager[0], c_speed_change[3],
-                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp, *p_free_buffers_rx, 0);
-              }
-              {
-                // Just wait for a change from 100Mb mode and empty those channels
-                c_speed_change[2] :> unsigned tmp;
-                c_speed_change[4] :> unsigned tmp;
-              }
-            }
-          }
-
-          {
-            rgmii_ethernet_rx_server((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
-                                     c_rx_hp, c_rgmii_cfg,
-                                     c_speed_change[5], rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
-                                     *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
-                                     *p_free_buffers_rx, current_mode, p_port_state);
-            current_mode = get_current_rgmii_mode(rgmii_ports.p_rxd_interframe);
-          }
-
-          {
-            rgmii_ethernet_tx_server(tx_client_state_lp, i_tx_lp, n_tx_lp,
-                                     c_tx_hp,
-                                     c_manager_to_tx, c_speed_change[6],
-                                     used_buffers_tx_lp, free_buffers_tx_lp,
-                                     used_buffers_tx_hp, free_buffers_tx_hp,
-                                     p_port_state);
-          }
-        }
-      }
-      else
-      {
-        // Unrecognized speed - re-read the value
-        current_mode = get_current_rgmii_mode(rgmii_ports.p_rxd_interframe);
       }
     }
   }

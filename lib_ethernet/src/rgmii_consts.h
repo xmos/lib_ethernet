@@ -6,7 +6,7 @@
 #define RGMII_DIVIDE_100M (((RGMII_DIVIDE_1G + 1) * 5) - 1)
 
 #ifndef INITIAL_MODE
-  #define INITIAL_MODE INBAND_STATUS_1G_FULLDUPLEX
+  #define INITIAL_MODE INBAND_STATUS_OFF
 #endif
 
 // The inter-frame gap is 96 bit times (1 clock tick at 100Mb/s). However,

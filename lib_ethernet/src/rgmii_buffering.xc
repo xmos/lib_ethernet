@@ -349,14 +349,15 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
 {
   set_core_fast_mode_on();
 
-  if (current_mode == INBAND_STATUS_1G_FULLDUPLEX) {
+  if (current_mode == INBAND_STATUS_1G_FULLDUPLEX_UP ||
+      current_mode == INBAND_STATUS_1G_FULLDUPLEX_DOWN) {
     enable_rgmii(RGMII_DELAY, RGMII_DIVIDE_1G);
   }
   else {
     enable_rgmii(RGMII_DELAY_100M, RGMII_DIVIDE_100M);
   }
 
-  ethernet_link_state_t cur_link_state = ETHERNET_LINK_DOWN;
+  ethernet_link_state_t cur_link_state = p_port_state->link_state;
 
   unsafe {
     c_rgmii_cfg <: (rx_client_state_t * unsafe) client_state_lp;
@@ -378,7 +379,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
         rx_client_state_t &client_state = client_state_lp[i];
 
         if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
-          data[0] = p_port_state->link_state;
+          data[0] = cur_link_state;
           data[1] = p_port_state->link_speed;
           desc.type = ETH_IF_STATUS;
           desc.src_ifnum = 0;
