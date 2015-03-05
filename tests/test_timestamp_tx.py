@@ -53,8 +53,6 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
 def runtest():
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
 
-    xmostest.build('test_timestamp_tx')
-
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(dut_exit_time=200000)

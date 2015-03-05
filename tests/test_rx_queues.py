@@ -253,8 +253,6 @@ def runtest():
 
     random.seed(1)
 
-    xmostest.build('test_rx_queues')
-
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,
                                              verbose=args.verbose)

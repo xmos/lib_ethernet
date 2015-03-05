@@ -96,8 +96,6 @@ def create_expect(packets, filename):
 def runtest():
     random.seed(1)
 
-    xmostest.build('test_time_rx')
-
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='standard'):
