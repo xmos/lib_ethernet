@@ -149,6 +149,10 @@ typedef interface ethernet_cfg_if {
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
 
+  void set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value);
+
+  void set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value);
+
 } ethernet_cfg_if;
 
 /** Ethernet endpoint receive interface.

@@ -218,6 +218,16 @@ static void mii_ethernet_aux(client mii_if i_mii,
         fail("Shaper not supported in standard MII ethernet");
         break;
 
+      case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
+        fail("Timestamp correction not supported in standard MII Ethernet");
+        break;
+      }
+
+      case i_cfg[int i].set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
+        fail("Timestamp correction not supported in standard MII Ethernet");
+        break;
+      }
+
       case i_tx[int i]._init_send_packet(unsigned n, unsigned dst_port):
         // Do nothing
         break;

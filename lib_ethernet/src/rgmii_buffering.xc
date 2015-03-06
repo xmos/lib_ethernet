@@ -395,7 +395,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
           ethernet_packet_info_t info;
           info.type = ETH_DATA;
           info.src_ifnum = 0; // There is only one RGMII port
-          info.timestamp = buf->timestamp;
+          info.timestamp = buf->timestamp - p_port_state->ingress_ts_latency[p_port_state->link_speed];
           info.len = buf->length;
           info.filter_data = buf->filter_data;
           memcpy(&desc, &info, sizeof(info));
@@ -453,7 +453,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
         ethernet_packet_info_t info;
         info.type = ETH_DATA;
         info.src_ifnum = 0;
-        info.timestamp = buf->timestamp;
+        info.timestamp = buf->timestamp - p_port_state->ingress_ts_latency[p_port_state->link_speed];
         info.len = buf->length;
         info.filter_data = buf->filter_data;
         sout_char_array(c_rx_hp, (char *)&info, sizeof(info));
@@ -516,7 +516,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
       case (int i = 0; i < n_tx_lp; i++)
         (client_state_lp[i].has_outgoing_timestamp_info) =>
         i_tx_lp[i]._get_outgoing_timestamp() -> unsigned timestamp:
-        timestamp = client_state_lp[i].outgoing_timestamp;
+        timestamp = client_state_lp[i].outgoing_timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
         client_state_lp[i].has_outgoing_timestamp_info = 0;
         break;
 
@@ -575,7 +575,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
           if (buf->timestamp_id) {
             size_t client_id = buf->timestamp_id - 1;
             client_state_lp[client_id].has_outgoing_timestamp_info = 1;
-            client_state_lp[client_id].outgoing_timestamp = buf->timestamp;
+            client_state_lp[client_id].outgoing_timestamp = buf->timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
           }
           buffers_free_add(free_buffers_lp, buf, 0);
         }
@@ -754,6 +754,26 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
       case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope): {
         unsafe {
           p_port_state->qav_idle_slope = slope;
+        }
+        break;
+      }
+
+      case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
+        if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
+          fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
+        }
+        unsafe {
+          p_port_state->ingress_ts_latency[speed] = value / 10;
+        }
+        break;
+      }
+
+      case i_cfg[int i].set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
+        if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
+          fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
+        }
+        unsafe {
+          p_port_state->egress_ts_latency[speed] = value / 10;
         }
         break;
       }

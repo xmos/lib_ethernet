@@ -384,6 +384,22 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       break;
     }
 
+    case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
+      if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
+        fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
+      }
+      p_port_state->ingress_ts_latency[speed] = value / 10;
+      break;
+    }
+
+    case i_cfg[int i].set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
+      if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
+        fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
+      }
+      p_port_state->egress_ts_latency[speed] = value / 10;
+      break;
+    }
+
     case i_tx_lp[int i]._init_send_packet(unsigned n, unsigned dst_port):
       if (tx_client_state_lp[i].send_buffer == null)
         tx_client_state_lp[i].requested_send_buffer_size = n;
