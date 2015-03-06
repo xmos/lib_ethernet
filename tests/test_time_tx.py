@@ -86,8 +86,6 @@ def create_expect(filename):
             f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0 => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
 
 def runtest():
-    xmostest.build('test_time_tx')
-
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, verbose=args.verbose)

@@ -134,8 +134,6 @@ def create_expect(filename, num_expected_packets):
 def runtest():
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
 
-    xmostest.build('test_shaper')
-
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, verbose=args.verbose)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)

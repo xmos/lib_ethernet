@@ -47,8 +47,6 @@ def do_test(mac, tx_clk, tx_phy):
 def runtest():
     random.seed(1)
 
-    xmostest.build('test_etype_filter')
-
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
     if run_on(phy='mii', clk='25Mhz', mac='standard'):

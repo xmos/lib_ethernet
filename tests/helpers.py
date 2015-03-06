@@ -75,8 +75,6 @@ def run_on(**kwargs):
     return True
 
 def runall_rx(test_fn):
-    xmostest.build('test_rx')
-
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)

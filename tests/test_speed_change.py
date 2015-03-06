@@ -139,8 +139,6 @@ def create_expect(filename, packets_25, packets_125):
 def runtest():
     random.seed(1)
     
-    xmostest.build('test_speed_change')
-
     (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay=initial_delay,
                                                   expect_loopback=False, verbose=args.verbose)
     (tx_clk_125, tx_rgmii_125) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, initial_delay=initial_delay,
