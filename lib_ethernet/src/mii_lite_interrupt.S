@@ -37,6 +37,7 @@
 
     .align 4
 mii_lite_install_handler:
+    ENTSP_lu6 0                              //    force single issue mode
     setd   res[r3], r3                       //    synchronising interrupt routine and user land
     stw    r3, r0[notification_channel_end]  //    it points to itself
 
