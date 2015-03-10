@@ -35,7 +35,7 @@ saved_word3:
         .issue_mode single
 
 log_speed_change_pointers:
-        entsp 0
+        ENTSP_lu6 0
 
         ldaw r11, dp[notification_channel_ids]
         getr r1, XS1_RES_TYPE_CHANEND
@@ -89,7 +89,7 @@ log_speed_change_pointers:
         .type   install_speed_change_handler,@function
 
 install_speed_change_handler:
-        entsp 0
+        ENTSP_lu6 0
 
         in r11, res[r0] // empty transfer register
         in r11, res[r0] // empty shift register
