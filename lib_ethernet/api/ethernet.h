@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include "ethernet_defines.h"
 
+#define ETHERNET_ALL_INTERFACES  (-1)
+
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
   ETH_DATA,                      /**< A packet containing data. */
@@ -178,8 +180,6 @@ typedef interface ethernet_cfg_if {
   void set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value);
 
 } ethernet_cfg_if;
-
-#define ETHERNET_ALL_INTERFACES  (-1)
 
 /** Ethernet MAC data transmit interface
  *
