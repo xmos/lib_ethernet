@@ -28,7 +28,7 @@
 #define SP_REGISTER_SAVE_4 10
 #define SP_REGISTER_SAVE_5 11
 #define SP_REGISTER_SAVE_6 12
-#define SP_NUM_WORDS       13+1 // Extend to even number to conform to ABI
+#define SP_NUM_WORDS       13+1 // Extend to even number to conform to XS2 ABI
 
 #define SP_RX_ERR        (SP_NUM_WORDS + 3)
 #define SP_RX_DV         (SP_NUM_WORDS + 2)

@@ -30,7 +30,7 @@ mii_per_core_error_and_dv:
         .issue_mode single
 #endif
 mii_setup_error_port:
-        entsp 0
+        ENTSP_lu6 0
 
         ldc    r3, MII_COMMON_HANDLER_STACK_WORDS - 1
         ldaw   r3, r2[r3]                  // Set up kernel stack.
@@ -60,6 +60,7 @@ mii_setup_error_port:
         retsp 0
 
 mii_error_interrupt_handler:
+        ENTSP_lu6 0
         kentsp MII_COMMON_HANDLER_STACK_WORDS - 1
         stw r0, sp[0]
         stw r11, sp[1]
@@ -74,12 +75,12 @@ mii_error_interrupt_handler:
         peek r11, res[r11]
 
         // If the DV line is not high then ignore this error
-        bf r11, mii_error_interrupt_handler_igore
+        bf r11, mii_error_interrupt_handler_ignore
 
         // Signal the error through the shared pointer
         stw r0, r0[0]
 
-mii_error_interrupt_handler_igore:
+mii_error_interrupt_handler_ignore:
         // Clear the interrupt
         get r11, ed
         in r0, res[r11]

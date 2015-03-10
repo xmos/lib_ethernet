@@ -24,7 +24,7 @@
 #define SP_MOD3_TABLE     2
 #define SP_DP_VALUE       3
 #define SP_REGISTER_SAVE  4
-#define SP_NUM_WORDS     11+1 // Extend to even number to conform to ABI
+#define SP_NUM_WORDS     11+1 // Extend to even number to conform to XS2 ABI
 
 #define MAX_PACKET_WORDS (ETHERNET_MAX_PACKET_SIZE/4)
 

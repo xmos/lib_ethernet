@@ -66,6 +66,7 @@ mii_lite_install_handler:
 
     .align 4
 mii_interrupt_handler:
+    ENTSP_lu6 0
     kentsp KERNEL_STACK_SAVE
     stw    r3, sp[4]
     stw    r2, sp[3]

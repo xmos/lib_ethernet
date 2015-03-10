@@ -47,7 +47,7 @@ Dall_fives:
     .text
     .align 4
 
-#define STACKSIZE 19
+#define STACKSIZE 19+1 // Extend to even number to conform to XS2 ABI
 
 #define sp_receiving_out 9
 #define sp_preamble1 10
@@ -82,7 +82,7 @@ Dall_fives:
 
 #define EEBLE XS1_SR_EEBLE_MASK
 mii_lite_lld:
-    entsp  STACKSIZE
+    ENTSP_lu6  STACKSIZE
     stw    r4, sp[1]       // Save all registers, just in case we ever want to return.
     stw    r5, sp[2]
     stw    r6, sp[3]
