@@ -6,7 +6,7 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
-def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -57,7 +57,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
+    do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 def runtest():
     random.seed(15)

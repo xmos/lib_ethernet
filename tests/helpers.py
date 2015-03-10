@@ -121,7 +121,7 @@ def runall_rx(test_fn):
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+        test_fn('rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
     if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
