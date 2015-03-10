@@ -89,7 +89,7 @@ unsafe void mii_incoming_packet(mii_info_t info);
 /** Event on/wait for a packet send to complete.
  *
  *  This function will wait for a packet transmitted with the ``send_packet``
- *  function on the mii_interface to coomplete.
+ *  function on the mii_interface to complete.
  *  It can be used in a select to event when the transmission is complete e.g
  *
     \verbatim
@@ -103,30 +103,30 @@ unsafe void mii_incoming_packet(mii_info_t info);
  */
 unsafe void mii_packet_sent(mii_info_t info);
 
-/** MII component.
+/** Raw MII component.
  *
- *  This function implements a basic MII layer component with a basic
- *  buffering scheme that is shared with the application and not filtering. It
- *  provides a direct access to the MII pins.
+ *  This function implements a MII layer component with a basic buffering scheme that
+ *  is shared with the application. It provides a direct access to the MII pins. It does
+ *  not implement the buffering and filtering required by a compliant Ethernet MAC layer,
+ *  and defers this to the application.
  *
- *  The buffering of this task is shared with the application it is connected
- *  to. It will also set up an interrupt handler on the logical core the
- *  application is running on (via the ``init`` function on the
- *  interface connection) so will consume some of the MIPs on that core as
- *  well as the core it runs on.
+ *  The buffering of this task is shared with the application it is connected to.
+ *  It sets up an interrupt handler on the logical core the application is running on
+ *  via the ``init`` function on the `mii_if` interface connection) and also
+ *  consumes some of the MIPs on that core in addition to the core `mii` is running on.
  *
  *  \param i_mii            The MII interface to connect to the application.
- *  \param p_rxclk          RX clock port
- *  \param p_rxer           RX error port
- *  \param p_rxd            RX data port
- *  \param p_rxdv           RX data valid port
- *  \param p_txclk          TX clock port
- *  \param p_txen           TX enable port
- *  \param p_txd            TX data port
+ *  \param p_rxclk          MII RX clock port
+ *  \param p_rxer           MII RX error port
+ *  \param p_rxd            MII RX data port
+ *  \param p_rxdv           MII RX data valid port
+ *  \param p_txclk          MII TX clock port
+ *  \param p_txen           MII TX enable port
+ *  \param p_txd            MII TX data port
  *  \param p_timing         Internal timing port - this can be any xCORE port that
  *                          is not connected to any external device.
- *  \param rxclk            Clock used for receive timing
- *  \param txclk            Clock used for transmit timing
+ *  \param rxclk            Clock used for MII receive timing
+ *  \param txclk            Clock used for MII transmit timing
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
 */

@@ -667,7 +667,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
 [[combinable]]
 void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
                                unsigned n,
-                               streaming chanend c_rgmii_server)
+                               streaming chanend c_rgmii_cfg)
 {
   set_core_fast_mode_on();
 
@@ -678,9 +678,9 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
 
   // Get shared state from the server
   unsafe {
-    c_rgmii_server :> client_state_lp;
-    c_rgmii_server :> n_rx_lp;
-    c_rgmii_server :> p_port_state;
+    c_rgmii_cfg :> client_state_lp;
+    c_rgmii_cfg :> n_rx_lp;
+    c_rgmii_cfg :> p_port_state;
   }
 
   while (1) {
@@ -744,7 +744,7 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         break;
 
       case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
-        tile_id = get_tile_id_from_chanend(c_rgmii_server);
+        tile_id = get_tile_id_from_chanend(c_rgmii_cfg);
   
         timer tmr;
         tmr :> time_on_tile;
@@ -778,12 +778,12 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         break;
       }
 
-      case c_rgmii_server :> unsigned tmp:
+      case c_rgmii_cfg :> unsigned tmp:
         // Server has reset
         unsafe {
           client_state_lp = (volatile rx_client_state_t * unsafe) tmp;
-          c_rgmii_server :> n_rx_lp;
-          c_rgmii_server :> p_port_state;
+          c_rgmii_cfg :> n_rx_lp;
+          c_rgmii_cfg :> p_port_state;
         }
         break;
     }

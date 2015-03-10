@@ -15,7 +15,6 @@
 **/.settings/*
 .DS_Store
 *.yml
-*.pdf
 *.zip
 *.expect
 *.log

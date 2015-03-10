@@ -59,7 +59,7 @@ inline void mii_packet_sent_(unsafe chanend c) {
       mii_driver(p_rxclk, p_rxer, p_rxd, p_rxdv, p_txclk,   \
                  p_txen, p_txd, p_timing, rxclk, txclk,     \
                  c_in, c_out, c_notif);                     \
-    [[distribute]] mii_handler(c_in, c_out, c_notif, i_mii, \
+      mii_handler(c_in, c_out, c_notif, i_mii, \
                                double_rx_bufsize_words);    \
     } \
   }
