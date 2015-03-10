@@ -22,23 +22,23 @@ SHARED_CODE = ../../include
 
 COMMON_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -I$(SHARED_CODE)
 
-XCC_FLAGS_rt_mii       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
-XCC_FLAGS_rt_hp_mii    = $(COMMON_FLAGS) -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1
-XCC_FLAGS_standard_mii = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
-XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
-XCC_FLAGS_rt_hp_rgmii  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
+XCC_FLAGS_rt_mii_xs1       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
+XCC_FLAGS_rt_hp_mii_xs1    = $(COMMON_FLAGS) -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1
+XCC_FLAGS_standard_mii_xs1 = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
 
-ifeq ($(CONFIG),rt_mii)
+XCC_FLAGS_rt_mii_xs2       = $(COMMON_FLAGS) -DRT=1 -DRGMII=0
+XCC_FLAGS_rt_hp_mii_xs2    = $(COMMON_FLAGS) -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1
+XCC_FLAGS_standard_mii_xs2 = $(COMMON_FLAGS) -DRT=0 -DRGMII=0
+
+XCC_FLAGS_rt_rgmii_xs2     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
+XCC_FLAGS_rt_hp_rgmii_xs2  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
+
+
+ifeq ($(CONFIG),$(filter $(CONFIG),rt_mii_xs1 rt_hp_mii_xs1 standard_mii_xs1))
 	TARGET = STARTKIT
 endif
-ifeq ($(CONFIG),rt_hp_mii)
-	TARGET = STARTKIT
-endif
 
-ifeq ($(CONFIG),rt_rgmii)
-	TARGET = XS2-BFB
-endif
-ifeq ($(CONFIG),rt_hp_rgmii)
+ifeq ($(CONFIG),$(filter $(CONFIG),rt_mii_xs2 rt_hp_mii_xs2 standard_mii_xs2 rt_rgmii_xs2 rt_hp_rgmii_xs2))
 	TARGET = XS2-BFB
 endif
 

@@ -9,6 +9,7 @@ if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="XMOS lib_ethernet tests")
     argparser.add_argument('--trace', action='store_true', help='Run tests with simulator and VCD traces')
     argparser.add_argument('--phy', choices=['mii', 'rgmii'], type=str, help='Run tests only on specified PHY')
+    argparser.add_argument('--arch', choices=['xs1', 'xs2'], type=str, help='Run tests only on specified xcore architecture')
     argparser.add_argument('--clk', choices=['25Mhz', '125Mhz'], type=str, help='Run tests only at specified clock speed')
     argparser.add_argument('--mac', choices=['rt', 'rt_hp', 'standard'], type=str, help='Run tests only on specified MAC')
     argparser.add_argument('--seed', type=int, help='The seed', default=None)

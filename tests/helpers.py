@@ -75,45 +75,60 @@ def run_on(**kwargs):
     return True
 
 def runall_rx(test_fn):
-    # Test 100 MBit - MII
+    # Test 100 MBit - MII XS1
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
-    if run_on(phy='mii', clk='25Mhz', mac='standard'):
+    if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs1'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+        test_fn('standard', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
+    if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs1'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+        test_fn('rt', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt_hp'):
+    if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs1'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn("rt_hp", rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+        test_fn('rt_hp', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
+    # Test 100 MBit - MII XS2
+    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
+    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
+    if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs2'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('standard', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
+    if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs2'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn('rt', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+
+    if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs2'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        test_fn("rt_hp", 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch='xs2'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+        test_fn('rt', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch='xs2'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt_hp', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+        test_fn('rt_hp', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
     # Test 1000 MBit - RGMII
     (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
     (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         test_fn('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp'):
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt_hp', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+        test_fn('rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
 
-def do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
+def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
                level='nightly', extra_tasks=[]):
 
     """ Shared test code for all RX tests using the test_rx application.
@@ -122,25 +137,25 @@ def do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
 
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_rx/bin/{mac}_{phy}/test_rx_{mac}_{phy}.xe'.format(
-        mac=mac, phy=tx_phy.get_name())
+    binary = 'test_rx/bin/{mac}_{phy}_{arch}/test_rx_{mac}_{phy}_{arch}.xe'.format(
+        mac=mac, phy=tx_phy.get_name(), arch=arch)
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {mac} mac, {phy} phy sending {n} packets at {clk} (seed {seed})".format(
+        print "Running {test}: {mac} mac, {phy} phy, {arch} arch sending {n} packets at {clk} (seed {seed})".format(
             test=testname, n=len(packets), mac=mac,
-            phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
+            phy=tx_phy.get_name(), arch=arch, clk=tx_clk.get_name(), seed=seed)
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
 
     expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name(), clk=tx_clk.get_name())
+    expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}_{arch}.expect'.format(
+        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name(), clk=tx_clk.get_name(), arch=arch)
     create_expect(packets, expect_filename)
 
     tester = xmostest.ComparisonTester(open(expect_filename),
                                       'lib_ethernet', 'basic_tests', testname,
-                                     {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
+                                     {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(), 'arch':arch})
 
     tester.set_min_testlevel(level)
 

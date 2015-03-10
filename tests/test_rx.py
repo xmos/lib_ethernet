@@ -26,7 +26,7 @@ class TxError(xmostest.SimThread):
         self._tx_phy.drive_error(0)
 
 
-def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -70,7 +70,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     error_driver = TxError(tx_phy, do_error)
 
-    do_rx_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
+    do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
                level='smoke', extra_tasks=[error_driver])
 
 def runtest():
