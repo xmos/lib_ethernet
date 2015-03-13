@@ -30,11 +30,15 @@
 
 #if defined(__XS2A__)
 .align 4
+.section .dp.data, "awd", @progbits
+.cc_top txconsts.data
 data_values:
 .word 0x55555555
 .word 0xd5555555
 .word (MAX_PACKET_WORDS * 2)
+.cc_bottom txconsts.data
 
+.text
         .cc_top rgmii_tx_lld.function
         .set    rgmii_tx_lld.nstackwords,SP_NUM_WORDS
         .globl  rgmii_tx_lld.nstackwords
