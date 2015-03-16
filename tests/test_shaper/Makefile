@@ -31,10 +31,10 @@ ifeq ($(CONFIG),mii_25Mhz)
 	TARGET = STARTKIT
 endif
 ifeq ($(CONFIG),rgmii_25Mhz)
-	TARGET = XS2-BFB
+	TARGET = XCORE-200-EXPLORER
 endif
 ifeq ($(CONFIG),rgmii_125Mhz)
-	TARGET = XS2-BFB
+	TARGET = XCORE-200-EXPLORER
 endif
 
 # The USED_MODULES variable lists other module used by the application.
