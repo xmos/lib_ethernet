@@ -70,11 +70,6 @@ Typical Resource Usage
     - pins: 2
     - ports: 2 (1-bit) or 1 (multi-bit)
 
-Software version and dependencies
-.................................
-
-.. libdeps::
-
 Related application notes
 .........................
 

@@ -26,7 +26,14 @@ Features
 Components
 ...........
 
+.. sidebysidelist::
+
  * 10/100 Mb/s Ethernet MAC
  * 10/100 Mb/s Ethernet MAC with real-time features
- * 10/100/1000 Mb/s Ethernet MAC with real-time features (xCORE-200 XE/XEF devices only)
+ * 10/100/1000 Mb/s Ethernet MAC with real-time features (xCORE-200 XE/XEF)
  * Raw MII interface
+
+Software version and dependencies
+.................................
+
+.. libdeps::
