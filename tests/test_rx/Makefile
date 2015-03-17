@@ -39,7 +39,7 @@ ifeq ($(CONFIG),$(filter $(CONFIG),rt_mii_xs1 rt_hp_mii_xs1 standard_mii_xs1))
 endif
 
 ifeq ($(CONFIG),$(filter $(CONFIG),rt_mii_xs2 rt_hp_mii_xs2 standard_mii_xs2 rt_rgmii_xs2 rt_hp_rgmii_xs2))
-	TARGET = XS2-BFB
+	TARGET = XCORE-200-EXPLORER
 endif
 
 # The USED_MODULES variable lists other module used by the application.

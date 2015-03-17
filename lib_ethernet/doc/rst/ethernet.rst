@@ -39,7 +39,7 @@ Typical Resource Usage
     - pins: 13
     - ports: 5 (1-bit), 2 (4-bit)
   * - configuration: 10/100/1000 Mb/s
-    - target: XS2-BFB
+    - target: XCORE-200-EXPLORER
     - globals: rgmii_ports_t rgmii_ports = RGMII_PORTS_INITIALIZER;
     - locals: ethernet_cfg_if i_cfg[1]; ethernet_rx_if i_rx[1]; ethernet_tx_if i_tx[1];
               streaming chan c_rx; streaming chan c_tx; streaming chan c_rgmii_cfg;

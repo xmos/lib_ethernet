@@ -26,10 +26,10 @@ XCC_FLAGS_rt_rgmii     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
 XCC_FLAGS_rt_hp_rgmii  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
 
 ifeq ($(CONFIG),rt_rgmii)
-	TARGET = XS2-BFB
+	TARGET = XCORE-200-EXPLORER
 endif
 ifeq ($(CONFIG),rt_hp_rgmii)
-	TARGET = XS2-BFB
+	TARGET = XCORE-200-EXPLORER
 endif
 
 # The USED_MODULES variable lists other module used by the application.

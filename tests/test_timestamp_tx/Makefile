@@ -30,7 +30,7 @@ ifeq ($(CONFIG),rt_mii)
 endif
 
 ifeq ($(CONFIG),rt_rgmii)
-	TARGET = XS2-BFB
+	TARGET = XCORE-200-EXPLORER
 endif
 
 # The USED_MODULES variable lists other module used by the application.
