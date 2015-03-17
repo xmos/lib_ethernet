@@ -10,6 +10,12 @@
 #include "macaddr_filter_hash.h"
 #include "server_state.h"
 
+unsafe void notify_speed_change(int speed_change_ids[6]) {
+  for (int i=0; i < 6; i++) {
+    asm("out res[%0], %1"::"r"(speed_change_ids[i]), "r"(0));
+  }
+}
+
 static inline unsigned int get_tile_id_from_chanend(streaming chanend c) {
   unsigned int tile_id;
   asm("shr %0, %1, 16":"=r"(tile_id):"r"(c));
@@ -334,19 +340,63 @@ unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned 
   }
 }
 
+unsafe rgmii_inband_status_t get_current_rgmii_mode(in buffered port:4 p_rxd_interframe,
+                                                    rgmii_inband_status_t last_mode,
+                                                    int speed_change_ids[6])
+{
+  timer t;
+  unsigned time;
+  rgmii_inband_status_t mode[2];
+  clearbuf(p_rxd_interframe);
+  t :> time;
+
+  // Read the interframe RGMII mode twice to ensure that we do not trigger
+  // on any of the reserved patterns (when GMII_RX_DV=0, GMII_RX_ER=1)
+  for (int i=0; i < 2; i++) {
+    select {
+      case p_rxd_interframe :> mode[i]:
+        if (i == 1) {
+          if ((mode[0] == mode[1]) &&
+              (last_mode != mode[0])) {
+            notify_speed_change(speed_change_ids);
+            return mode[0];
+          }
+          else {
+            return last_mode;
+          }
+        }
+        t :> time;
+        break;
+      // Timeout and return if there is no data in the interframe port.
+      // Some PHYs will hibernate and turn off the RX clock which will cause successive
+      // reads to block. We do not want to block the RX server.
+      case t when timerafter(time + 100) :> void:
+        return last_mode;
+        break;
+    }
+  }
+  __builtin_unreachable();
+  return last_mode;
+}
+
 unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
                                      server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
                                      streaming chanend ? c_rx_hp,
                                      streaming chanend c_rgmii_cfg,
-                                     streaming chanend c_speed_change,
                                      out port p_txclk_out,
                                      in buffered port:4 p_rxd_interframe,
                                      buffers_used_t &used_buffers_rx_lp,
                                      buffers_used_t &used_buffers_rx_hp,
                                      buffers_free_t &free_buffers,
-                                     rgmii_inband_status_t current_mode,
+                                     rgmii_inband_status_t &current_mode,
+                                     int speed_change_ids[6],
                                      volatile ethernet_port_state_t * unsafe p_port_state)
 {
+  timer tmr;
+  int t;
+  tmr :> t;
+  const int rgmii_mode_poll_period_ms = 100;
+
   set_core_fast_mode_on();
 
   if (current_mode == INBAND_STATUS_1G_FULLDUPLEX_UP ||
@@ -364,9 +414,6 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
     c_rgmii_cfg <: n_rx_lp;
     c_rgmii_cfg <: p_port_state;
   }
-
-  // Ensure that interrupts will be generated on this core
-  install_speed_change_handler(p_rxd_interframe, current_mode);
 
   int done = 0;
   while (1) {
@@ -416,10 +463,15 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
         }
         break;
 
+      case tmr when timerafter(t) :> t:
+        rgmii_inband_status_t new_mode = get_current_rgmii_mode(p_rxd_interframe, current_mode, speed_change_ids);
 
+        if (new_mode != current_mode) {
+          current_mode = new_mode;
+          done = 1;
+        }
 
-      case c_speed_change :> unsigned tmp:
-        done = 1;
+        t += rgmii_mode_poll_period_ms * XS1_TIMER_KHZ;
         break;
 
       default:

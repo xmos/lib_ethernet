@@ -6,14 +6,7 @@
 #include "rgmii_buffering.h"
 #include "macaddr_filter_hash.h"
 #include "rgmii_consts.h"
-
-rgmii_inband_status_t get_current_rgmii_mode(in buffered port:4 p_rxd_interframe)
-{
-  // Ensure that the data returned is the current value
-  clearbuf(p_rxd_interframe);
-  rgmii_inband_status_t mode = partin(p_rxd_interframe, 4);
-  return mode;
-}
+#include "debug_print.h"
 
 void enable_rgmii(unsigned delay, unsigned divide) {
 #if defined(__XS2A__)
@@ -133,7 +126,7 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
 
     streaming chan c_rx_to_manager[2], c_manager_to_tx, c_ping_pong;
     streaming chanend * unsafe c_speed_change;
-    int speed_change_ids[7];
+    int speed_change_ids[6];
     rgmii_inband_status_t current_mode = INITIAL_MODE;
 
     rgmii_configure_ports(rgmii_ports.p_rxclk, rgmii_ports.p_rxer, rgmii_ports.p_rxd_1000, rgmii_ports.p_rxd_10_100,
@@ -201,17 +194,15 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
 
           {
             rgmii_ethernet_rx_server((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
-                                     c_rx_hp, c_rgmii_cfg,
-                                     c_speed_change[5], rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
+                                     c_rx_hp, c_rgmii_cfg, rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
                                      *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
-                                     *p_free_buffers_rx, current_mode, p_port_state);
-            current_mode = get_current_rgmii_mode(rgmii_ports.p_rxd_interframe);
+                                     *p_free_buffers_rx, current_mode, speed_change_ids, p_port_state);
           }
 
           {
             rgmii_ethernet_tx_server(tx_client_state_lp, i_tx_lp, n_tx_lp,
                                      c_tx_hp,
-                                     c_manager_to_tx, c_speed_change[6],
+                                     c_manager_to_tx, c_speed_change[5],
                                      used_buffers_tx_lp, free_buffers_tx_lp,
                                      used_buffers_tx_hp, free_buffers_tx_hp,
                                      p_port_state);
@@ -259,17 +250,16 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
           {
             rgmii_ethernet_rx_server((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
                                      c_rx_hp, c_rgmii_cfg,
-                                     c_speed_change[5], rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
+                                     rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
                                      *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
-                                     *p_free_buffers_rx, current_mode,
+                                     *p_free_buffers_rx, current_mode, speed_change_ids,
                                      p_port_state);
-            current_mode = get_current_rgmii_mode(rgmii_ports.p_rxd_interframe);
           }
 
           {
             rgmii_ethernet_tx_server(tx_client_state_lp, i_tx_lp, n_tx_lp,
                                      c_tx_hp,
-                                     c_manager_to_tx, c_speed_change[6],
+                                     c_manager_to_tx, c_speed_change[5],
                                      used_buffers_tx_lp, free_buffers_tx_lp,
                                      used_buffers_tx_hp, free_buffers_tx_hp,
                                      p_port_state);

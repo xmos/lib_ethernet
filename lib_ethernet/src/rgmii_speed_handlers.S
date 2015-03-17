@@ -62,106 +62,11 @@ log_speed_change_pointers:
         setd res[r1], r1
         stw r1, r11[5]
         stw r1, r0[5]
-        getr r1, XS1_RES_TYPE_CHANEND
-        setd res[r1], r1
-        stw r1, r11[6]
-        stw r1, r0[6]
 
         retsp 0
 
         .align 4
         .cc_bottom log_speed_change_pointers.function
-
-
-
-        .cc_top install_speed_change_handler.function
-        .set    install_speed_change_handler.nstackwords,0
-        .globl  install_speed_change_handler.nstackwords
-        .set    install_speed_change_handler.maxcores,1
-        .globl  install_speed_change_handler.maxcores
-        .set    install_speed_change_handler.maxtimers,0
-        .globl  install_speed_change_handler.maxtimers
-        .set    install_speed_change_handler.maxchanends,0
-        .globl  install_speed_change_handler.maxchanends
-
-        .globl  install_speed_change_handler
-        .align  4
-        .type   install_speed_change_handler,@function
-
-install_speed_change_handler:
-        ENTSP_lu6 0
-
-        in r11, res[r0] // empty transfer register
-        in r11, res[r0] // empty shift register
-
-        // Set up the handler for when the mode changes
-        ldap r11, speed_change_handler
-        setv res[r0], r11
-        setc res[r0], XS1_SETC_IE_MODE_INTERRUPT
-        setd res[r0], r1
-        setc res[r0], XS1_SETC_COND_NEQ
-        eeu res[r0]
-
-        // Enable interrupts on this core
-        setsr XS1_SR_IEBLE_SET(0, 1)
-
-        retsp 0
-
-        .align 4
-        .cc_bottom install_speed_change_handler.function
-
-
-
-        .cc_top speed_change_handler.function
-        .set    speed_change_handler.nstackwords,4
-        .globl  speed_change_handler.nstackwords
-        .set    speed_change_handler.maxcores,1
-        .globl  speed_change_handler.maxcores
-        .set    speed_change_handler.maxtimers,0
-        .globl  speed_change_handler.maxtimers
-        .set    speed_change_handler.maxchanends,0
-        .globl  speed_change_handler.maxchanends
-
-        .globl  speed_change_handler
-        .align  4
-        .type   speed_change_handler,@function
-
-speed_change_handler:
-        stw r0, dp[saved_word0]
-        stw r1, dp[saved_word1]
-        stw r2, dp[saved_word2]
-        stw r11, dp[saved_word3]
-
-        ldc r1, 0
-
-        ldaw r11, dp[notification_channel_ids]
-        ldw r0, r11[0]
-        out res[r0], r1
-        ldw r0, r11[1]
-        out res[r0], r1
-        ldw r0, r11[2]
-        out res[r0], r1
-        ldw r0, r11[3]
-        out res[r0], r1
-        ldw r0, r11[4]
-        out res[r0], r1
-        ldw r0, r11[5]
-        out res[r0], r1
-        ldw r0, r11[6]
-        out res[r0], r1
-
-        // GET resource ID and disable interrupt on it
-        get r11, ed
-        edu res[r11]
-
-        ldw r11, dp[saved_word3]
-        ldw r2, dp[saved_word2]
-        ldw r1, dp[saved_word1]
-        ldw r0, dp[saved_word0]
-        kret
-
-        .align 4
-        .cc_bottom speed_change_handler.function
 
 #else // Not __XS2A__
 
@@ -180,23 +85,6 @@ speed_change_handler:
         .type   log_speed_change_pointers,@function
 log_speed_change_pointers:
         .cc_bottom log_speed_change_pointers.function
-
-
-        .cc_top install_speed_change_handler.function
-        .set    install_speed_change_handler.nstackwords,0
-        .globl  install_speed_change_handler.nstackwords
-        .set    install_speed_change_handler.maxcores,0
-        .globl  install_speed_change_handler.maxcores
-        .set    install_speed_change_handler.maxtimers,0
-        .globl  install_speed_change_handler.maxtimers
-        .set    install_speed_change_handler.maxchanends,0
-        .globl  install_speed_change_handler.maxchanends
-
-        .globl  install_speed_change_handler
-        .align  4
-        .type   install_speed_change_handler,@function
-install_speed_change_handler:
-        .cc_bottom install_speed_change_handler.function
 
 #endif // __XS2A__
 

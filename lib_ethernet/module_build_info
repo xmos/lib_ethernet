@@ -13,6 +13,7 @@ DEPENDENT_MODULES = lib_gpio lib_locks lib_logging lib_xassert
 
 OPTIONAL_HEADERS += ethernet_conf.h
 
+MODULE_XCC_FLAGS = $(XCC_FLAGS) -mno-dual-issue
 MODULE_XCC_XC_FLAGS = $(XCC_FLAGS) -g -O3
 MODULE_XCC_C_FLAGS = $(XCC_FLAGS) -g -Os
 
