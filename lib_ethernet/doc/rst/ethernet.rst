@@ -592,8 +592,6 @@ SMI PHY configuration helper functions
 
 .. doxygenfunction:: smi_is_link_up
 
-.. doxygenfunction:: smi_get_link_speed
-
 
 |newpage|
 

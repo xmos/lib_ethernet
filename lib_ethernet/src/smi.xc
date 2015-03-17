@@ -189,7 +189,7 @@ unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
   return ((smi.read_reg(phy_address, BASIC_CONTROL_REG) >> BASIC_CONTROL_POWER_DOWN_BIT) & 1);
 }
 
-void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t speed_mbps, int enable_auto_neg)
+void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t speed_mbps, smi_autoneg_t auto_neg)
 {
   if (speed_mbps != LINK_10_MBPS_FULL_DUPLEX &&
       speed_mbps != LINK_100_MBPS_FULL_DUPLEX &&
@@ -197,7 +197,7 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
     fail("Invalid Ethernet speed provided, must be 10, 100 or 1000");
   }
 
-  if (enable_auto_neg) {
+  if (auto_neg == SMI_ENABLE_AUTONEG) {
     uint16_t auto_neg_advert_100_reg = smi.read_reg(phy_address, AUTONEG_ADVERT_REG);
     uint16_t gige_control_reg = smi.read_reg(phy_address, GIGE_CONTROL_REG);
 
@@ -221,7 +221,7 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
   }
 
   uint16_t basic_control = smi.read_reg(phy_address, BASIC_CONTROL_REG);
-  if (enable_auto_neg) {
+  if (auto_neg == SMI_ENABLE_AUTONEG) {
     // set autoneg bit
     basic_control |= 1 << BASIC_CONTROL_AUTONEG_EN_BIT;
     smi.write_reg(phy_address, BASIC_CONTROL_REG, basic_control);
@@ -261,16 +261,7 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable)
   smi.write_reg(phy_address, BASIC_CONTROL_REG, control_reg);
 }
 
-unsigned smi_is_link_up(client smi_if smi, uint8_t phy_address) {
+ethernet_link_state_t smi_get_link_state(client smi_if smi, uint8_t phy_address) {
   unsigned link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
-  return link_up;
-}
-
-ethernet_speed_t smi_get_link_speed(client smi_if smi, uint8_t phy_address) {
-  unsigned speed_resolved = 0;
-  do {
-    speed_resolved = ((smi.read_reg(phy_address, PHY_SPECIFIC_STATUS_REG) >> PHY_SPECIFIC_STATUS_SPEED_RESOLVED_BIT) & 1);
-  } while(!speed_resolved);
-
-  return (ethernet_speed_t)(smi.read_reg(phy_address, PHY_SPECIFIC_STATUS_REG) >> 14) & 3;
+  return link_up ? ETHERNET_LINK_UP : ETHERNET_LINK_DOWN;;
 }
