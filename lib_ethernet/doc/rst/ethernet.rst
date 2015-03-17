@@ -580,9 +580,7 @@ SMI PHY configuration helper functions
 
 .. doxygenfunction:: smi_configure
 
-.. doxygendefine:: SMI_ENABLE_AUTONEG
-
-.. doxygendefine:: SMI_DISABLE_AUTONEG
+.. doxygenenum:: smi_autoneg_t
 
 .. doxygenfunction:: smi_set_loopback_mode
 
@@ -590,7 +588,7 @@ SMI PHY configuration helper functions
 
 .. doxygenfunction:: smi_phy_is_powered_down
 
-.. doxygenfunction:: smi_is_link_up
+.. doxygenfunction:: smi_get_link_state
 
 
 |newpage|
