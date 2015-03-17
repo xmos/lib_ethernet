@@ -570,10 +570,14 @@ All SMI functions can be accessed via the ``smi.h`` header::
 
 .. doxygenfunction:: smi_singleport
 
+|newpage|
+
 The SMI/MDIO PHY interface
 ..........................
 
 .. doxygeninterface:: smi_if
+
+|newpage|
 
 SMI PHY configuration helper functions
 ......................................
