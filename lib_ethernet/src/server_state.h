@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __server_state_h__
 #define __server_state_h__
 

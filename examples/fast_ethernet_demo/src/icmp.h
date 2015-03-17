@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __icmp_h__
 #define __icmp_h__
 #include <ethernet.h>

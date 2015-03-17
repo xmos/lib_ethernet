@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __ports_h__
 #define __ports_h__
 

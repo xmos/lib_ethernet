@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #include "ethernet.h"
 
 extends client interface ethernet_tx_if : {

@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __mii_filter_h__
 #define __mii_filter_h__
 #include "ethernet.h"

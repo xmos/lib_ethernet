@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #include "xs1.h"
 #include "ethernet_defines.h"
 #include "mii_buffering_defines.h"

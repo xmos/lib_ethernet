@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __macaddr_filter_hash_h__
 #define __macaddr_filter_hash_h__
 

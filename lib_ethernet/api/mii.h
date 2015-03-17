@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __mii_h__
 #define __mii_h__
 #include <stddef.h>

@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #include "client_state.h"
 
 void init_rx_client_state(rx_client_state_t client_state[n], unsigned n)

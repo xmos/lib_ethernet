@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __mii_ethernet_conf_h__
 #define __mii_ethernet_conf_h__
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef _smi_h_
 #define _smi_h_
 #include <stdint.h>

@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #include <string.h>
 #include "mii_buffering.h"
 #include "debug_print.h"

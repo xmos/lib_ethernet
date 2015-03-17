@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef _RGMII_H_
 #define _RGMII_H_
 

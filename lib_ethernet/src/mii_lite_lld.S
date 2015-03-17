@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 .cc_top mii_lite_lld.func, mii_lite_lld
     #include <xs1.h>
     // Two coroutines, IN  and OUT. The IN coroutine is jumped to on an IN event.

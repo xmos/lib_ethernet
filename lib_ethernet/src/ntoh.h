@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __ntoh_h__
 #define __ntoh_h__
 #include <stdint.h>

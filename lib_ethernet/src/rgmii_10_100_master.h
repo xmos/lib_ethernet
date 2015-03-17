@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __RGMII_10_100_MASTER_H__
 #define __RGMII_10_100_MASTER_H__
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef __ethernet__h__
 #define __ethernet__h__
 #include <xs1.h>

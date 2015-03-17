@@ -1,3 +1,4 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 #ifndef _mii_common_lld_h_
 #define _mii_common_lld_h_
 

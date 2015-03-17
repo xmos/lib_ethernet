@@ -1,8 +1,5 @@
+// Copyright (c) 2015, XMOS Ltd, All rights reserved
 .cc_top mii_lite_install_handler.func, mii_lite_install_handler
-// Copyright (c) 2011, XMOS Ltd, All rights reserved
-// This software is freely distributable under a derivative of the
-// University of Illinois/NCSA Open Source License posted in
-// LICENSE.txt and at <http://github.xcore.com/>
 
 #include <xs1.h>
 
