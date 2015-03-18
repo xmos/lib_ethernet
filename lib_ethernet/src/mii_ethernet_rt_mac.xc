@@ -132,7 +132,8 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
                                               mii_packet_queue_t packets,
                                               unsigned &rd_index,
                                               rx_client_state_t &client_state,
-                                              streaming chanend c_rx_hp)
+                                              streaming chanend c_rx_hp,
+                                              volatile ethernet_port_state_t * unsafe p_port_state)
 {
   while (1) {
     mii_packet_t * unsafe buf = mii_get_my_next_buf(packets, rd_index);
@@ -156,7 +157,7 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
       ethernet_packet_info_t info;
       info.type = ETH_DATA;
       info.src_ifnum = buf->src_port;
-      info.timestamp = buf->timestamp;
+      info.timestamp = buf->timestamp - p_port_state->ingress_ts_latency[p_port_state->link_speed];
       info.len = len1 | len2 << 16;
       info.filter_data = buf->filter_data;
 
@@ -267,7 +268,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
         ethernet_packet_info_t info;
         info.type = ETH_DATA;
         info.src_ifnum = buf->src_port;
-        info.timestamp = buf->timestamp;
+        info.timestamp = buf->timestamp - p_port_state->ingress_ts_latency[p_port_state->link_speed];
         info.len = buf->length;
         info.filter_data = buf->filter_data;
         memcpy(&desc, &info, sizeof(info));
@@ -410,7 +411,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
     case (int i = 0; i < n_tx_lp; i++)
       (tx_client_state_lp[i].has_outgoing_timestamp_info) =>
       i_tx_lp[i]._get_outgoing_timestamp() -> unsigned timestamp:
-      timestamp = tx_client_state_lp[i].outgoing_timestamp;
+      timestamp = tx_client_state_lp[i].outgoing_timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
       tx_client_state_lp[i].has_outgoing_timestamp_info = 0;
       break;
 
@@ -483,7 +484,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
     }
 
     if (!isnull(c_rx_hp)) {
-      handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, rx_client_state_hp[0], c_rx_hp);
+      handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, rx_client_state_hp[0], c_rx_hp, p_port_state);
     }
 
     handle_incoming_packet(rx_packets_lp, rd_index_lp, rx_client_state_lp, i_rx_lp, n_rx_lp);
