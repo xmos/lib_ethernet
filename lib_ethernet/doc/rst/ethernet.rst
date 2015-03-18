@@ -45,7 +45,7 @@ Typical Resource Usage
               streaming chan c_rx; streaming chan c_tx; streaming chan c_rgmii_cfg;
     - fn: par { rgmii_ethernet_mac(i_rx, 1, i_tx, 1, c_rx, c_tx,c_rgmii_cfg, rgmii_ports, 1);
           rgmii_ethernet_mac_config(i_cfg, 1, c_rgmii_cfg); }
-    - pins: 13
+    - pins: 12
     - ports: 8 (1-bit), 2 (4-bit), 2 (8-bit)
   * - configuration: Raw MII
     - globals: port rxclk = XS1_PORT_1J;
