@@ -2,7 +2,7 @@
 #ifndef __macaddr_filter_hash_h__
 #define __macaddr_filter_hash_h__
 
-#include "mii_ethernet_conf.h"
+#include "default_ethernet_conf.h"
 #include "macaddr_filter.h"
 
 #ifdef __XC__

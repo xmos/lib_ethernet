@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include "rgmii.h"
 #include "ethernet.h"
-#include "mii_ethernet_conf.h"
+#include "default_ethernet_conf.h"
 #include "client_state.h"
 #include "swlock.h"
 #include "hwlock.h"

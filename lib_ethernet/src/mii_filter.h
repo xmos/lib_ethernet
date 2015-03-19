@@ -2,7 +2,7 @@
 #ifndef __mii_filter_h__
 #define __mii_filter_h__
 #include "ethernet.h"
-#include "mii_ethernet_conf.h"
+#include "default_ethernet_conf.h"
 #include "macaddr_filter.h"
 #include "mii_buffering.h"
 

@@ -2,7 +2,7 @@
 #ifndef __mii_buffering_h__
 #define __mii_buffering_h__
 #include "ethernet.h"
-#include "mii_ethernet_conf.h"
+#include "default_ethernet_conf.h"
 #include "swlock.h"
 #include "hwlock.h"
 #include "mii_buffering_defines.h"

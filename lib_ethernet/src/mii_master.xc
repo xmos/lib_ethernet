@@ -7,7 +7,7 @@
 #include <xclib.h>
 #include "mii_buffering.h"
 #include "debug_print.h"
-#include "mii_ethernet_conf.h"
+#include "default_ethernet_conf.h"
 #include "mii_common_lld.h"
 #include "string.h"
 

@@ -569,7 +569,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
     mii_ts_queue_info_t ts_queue_info;
 
     if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE) {
-      fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in mii_ethernet_conf.h");
+      fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in ethernet_conf.h");
     }
 
     if (!ETHERNET_SUPPORT_HP_QUEUES && (!isnull(c_rx_hp) || !isnull(c_tx_hp))) {
