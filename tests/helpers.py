@@ -159,7 +159,7 @@ def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, se
 
     tester.set_min_testlevel(level)
 
-    simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
+    simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
                               tester=tester,
@@ -174,14 +174,14 @@ def create_expect(packets, filename):
                 f.write("Received packet {} ok\n".format(i))
         f.write("Test done\n")
 
-def get_sim_args(testname, mac, clk, phy):
+def get_sim_args(testname, mac, clk, phy, arch='xs1'):
     sim_args = []
 
     if args and args.trace:
         log_folder = create_if_needed("logs")
-        filename = "{log}/xsim_trace_{test}_{mac}_{phy}_{clk}".format(
+        filename = "{log}/xsim_trace_{test}_{mac}_{phy}_{clk}_{arch}".format(
             log=log_folder, test=testname, mac=mac,
-            clk=clk.get_name(), phy=phy.get_name())
+            clk=clk.get_name(), phy=phy.get_name(), arch=arch)
 
         sim_args += ['--trace-to', '{0}.txt'.format(filename), '--enable-fnop-tracing']
 
