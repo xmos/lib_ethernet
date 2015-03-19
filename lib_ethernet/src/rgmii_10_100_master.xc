@@ -49,7 +49,7 @@
 unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
                                  in buffered port:32 p_rxd_10_100,
                                  in port p_rxdv,
-				 in buffered port:1 p_rxer,
+                                 in buffered port:1 p_rxer,
                                  streaming chanend c_speed_change)
 {
   timer tmr;
@@ -123,10 +123,10 @@ unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
               break;
 
 #pragma xta endpoint "rgmii_10_100_rx_eof"
-	    case p_rxdv when pinseq(0) :> int lo:
+            case p_rxdv when pinseq(0) :> int lo:
             {
 #pragma xta label "rgmii_10_100_eof_case"
-	      done = 1;
+              done = 1;
 
               unsigned tail;
               int taillen = endin(p_rxd_10_100);
@@ -173,7 +173,7 @@ unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
               break;
             }
           }
-	}
+        }
 
         // Clear interrupts
         asm("clrsr 0x2");
