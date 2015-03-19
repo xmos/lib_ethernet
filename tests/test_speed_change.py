@@ -79,7 +79,7 @@ def do_test(mac, tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed):
     rand.seed(seed)
 
     # The time to run at each speed before switching to the other
-    speed_change_time = 30000
+    speed_change_time = 2000000
 
     resources = xmostest.request_resource("xsim")
     testname = 'test_speed_change'
@@ -96,9 +96,9 @@ def do_test(mac, tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed):
 
     # The inter-frame gap is to give the DUT time to print its output
     packets_25 = create_packets(rand, tx_clk_25, dut_mac_address, speed_change_time,
-                                3, 0, 0)
+                                1, 0, 0)
     packets_125 = create_packets(rand, tx_clk_125, dut_mac_address, speed_change_time,
-                                 3, speed_change_time, 1)
+                                 1, speed_change_time, 1)
 
     tx_rgmii_25.set_packets(packets_25)
     tx_rgmii_125.set_packets(packets_125)
@@ -140,10 +140,10 @@ def runtest():
     random.seed(1)
     
     (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay=initial_delay,
-                                                  expect_loopback=False, verbose=args.verbose)
+                                                  expect_loopback=False, verbose=args.verbose, dut_exit_time=5000000)
     (tx_clk_125, tx_rgmii_125) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, initial_delay=initial_delay,
                                                       test_ctrl='tile[0]:XS1_PORT_1C',
-                                                      expect_loopback=False, verbose=args.verbose)
+                                                      expect_loopback=False, verbose=args.verbose, dut_exit_time=5000000)
 
     seed = args.seed if args.seed else random.randint(0, sys.maxint)
     if run_on(mac='rt'):

@@ -396,7 +396,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
   timer tmr;
   int t;
   tmr :> t;
-  const int rgmii_mode_poll_period_ms = 100;
+  const int rgmii_mode_poll_period_ms = __SIMULATOR__ ? 1 : 100;
 
   set_core_fast_mode_on();
 
