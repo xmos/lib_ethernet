@@ -71,13 +71,6 @@ mii_error_interrupt_handler:
         ldaw r0, dp[mii_per_core_error_and_dv]
         ldaw r0, r0[r11]
 
-        // Load the DV port ID and peek its current value
-        ldw r11, r0[8]
-        peek r11, res[r11]
-
-        // If the DV line is not high then ignore this error
-        bf r11, mii_error_interrupt_handler_ignore
-
         // Signal the error through the shared pointer
         stw r0, r0[0]
 

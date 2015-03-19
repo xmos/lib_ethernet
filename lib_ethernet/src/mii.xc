@@ -4,7 +4,7 @@
 #include "mii_master.h"
 #include "mii_lite_driver.h"
 
-void mii_driver(in port p_rxclk, in port p_rxer, in port p_rxd0,
+void mii_driver(in port p_rxclk, in port p_rxer0, in port p_rxd0,
                 in port p_rxdv,
                 in port p_txclk, out port p_txen, out port p_txd0,
                 port p_timing,
@@ -18,7 +18,10 @@ void mii_driver(in port p_rxclk, in port p_rxer, in port p_rxd0,
   out port * movable pp_txd0 = &p_txd0;
   out buffered port:32 * movable pp_txd = reconfigure_port(move(pp_txd0), out buffered port:32);
   out buffered port:32 &p_txd = *pp_txd;
-  mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk);
+  in port * movable pp_rxer0 = &p_rxer0;
+  in buffered port:1 * movable pp_rxer = reconfigure_port(move(pp_rxer0), in buffered port:1);
+  in buffered port:1 &p_rxer = *pp_rxer;
+  mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk, p_rxer);
   mii_lite_driver(p_rxd, p_rxdv, p_txd, p_timing, c_in, c_out);
 }
 

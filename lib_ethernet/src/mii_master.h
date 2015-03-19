@@ -10,7 +10,8 @@
 void mii_master_init(in port p_rxclk, in buffered port:32 p_rxd, in port p_rxdv,
                      clock clk_rx,
                      in port p_txclk, out port p_txen, out buffered port:32 p_txd,
-                     clock clk_tx);
+                     clock clk_tx,
+                     in buffered port:1  p_rxer);
 
 unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
                                mii_packet_queue_t incoming_packets,

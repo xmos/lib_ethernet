@@ -96,7 +96,7 @@
 void mii_master_init(in port p_rxclk, in buffered port:32 p_rxd, in port p_rxdv,
                      clock clk_rx,
                      in port p_txclk, out port p_txen, out buffered port:32 p_txd,
-                     clock clk_tx)
+                     clock clk_tx, in buffered port:1 p_rxer)
 {
   set_port_use_on(p_rxclk);
   p_rxclk :> int x;
@@ -107,6 +107,8 @@ void mii_master_init(in port p_rxclk, in buffered port:32 p_rxd, in port p_rxdv,
 
   set_port_strobed(p_rxd);
   set_port_slave(p_rxd);
+
+  configure_in_port_strobed_slave(p_rxer, p_rxdv, clk_rx);
 
   set_clock_on(clk_rx);
   set_clock_src(clk_rx, p_rxclk);

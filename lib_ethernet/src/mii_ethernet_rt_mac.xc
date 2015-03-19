@@ -578,7 +578,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
 
     mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
     streaming chan c;
-    mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk);
+    mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk, p_rxer);
 
     ethernet_port_state_t port_state;
     init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
