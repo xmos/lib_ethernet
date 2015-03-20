@@ -9,4 +9,9 @@
 // The amount of space required for the common interrupt handler
 #define MII_COMMON_HANDLER_STACK_WORDS 4
 
+// Local max packet size duplicated here to avoid including ethernet.h into assembly
+#ifdef __ASSEMBLER__
+#define ETHERNET_MAX_PACKET_SIZE (1518)
+#endif
+
 #endif //__mii_buffering_defines_h__
