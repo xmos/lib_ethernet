@@ -536,7 +536,6 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
 {
   set_core_fast_mode_on();
   int enable_shaper = p_port_state->qav_shaper_enabled;
-  int idle_slope = p_port_state->qav_idle_slope;
 
   timer tmr;
   int credit = 0;
@@ -648,7 +647,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
       tmr :> credit_time;
 
       int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * idle_slope;
+      credit += elapsed * p_port_state->qav_idle_slope;
 
       if (buffers_used_empty(used_buffers_tx_hp)) {
         // Keep the credit 0 when there are no high priority buffers

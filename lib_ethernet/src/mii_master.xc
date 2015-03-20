@@ -458,7 +458,6 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
   timer tmr;
   unsigned ifg_time;
   unsigned enable_shaper = p_port_state->qav_shaper_enabled;
-  unsigned idle_slope = p_port_state->qav_idle_slope;
 
   if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER)
     enable_shaper = 0;
@@ -482,7 +481,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       tmr :> credit_time;
 
       int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * idle_slope;
+      credit += elapsed * p_port_state->qav_idle_slope;
 
       if (buf) {
         if (credit < 0) {
