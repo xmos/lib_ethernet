@@ -64,9 +64,8 @@ def packet_checker(packet, phy):
             if phy.end_time == 0:
                 phy.end_time = phy.xsi.get_time()
             
-            if phy.xsi.get_time() > (phy.end_time + 50000):
-                # Allow time for the byte count to be printed
-                phy.xsi.terminate()
+            phy.xsi._wait_until(phy.end_time + 50000)
+            phy.xsi.terminate()
 
     else:
         print "Packet {} received; bytes: {}, ifg: {} => {:.2f} Mb/s, efficiency {:.2f}%".format(
@@ -165,9 +164,9 @@ def runtest():
 
     # Test 100 MBit - MII
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker,
-                                             test_ctrl="tile[0]:XS1_PORT_1A")
+                                             test_ctrl=test_ctrl)
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete,
-                                             verbose=args.verbose)
+                                             verbose=args.verbose, dut_exit_time=200000)
     if run_on(phy='mii', clk='25Mhz', mac='standard'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
@@ -182,9 +181,10 @@ def runtest():
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
-                                                 test_ctrl="tile[0]:XS1_PORT_1A")
+                                                 test_ctrl=test_ctrl)
     (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False,
-                                                 complete_fn=set_tx_complete, verbose=args.verbose)
+                                                 complete_fn=set_tx_complete, verbose=args.verbose,
+                                                 dut_exit_time=200000)
     if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt_hp', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
