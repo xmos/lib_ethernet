@@ -179,6 +179,8 @@ def get_sim_args(testname, mac, clk, phy, arch='xs1'):
 
     if args and args.trace:
         log_folder = create_if_needed("logs")
+        if phy.get_name() == 'rgmii':
+            arch = 'xs2'
         filename = "{log}/xsim_trace_{test}_{mac}_{phy}_{clk}_{arch}".format(
             log=log_folder, test=testname, mac=mac,
             clk=clk.get_name(), phy=phy.get_name(), arch=arch)
