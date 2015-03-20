@@ -1,6 +1,6 @@
 // Copyright (c) 2015, XMOS Ltd, All rights reserved
 #include "xs1.h"
-#include "ethernet_defines.h"
+#include "ethernet.h"
 #include "mii_buffering_defines.h"
 
 // Register allocation. Don't re-map r11 as some instructions must write to it

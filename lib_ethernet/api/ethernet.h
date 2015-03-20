@@ -4,9 +4,9 @@
 #include <xs1.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "ethernet_defines.h"
 
 #define ETHERNET_ALL_INTERFACES  (-1)
+#define ETHERNET_MAX_PACKET_SIZE (1518)
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
