@@ -11,6 +11,7 @@
 otp_ports_t otp_ports = on tile[0]: OTP_PORTS_INITIALIZER;
 
 rgmii_ports_t rgmii_ports = on tile[1]: RGMII_PORTS_INITIALIZER;
+
 port p_smi_mdio   = on tile[1]: XS1_PORT_1C;
 port p_smi_mdc    = on tile[1]: XS1_PORT_1D;
 port p_eth_reset  = on tile[1]: XS1_PORT_1N;
