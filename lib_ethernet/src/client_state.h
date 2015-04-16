@@ -3,6 +3,7 @@
 #define __client_state_h__
 
 #include "ethernet.h"
+#include "default_ethernet_conf.h"
 #include "mii_master.h"
 #include "mii_filter.h"
 #include "mii_buffering.h"

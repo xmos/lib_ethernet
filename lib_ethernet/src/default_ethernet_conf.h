@@ -66,6 +66,10 @@
 #define MII_TIMESTAMP_QUEUE_MAX_SIZE 10
 #endif
 
+#ifndef ETHERNET_MAX_ETHERTYPE_FILTERS
+#define ETHERNET_MAX_ETHERTYPE_FILTERS 2
+#endif
+
 #ifndef __SIMULATOR__
 #define __SIMULATOR__ 0
 #endif

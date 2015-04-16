@@ -2,10 +2,7 @@
 #ifndef __macaddr_filter_h__
 #define __macaddr_filter_h__
 #include "ethernet.h"
-
-#ifndef ETHERNET_MAX_MACADDR_FILTERS
-#define ETHERNET_MAX_MACADDR_FILTERS (10)
-#endif
+#include "default_ethernet_conf.h"
 
 // This is the worst-case that can be supported for line-rate processing
 #define ETHERNET_MACADDR_FILTER_TABLE_SIZE 30
@@ -43,10 +40,6 @@ unsigned ethernet_do_filtering(eth_global_filter_info_t table,
                                size_t packet_size,
                                unsigned &appdata);
 
-#endif
-
-#ifndef ETHERNET_MAX_ETHERTYPE_FILTERS
-#define ETHERNET_MAX_ETHERTYPE_FILTERS 2
 #endif
 
 #endif // __macaddr_filter_h__

@@ -1,5 +1,6 @@
 // Copyright (c) 2015, XMOS Ltd, All rights reserved
 #include "ethernet.h"
+#include "default_ethernet_conf.h"
 #include "mii_master.h"
 #include "mii_lite_driver.h"
 #include "debug_print.h"
