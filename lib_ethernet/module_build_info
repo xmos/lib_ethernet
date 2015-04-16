@@ -18,4 +18,4 @@ MODULE_XCC_FLAGS = $(XCC_FLAGS) -g -O3 -mno-dual-issue
 XCC_FLAGS_mii_master.xc = $(XCC_FLAGS) -O3 -fschedule -g0 -mno-dual-issue
 XCC_FLAGS_macaddr_filter.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment -g -O3 -mno-dual-issue
 
-VERSION = 3.0.0
+VERSION = 3.0.1
