@@ -326,7 +326,7 @@ inline void ethernet_send_hp_packet(streaming chanend c_tx_hp,
  */
 enum ethernet_enable_shaper_t {
   ETHERNET_ENABLE_SHAPER, /**< Enable the credit based shaper */
-  ETHERNET_DISABLE_SHAPER /**< Disable the credit base shaper */
+  ETHERNET_DISABLE_SHAPER /**< Disable the credit based shaper */
 };
 
 /** Structure representing the port and clock resources required by RGMII
