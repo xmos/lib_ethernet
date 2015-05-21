@@ -21,7 +21,7 @@ typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS O
     unsigned read_bank_rd_ptr;
     unsigned read_bank_wr_ptr;
     unsafe chanend mii_out_channel;
-    int kernel_stack[KERNELSTACKWORDS];
+    long long kernel_stack[KERNELSTACKWORDS/2];
 } mii_lite_data_t;
 
 /** This function gives the MII layer a buffer space to buffer input
