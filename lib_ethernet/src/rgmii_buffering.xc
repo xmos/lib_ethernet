@@ -357,6 +357,10 @@ unsafe rgmii_inband_status_t get_current_rgmii_mode(in buffered port:4 p_rxd_int
   for (int i=0; i < 2; i++) {
     select {
       case p_rxd_interframe :> mode[i]:
+        if (mode[i] < INBAND_STATUS_10M_FULLDUPLEX_DOWN ||
+            mode[i] > INBAND_STATUS_1G_FULLDUPLEX_UP) {
+          return last_mode;
+        }
         if (i == 1) {
           if ((mode[0] == mode[1]) &&
               (last_mode != mode[0])) {
