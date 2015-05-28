@@ -1,9 +1,14 @@
 Ethernet MAC library change log
 ===============================
 
+3.0.2
+-----
+  * Improve interoperability of PHY speed and link detection via RGMII inter-frame data
+  * Fix 64-bit alignment of MII lite to prevent crash on XS2
+
 3.0.1
 -----
-  * Fixed issue with optimisation build flags not being overriden by the module
+  * Fixed issue with optimisation build flags not being overridden by the module
   * Added missing extern declaration for inline interface function send_timed_packet()
   * Added ability to override the number of Ethertype filters from the ethernet_conf.h
 
