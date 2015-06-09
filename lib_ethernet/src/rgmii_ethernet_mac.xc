@@ -53,22 +53,21 @@ void rgmii_configure_ports(in port p_rxclk, in buffered port:1 p_rxer,
   configure_out_port_strobed_master(p_txd, p_txen, txclk, 0);
   configure_out_port(p_txer, txclk, 0);
 
-  set_clock_fall_delay(txclk, 2);
-  set_clock_rise_delay(txclk, 2);
-  set_clock_rise_delay(rxclk, 0);
-
   // Ensure that the error port is running fast enough to catch errors
   configure_in_port_strobed_slave(p_rxer, p_rxdv, rxclk);
 
   configure_clock_src(txclk_out, p_txclk_in);
   configure_port_clock_output(p_txclk_out, txclk_out);
 
-  // Use this to align the data recived by the rgmii block with TXC,
-  // only require the data to arrive before the edge that it should be
-  // output on but after the TXC last edge.
-  // At 500MHz, data arrives in slot 3 i.e 2 cycles before tx rising edge
-  set_clock_fall_delay(txclk_out, 3);
-  set_clock_rise_delay(txclk_out, 3);
+  set_port_inv(p_txclk_out);
+  set_port_inv(p_txclk_in);
+  set_clock_fall_delay(txclk, 2);
+  set_clock_rise_delay(txclk, 0);
+  set_clock_fall_delay(txclk_out, 0);
+  set_clock_rise_delay(txclk_out, 1);
+
+  set_clock_rise_delay(rxclk, 0);
+  set_clock_fall_delay(rxclk, 0);
 
   // Start the clocks
   start_clock(txclk);
@@ -163,7 +162,6 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
           current_mode == INBAND_STATUS_10M_FULLDUPLEX_UP ||
           current_mode == INBAND_STATUS_10M_FULLDUPLEX_DOWN)
       {
-        set_port_no_inv(rgmii_ports.p_txclk_in);
         mii_macaddr_set_num_active_filters(1);
 
         par
@@ -212,7 +210,6 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
       }
       else
       {
-        set_port_inv(rgmii_ports.p_txclk_in);
         mii_macaddr_set_num_active_filters(2);
 
         par
