@@ -2,6 +2,7 @@
 #ifndef __mii_impl_h__
 #define __mii_impl_h__
 #include <xs1.h>
+#include "mii.h"
 #include <mii_lite_driver.h>
 #ifdef __XC__
 
