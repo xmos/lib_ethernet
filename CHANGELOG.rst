@@ -1,6 +1,10 @@
 Ethernet MAC library change log
 ===============================
 
+3.0.3
+-----
+  * Update RGMII port delays to use best candidate from testing
+
 3.0.2
 -----
   * Improve interoperability of PHY speed and link detection via RGMII inter-frame data

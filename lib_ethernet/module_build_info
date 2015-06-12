@@ -21,4 +21,4 @@ XCC_FLAGS_mii.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 XCC_FLAGS_mii_ethernet_mac.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 XCC_FLAGS_ethernet.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 
-VERSION = 3.0.2
+VERSION = 3.0.3
