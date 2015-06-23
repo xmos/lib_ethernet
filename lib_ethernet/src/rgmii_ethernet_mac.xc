@@ -87,6 +87,10 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
   rx_client_state_t rx_client_state_lp[n_rx_lp];
   tx_client_state_t tx_client_state_lp[n_tx_lp];
 
+  if (!ETHERNET_SUPPORT_HP_QUEUES && (!isnull(c_rx_hp) || !isnull(c_tx_hp))) {
+    fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
+  }
+
   init_rx_client_state(rx_client_state_lp, n_rx_lp);
   init_tx_client_state(tx_client_state_lp, n_tx_lp);
 
