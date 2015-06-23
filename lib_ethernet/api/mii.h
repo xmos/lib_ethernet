@@ -13,7 +13,8 @@
  *  its main use is to allow eventing on incoming packets via the
  *  mii_incominfg_packet() function.
  */
-typedef void * unsafe mii_info_t;
+struct mii_lite_data_t;
+typedef struct mii_lite_data_t * unsafe mii_info_t;
 
 /** Interface allowing access to the MII packet layer.
  *

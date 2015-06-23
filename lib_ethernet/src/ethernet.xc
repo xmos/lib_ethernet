@@ -21,13 +21,13 @@ extern inline void mii_send_hp_packet(streaming chanend c_tx_hp,
                                       unsigned n,
                                       unsigned dst_port);
 
-extern inline mii_unsafe_chanend mii_get_notification_chanend(void * unsafe p);
+extern inline mii_unsafe_chanend mii_get_notification_chanend(mii_lite_data_t * unsafe p);
 
-extern inline mii_unsafe_chanend mii_get_out_chanend(void * unsafe p);
+extern inline mii_unsafe_chanend mii_get_out_chanend(mii_lite_data_t * unsafe p);
 
 extern inline void mii_packet_sent_(unsafe chanend c);
 
-extern inline void mii_incoming_packet_(unsafe chanend c, void * unsafe p);
+extern inline void mii_incoming_packet_(unsafe chanend c, mii_lite_data_t * unsafe p);
 
 extern inline void ethernet_receive_hp_packet(streaming chanend c_rx_hp,
                                        char packet[],

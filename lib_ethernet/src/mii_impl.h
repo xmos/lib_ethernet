@@ -23,26 +23,26 @@ void mii_driver(in port p_rxclk, in port p_rxer, in port p_rxd0,
 
 typedef unsafe chanend mii_unsafe_chanend;
 
-inline mii_unsafe_chanend mii_get_notification_chanend(void * unsafe p)
+inline mii_unsafe_chanend mii_get_notification_chanend(mii_lite_data_t * unsafe p)
 {
   unsafe {
-    return ((mii_lite_data_t * unsafe) p)->notification_channel_end;
+    return p->notification_channel_end;
   }
 }
 
 #define mii_incoming_packet(x) mii_incoming_packet_(mii_get_notification_chanend(x), x)
 
 #pragma select handler
-inline void mii_incoming_packet_(unsafe chanend c, void * unsafe p) {
+inline void mii_incoming_packet_(unsafe chanend c, mii_lite_data_t * unsafe p) {
   unsafe {
-    ((mii_lite_data_t * unsafe) p)->notify_seen = inuchar((chanend) c);
+    p->notify_seen = inuchar((chanend) c);
   }
 }
 
-inline mii_unsafe_chanend mii_get_out_chanend(void * unsafe p)
+inline mii_unsafe_chanend mii_get_out_chanend(mii_lite_data_t * unsafe p)
 {
   unsafe {
-    return ((mii_lite_data_t * unsafe) p)->mii_out_channel;
+    return p->mii_out_channel;
   }
 }
 
