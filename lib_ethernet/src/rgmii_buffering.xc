@@ -835,6 +835,14 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         break;
       }
 
+      case i_cfg[int i].enable_strip_vlan_tag(size_t client_num):
+        fail("VLAN tag stripping not supported in Gigabit Ethernet MAC");
+        break;
+
+      case i_cfg[int i].disable_strip_vlan_tag(size_t client_num):
+        fail("VLAN tag stripping not supported in Gigabit Ethernet MAC");
+        break;
+
       case c_rgmii_cfg :> unsigned tmp:
         // Server has reset
         unsafe {

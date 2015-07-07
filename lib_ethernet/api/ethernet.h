@@ -180,6 +180,22 @@ typedef interface ethernet_cfg_if {
    */
   void set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value);
 
+  /** Enable stripping of any VLAN tags on packets delivered to this client.
+   *  This feature is available on the real-time 100 Mbps Ethernet MAC only.
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   */
+  void enable_strip_vlan_tag(size_t client_num);
+
+  /** Disabled stripping of any VLAN tags on packets delivered to this client.
+   *  This feature is available on the real-time 100 Mbps Ethernet MAC only.
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   */
+  void disable_strip_vlan_tag(size_t client_num);
+
 } ethernet_cfg_if;
 
 /** Ethernet MAC data transmit interface

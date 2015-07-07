@@ -56,15 +56,19 @@ unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
       rx_client_state_t &client_state = client_states[i];
 
       int client_wants_packet = ((buf->filter_result >> i) & 1);
+      char * unsafe data = (char * unsafe) buf->data;
+      int passed_etype_filter = 0;
+      uint16_t etype = ((uint16_t) data[12] << 8) + data[13];
+      int qhdr = (etype == 0x8100);
+      if (qhdr) {
+        // has a 802.1q tag - read etype from next word
+        etype = ((uint16_t) data[16] << 8) + data[17];
+        buf->vlan_tagged = 1;
+      }
+      else {
+        buf->vlan_tagged = 0;
+      }
       if (client_state.num_etype_filters != 0) {
-        char * unsafe data = (char * unsafe) buf->data;
-        int passed_etype_filter = 0;
-        uint16_t etype = ((uint16_t) data[12] << 8) + data[13];
-        int qhdr = (etype == 0x8100);
-        if (qhdr) {
-          // has a 802.1q tag - read etype from next word
-          etype = ((uint16_t) data[16] << 8) + data[17];
-        }
         for (int j = 0; j < client_state.num_etype_filters; j++) {
           if (client_state.etype_filters[j] == etype) {
             passed_etype_filter = 1;
@@ -272,7 +276,6 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
         info.timestamp = buf->timestamp - p_port_state->ingress_ts_latency[p_port_state->link_speed];
         info.len = buf->length;
         info.filter_data = buf->filter_data;
-        memcpy(&desc, &info, sizeof(info));
 
         int len = (n > buf->length ? buf->length : n);
         unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
@@ -280,10 +283,19 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
         int prewrap = ((char *) wrap_ptr - (char *) dptr);
         int len1 = prewrap > len ? len : prewrap;
         int len2 = prewrap > len ? 0 : len - prewrap;
-        memcpy(data, dptr, len1);
+        if (client_state.strip_vlan_tags && buf->vlan_tagged) {
+          memcpy(data, dptr, 12); // Src and dest MAC addresses
+          len1 -= 4;
+          memcpy(&data[12], (char*)dptr+16, len1); // Copy from index of Ethertype after VLAN tag
+          info.len -= 4;
+        } else {
+          memcpy(data, dptr, len1);
+        }
         if (len2) {
           memcpy(&data[len1], (unsigned *) *wrap_ptr, len2);
         }
+
+        memcpy(&desc, &info, sizeof(info));
 
         if (mii_get_and_dec_transmit_count(buf) == 0) {
           mii_free_index(rx_packets_lp, packets_rd_index);
@@ -402,6 +414,16 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       p_port_state->egress_ts_latency[speed] = value / 10;
       break;
     }
+
+    case i_cfg[int i].enable_strip_vlan_tag(size_t client_num):
+      rx_client_state_t &client_state = rx_client_state_lp[client_num];
+      client_state.strip_vlan_tags = 1;
+      break;
+
+    case i_cfg[int i].disable_strip_vlan_tag(size_t client_num):
+      rx_client_state_t &client_state = rx_client_state_lp[client_num];
+      client_state.strip_vlan_tags = 0;
+      break;
 
     case i_tx_lp[int i]._init_send_packet(unsigned n, unsigned dst_port):
       if (tx_client_state_lp[i].send_buffer == null)

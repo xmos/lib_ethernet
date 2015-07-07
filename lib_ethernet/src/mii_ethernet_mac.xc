@@ -167,7 +167,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
                                            ethernet_macaddr_filter_t entry) ->
                                              ethernet_macaddr_filter_result_t result:
         if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
+          fail("Standard MII Ethernet MAC does not support the high priority queue");
 
         result = ethernet_add_filter_table_entry(filter_info, client_num, is_hp, entry);
         break;
@@ -175,14 +175,14 @@ static void mii_ethernet_aux(client mii_if i_mii,
       case i_cfg[int i].del_macaddr_filter(size_t client_num, int is_hp,
                                            ethernet_macaddr_filter_t entry):
         if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
+          fail("Standard MII Ethernet MAC does not support the high priority queue");
 
         ethernet_del_filter_table_entry(filter_info, client_num, is_hp, entry);
         break;
 
       case i_cfg[int i].del_all_macaddr_filters(size_t client_num, int is_hp):
         if (is_hp)
-          fail("Standard MII ethernet does not support the high priority queue");
+          fail("Standard MII Ethernet MAC does not support the high priority queue");
 
         ethernet_clear_filter_table(filter_info, client_num, is_hp);
         break;
@@ -212,21 +212,21 @@ static void mii_ethernet_aux(client mii_if i_mii,
         break;
 
       case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
-        fail("Outgoing timestamps are not supported in standard MII ethernet");
+        fail("Outgoing timestamps are not supported in standard MII Ethernet MAC");
         break;
       }
 
       case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope):
-        fail("Shaper not supported in standard MII ethernet");
+        fail("Shaper not supported in standard MII Ethernet MAC");
         break;
 
       case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
-        fail("Timestamp correction not supported in standard MII Ethernet");
+        fail("Timestamp correction not supported in standard MII Ethernet MAC");
         break;
       }
 
       case i_cfg[int i].set_egress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
-        fail("Timestamp correction not supported in standard MII Ethernet");
+        fail("Timestamp correction not supported in standard MII Ethernet MAC");
         break;
       }
 
@@ -235,7 +235,15 @@ static void mii_ethernet_aux(client mii_if i_mii,
         break;
 
       case i_tx[int i]._get_outgoing_timestamp() -> unsigned timestamp:
-        fail("Outgoing timestamps are not supported in standard MII ethernet");
+        fail("Outgoing timestamps are not supported in standard MII Ethernet MAC");
+        break;
+
+      case i_cfg[int i].enable_strip_vlan_tag(size_t client_num):
+        fail("VLAN tag stripping not supported in standard MII Ethernet MAC");
+        break;
+
+      case i_cfg[int i].disable_strip_vlan_tag(size_t client_num):
+        fail("VLAN tag stripping not supported in standard MII Ethernet MAC");
         break;
 
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,

@@ -41,6 +41,7 @@ typedef struct mii_packet_t {
   int crc;              //!< The calculated CRC
   int forwarding;       //!< A bitfield for tracking forwarding of the packet
                         //   to other ports
+  int vlan_tagged;      //!< Whether the packet is VLAN tagged or not
   unsigned filter_data; //!< Word of data returned by the mac filter
   unsigned int data[(MII_PACKET_DATA_BYTES+3)/4];
 } mii_packet_t;
