@@ -1,0 +1,1 @@
+#define XASSERT_ENABLE_DEBUG 1

@@ -1,0 +1,2 @@
+VLAN tag stripping not supported in Gigabit Ethernet MAC
+Unhandled exception: ECALL, data: 0x00000000
