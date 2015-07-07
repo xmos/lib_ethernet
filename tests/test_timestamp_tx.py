@@ -45,6 +45,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
                                        regexp=True)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
+    tester.set_min_testlevel('nightly')
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
                               tester=tester,

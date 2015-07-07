@@ -1,6 +1,10 @@
 Ethernet MAC library change log
 ===============================
 
+3.1.0
+-----
+  * Added VLAN tag stripping option to RT 100Mb Ethernet MAC configuration interface
+
 3.0.3
 -----
   * Update RGMII port delays to use best candidate from testing

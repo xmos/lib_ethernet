@@ -47,6 +47,7 @@ def do_test(mac, tx_clk, tx_phy):
                                       {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
+    tester.set_min_testlevel('nightly')
     xmostest.run_on_simulator(resources['xsim'], binary,
                               simthreads=[tx_clk, tx_phy],
                               tester=tester,
