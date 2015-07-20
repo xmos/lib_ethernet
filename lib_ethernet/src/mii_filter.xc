@@ -113,10 +113,8 @@ unsafe void mii_ethernet_filter(streaming chanend c,
                                               (char *) buf->data,
                                               length,
                                               buf->filter_data);
-    int filter_data = 0;
     debug_printf("Filter result: %x\n", filter_result);
     buf->filter_result = filter_result;
-    buf->filter_data = filter_data;
 
     if (ethernet_filter_result_is_hp(filter_result)) {
       mii_add_packet(rx_packets_hp, buf);

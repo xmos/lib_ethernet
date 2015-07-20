@@ -140,7 +140,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
           info.type = ETH_DATA;
           info.timestamp = incoming_timestamp;
           info.src_ifnum = 0;
-          info.filter_data = 0;
+          info.filter_data = incoming_appdata;
           info.len = incoming_nbytes;
           memcpy(&desc, &info, sizeof(info));
           memcpy(data, incoming_data, incoming_nbytes);
