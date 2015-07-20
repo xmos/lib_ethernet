@@ -1,6 +1,10 @@
 Ethernet MAC library change log
 ===============================
 
+3.1.1
+-----
+  * Fixed issue with application filter data not being forwarded to clients of 100Mb MACs
+
 3.1.0
 -----
   * Added VLAN tag stripping option to RT 100Mb Ethernet MAC configuration interface
