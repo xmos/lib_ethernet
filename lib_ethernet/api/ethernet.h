@@ -90,6 +90,8 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
+   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      and 10/100/1000 Mb/s MACs.
    *  \param entry        The filter entry to add.
    *
    *  \returns            ETHERNET_MACADDR_FILTER_SUCCESS when the entry is added or
@@ -106,6 +108,8 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
+   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      and 10/100/1000 Mb/s MACs.
    *  \param entry        The filter entry to delete.
    */
   void del_macaddr_filter(size_t client_num, int is_hp, ethernet_macaddr_filter_t entry);
@@ -117,6 +121,8 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
+   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      and 10/100/1000 Mb/s MACs.
    */
   void del_all_macaddr_filters(size_t client_num, int is_hp);
 
@@ -136,14 +142,16 @@ typedef interface ethernet_cfg_if {
    */
   void del_ethertype_filter(size_t client_num, uint16_t ethertype);
 
-  /** Get the tile ID that the Ethernet MAC is running on and the current timer value on that tile
+  /** Get the tile ID that the Ethernet MAC is running on and the current timer value on that tile.
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
    *  \param tile_id      The tile ID returned from the Ethernet MAC
    *  \param time_on_tile The current timer value from the Ethernet MAC
    */
   void get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile);
 
-  /** Set the high-priority TX queue's credit based shaper idle slope
+  /** Set the high-priority TX queue's credit based shaper idle slope.
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
    *  \param ifnum   The index of the MAC interface to set the slope
    *  \param slope   The slope value
@@ -158,6 +166,8 @@ typedef interface ethernet_cfg_if {
    *
    *  All ingress timestamps received by the client will be corrected
    *  with the set value. The latency is initialized to 0 for all speeds.
+   *
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
    *  \param ifnum   The index of the MAC interface to set the latency
    *  \param speed   The speed to set the latency for
@@ -174,6 +184,8 @@ typedef interface ethernet_cfg_if {
    *  All egress timestamps received by the client will be corrected
    *  with the set value. The latency is initialized to 0 for all speeds.
    *
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
+   *
    *  \param ifnum   The index of the MAC interface to set the latency
    *  \param speed   The speed to set the latency for
    *  \param value   The latency value in nanoseconds
@@ -188,7 +200,7 @@ typedef interface ethernet_cfg_if {
    */
   void enable_strip_vlan_tag(size_t client_num);
 
-  /** Disabled stripping of any VLAN tags on packets delivered to this client.
+  /** Disable stripping of any VLAN tags on packets delivered to this client.
    *  This feature is available on the real-time 100 Mbps Ethernet MAC only.
    *
    *  \param client_num   The index into the set of RX clients. Can be acquired by
