@@ -83,7 +83,8 @@ typedef interface ethernet_cfg_if {
    */
   void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
 
-  /** Add MAC addresses to the filter.
+  /** Add MAC addresses to the filter. Only packets with the specified MAC address will be
+   *  forwarded to the client.
    *
    *  \param client_num   The index into the set of RX clients. Can be acquired by
    *                      calling the get_index() method.
@@ -126,7 +127,9 @@ typedef interface ethernet_cfg_if {
    */
   void del_all_macaddr_filters(size_t client_num, int is_hp);
 
-  /** Add an Ethertype to the filter
+  /** Add an Ethertype to the filter. This filter is applied after the MAC address filter and only if
+   *  it is successful. Only packets with the specified Ethertypes will be forwarded to the client. A
+   *  maximum of 2 Ethertype filters can be applied per client.
    *
    *  \param client_num   The index into the set of RX clients. Can be acquired by
    *                      calling the get_index() method.
