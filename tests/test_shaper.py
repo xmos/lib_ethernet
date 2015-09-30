@@ -118,10 +118,17 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
     tester.set_min_testlevel(level)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
-                              tester=tester,
-                              simargs=simargs)
+    if phy == 'rgmii' and clk == '125Mhz':
+        xmostest.run_on_simulator(resources['xsim'], binary,
+                                  simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
+                                  tester=tester,
+                                  simargs=simargs,
+                                  timeout=1200)
+    else:
+        xmostest.run_on_simulator(resources['xsim'], binary,
+                                  simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
+                                  tester=tester,
+                                  simargs=simargs)
 
 def create_expect(filename, num_expected_packets):
     """ Create the expect file for what packets should be reported by the DUT
