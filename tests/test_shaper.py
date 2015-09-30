@@ -118,7 +118,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
     tester.set_min_testlevel(level)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
-    if phy == 'rgmii' and clk == '125Mhz':
+    if rx_phy.get_name() == 'rgmii' and rx_clk.get_name() == '125Mhz':
         xmostest.run_on_simulator(resources['xsim'], binary,
                                   simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
                                   tester=tester,
