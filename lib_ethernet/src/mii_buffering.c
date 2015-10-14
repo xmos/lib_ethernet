@@ -56,7 +56,7 @@ void mii_init_packet_queue(mii_packet_queue_t queue)
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
   info->rd_index = 0;
   info->wr_index = 0;
-  memset(info->ptrs, 0, ETHERNET_NUM_PACKET_POINTERS);
+  memset(info->ptrs, 0, sizeof(info->ptrs));
 }
 
 mii_mempool_t mii_init_mempool(unsigned *buf, int size)
