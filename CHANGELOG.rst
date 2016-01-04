@@ -7,13 +7,6 @@ Ethernet MAC library change log
   * Fixed issue with application filter data not being forwarded to clients of
     100Mb MACs
 
-  * Changes to dependencies:
-
-    - lib_locks: 2.0.0 -> 2.0.1
-
-      + Update to use lock resource macro from the standard library to prevent
-        compile warning
-
 3.1.0
 -----
 
