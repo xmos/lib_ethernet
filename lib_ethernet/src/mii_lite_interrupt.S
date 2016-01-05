@@ -1,4 +1,4 @@
-// Copyright (c) 2015, XMOS Ltd, All rights reserved
+// Copyright (c) 2016, XMOS Ltd, All rights reserved
 .cc_top mii_lite_install_handler.func, mii_lite_install_handler
 
 #include <xs1.h>

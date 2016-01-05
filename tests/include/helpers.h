@@ -1,4 +1,4 @@
-// Copyright (c) 2015, XMOS Ltd, All rights reserved
+// Copyright (c) 2016, XMOS Ltd, All rights reserved
 #ifndef __HELPERS_H__
 #define __HELPERS_H__
 
