@@ -1,6 +1,12 @@
 Ethernet MAC library change log
 ===============================
 
+3.1.2
+-----
+
+  * Fixes incorrect memset length on packet queue pointers array
+  * Update to source code license and copyright
+
 3.1.1
 -----
 
