@@ -3,7 +3,7 @@ XMOS 100Mbit Ethernet application note
 
 .. appnote:: AN00120
 
-.. version:: 2.0.0
+.. version:: 2.0.1
 
 Summary
 -------
