@@ -425,6 +425,16 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       client_state.strip_vlan_tags = 0;
       break;
 
+    case i_cfg[int i].enable_link_status_notification(size_t client_num):
+      rx_client_state_t &client_state = rx_client_state_lp[client_num];
+      client_state.status_update_state = STATUS_UPDATE_WAITING;
+      break;
+
+    case i_cfg[int i].disable_link_status_notification(size_t client_num):
+      rx_client_state_t &client_state = rx_client_state_lp[client_num];
+      client_state.status_update_state = STATUS_UPDATE_IGNORING;
+      break;
+
     case i_tx_lp[int i]._init_send_packet(unsigned n, unsigned dst_port):
       if (tx_client_state_lp[i].send_buffer == null)
         tx_client_state_lp[i].requested_send_buffer_size = n;

@@ -802,7 +802,7 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
 
       case i_cfg[int i].get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile): {
         tile_id = get_tile_id_from_chanend(c_rgmii_cfg);
-  
+
         timer tmr;
         tmr :> time_on_tile;
         break;
@@ -842,6 +842,20 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
       case i_cfg[int i].disable_strip_vlan_tag(size_t client_num):
         fail("VLAN tag stripping not supported in Gigabit Ethernet MAC");
         break;
+
+      case i_cfg[int i].enable_link_status_notification(size_t client_num):
+        unsafe {
+          rx_client_state_t &client_state = client_state_lp[client_num];
+          client_state.status_update_state = STATUS_UPDATE_WAITING;
+          break;
+        }
+
+      case i_cfg[int i].disable_link_status_notification(size_t client_num):
+        unsafe {
+          rx_client_state_t &client_state = client_state_lp[client_num];
+          client_state.status_update_state = STATUS_UPDATE_IGNORING;
+          break;
+        }
 
       case c_rgmii_cfg :> unsigned tmp:
         // Server has reset
