@@ -246,6 +246,14 @@ static void mii_ethernet_aux(client mii_if i_mii,
         fail("VLAN tag stripping not supported in standard MII Ethernet MAC");
         break;
 
+      case i_cfg[int i].enable_link_status_notification(size_t client_num):
+        fail("Link status notification not supported in standard MII Ethernet MAC");
+        break;
+
+      case i_cfg[int i].disable_link_status_notification(size_t client_num):
+        fail("Link status notification not supported in standard MII Ethernet MAC");
+        break;
+
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                              int request_timestamp,
                                              unsigned dst_port):

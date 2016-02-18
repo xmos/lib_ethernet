@@ -211,6 +211,21 @@ typedef interface ethernet_cfg_if {
    */
   void disable_strip_vlan_tag(size_t client_num);
 
+  /** Enable notifications of link status changes. These will be sent over the RX
+   *  interface using ETH_IF_STATUS packets.
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   */
+  void enable_link_status_notification(size_t client_num);
+
+  /** Disable notifications of link status changes.
+   *
+   *  \param client_num   The index into the set of RX clients. Can be acquired by
+   *                      calling the get_index() method.
+   */
+  void disable_link_status_notification(size_t client_num);
+
 } ethernet_cfg_if;
 
 /** Ethernet MAC data transmit interface
