@@ -1,6 +1,11 @@
 Ethernet MAC library change log
 ===============================
 
+3.2.0
+-----
+
+  * Adds ability to enable link status notifications
+
 3.1.2
 -----
 
