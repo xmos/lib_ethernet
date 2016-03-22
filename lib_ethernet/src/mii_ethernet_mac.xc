@@ -276,6 +276,12 @@ static void mii_ethernet_aux(client mii_if i_mii,
         unsigned timestamp;
         {data, nbytes, timestamp} = i_mii.get_incoming_packet();
 
+        if (incoming_data) {
+          // Can only handle one packet at a time at this level
+          i_mii.release_packet(data);
+          break;
+        }
+
         if (data) {
           unsigned appdata;
           incoming_timestamp = timestamp;
