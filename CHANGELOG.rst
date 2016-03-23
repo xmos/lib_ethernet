@@ -53,11 +53,11 @@ Ethernet MAC library change log
 
   * Changes to dependencies:
 
-    - lib_logging: Added dependency 2.0.0
-
-    - lib_xassert: Added dependency 2.0.0
-
     - lib_gpio: Added dependency 1.0.0
 
     - lib_locks: Added dependency 2.0.0
+
+    - lib_logging: Added dependency 2.0.0
+
+    - lib_xassert: Added dependency 2.0.0
 
