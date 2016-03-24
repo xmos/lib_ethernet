@@ -5,6 +5,9 @@ Ethernet MAC library change log
 -----
 
   * Adds ability to enable link status notifications
+  * Fix bug which caused random crashes
+  * Fix bug in RT MII which caused packet to delay for 21.4s when sent after no
+    packets sent for > 21.4s
 
 3.1.2
 -----
