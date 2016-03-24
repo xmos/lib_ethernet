@@ -5,11 +5,15 @@
 #include <stdlib.h>
 #include <syscall.h>
 #include <xclib.h>
+#include <hwtimer.h>
 #include "mii_buffering.h"
 #include "debug_print.h"
 #include "default_ethernet_conf.h"
 #include "mii_common_lld.h"
 #include "string.h"
+
+#define QUOTEAUX(x) #x
+#define QUOTE(x) QUOTEAUX(x)
 
 // As of the v12/13 xTIMEcomper tools. The compiler schedules code around a
 // bit too much which violates the timing constraints. This change to the
@@ -365,7 +369,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
 unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
-                                    timer tmr, unsigned &ifg_time)
+                                    hwtimer_t ifg_tmr, unsigned &ifg_time)
 {
   unsigned time;
   register const unsigned poly = 0xEDB88320;
@@ -380,14 +384,16 @@ unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
 
   // Check that we are out of the inter-frame gap
 #pragma xta endpoint "mii_tx_start"
-  tmr when timerafter(ifg_time) :> ifg_time;
+  asm volatile ("in %0, res[%1]"
+                  : "=r" (ifg_time)
+                  : "r" (ifg_tmr));
 
 #pragma xta endpoint "mii_tx_sof"
   p_mii_txd <: 0x55555555;
   p_mii_txd <: 0xD5555555;
 
   if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
-    tmr :> time;
+    ifg_tmr :> time;
   }
 
 #pragma xta endpoint "mii_tx_first_word"
@@ -407,11 +413,11 @@ unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
     crc32(crc, word, poly);
 #pragma xta endpoint "mii_tx_word"
     p_mii_txd <: word;
-    tmr :> ifg_time;
+    ifg_tmr :> ifg_time;
   } while (i < word_count);
 
   if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
-    tmr :> time;
+    ifg_tmr :> time;
   }
 
   if (tail_byte_count) {
@@ -455,17 +461,21 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
 {
   int credit = 0;
   int credit_time;
-  timer tmr;
+  // Need one timer to be able to read at any time for the shaper
+  timer credit_tmr;
+  // And a second timer to be enforcing the IFG gap
+  hwtimer_t ifg_tmr;
   unsigned ifg_time;
   unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
   if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER)
     enable_shaper = 0;
 
-  if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper)
-    tmr :> credit_time;
+  if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
+    credit_tmr :> credit_time;
+  }
 
-  tmr :> ifg_time;
+  ifg_tmr :> ifg_time;
 
   while (1) {
 #pragma xta label "mii_tx_main_loop"
@@ -478,7 +488,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     if (enable_shaper) {
       int prev_credit_time = credit_time;
-      tmr :> credit_time;
+      credit_tmr :> credit_time;
 
       int elapsed = credit_time - prev_credit_time;
       credit += elapsed * p_port_state->qav_idle_slope;
@@ -505,10 +515,17 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       continue;
     }
 
-    unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, tmr, ifg_time);
+    unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, ifg_tmr, ifg_time);
 
+    // Setup the hardware timer to enforce the IFG
     ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += (buf->length & 0x3) * 8;
+    asm volatile ("setd res[%0], %1"
+                    : // No dests
+                    : "r" (ifg_tmr), "r" (ifg_time));
+    asm volatile ("setc res[%0], " QUOTE(XS1_SETC_COND_AFTER)
+                    : // No dests
+                    : "r" (ifg_tmr));
 
     const int packet_is_high_priority = (p_ts_queue == null);
     if (enable_shaper && packet_is_high_priority) {
