@@ -1,6 +1,7 @@
 **/.build*/*
 **/bin/*
 *.o
+.*.swp
 *.xe
 *.vcd
 *.s
