@@ -14,6 +14,9 @@ port p_ctrl = on tile[0]: XS1_PORT_1A;
 
 #include "helpers.xc"
 
+/* Tests that the appdata word registered with the filter gets returned to the
+ * user correctly when a packet is received.
+ */
 void test_task(client ethernet_cfg_if cfg,
                client ethernet_rx_if rx,
                streaming chanend ?rx_hp,
