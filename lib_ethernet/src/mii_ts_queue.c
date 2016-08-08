@@ -1,4 +1,4 @@
-// Copyright (c) 2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
 #include "mii_ts_queue.h"
 #include "mii_buffering.h"
 

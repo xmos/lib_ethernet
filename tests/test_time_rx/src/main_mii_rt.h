@@ -1,4 +1,4 @@
-// Copyright (c) 2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
 
 #define NUM_CFG_IF 1
 #define NUM_RX_LP_IF 1
