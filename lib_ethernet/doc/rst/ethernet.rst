@@ -166,6 +166,9 @@ set in rgmii_consts.h to an integer number of system clock ticks (e.g. 1 x 2ns i
    :start-on: RGMII_DELAY
    :end-on: RGMII_DELAY_100M
 
+The default delay values are for Ethernet PHY without any skew compensation. For PHY with skew compensation, you may need
+to adjust the delay, or remove it by setting it the value to 0.
+
 The pins and functions are listed in Table 2. When the 10/100/1000 Mb/s Ethernet MAC is instantiated these pins can
 no longer be used as GPIO pins, and will instead be driven directly from a Double Data Rate RGMII block, which in turn
 is interfaced to a set of ports on Tile 1.
