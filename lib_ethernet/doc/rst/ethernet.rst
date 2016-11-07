@@ -159,6 +159,13 @@ http://www.hp.com/rnd/pdfs/RGMIIv1_3.pdf
 
 RGMII supports Ethernet speeds of 10 Mb/s, 100 Mb/s and 1000 Mb/s.
 
+Programmable delay is used to skew clock and data according to RGMII specification. Default 10/100 and 1000 Mb/s delays are
+set in rgmii_consts.h to an integer number of system clock ticks (e.g. 1 x 2ns if system clock is 500MHz):
+
+.. literalinclude:: rgmii_consts.h
+   :start-on: RGMII_DELAY
+   :end-on: RGMII_DELAY_100M
+
 The pins and functions are listed in Table 2. When the 10/100/1000 Mb/s Ethernet MAC is instantiated these pins can
 no longer be used as GPIO pins, and will instead be driven directly from a Double Data Rate RGMII block, which in turn
 is interfaced to a set of ports on Tile 1.
