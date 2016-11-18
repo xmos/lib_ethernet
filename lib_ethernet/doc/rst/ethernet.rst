@@ -159,15 +159,18 @@ http://www.hp.com/rnd/pdfs/RGMIIv1_3.pdf
 
 RGMII supports Ethernet speeds of 10 Mb/s, 100 Mb/s and 1000 Mb/s.
 
-Programmable delay is used to skew clock and data according to RGMII specification. Default 10/100 and 1000 Mb/s delays are
-set in rgmii_consts.h to an integer number of system clock ticks (e.g. 1 x 2ns if system clock is 500MHz):
+The Ethernet MAC implements ID mode as specified by RGMII. TX clock from xCORE to PHY is delayed. Default 10/100 and
+1000 Mb/s delays are set in rgmii_consts.h to an integer number of system clock ticks (e.g. 1 x 2ns if system clock
+is 500MHz):
 
 .. literalinclude:: rgmii_consts.h
    :start-on: RGMII_DELAY
    :end-on: RGMII_DELAY_100M
 
-The default delay values are for Ethernet PHY without any skew compensation. For PHY with skew compensation, you may need
-to adjust the delay, or remove it by setting it the value to 0.
+Note that some Ethernet PHY operate in "hybrid mode" and apply skew compensation on incoming TX clock. You may need to
+adjust this compensation, disable it, or set the above delay to 0 in the Ethernet MAC.
+
+The Ethernet MAC will expect RX clock from PHY to xCORE be delayed by 1.2-2ns as specified by RGMII.
 
 The pins and functions are listed in Table 2. When the 10/100/1000 Mb/s Ethernet MAC is instantiated these pins can
 no longer be used as GPIO pins, and will instead be driven directly from a Double Data Rate RGMII block, which in turn
