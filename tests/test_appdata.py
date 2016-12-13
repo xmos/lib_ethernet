@@ -47,7 +47,7 @@ def do_test(mac, tx_clk, tx_phy):
 
     tester = xmostest.ComparisonTester(open('test_appdata_{phy}_{mac}.expect'.format(phy=tx_phy.get_name(), mac=mac)),
                                      'lib_ethernet', 'basic_tests', testname,
-                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
+                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()}, ordered=False)
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
     tester.set_min_testlevel('nightly')
