@@ -59,11 +59,18 @@ def packet_checker(packet, phy):
 
     if phy.num_packets > num_test_packets:
         if rx_complete and tx_complete:
+
+            # Allow time for the end of the packet to be received by the application
+            # before signalling the end of the test
+            phy.xsi._wait_until(phy.xsi.get_time() + 10000)
+
             # Indicate to the DUT receiver to print the byte count
             phy.xsi.drive_port_pins(test_ctrl, 1)
             if phy.end_time == 0:
                 phy.end_time = phy.xsi.get_time()
             
+
+            # Allow time for the byte count to be printed
             phy.xsi._wait_until(phy.end_time + 50000)
             phy.xsi.terminate()
 
