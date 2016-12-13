@@ -30,10 +30,10 @@ def start_test(phy):
 def set_tx_complete(phy):
     global tx_complete
     tx_complete = True
-    
+
 def packet_checker(packet, phy):
     global rx_complete
-    
+
     time_now = phy.xsi.get_time()
 
     # The CRC is not included in the packet bytes
@@ -68,7 +68,6 @@ def packet_checker(packet, phy):
             phy.xsi.drive_port_pins(test_ctrl, 1)
             if phy.end_time == 0:
                 phy.end_time = phy.xsi.get_time()
-            
 
             # Allow time for the byte count to be printed
             phy.xsi._wait_until(phy.end_time + 50000)
@@ -84,7 +83,7 @@ def packet_checker(packet, phy):
 
 def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     start_test(rx_phy)
-    
+
     rand = random.Random()
     rand.seed(seed)
 
@@ -101,7 +100,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
-    
+
     packets = []
     done = False
     num_data_bytes = 0
@@ -111,7 +110,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             length = rand.randint(46, 100)
         else:
             length = rand.randint(46, 1500)
-            
+
         burst_len = 1
         do_burst = rand.randint(0, 100) > 80
         if do_burst:
@@ -121,7 +120,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
             packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address, inter_frame_gap=ifg, num_data_bytes=length
               ))
-            
+
             # Add on the overhead of the packet header
             num_data_bytes += length + 14
 
@@ -165,7 +164,7 @@ def create_expect(packets, filename):
                 num_bytes += len(packet.get_packet_bytes())
                 num_packets += 1
         f.write("Received {} packets, {} bytes\n".format(num_packets, num_bytes))
-    
+
 def runtest():
     random.seed(100)
 
