@@ -51,7 +51,7 @@ void test_rx(client interface mii_if i_mii,
   //  - there must also be 46 bytes of payload to produce valid minimum sized
   //    frames
   const int min_data_bytes = HEADER_BYTES + 46;
-  random_generator_t rand = random_create_generator_from_seed(1);
+  random_generator_t rand = random_create_generator_from_seed(SEED);
   for (int i = 0; i < NUM_PACKET_LENGTHS; i++) {
     int do_small_packet = (random_get_random_number(rand) & 0xff) > 50;
     if (do_small_packet)

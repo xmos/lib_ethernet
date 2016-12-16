@@ -87,6 +87,10 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
+    # Generate an include file to define the seed
+    with open(os.path.join("include", "seed.h"), "w") as f:
+        f.write("#define SEED {}".format(seed))
+
     resources = xmostest.request_resource("xsim")
     testname = 'test_time_rx_tx'
     level = 'nightly'

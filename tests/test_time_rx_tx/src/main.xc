@@ -5,6 +5,7 @@
 #include "mii.h"
 #include "debug_print.h"
 #include "syscall.h"
+#include "seed.h"
 
 #include "ports.h"
 
