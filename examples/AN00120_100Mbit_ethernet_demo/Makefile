@@ -24,7 +24,7 @@ XCC_FLAGS_icmp.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
 
 # The USED_MODULES variable lists other module used by the application.
 
-USED_MODULES = lib_ethernet lib_otpinfo lib_slicekit_support
+USED_MODULES = lib_ethernet(>=3.3.0) lib_otpinfo(>=2.0.0) lib_slicekit_support(>=2.0.0)
 
 #=============================================================================
 # The following part of the Makefile includes the common build infrastructure
