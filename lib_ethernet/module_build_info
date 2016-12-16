@@ -9,7 +9,7 @@
 #
 # You can also set MODULE_XCC_C_FLAGS, MODULE_XCC_XC_FLAGS etc..
 
-DEPENDENT_MODULES = lib_gpio(>=1.0.0) lib_locks(>=2.0.0) lib_logging(>=2.0.0) lib_xassert(>=2.0.0)
+DEPENDENT_MODULES = lib_gpio(>=1.1.0) lib_locks(>=2.0.0) lib_logging(>=2.1.0) lib_xassert(>=3.0.0)
 
 OPTIONAL_HEADERS += ethernet_conf.h
 
@@ -21,4 +21,4 @@ XCC_FLAGS_mii.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 XCC_FLAGS_mii_ethernet_mac.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 XCC_FLAGS_ethernet.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 
-VERSION = 3.2.0
+VERSION = 3.3.0
