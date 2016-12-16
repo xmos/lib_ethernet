@@ -190,13 +190,13 @@ unsigned mii_free_index(mii_packet_queue_t queue, unsigned index)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
 
-  // Indicate that this entry is free
-  info->ptrs[index] = 0;
-
   if (info->rd_index == index) {
     // If this the oldest free entry then skip to the next used buffer
     info->rd_index = mii_move_my_rd_index(queue, index);
   }
+
+  // Indicate that this entry is free - after the rd_index has been moved
+  info->ptrs[index] = 0;
 
   return info->rd_index;
 }
