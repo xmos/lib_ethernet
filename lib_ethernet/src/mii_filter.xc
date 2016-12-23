@@ -117,10 +117,20 @@ unsafe void mii_ethernet_filter(streaming chanend c,
     buf->filter_result = filter_result;
 
     if (ethernet_filter_result_is_hp(filter_result)) {
-      mii_add_packet(rx_packets_hp, buf);
+      if (!mii_packet_queue_full(rx_packets_hp)) {
+        mii_add_packet(rx_packets_hp, buf);
+      } else {
+        // Drop the packet because there is no room in the packet buffer
+        // pointers
+      }
     }
     else {
-      mii_add_packet(rx_packets_lp, buf);
+      if (!mii_packet_queue_full(rx_packets_lp)) {
+        mii_add_packet(rx_packets_lp, buf);
+      } else {
+        // Drop the packet because there is no room in the packet buffer
+        // pointers
+      }
     }
   }
 }

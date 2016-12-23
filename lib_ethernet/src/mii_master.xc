@@ -298,7 +298,11 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
       /* Update where the write pointer is in memory */
       mii_commit(rx_mem, dptr);
 
-      /* Record the fact that there is a valid packet ready for filtering */
+      /* Record the fact that there is a valid packet ready for filtering
+       *  - the assumption is that the filtering is running fast enough
+       *    to keep up and process the packets so that the incoming_packet
+       *    pointers never fill up
+       */
       mii_add_packet(incoming_packets, buf);
     }
   }

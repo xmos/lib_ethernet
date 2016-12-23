@@ -246,6 +246,14 @@ mii_packet_t *mii_get_next_buf(mii_packet_queue_t queue)
 mii_packet_t *mii_get_my_next_buf(mii_packet_queue_t queue, unsigned rd_index)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
+
+  if (info->rd_index == info->wr_index) {
+    // The buffer is either empty (pointer will be 0) or full (pointer will
+    // be non-zero). In either case, must return NULL so that it won't be
+    // processed.
+    return NULL;
+  }
+
   return (mii_packet_t *) (info->ptrs[rd_index]);
 }
 
