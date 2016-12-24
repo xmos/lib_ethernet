@@ -240,7 +240,7 @@ unsigned mii_move_my_rd_index(mii_packet_queue_t queue, unsigned rd_index)
 mii_packet_t *mii_get_next_buf(mii_packet_queue_t queue)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
-  return mii_get_my_next_buf(queue, info->rd_index);
+  return (mii_packet_t *) (info->ptrs[info->rd_index]);
 }
 
 mii_packet_t *mii_get_my_next_buf(mii_packet_queue_t queue, unsigned rd_index)

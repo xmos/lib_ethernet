@@ -10,6 +10,9 @@ Ethernet MAC library change log
   * RESOLVED: Fix RT MII ethernet transmit being broken by a memory corruption
     caused by a race condition. It could cause random packet contents to be sent
     on the wire and invalid sized packets.
+  * RESOLVED: Fix RT MII buffer read pointer wrapping over the write pointer and
+    causing the MAC layer to crash when the ethernet clients were not keeping up
+    with the packets being received.
 
 3.2.0
 -----
