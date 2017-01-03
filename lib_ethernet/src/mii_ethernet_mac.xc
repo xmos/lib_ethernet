@@ -247,11 +247,13 @@ static void mii_ethernet_aux(client mii_if i_mii,
         break;
 
       case i_cfg[int i].enable_link_status_notification(size_t client_num):
-        fail("Link status notification not supported in standard MII Ethernet MAC");
+        client_state_t &client_state = client_state[client_num];
+        client_state.status_update_state = STATUS_UPDATE_WAITING;
         break;
 
       case i_cfg[int i].disable_link_status_notification(size_t client_num):
-        fail("Link status notification not supported in standard MII Ethernet MAC");
+        client_state_t &client_state = client_state[client_num];
+        client_state.status_update_state = STATUS_UPDATE_IGNORING;
         break;
 
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,

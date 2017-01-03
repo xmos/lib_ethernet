@@ -5,7 +5,7 @@ Ethernet MAC library change log
 -----
   * CHANGE: Update dependencies
   * ADDED: Ability for the standard MII ethernet MAC to be able to provide
-    link status notifications
+    link status notifications.
   * RESOLVED: Fix test_appdata that failed randomly due to timing changes
   * RESOLVED: Fix RT MII ethernet transmit being broken by a memory corruption
     caused by a race condition. It could cause random packet contents to be sent
