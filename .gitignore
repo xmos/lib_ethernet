@@ -1,4 +1,4 @@
-**/.build*/*
+**/build*/*
 **/bin/*
 *.o
 .*.swp
@@ -17,7 +17,6 @@
 .DS_Store
 *.yml
 *.zip
-*.expect
 *.log
 *.xmt
 *.csv
