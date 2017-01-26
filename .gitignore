@@ -20,3 +20,4 @@
 *.log
 *.xmt
 *.csv
+tests/expect/*.expect
