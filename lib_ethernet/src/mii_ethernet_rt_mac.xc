@@ -220,7 +220,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
                                        chanend c_macaddr_filter,
                                        volatile ethernet_port_state_t * unsafe p_port_state)
 {
-  uint8_t mac_address[6] = {0};
+  uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
   rx_client_state_t rx_client_state_hp[1];
   tx_client_state_t tx_client_state_lp[n_tx_lp];
@@ -313,12 +313,12 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       break;
     }
 
-    case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
-      memcpy(r_mac_address, mac_address, 6);
+    case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+      memcpy(r_mac_address, mac_address, sizeof mac_address);
       break;
 
-    case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
-      memcpy(mac_address, r_mac_address, 6);
+    case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+      memcpy(mac_address, r_mac_address, sizeof r_mac_address);
       break;
 
     case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):

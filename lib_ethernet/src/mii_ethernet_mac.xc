@@ -37,9 +37,9 @@ static unsafe inline int is_broadcast(char * unsafe buf)
 }
 
 static unsafe inline int compare_mac(char * unsafe buf,
-                                     const char mac[6])
+                                     const char mac[MACADDR_NUM_BYTES])
 {
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < MACADDR_NUM_BYTES; i++) {
     if (buf[i] != mac[i])
       return 0;
   }
@@ -99,7 +99,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
                              static const unsigned n_tx)
 {
   unsafe {
-    uint8_t mac_address[6] = {0};
+    uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
     ethernet_link_state_t link_status = ETHERNET_LINK_DOWN;
     ethernet_speed_t link_speed = LINK_100_MBPS_FULL_DUPLEX;
     client_state_t client_state[n_rx];
@@ -155,12 +155,12 @@ static void mii_ethernet_aux(client mii_if i_mii,
         }
         break;
 
-      case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
-        memcpy(r_mac_address, mac_address, 6);
+      case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+        memcpy(r_mac_address, mac_address, sizeof mac_address);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
-        memcpy(mac_address, r_mac_address, 6);
+      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+        memcpy(mac_address, r_mac_address, sizeof r_mac_address);
         break;
 
       case i_cfg[int i].add_macaddr_filter(size_t client_num, int is_hp,

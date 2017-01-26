@@ -8,7 +8,7 @@
 #define ETHERNET_MACADDR_FILTER_TABLE_SIZE 30
 
 typedef struct eth_global_filter_entry_t {
-  char addr[6];
+  char addr[MACADDR_NUM_BYTES];
   unsigned result;
   unsigned appdata;
 } eth_global_filter_entry_t;

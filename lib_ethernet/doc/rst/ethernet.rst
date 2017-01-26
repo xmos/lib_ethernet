@@ -298,7 +298,7 @@ perform Ethernet MAC operations e.g.::
   {
     ethernet_macaddr_filter_t macaddr_filter;
     size_t index = i_rx.get_index();
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < MACADDR_NUM_BYTES; i++)
       macaddr_filter.addr[i] = i;
     i_cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
@@ -372,7 +372,7 @@ The application can use the other end of the streaming channels to send and rece
   {
     ethernet_macaddr_filter_t macaddr_filter;
     size_t index = i_rx.get_index();
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < MACADDR_NUM_BYTES; i++)
       macaddr_filter.addr[i] = i;
     i_cfg.add_macaddr_filter(index, 1, macaddr_filter);
 

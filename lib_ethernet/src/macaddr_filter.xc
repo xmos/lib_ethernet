@@ -1,7 +1,7 @@
 // Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
-#include <macaddr_filter.h>
 #include <string.h>
 #include <print.h>
+#include "macaddr_filter.h"
 #include "xassert.h"
 
 int ethernet_filter_result_is_hp(unsigned value)
@@ -25,7 +25,7 @@ unsigned ethernet_filter_result_set_hp(unsigned value, int is_hp)
 void ethernet_init_filter_table(eth_global_filter_info_t table)
 {
   for (size_t i = 0; i < ETHERNET_MACADDR_FILTER_TABLE_SIZE; i++) {
-    memset(table[i].addr, 0, 6);
+    memset(table[i].addr, 0, sizeof table[i].addr);
     table[i].result = 0;
     table[i].appdata = 0;
   }
@@ -67,7 +67,7 @@ ethernet_add_filter_table_entry(eth_global_filter_info_t table,
       continue;
 
     // Found an empty entry, use it
-    memcpy(table[i].addr, entry.addr, 6);
+    memcpy(table[i].addr, entry.addr, sizeof entry.addr);
     table[i].appdata = entry.appdata;
     table[i].result = ethernet_filter_result_set_hp(1 << client_num, is_hp);
     return ETHERNET_MACADDR_FILTER_SUCCESS;
