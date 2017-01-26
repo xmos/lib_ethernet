@@ -26,7 +26,7 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
 
 def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                        complete_fn=None, expect_loopback=True,
-                       dut_exit_time=25000, initial_delay=85000):
+                       dut_exit_time=50000, initial_delay=85000):
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
@@ -48,7 +48,7 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
 
 def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                           do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=25000, initial_delay=130000):
+                          dut_exit_time=50000, initial_delay=130000):
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_4E',

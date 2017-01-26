@@ -728,7 +728,7 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
 {
   set_core_fast_mode_on();
 
-  uint8_t mac_address[6] = {0};
+  uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   volatile rx_client_state_t * unsafe client_state_lp;
   unsigned n_rx_lp;
   volatile ethernet_port_state_t * unsafe p_port_state;
@@ -742,12 +742,12 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
 
   while (1) {
     select {
-      case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
-        memcpy(r_mac_address, mac_address, 6);
+      case i_cfg[int i].get_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+        memcpy(r_mac_address, mac_address, sizeof mac_address);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[6]):
-        memcpy(mac_address, r_mac_address, 6);
+      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+        memcpy(mac_address, r_mac_address, sizeof r_mac_address);
         break;
 
       case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):

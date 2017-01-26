@@ -30,13 +30,13 @@ static unsigned short checksum_ip(const unsigned char frame[34])
 
 static int build_arp_response(unsigned char rxbuf[64],
                               unsigned char txbuf[64],
-                              const unsigned char own_mac_addr[6],
+                              const unsigned char own_mac_addr[MACADDR_NUM_BYTES],
                               const unsigned char own_ip_addr[4])
 {
   unsigned word;
   unsigned char byte;
 
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < MACADDR_NUM_BYTES; i++)
   {
     byte = rxbuf[22+i];
     txbuf[i] = byte;
@@ -54,7 +54,7 @@ static int build_arp_response(unsigned char rxbuf[64],
   txbuf[30] = own_ip_addr[2];
   txbuf[31] = own_ip_addr[3];
 
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < MACADDR_NUM_BYTES; i++)
   {
     txbuf[22 + i] = own_mac_addr[i];
     txbuf[6 + i] = own_mac_addr[i];
@@ -118,7 +118,7 @@ static int is_valid_arp_packet(const unsigned char rxbuf[nbytes],
 
 
 static int build_icmp_response(unsigned char rxbuf[], unsigned char txbuf[],
-                               const unsigned char own_mac_addr[6],
+                               const unsigned char own_mac_addr[MACADDR_NUM_BYTES],
                                const unsigned char own_ip_addr[4])
 {
   unsigned icmp_checksum;
@@ -130,7 +130,7 @@ static int build_icmp_response(unsigned char rxbuf[], unsigned char txbuf[],
   // Precomputed empty IP header checksum (inverted, bytereversed and shifted right)
   unsigned ip_checksum = 0x0185;
 
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < MACADDR_NUM_BYTES; i++)
   {
     txbuf[i] = rxbuf[6 + i];
   }
@@ -150,7 +150,7 @@ static int build_icmp_response(unsigned char rxbuf[], unsigned char txbuf[],
     txbuf[42 + i] = rxbuf[42+i];
   }
 
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < MACADDR_NUM_BYTES; i++)
   {
     txbuf[6 + i] = own_mac_addr[i];
   }
@@ -244,7 +244,7 @@ void icmp_server(client ethernet_cfg_if cfg,
                  const unsigned char ip_address[4],
                  otp_ports_t &otp_ports)
 {
-  unsigned char mac_address[6];
+  unsigned char mac_address[MACADDR_NUM_BYTES];
   ethernet_macaddr_filter_t macaddr_filter;
 
   // Get the mac address from OTP and set it in the ethernet component
@@ -253,11 +253,11 @@ void icmp_server(client ethernet_cfg_if cfg,
   size_t index = rx.get_index();
   cfg.set_macaddr(0, mac_address);
 
-  memcpy(macaddr_filter.addr, mac_address, sizeof(mac_address));
+  memcpy(macaddr_filter.addr, mac_address, sizeof mac_address);
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   // Add broadcast filter
-  memset(macaddr_filter.addr, 0xff, 6);
+  memset(macaddr_filter.addr, 0xff, sizeof mac_address);
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   // Only allow ARP and IP packets to the app

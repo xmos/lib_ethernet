@@ -85,7 +85,7 @@ class RxLpControl(xmostest.SimThread):
 
         if not self._randomise:
             return
-                
+
         while True:
             delay = self._rand.randint(1, 10000) * self._bit_time
             self.wait_until(xsi.get_time() + delay)
@@ -94,24 +94,29 @@ class RxLpControl(xmostest.SimThread):
             xsi.drive_port_pins(self._rx_lp_ctl, 1)
             self.wait_until(xsi.get_time() + 100)
             xsi.drive_port_pins(self._rx_lp_ctl, 0)
-            
+
 
 def do_test(mac, tx_clk, tx_phy, seed,
+            level='nightly',
             num_packets=200,
             weight_hp=50, weight_lp=50, weight_other=50,
             data_len_min=46, data_len_max=500,
             weight_tagged=50, weight_untagged=50,
-            max_hp_mbps=1000):
+            max_hp_mbps=1000,
+            # The low-priority packets can go to either client or both
+            lp_mac_addresses=[[1,2,3,4,5,6],
+                              [2,3,4,5,6,7],
+                              [0xff,0xff,0xff,0xff,0xff,0xff]]):
 
     rand = random.Random()
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxint))
+    rxLpControl1 = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxint))
+    rxLpControl2 = RxLpControl('tile[0]:XS1_PORT_1E', bit_time, 0, True, rand.randint(0, sys.maxint))
 
     resources = xmostest.request_resource("xsim")
     testname = 'test_rx_queues'
-    level = 'nightly'
 
     binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
         test=testname, mac=mac, phy=tx_phy.get_name())
@@ -123,10 +128,9 @@ def do_test(mac, tx_clk, tx_phy, seed,
     hp_mac_address = [0,1,2,3,4,5]
     hp_seq_id = 0
     hp_data_bytes = 0
-    lp_mac_address = [1,2,3,4,5,6]
     lp_seq_id = 0
     lp_data_bytes = 0
-    other_mac_address = [2,3,4,5,6,7]
+    other_mac_address = [12,13,14,15,16,17]
     other_seq_id = 0
     other_data_bytes = 0
 
@@ -144,16 +148,16 @@ def do_test(mac, tx_clk, tx_phy, seed,
 
         mac_choice = rand.randint(0, total_weight_tc - 1)
         if (mac_choice < weight_lp):
-            dst_mac_addr = lp_mac_address
+            dst_mac_addr = rand.choice(lp_mac_addresses)
         elif (mac_choice < weight_hp + weight_lp):
             dst_mac_addr = hp_mac_address
         else:
             dst_mac_addr = other_mac_address
 
         frame_size = choose_data_size(rand, data_len_min, data_len_max)
-            
-        if (rand.randint(0,100) > 30):
-            burst_len = rand.randint(1,20)
+
+        if (rand.randint(0,100) > 95):
+            burst_len = rand.randint(2,20)
         else:
             burst_len = 1
 
@@ -162,8 +166,8 @@ def do_test(mac, tx_clk, tx_phy, seed,
             if (hp_seq_id + lp_seq_id + other_seq_id) == num_packets:
                 done = True
                 break
-        
-            if dst_mac_addr == lp_mac_address:
+
+            if dst_mac_addr in lp_mac_addresses:
                 packet_type = DataLimiter.LP_PACKET
                 seq_id = lp_seq_id
                 lp_seq_id += 1
@@ -186,7 +190,7 @@ def do_test(mac, tx_clk, tx_phy, seed,
                     other_data_bytes += 4
 
             ifg = limiter.get_ifg(packet_type, frame_size, tag)
-                
+
             packets.append(MiiPacket(rand,
                 dst_mac_addr=dst_mac_addr,
                 create_data_args=['same', (seq_id, frame_size)],
@@ -205,7 +209,7 @@ def do_test(mac, tx_clk, tx_phy, seed,
     expect_folder = create_if_needed("expect")
     expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
         folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
-    create_expect(packets, expect_filename, hp_mac_address, lp_mac_address)
+    create_expect(packets, expect_filename, hp_mac_address)
     tester = xmostest.ComparisonTester(open(expect_filename),
                                      'lib_ethernet', 'basic_tests', testname,
                                       {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(),
@@ -219,30 +223,28 @@ def do_test(mac, tx_clk, tx_phy, seed,
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
     xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[tx_clk, tx_phy, rxLpControl],
+                              simthreads=[tx_clk, tx_phy, rxLpControl1, rxLpControl2],
                               tester=tester,
                               simargs=simargs)
 
-def create_expect(packets, filename, hp_mac_address, lp_mac_address):
+def create_expect(packets, filename, hp_mac_address):
     """ Create the expect file for what packets should be reported by the DUT
     """
     num_bytes_hp = 0
-    num_bytes_lp = 0
 
     for i,packet in enumerate(packets):
         if packet.dropped:
             continue
 
-        if (packet.dst_mac_addr == lp_mac_address):
-            num_bytes_lp += len(packet.get_packet_bytes())
-        elif (packet.dst_mac_addr == hp_mac_address):
+        if (packet.dst_mac_addr == hp_mac_address):
             num_bytes_hp += len(packet.get_packet_bytes())
-    
+
     with open(filename, 'w') as f:
         num_bytes = 0
         f.write("Received {} hp bytes\n".format(num_bytes_hp))
-        f.write("Received \d+ lp bytes\n".format(num_bytes_lp))
-   
+        f.write("LP client 1 received \d+ bytes\n")
+        f.write("LP client 2 received \d+ bytes\n")
+
 
 def runtest():
 
@@ -251,33 +253,28 @@ def runtest():
             min=args.data_len_min, max=args.data_len_max)
         return
 
-    random.seed(1)
+    random.seed(args.seed if args.seed is not None else 1)
 
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,
                                              verbose=args.verbose)
     if run_on(phy='mii', clk='25Mhz', mac='rt'):
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        # Test having every packet going to both LP receivers
         do_test('rt', tx_clk_25, tx_mii, seed,
+                level='smoke',
                 num_packets=200,
-                weight_hp=100, weight_lp=0, weight_other=0,
+                weight_hp=0, weight_lp=100, weight_other=0,
                 data_len_min=46, data_len_max=46,
                 weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                max_hp_mbps=100)
+                max_hp_mbps=100,
+                lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
 
         seed = args.seed if args.seed else random.randint(0, sys.maxint)
         do_test('rt', tx_clk_25, tx_mii, seed,
                 num_packets=200,
                 weight_hp=100, weight_lp=0, weight_other=0,
                 data_len_min=200, data_len_max=200,
-                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                max_hp_mbps=100)
-
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', tx_clk_25, tx_mii, seed,
-                num_packets=args.num_packets,
-                weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
-                data_len_min=args.data_len_min, data_len_max=args.data_len_max,
                 weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                 max_hp_mbps=100)
 

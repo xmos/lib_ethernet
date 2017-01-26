@@ -190,13 +190,13 @@ unsigned mii_free_index(mii_packet_queue_t queue, unsigned index)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
 
-  // Indicate that this entry is free
-  info->ptrs[index] = 0;
-
   if (info->rd_index == index) {
     // If this the oldest free entry then skip to the next used buffer
     info->rd_index = mii_move_my_rd_index(queue, index);
   }
+
+  // Indicate that this entry is free - after the rd_index has been moved
+  info->ptrs[index] = 0;
 
   return info->rd_index;
 }
@@ -240,12 +240,20 @@ unsigned mii_move_my_rd_index(mii_packet_queue_t queue, unsigned rd_index)
 mii_packet_t *mii_get_next_buf(mii_packet_queue_t queue)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
-  return mii_get_my_next_buf(queue, info->rd_index);
+  return (mii_packet_t *) (info->ptrs[info->rd_index]);
 }
 
 mii_packet_t *mii_get_my_next_buf(mii_packet_queue_t queue, unsigned rd_index)
 {
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
+
+  if (info->rd_index == info->wr_index) {
+    // The buffer is either empty (pointer will be 0) or full (pointer will
+    // be non-zero). In either case, must return NULL so that it won't be
+    // processed.
+    return NULL;
+  }
+
   return (mii_packet_t *) (info->ptrs[rd_index]);
 }
 

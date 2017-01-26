@@ -17,7 +17,7 @@ void test_tx(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
   //  - there must also be 46 bytes of payload to produce valid minimum sized
   //    frames
   const int min_data_bytes = header_bytes + 46;
-  random_generator_t rand = random_create_generator_from_seed(1);
+  random_generator_t rand = random_create_generator_from_seed(SEED);
   for (int i = 0; i < NUM_PACKET_LENGTHS; i++) {
     int do_small_packet = (random_get_random_number(rand) & 0xff) > 50;
     if (do_small_packet)

@@ -163,7 +163,7 @@ MAC. The MAC address is configured by reading a MAC address out of OTP
 library) and then calling the ``set_macaddr`` interface function:
 
 .. literalinclude:: icmp.xc
-   :start-on: unsigned char mac_address[6];
+   :start-on: unsigned char mac_address[MACADDR_NUM_BYTES];
    :end-on: cfg.set_macaddr
 
 After this, the task configures filters to determine which type of

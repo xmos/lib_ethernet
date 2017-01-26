@@ -8,6 +8,8 @@
 #define ETHERNET_ALL_INTERFACES  (-1)
 #define ETHERNET_MAX_PACKET_SIZE (1518)
 
+#define MACADDR_NUM_BYTES 6
+
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
   ETH_DATA,                      /**< A packet containing data. */
@@ -41,10 +43,10 @@ typedef struct ethernet_packet_info_t {
 
 /** Structure representing MAC address filter data that is registered with the Ethernet MAC */
 typedef struct ethernet_macaddr_filter_t {
-  uint8_t addr[6];       /**< Six-octet destination MAC address to filter to the client that registers it */
-  unsigned appdata;      /**< An optional word of user data that is stored by the Ethernet MAC and
-                              returned to the client when a packet is received with the
-                              destination MAC address indicated by the ``addr`` field */
+  uint8_t addr[MACADDR_NUM_BYTES]; /**< Six-octet destination MAC address to filter to the client that registers it */
+  unsigned appdata;                /**< An optional word of user data that is stored by the Ethernet MAC and
+                                        returned to the client when a packet is received with the
+                                        destination MAC address indicated by the ``addr`` field */
 } ethernet_macaddr_filter_t;
 
 /** Type representing the result of adding a filter entry to the Ethernet MAC */
@@ -64,14 +66,14 @@ typedef interface ethernet_cfg_if {
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
    */
-  void set_macaddr(size_t ifnum, uint8_t mac_address[6]);
+  void set_macaddr(size_t ifnum, uint8_t mac_address[MACADDR_NUM_BYTES]);
 
   /** Gets the source MAC address of the Ethernet MAC
    *
    * \param ifnum       The index of the MAC interface to get
    * \param mac_address The six-octet MAC address of this interface
    */
-  void get_macaddr(size_t ifnum, uint8_t mac_address[6]);
+  void get_macaddr(size_t ifnum, uint8_t mac_address[MACADDR_NUM_BYTES]);
 
   /** Set the current link state.
    *

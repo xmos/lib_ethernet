@@ -56,7 +56,7 @@ void mac_addr_filler(client ethernet_cfg_if i_cfg, int seed, int active_count,
 
   ethernet_macaddr_filter_t macaddr_filter;
   macaddr_filter.appdata = 0;
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < MACADDR_NUM_BYTES; i++)
     macaddr_filter.addr[i] = 0x20 | i;
 
   while (1) {

@@ -1,7 +1,7 @@
 XMOS Gigabit Ethernet application note
 ======================================
 
-.. version:: 1.0.1
+.. version:: 1.0.2
 
 Summary
 -------
@@ -26,9 +26,7 @@ to it and send/receive packets.
 Required tools and libraries
 ............................
 
- * xTIMEcomposer Tools - Version 14.0.0
- * XMOS Ethernet library - Version 3.0.0
- * XMOS OTP Reading Library - Version 2.0.0
+.. appdeps::
 
 Required hardware
 .................
