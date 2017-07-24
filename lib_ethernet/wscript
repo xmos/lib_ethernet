@@ -1,0 +1,27 @@
+def use_module(bld):
+    bld.env['XCC_FLAGS_mii_master.xc'] = bld.env.XCC_FLAGS + [
+        '-O3', '-fschedule', '-g0', '-mno-dual-issue'
+    ]
+    bld.env.XCC_FLAGS = bld.env.XCC_FLAGS + ['-g', '-O3', '-mno-dual-issue']
+
+    bld.env['XCC_FLAGS_macaddr_filter.xc'] = bld.env.XCC_FLAGS + [
+        '-Wno-reinterpret-alignment'
+    ]
+
+    for f in ('mii.xc', 'mii_ethernet_mac.xc', 'ethernet.xc'):
+        bld.env['XCC_FLAGS_{}'.format(
+            f)] = bld.env.XCC_FLAGS + ['-Wno-cast-align']
+
+    source = bld.path.ant_glob(['src/*.xc', 'src/*.c', 'src/*.S'])
+
+    depends_on = [
+        'lib_gpio(>=1.1.0)', 'lib_locks(>=2.0.0)', 'lib_logging(>=2.1.0)',
+        'lib_xassert(>=3.0.0)'
+    ]
+
+    bld.module(
+        source=source,
+        depends_on=depends_on,
+        version='3.3.0',
+        includes=['api'],
+        optional_headers='ethernet_conf.h')
