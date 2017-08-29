@@ -11,7 +11,7 @@ def options(ctx):
 def configure(conf):
     def make_config(name, flags):
         conf.setenv(name)
-        conf.load('compiler_xcc', tooldir='../../../build_tools/xwaf')
+        conf.load('xwaf.compiler_xcc')
         conf.env.XCC_FLAGS = flags
 
     for key, value in CONFIGS.iteritems():
