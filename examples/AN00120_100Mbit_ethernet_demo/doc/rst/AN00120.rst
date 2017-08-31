@@ -64,15 +64,22 @@ Allocating hardware resources
 The Ethernet library requires several ports to communicate with the
 Ethernet PHY. These ports are declared in the main program file
 (``main.xc``). In this demo the ports are set up for the Ethernet
-slice connected to the  CIRCLE slot of the sliceKIT:
+slice connected to tile 1 triangle slot of the sliceKIT. Actual port
+names such as ``XS1_PORT_1J`` are specified in XN file and source refers
+to them with symbolic names such as ``PORT_ETH_RXCLK``:
 
 .. literalinclude:: main.xc
-   :start-on: // Here are the port
-   :end-on: clock eth_txclk
+   :start-on: PORT_ETH_RXCLK
+   :end-on: PORT_SMI_MDC
 
 Note that the port ``p_eth_dummy`` does not need to be connected to
 external hardware - it is just used internally by the Ethernet
 library.
+
+You will find three additional PHY signals on the sliceCARD: RST_N,
+CLK_IN and INT_N. INT_N will be left unused and we will poll SMI registers
+to get link state instead. CLK_N receives 25MHz clock from the sliceKIT
+and RST_N receives the sliceKITs system reset.
 
 The MDIO Serial Management Interface (SMI) is used to transfer
 management information between MAC and PHY. This interface consists of
@@ -186,10 +193,10 @@ functions implement the ICMP protocol.
 Demo Hardware Setup
 --------------------
 
- * To run the demo, connect the XTAG-2 USB debug adapter to the sliceKIT via the supplied adaptor board
- * Connect the XTAG-2 to the host PC (using USB extension cable if desired)
- * Connect the ethernet sliceCARD to the **CIRCLE** slot of the sliceKIT. Then, connect the slice to the host PC or to the network switch using an ethernet cable.
- * On the xCORE-L series sliceKIT ensure that the xCONNECT LINK (xSCOPE) switch is set to ON, as per the image, to allow xSCOPE to function. 
+ * To run the demo, connect the XTAG USB debug adapter to the sliceKIT via the supplied adaptor board
+ * Connect the XTAG to the host PC (using USB extension cable if desired)
+ * Connect the ethernet sliceCARD to the **TILE 1 TRIANGLE** slot of the sliceKIT. Then, connect the slice to the host PC or to the network switch using an ethernet cable.
+ * On the xCORE-200 series sliceKIT ensure that the xCONNECT LINK (xSCOPE) switch is set to ON, as per the image, to allow xSCOPE to function. 
 
 .. figure:: images/hardware_setup.*
    :scale: 100%
