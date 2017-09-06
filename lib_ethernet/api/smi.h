@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2014-2017, XMOS Ltd, All rights reserved
 #ifndef _smi_h_
 #define _smi_h_
 #include <stdint.h>
@@ -121,6 +121,13 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable);
  */
 unsigned smi_get_id(client smi_if smi, uint8_t phy_address);
 
+/** Reset PHY by writing bit 15 of the Control register
+ *
+ *  \param smi          An interface connection to the SMI component
+ *  \param phy_address  The 5-bit SMI address of the PHY
+ */
+void smi_phy_reset(client smi_if smi, uint8_t phy_address);
+
 /** Function to retrieve the power down status of the PHY.
  *
  *  \param smi          An interface connection to the SMI component
@@ -128,6 +135,24 @@ unsigned smi_get_id(client smi_if smi, uint8_t phy_address);
  *  \returns            ``1`` if the PHY is powered down, ``0`` otherwise
  */
 unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address);
+
+/** SMI MMD write
+ *
+ *  Some PHYs expose additional registers to basic SMI through MMD,
+ *  MDIO Manageable Device, annex 22D.
+ *
+ *  There is a suggested set of MMD registers in clause 45, but vendors
+ *  don't necessarily follow it. It's best to refer to your PHY datasheet.
+ *
+ *  \param smi          An interface connection to the SMI component
+ *  \param phy_address  The 5-bit SMI address of the PHY
+ *  \param mmd_dev      16-bit MMD device address
+ *  \param mmd_reg      16-bit MMD register number
+ *  \param value        16-bit value to write
+ */
+void smi_mmd_write(client smi_if smi, uint8_t phy_address,
+                   uint16_t mmd_dev, uint16_t mmd_reg,
+		   uint16_t value);
 
 /** Function to retrieve the link up/down status.
  *
