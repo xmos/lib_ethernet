@@ -1,6 +1,12 @@
 Ethernet MAC library change log
 ===============================
 
+3.3.1
+-----
+
+  * ADDED: Function to write SMI extended MMD registers that some PHYs use
+  * ADDED: Function to reset PHY by writing bit 15 of SMI register 0
+
 3.3.0
 -----
 
