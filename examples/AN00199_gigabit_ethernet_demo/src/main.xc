@@ -70,7 +70,7 @@ void ksz9031_phy_driver(client interface smi_if smi,
                         client interface ethernet_cfg_if eth) {
   ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
   ethernet_speed_t link_speed = LINK_1000_MBPS_FULL_DUPLEX;
-  const int phy_reset_delay_ms = 1;
+  const int phy_reset_delay_ms = 10;
   const int link_poll_period_ms = 1000;
   const int phy_address = 3;
   timer tmr;
@@ -79,8 +79,11 @@ void ksz9031_phy_driver(client interface smi_if smi,
   p_eth_reset <: 0;
   delay_milliseconds(phy_reset_delay_ms);
   p_eth_reset <: 1;
+  delay_microseconds(100);
 
   while (smi_phy_is_powered_down(smi, phy_address));
+
+  smi_phy_reset(smi, phy_address);
 
   configure_phy_delays(smi, phy_address);
 
