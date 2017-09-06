@@ -199,12 +199,18 @@ functions implement the ICMP protocol.
 Demo Hardware Setup
 --------------------
 
+ * Insert Gigabit Ethernet sliceCARD into slot pair of tile 0 or 1,
+   as indicated in source code below
  * To run the demo, connect the PC to the XTAG USB debug adapter to
-   xCORE-200 explorer XSYS connector
+   X200 sliceKIT XSYS connector
  * Connect the XTAG to the host PC using a USB cable
  * Connect the ethernet jack to the host PC or to the network switch
-   using an ethernet cable.
+   using an ethernet cable
 
+.. literalinclude:: main.xc
+   :start-on: rgmii_ports_t
+   :end-on: p_eth_reset
+   
 |newpage|
 
 Launching the demo device
@@ -221,7 +227,7 @@ Alter this value to an IP address that works on your network.
 
 You can now build the project which will generate the binary file required to run the demo application.
 Once the application has been built you need to download the
-application code onto the xCORE-200 explorer.
+application code onto the X200 sliceKIT.
 Here you use the tools to load the application over JTAG onto the xCORE device.
 
  * Select **Run Configuration**.
