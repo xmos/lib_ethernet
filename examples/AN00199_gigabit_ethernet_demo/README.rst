@@ -1,7 +1,7 @@
 XMOS Gigabit Ethernet application note
 ======================================
 
-.. version:: 1.0.2
+.. version:: 1.0.2b
 
 Summary
 -------
@@ -33,9 +33,11 @@ Required hardware
 
 This application note is designed to run on an XMOS xCORE-200 series device.
 The example code provided with the application has been implemented
-and tested on the xCORE-200 Explorer development kit.
-There is no dependancy on this board - it can be modified to run on
-any xCORE-200 series device with gigabit Ethernet capability.
+and tested on the X200 sliceKIT 1V0 (XK-SK-X200-ST) core board together
+with Gigabit Ethernet sliceCARD 1V0 (XA-SK-GBE) with Microchip KSZ9031RNX
+PHY. There is no dependancy on this board - it can be modified to run on
+any xCORE-200 series device with gigabit Ethernet capability and the same
+Ethernet PHY.
 
 Prerequisites
 ..............
