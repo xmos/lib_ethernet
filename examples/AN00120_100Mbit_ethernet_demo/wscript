@@ -1,0 +1,26 @@
+def configure(conf):
+    conf.load('xwaf.compiler_xcc')
+
+
+def build(bld):
+    bld.env.PROJECT_ROOT = '../../../'
+    bld.env.TARGET_ARCH = 'SLICEKIT-L16'
+    bld.env.XSCOPE = bld.path.find_resource('src/config.xscope')
+
+    bld.env.XCC_FLAGS = [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE'
+    ]
+
+    bld.env['XCC_FLAGS_icmp.xc'] = bld.env.XCC_FLAGS + [
+        '-Wno-reinterpret-alignment'
+    ]
+
+    depends_on = [
+        'lib_ethernet(>=3.3.0)', 'lib_otpinfo(>=2.0.0)',
+        'lib_slicekit_support(>=2.0.0)'
+    ]
+
+    source = bld.path.ant_glob(['src/*.xc'])
+
+    bld.program(source=source, depends_on=depends_on)

@@ -21,3 +21,8 @@
 *.xmt
 *.csv
 tests/expect/*.expect
+
+# waf build files
+.lock-waf_*
+.waf-*/
+build/
