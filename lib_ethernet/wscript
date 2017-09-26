@@ -2,15 +2,17 @@ def use_module(bld):
     bld.env['XCC_FLAGS_mii_master.xc'] = bld.env.XCC_FLAGS + [
         '-O3', '-fschedule', '-g0', '-mno-dual-issue'
     ]
-    bld.env.MODULE_XCC_FLAGS = bld.env.XCC_FLAGS + ['-g', '-O3', '-mno-dual-issue']
+    bld.env.MODULE_XCC_FLAGS = bld.env.XCC_FLAGS + [
+        '-g', '-O3', '-mno-dual-issue'
+    ]
 
-    bld.env['XCC_FLAGS_macaddr_filter.xc'] = bld.env.XCC_FLAGS + [
+    bld.env['XCC_FLAGS_macaddr_filter.xc'] = bld.env.MODULE_XCC_FLAGS + [
         '-Wno-reinterpret-alignment'
     ]
 
     for f in ('mii.xc', 'mii_ethernet_mac.xc', 'ethernet.xc'):
         bld.env['XCC_FLAGS_{}'.format(
-            f)] = bld.env.XCC_FLAGS + ['-Wno-cast-align']
+            f)] = bld.env.MODULE_XCC_FLAGS + ['-Wno-cast-align']
 
     source = bld.path.ant_glob(['src/*.xc', 'src/*.c', 'src/*.S'])
 
