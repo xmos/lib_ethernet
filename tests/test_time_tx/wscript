@@ -39,24 +39,29 @@ def build(bld):
 
 CONFIGS = {
     'rt_hp_mii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=1', '-DRGMII=0', '-DETHERNET_SUPPORT_HP_QUEUES=1'
     ],
     'rt_mii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=1', '-DRGMII=0'
     ],
     'rt_hp_rgmii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=0', '-DRGMII=1', '-DETHERNET_SUPPORT_HP_QUEUES=1',
         '-fno-xta-info'
     ],
     'rt_rgmii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=0', '-DRGMII=1', '-fno-xta-info'
     ],
     'standard_mii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=0', '-DRGMII=0'
     ],
 }

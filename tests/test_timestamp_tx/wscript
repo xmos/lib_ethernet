@@ -35,11 +35,13 @@ def build(bld):
 
 CONFIGS = {
     'rt_mii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=1', '-DRGMII=0'
     ],
     'rt_rgmii': [
-        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os', '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
         '-DRT=0', '-DRGMII=1', '-fno-xta-info'
     ],
 }
