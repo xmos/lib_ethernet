@@ -1,7 +1,7 @@
-XMOS Gigabit Ethernet application note
-======================================
+XMOS Gigabit Ethernet application note (eXplorerKIT)
+====================================================
 
-.. version:: 1.0.2
+.. version:: 1.0.3
 
 Summary
 -------

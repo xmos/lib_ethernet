@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2011-2017, XMOS Ltd, All rights reserved
 
 #include <xs1.h>
 #include "smi.h"
@@ -18,6 +18,8 @@
 #define SMI_MDIO_REST 0
 #endif
 
+#define MMD_ACCESS_CONTROL 0xD
+#define MMD_ACCESS_DATA 0xE
 
 // Shift in a number of data bits to or from the SMI port
 static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
@@ -184,9 +186,30 @@ unsigned smi_get_id(client smi_if smi, uint8_t phy_address) {
   return ((hi >> 10) << 16) | lo;
 }
 
+void smi_phy_reset(client smi_if smi, uint8_t phy_address)
+{
+  smi.write_reg(phy_address, BASIC_CONTROL_REG, 1 << 15);
+  delay_microseconds(500);
+  int control_reg;
+
+  do {
+    control_reg = smi.read_reg(phy_address, BASIC_CONTROL_REG);
+  } while ((control_reg >> 15) & 1);
+}
+
 unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
 {
   return ((smi.read_reg(phy_address, BASIC_CONTROL_REG) >> BASIC_CONTROL_POWER_DOWN_BIT) & 1);
+}
+
+void smi_mmd_write(client smi_if smi, uint8_t phy_address,
+                   uint16_t mmd_dev, uint16_t mmd_reg,
+		   uint16_t value)
+{
+  smi.write_reg(phy_address, MMD_ACCESS_CONTROL, mmd_dev);
+  smi.write_reg(phy_address, MMD_ACCESS_DATA, mmd_reg);
+  smi.write_reg(phy_address, MMD_ACCESS_CONTROL, (1 << 14) | mmd_dev); 
+  smi.write_reg(phy_address, MMD_ACCESS_DATA, value);
 }
 
 void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t speed_mbps, smi_autoneg_t auto_neg)
