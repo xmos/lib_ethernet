@@ -24,6 +24,6 @@ def use_module(bld):
     bld.module(
         source=source,
         depends_on=depends_on,
-        version='3.3.0',
+        version='3.3.1',
         includes=['src', 'api'],
         optional_headers='ethernet_conf.h')
