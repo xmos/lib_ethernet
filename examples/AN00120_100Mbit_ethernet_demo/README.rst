@@ -3,12 +3,16 @@ XMOS 100Mbit Ethernet application note
 
 .. appnote:: AN00120
 
-.. version:: 2.0.2
+.. version:: 2.0.3
 
 Summary
 -------
 
-Ethernet connectivity is an essential part of the explosion of connected devices known collectively as the Internet of Things (IoT).  XMOS technology is perfectly suited to these applications - offering future proof and reliable ethernet connectivity whilst offering the flexibility to interface to a huge variety of "Things".
+Ethernet connectivity is an essential part of the explosion of connected
+devices known collectively as the Internet of Things (IoT).  XMOS technology is
+perfectly suited to these applications - offering future proof and reliable
+ethernet connectivity whilst offering the flexibility to interface to a huge
+variety of "Things".
 
 This application note shows a simple example that demonstrates the use
 of the XMOS Ethernet library to create a layer 2 ethernet MAC
@@ -32,10 +36,10 @@ Required tools and libraries
 
 Required hardware
 .................
-This application note is designed to run on an XMOS xCORE-L
-(General Purpose family) series device.
+This application note is designed to run on an XMOS xCORE-200
+series device.
 The example code provided with the application has been implemented
-and tested on the xCORE-L2 sliceKIT 1V2 (XP-SKC-L2) core board using
+and tested on the X200 sliceKIT 1V0 (XK-SK-X200-ST) core board using
 ethernet sliceCARD 1V1 (XA-SK-E100). There is no dependancy on this
 core board - it can be modified to run on any (XMOS) development board
 which has the option to connect to the ethernet sliceCARD. 

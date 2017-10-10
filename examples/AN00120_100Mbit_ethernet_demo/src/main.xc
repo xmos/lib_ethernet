@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2014-2017, XMOS Ltd, All rights reserved
 #include <xs1.h>
 #include <platform.h>
 #include "otp_board_info.h"
@@ -7,23 +7,20 @@
 #include "smi.h"
 
 
-// Here are the port definitions required by ethernet. This port assignment
-// is for the L16 sliceKIT with the ethernet slice plugged into the
-// CIRCLE slot.
-port p_eth_rxclk  = on tile[1]: XS1_PORT_1J;
-port p_eth_rxd    = on tile[1]: XS1_PORT_4E;
-port p_eth_txd    = on tile[1]: XS1_PORT_4F;
-port p_eth_rxdv   = on tile[1]: XS1_PORT_1K;
-port p_eth_txen   = on tile[1]: XS1_PORT_1L;
-port p_eth_txclk  = on tile[1]: XS1_PORT_1I;
-port p_eth_rxerr  = on tile[1]: XS1_PORT_1P;
+port p_eth_rxclk  = PORT_ETH_RXCLK;
+port p_eth_rxd    = PORT_ETH_RXD;
+port p_eth_txd    = PORT_ETH_TXD;
+port p_eth_rxdv   = PORT_ETH_RXDV;
+port p_eth_txen   = PORT_ETH_TXEN;
+port p_eth_txclk  = PORT_ETH_TXCLK;
+port p_eth_rxerr  = PORT_ETH_RXER;
 port p_eth_dummy  = on tile[1]: XS1_PORT_8C;
 
 clock eth_rxclk   = on tile[1]: XS1_CLKBLK_1;
 clock eth_txclk   = on tile[1]: XS1_CLKBLK_2;
 
-port p_smi_mdio   = on tile[1]: XS1_PORT_1M;
-port p_smi_mdc    = on tile[1]: XS1_PORT_1N;
+port p_smi_mdio   = PORT_SMI_MDIO;
+port p_smi_mdc    = PORT_SMI_MDC;
 
 
 // These ports are for accessing the OTP memory
