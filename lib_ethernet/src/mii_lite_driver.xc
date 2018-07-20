@@ -116,7 +116,7 @@ static int packet_good(struct mii_lite_data_t &this, int base, int end) {
  */
 
 /* packet_in_lld (maintained by the LLD) remembers which buffer is being
- * filled right now; next_buffer (maintained byt Client_user.xc) stores which
+ * filled right now; next_buffer (maintained by mii_lite_driver.xc) stores which
  * buffer is to be filled next. When receiving a packet, packet_in_lld is
  * being filled with up to MAXPACKET bytes. On an interrupt, next_buffer is
  * being given to the LLD to be filled. The assembly level interrupt
@@ -357,7 +357,7 @@ void mii_client_user(struct mii_lite_data_t &this, int base, int end, chanend c_
 }
 
 #pragma unsafe arrays
-int mii_lite_out_packet(chanend c_out, int * unsafe b, int index, int length) {
+int mii_lite_out_packet(chanend c_out, int * unsafe b, int length) {
   int a, rounded_length;
   int odd_bytes = length & 3;
   int precise;
@@ -369,28 +369,6 @@ int mii_lite_out_packet(chanend c_out, int * unsafe b, int index, int length) {
     b[rounded_length+2] = -rounded_length + 1;
     outuint(c_out, a + length - odd_bytes - 4);
   }
-  precise = inuint(c_out);
-
-  // 64 takes you from the start of the preamble to the start of the destination address
-  return precise + 64;
-}
-
-#define assign(base,i,c)  asm("stw %0,%1[%2]"::"r"(c),"r"(base),"r"(i))
-#define assignl(c,base,i) asm("ldw %0,%1[%2]"::"r"(c),"r"(base),"r"(i))
-
-int mii_out_packet_(chanend c_out, int a, int length) {
-  int rounded_length;
-  int odd_bytes = length & 3;
-  int precise;
-  int x;
-
-  rounded_length = length >> 2;
-  assign(a, rounded_length+1, tail_values[odd_bytes]);
-  assignl(x, a, rounded_length);
-  assign(a, rounded_length, x & (1 << (odd_bytes << 3)) - 1);
-  assign(a, rounded_length+2, -rounded_length + 1);
-  outuint(c_out, a + length - odd_bytes - 4);
-
   precise = inuint(c_out);
 
   // 64 takes you from the start of the preamble to the start of the destination address

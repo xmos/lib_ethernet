@@ -113,7 +113,7 @@ extern void mii_lite_restart_buffer(mii_lite_data_t &this);
 void mii_lite_out_init(chanend c_out);
 
 /** Function that will cause a packet to be transmitted. It must get an
- * array with an index into the array, a length of hte packet (in bytes),
+ * array with an index into the array, a length of the packet (in bytes),
  * and a channel to the low-level driver. The low level driver will append
  * a CRC around the packet. The function returns once the preamble is on
  * the wire. The function mii_output_packet_done() should be called to syncrhonise
@@ -126,8 +126,6 @@ void mii_lite_out_init(chanend c_out);
  *               it using (buf, unsigned char[]). The last three words
  *               beyond the end of the buffer will be modified.
  *
- * \param index  Index into the array that contains the first byte.
- *
  * \param length Length of message in bytes, excluding CRC, which will be added
  *               upon transmission.
  *
@@ -135,30 +133,7 @@ void mii_lite_out_init(chanend c_out);
  *               reference clock periods
  *
  */
-int mii_lite_out_packet(chanend c_out, int * unsafe buf, int index, int length);
-
-/** Function that will cause a packet to be transmitted. It must get an
- * address, a length of the packet (in bytes),
- * and a channel to the low-level driver. The low level driver will append
- * a CRC around the packet. The function returns once the preamble is on
- * the wire. The function mii_output_packet_done() should be called to syncrhonise
- * with the end of the packet.
- *
- * \param c_out  Output channel to the Low-Level Driver.
- *
- * \param buf    Address that contains the message. This must be
- *               word aligned, and must contain the data in network
- *               order. The last three
- *               words beyond the end of the buffer will be modified.
- *
- * \param length Length of message in bytes, excluding CRC, which will be added
- *               upon transmission.
- *
- * \returns      The time at which the message went onto the wire, measured in
- *               reference clock periods
- *
- */
-int mii_lite_out_packet_(chanend c_out, int buf, int length);
+int mii_lite_out_packet(chanend c_out, int * unsafe buf, int length);
 
 /** Select function that must be called after a call to mii_out_packet(). Upon
  * return of this function the packet has been put on the wire in its

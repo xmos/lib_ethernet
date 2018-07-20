@@ -285,7 +285,6 @@ static void mii_ethernet_aux(client mii_if i_mii,
         }
 
         if (data) {
-          unsigned appdata;
           incoming_timestamp = timestamp;
           incoming_nbytes = nbytes;
           incoming_data = data;
