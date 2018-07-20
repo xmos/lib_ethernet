@@ -1,0 +1,80 @@
+import xwaf.utils.configs as config_utils
+
+
+def options(ctx):
+    ctx.add_option('--config', action='store', default='')
+
+
+def configure(conf):
+    def make_config(name, flags):
+        conf.setenv(name)
+        conf.load('xwaf.compiler_xcc')
+        conf.env.XCC_FLAGS = flags
+
+    for key, value in CONFIGS.iteritems():
+        make_config(key, value)
+
+
+def build(bld):
+    if not config_utils.check_build_config(bld, CONFIGS):
+        return
+
+    bld.env.PROJECT_ROOT = '../../..'
+
+    depends_on = ['lib_ethernet']
+
+    if 'rt_mii_xs1' in bld.cmd or 'rt_hp_mii_xs1' in bld.cmd or 'standard_mii_xs1' in bld.cmd:
+        bld.env.TARGET_ARCH = 'STARTKIT'
+    elif 'rt_mii_xs2' in bld.cmd or 'rt_hp_mii_xs2' in bld.cmd or 'standard_mii_xs2' in bld.cmd or 'rt_rgmii_xs2' in bld.cmd or 'rt_hp_rgmii_xs2' in bld.cmd:
+        bld.env.TARGET_ARCH = 'XCORE-200-EXPLORER'
+    else:
+        bld.env.TARGET_ARCH = 'XK-1A'
+
+    prog = bld.program(depends_on=depends_on)
+
+
+CONFIGS = {
+    'standard_mii_xs2': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=0', '-DRGMII=0'
+    ],
+    'rt_mii_xs1': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=1', '-DRGMII=0'
+    ],
+    'rt_hp_mii_xs2': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=1', '-DRGMII=0', '-DETHERNET_SUPPORT_HP_QUEUES=1'
+    ],
+    'rt_mii_xs2': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=1', '-DRGMII=0'
+    ],
+    'standard_mii_xs1': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=0', '-DRGMII=0'
+    ],
+    'rt_hp_rgmii_xs2': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=0', '-DRGMII=1', '-DETHERNET_SUPPORT_HP_QUEUES=1',
+        '-fno-xta-info'
+    ],
+    'rt_rgmii_xs2': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=0', '-DRGMII=1', '-fno-xta-info'
+    ],
+    'rt_hp_mii_xs1': [
+        '-g', '-report', '-DDEBUG_PRINT_ENABLE', '-save-temps', '-Os',
+        '-Xmapper', '--map', '-Xmapper', 'MAPFILE', '-I../../../include',
+        '-DRT=1', '-DRGMII=0', '-DETHERNET_SUPPORT_HP_QUEUES=1'
+    ],
+}
+
+config_utils.register_configs(CONFIGS)
