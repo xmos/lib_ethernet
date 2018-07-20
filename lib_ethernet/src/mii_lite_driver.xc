@@ -314,25 +314,27 @@ void mii_lite_restart_buffer(struct mii_lite_data_t &this) {
 #pragma unsafe arrays
 void mii_lite_free_in_buffer(struct mii_lite_data_t &this, char * unsafe base0) {
   unsafe {
-    int base = (int) base0;
-    int bank_number = base < this.first_ptr[1] ? 0 : 1;
-    int modified_free_ptr = 0;
-    base -= 4;
-    set(base-4, -get(base-4));
-    while (1) {
-      int l = get(this.free_ptr[bank_number]);
-      if (l > 0) {
-        break;
-      }
-      modified_free_ptr = 1;
-      if (l == 0) {
-        this.free_ptr[bank_number] = this.first_ptr[bank_number];
-      } else {
-        this.free_ptr[bank_number] += (((-l) + 3) & ~3) + 4;
+    if (base0) {
+      int base = (int) base0;
+      int bank_number = base < this.first_ptr[1] ? 0 : 1;
+      int modified_free_ptr = 0;
+      base -= 4;
+      set(base-4, -get(base-4));
+      while (1) {
+        int l = get(this.free_ptr[bank_number]);
+        if (l > 0) {
+          break;
+        }
+        modified_free_ptr = 1;
+        if (l == 0) {
+          this.free_ptr[bank_number] = this.first_ptr[bank_number];
+        } else {
+          this.free_ptr[bank_number] += (((-l) + 3) & ~3) + 4;
+        }
       }
     }
-    // Note - wrptr may have been stuck
   }
+  // Note - wrptr may have been stuck
   mii_lite_restart_buffer(this);
 }
 
