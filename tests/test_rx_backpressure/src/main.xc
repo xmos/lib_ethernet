@@ -21,7 +21,11 @@ port p_ctrl = on tile[0]: XS1_PORT_1A;
 
 #include "helpers.xc"
 
-const int backpressure_ticks = 100000;
+#define N_BACKPRESSURE_DELAYS 1
+const int backpressure_ticks[N_BACKPRESSURE_DELAYS] = {
+  100000
+};
+
 
 #if ETHERNET_SUPPORT_HP_QUEUES
 
@@ -44,6 +48,7 @@ void test_rx(client ethernet_cfg_if cfg,
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
   int done = 0;
+  int delay_index = 0;
   int rx_active = 1;
   timer wait_timer;
   unsigned int wait_t;
@@ -59,8 +64,13 @@ void test_rx(client ethernet_cfg_if cfg,
       wait_timer :> wait_t;
       break;
 
-    case !rx_active => wait_timer when timerafter(wait_t + backpressure_ticks) :> void:
+    case !rx_active => wait_timer when timerafter(wait_t + backpressure_ticks[delay_index]) :> void:
       rx_active = 1;
+
+      delay_index += 1;
+      if (delay_index >= N_BACKPRESSURE_DELAYS) {
+        delay_index = 0;
+      }
       break;
 
     case ctrl.status_changed():
@@ -97,6 +107,7 @@ void test_rx(client ethernet_cfg_if cfg,
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
   int done = 0;
+  int delay_index = 0;
   int rx_active = 1;
   timer wait_timer;
   unsigned int wait_t;
@@ -112,8 +123,13 @@ void test_rx(client ethernet_cfg_if cfg,
       wait_timer :> wait_t;
       break;
 
-    case !rx_active => wait_timer when timerafter(wait_t + backpressure_ticks) :> void:
+    case !rx_active => wait_timer when timerafter(wait_t + backpressure_ticks[delay_index]) :> void:
       rx_active = 1;
+
+      delay_index += 1;
+      if (delay_index >= N_BACKPRESSURE_DELAYS) {
+        delay_index = 0;
+      }
       break;
 
     case ctrl.status_changed():
