@@ -93,6 +93,10 @@ static int packet_good(struct mii_lite_data_t &this, int base, int end) {
   return length;
 }
 
+static inline int round_bytes(int n_bytes) {
+  return ((n_bytes + 3) & ~3) + 4;
+}
+
 /* Buffer management. Each buffer consists of a single word that encodes
  * the length and the buffer status, and then (LENGTH+3)>>2 words. The
  * encoding is as follows: a positive number indicates a buffer that is in
@@ -195,7 +199,7 @@ case inuchar_byref(c_notifications, this.notify_seen):
 
       if (n_bytes != 1) {
         unsigned ret_val = this.read_ptr[bank] + 4;
-        this.read_ptr[bank] += ((n_bytes + 3) & ~3) + 4;
+        this.read_ptr[bank] += round_bytes(n_bytes);
 
         // Move the read bank pointer
         this.read_bank_rd_ptr = increment_and_wrap_power_of_2(this.read_bank_rd_ptr, 32);
@@ -204,8 +208,9 @@ case inuchar_byref(c_notifications, this.notify_seen):
           this.read_ptr[bank] = this.first_ptr[bank];
         }
 
-        if (this.read_bank_rd_ptr != this.read_bank_wr_ptr)
+        if (this.read_bank_rd_ptr != this.read_bank_wr_ptr) {
           mii_notify(this, c_notifications);
+        }
 
         unsigned time_stamp = get(ret_val);
 
@@ -222,29 +227,27 @@ case inuchar_byref(c_notifications, this.notify_seen):
 static void mii_commit_buffer(struct mii_lite_data_t &this, unsigned int current_buffer,
                             unsigned int length, chanend c_notifications) {
   int bn = current_buffer < this.first_ptr[1] ? 0 : 1;
+
+  // Log which bank this packet was written to
+  unsigned new_read_bank_wr_ptr = increment_and_wrap_power_of_2(this.read_bank_wr_ptr, 32);
+
+  // If the pointers have overflowed the 32 slots then drop the packet
+  if (this.read_bank_rd_ptr == new_read_bank_wr_ptr) {
+    this.next_buffer = -1;
+    this.refill_bank_number = bn;
+    return;
+  }
+  this.read_bank &= ~(1 << this.read_bank_wr_ptr);
+  this.read_bank |= bn << this.read_bank_wr_ptr;
+  this.read_bank_wr_ptr = new_read_bank_wr_ptr;
   set(this.wr_ptr[bn]-4, length);                          // record length of current packet.
-  this.wr_ptr[bn] = this.wr_ptr[bn] + ((length+3)&~3) + 4; // new end pointer.
+  this.wr_ptr[bn] = this.wr_ptr[bn] + round_bytes(length); // new end pointer.
   mii_notify(this, c_notifications);
   if (this.wr_ptr[bn] > this.last_safe_ptr[bn]) {          // This may be too far.
     if (this.free_ptr[bn] != this.first_ptr[bn]) {         // Test if head of buf is free
       set(this.wr_ptr[bn]-4, 0);                           // If so, record unused tail.
       this.wr_ptr[bn] = this.first_ptr[bn] + 4;            // and wrap to head, and record that
       set(this.wr_ptr[bn]-4, 1);                           // this is now the head of the queue.
-
-      // Log which bank this packet was written to
-      unsigned new_read_bank_wr_ptr = increment_and_wrap_power_of_2(this.read_bank_wr_ptr, 32);
-
-      // If the pointers have overflowed the 32 slots then
-      // drop the packet.
-      if (this.read_bank_rd_ptr == new_read_bank_wr_ptr) {
-        this.next_buffer = -1;
-        this.refill_bank_number = bn;
-        return;
-      }
-
-      this.read_bank &= ~(1 << this.read_bank_wr_ptr);
-      this.read_bank |= bn << this.read_bank_wr_ptr;
-      this.read_bank_wr_ptr = new_read_bank_wr_ptr;
 
       if (this.free_ptr[bn] - this.wr_ptr[bn] >= MAXPACKET) { // Test if there is room for a packet
         this.next_buffer = this.wr_ptr[bn];                   // if so, record packet pointer
@@ -256,21 +259,6 @@ static void mii_commit_buffer(struct mii_lite_data_t &this, unsigned int current
   } else {                                                // room in tail.
     set(this.wr_ptr[bn]-4, 1);                            // record that this is now the head of the queue.
 
-    // Log which bank this packet was written to
-    unsigned new_read_bank_wr_ptr = increment_and_wrap_power_of_2(this.read_bank_wr_ptr, 32);
-
-    // If the pointers have overflowed the 32 slots then
-    // drop the packet.
-    if (this.read_bank_rd_ptr == new_read_bank_wr_ptr) {
-      this.next_buffer = -1;
-      this.refill_bank_number = bn;
-      return;
-    }
-
-    this.read_bank &= ~(1 << this.read_bank_wr_ptr);
-    this.read_bank |= bn << this.read_bank_wr_ptr;
-    this.read_bank_wr_ptr = new_read_bank_wr_ptr;
-
     if (this.wr_ptr[bn] > this.free_ptr[bn] ||            // Test if there is room for a packet
         this.free_ptr[bn] - this.wr_ptr[bn] >= MAXPACKET) {
       this.next_buffer = this.wr_ptr[bn];                 // if so, record packet pointer
@@ -279,7 +267,6 @@ static void mii_commit_buffer(struct mii_lite_data_t &this, unsigned int current
   }
   this.next_buffer = -1;                                  // buffer full - no more room for data.
   this.refill_bank_number = bn;
-  return;
 }
 
 static void mii_reject_buffer(struct mii_lite_data_t &this, unsigned int current_buffer) {
@@ -317,7 +304,6 @@ void mii_lite_free_in_buffer(struct mii_lite_data_t &this, char * unsafe base0) 
     if (base0) {
       int base = (int) base0;
       int bank_number = base < this.first_ptr[1] ? 0 : 1;
-      int modified_free_ptr = 0;
       base -= 4;
       set(base-4, -get(base-4));
       while (1) {
@@ -325,11 +311,10 @@ void mii_lite_free_in_buffer(struct mii_lite_data_t &this, char * unsafe base0) 
         if (l > 0) {
           break;
         }
-        modified_free_ptr = 1;
         if (l == 0) {
           this.free_ptr[bank_number] = this.first_ptr[bank_number];
         } else {
-          this.free_ptr[bank_number] += (((-l) + 3) & ~3) + 4;
+          this.free_ptr[bank_number] += round_bytes(-l);
         }
       }
     }
