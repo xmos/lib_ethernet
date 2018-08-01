@@ -106,9 +106,13 @@ rgmii_rx_lld:
         bu start_gigabit_rx
 
 rx_speed_change_handler:
-        // Consume the data causing the interrupt
+        // Consume the data causing the event
         get r11, ed
         in r11, res[r11]
+
+        // Ensure interrupts are disabled so that the error handler won't
+        // interrupt this thread
+        clrsr XS1_SR_IEBLE_SET(0, 1)
 
         // Restore and return
         ldw  r4, sp[SP_REGISTER_SAVE_0]
@@ -118,8 +122,6 @@ rx_speed_change_handler:
         ldw  r8, sp[SP_REGISTER_SAVE_4]
         ldw  r9, sp[SP_REGISTER_SAVE_5]
         ldw r10, sp[SP_REGISTER_SAVE_6]
-
-        clrsr XS1_SR_ININT_SET(0,1)
 
         retsp SP_NUM_WORDS
 
