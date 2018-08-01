@@ -1,6 +1,13 @@
 Ethernet MAC library change log
 ===============================
 
+3.4.0
+-----
+
+  * RESOLVED: Fix crash caused by significant backpressure being applied to the
+    mii_eternet_mac.
+  * RESOLVED: Fix lockup in mii_eternet_mac due to bug in packet commit logic.
+
 3.3.1
 -----
 

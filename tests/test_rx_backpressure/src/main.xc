@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2014-2018, XMOS Ltd, All rights reserved
 /*
  * Simply receive packets with a level of backpressure so that some are dropped.
  * The backpressure needs to be applied in a way that doesn't stop the check for
