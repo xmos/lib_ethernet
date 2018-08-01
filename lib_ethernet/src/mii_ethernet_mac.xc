@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017, XMOS Ltd, All rights reserved
+// Copyright (c) 2015-2018, XMOS Ltd, All rights reserved
 #include "ethernet.h"
 #include "default_ethernet_conf.h"
 #include "mii_master.h"
@@ -285,7 +285,6 @@ static void mii_ethernet_aux(client mii_if i_mii,
         }
 
         if (data) {
-          unsigned appdata;
           incoming_timestamp = timestamp;
           incoming_nbytes = nbytes;
           incoming_data = data;

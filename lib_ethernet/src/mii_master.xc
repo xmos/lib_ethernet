@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 #include "mii_master.h"
 #include <xs1.h>
 #include <print.h>
@@ -228,12 +228,12 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
        {
 #pragma xta endpoint "mii_rx_word"
        case p_mii_rxd :> word:
-         *dptr = word;
          crc32(crc, word, poly);
 
          /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
           * then this packet will be dropped as there is not enough room in the buffer. */
          if (dptr != end_ptr) {
+           *dptr = word;
            dptr++;
            /* The wrap pointer contains the address of the start of the buffer */
            if (dptr == wrap_ptr)

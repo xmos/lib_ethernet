@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 
 #include <xs1.h>
 #include "mii_lite_driver.h"
@@ -93,6 +93,10 @@ static int packet_good(struct mii_lite_data_t &this, int base, int end) {
   return length;
 }
 
+static inline int round_bytes(int n_bytes) {
+  return ((n_bytes + 3) & ~3) + 4;
+}
+
 /* Buffer management. Each buffer consists of a single word that encodes
  * the length and the buffer status, and then (LENGTH+3)>>2 words. The
  * encoding is as follows: a positive number indicates a buffer that is in
@@ -116,7 +120,7 @@ static int packet_good(struct mii_lite_data_t &this, int base, int end) {
  */
 
 /* packet_in_lld (maintained by the LLD) remembers which buffer is being
- * filled right now; next_buffer (maintained byt Client_user.xc) stores which
+ * filled right now; next_buffer (maintained by mii_lite_driver.xc) stores which
  * buffer is to be filled next. When receiving a packet, packet_in_lld is
  * being filled with up to MAXPACKET bytes. On an interrupt, next_buffer is
  * being given to the LLD to be filled. The assembly level interrupt
@@ -195,7 +199,7 @@ case inuchar_byref(c_notifications, this.notify_seen):
 
       if (n_bytes != 1) {
         unsigned ret_val = this.read_ptr[bank] + 4;
-        this.read_ptr[bank] += ((n_bytes + 3) & ~3) + 4;
+        this.read_ptr[bank] += round_bytes(n_bytes);
 
         // Move the read bank pointer
         this.read_bank_rd_ptr = increment_and_wrap_power_of_2(this.read_bank_rd_ptr, 32);
@@ -204,8 +208,9 @@ case inuchar_byref(c_notifications, this.notify_seen):
           this.read_ptr[bank] = this.first_ptr[bank];
         }
 
-        if (this.read_bank_rd_ptr != this.read_bank_wr_ptr)
+        if (this.read_bank_rd_ptr != this.read_bank_wr_ptr) {
           mii_notify(this, c_notifications);
+        }
 
         unsigned time_stamp = get(ret_val);
 
@@ -222,29 +227,27 @@ case inuchar_byref(c_notifications, this.notify_seen):
 static void mii_commit_buffer(struct mii_lite_data_t &this, unsigned int current_buffer,
                             unsigned int length, chanend c_notifications) {
   int bn = current_buffer < this.first_ptr[1] ? 0 : 1;
+
+  // Log which bank this packet was written to
+  unsigned new_read_bank_wr_ptr = increment_and_wrap_power_of_2(this.read_bank_wr_ptr, 32);
+
+  // If the pointers have overflowed the 32 slots then drop the packet
+  if (this.read_bank_rd_ptr == new_read_bank_wr_ptr) {
+    this.next_buffer = -1;
+    this.refill_bank_number = bn;
+    return;
+  }
+  this.read_bank &= ~(1 << this.read_bank_wr_ptr);
+  this.read_bank |= bn << this.read_bank_wr_ptr;
+  this.read_bank_wr_ptr = new_read_bank_wr_ptr;
   set(this.wr_ptr[bn]-4, length);                          // record length of current packet.
-  this.wr_ptr[bn] = this.wr_ptr[bn] + ((length+3)&~3) + 4; // new end pointer.
+  this.wr_ptr[bn] = this.wr_ptr[bn] + round_bytes(length); // new end pointer.
   mii_notify(this, c_notifications);
   if (this.wr_ptr[bn] > this.last_safe_ptr[bn]) {          // This may be too far.
     if (this.free_ptr[bn] != this.first_ptr[bn]) {         // Test if head of buf is free
       set(this.wr_ptr[bn]-4, 0);                           // If so, record unused tail.
       this.wr_ptr[bn] = this.first_ptr[bn] + 4;            // and wrap to head, and record that
       set(this.wr_ptr[bn]-4, 1);                           // this is now the head of the queue.
-
-      // Log which bank this packet was written to
-      unsigned new_read_bank_wr_ptr = increment_and_wrap_power_of_2(this.read_bank_wr_ptr, 32);
-
-      // If the pointers have overflowed the 32 slots then
-      // drop the packet.
-      if (this.read_bank_rd_ptr == new_read_bank_wr_ptr) {
-        this.next_buffer = -1;
-        this.refill_bank_number = bn;
-        return;
-      }
-
-      this.read_bank &= ~(1 << this.read_bank_wr_ptr);
-      this.read_bank |= bn << this.read_bank_wr_ptr;
-      this.read_bank_wr_ptr = new_read_bank_wr_ptr;
 
       if (this.free_ptr[bn] - this.wr_ptr[bn] >= MAXPACKET) { // Test if there is room for a packet
         this.next_buffer = this.wr_ptr[bn];                   // if so, record packet pointer
@@ -256,21 +259,6 @@ static void mii_commit_buffer(struct mii_lite_data_t &this, unsigned int current
   } else {                                                // room in tail.
     set(this.wr_ptr[bn]-4, 1);                            // record that this is now the head of the queue.
 
-    // Log which bank this packet was written to
-    unsigned new_read_bank_wr_ptr = increment_and_wrap_power_of_2(this.read_bank_wr_ptr, 32);
-
-    // If the pointers have overflowed the 32 slots then
-    // drop the packet.
-    if (this.read_bank_rd_ptr == new_read_bank_wr_ptr) {
-      this.next_buffer = -1;
-      this.refill_bank_number = bn;
-      return;
-    }
-
-    this.read_bank &= ~(1 << this.read_bank_wr_ptr);
-    this.read_bank |= bn << this.read_bank_wr_ptr;
-    this.read_bank_wr_ptr = new_read_bank_wr_ptr;
-
     if (this.wr_ptr[bn] > this.free_ptr[bn] ||            // Test if there is room for a packet
         this.free_ptr[bn] - this.wr_ptr[bn] >= MAXPACKET) {
       this.next_buffer = this.wr_ptr[bn];                 // if so, record packet pointer
@@ -279,7 +267,6 @@ static void mii_commit_buffer(struct mii_lite_data_t &this, unsigned int current
   }
   this.next_buffer = -1;                                  // buffer full - no more room for data.
   this.refill_bank_number = bn;
-  return;
 }
 
 static void mii_reject_buffer(struct mii_lite_data_t &this, unsigned int current_buffer) {
@@ -314,25 +301,25 @@ void mii_lite_restart_buffer(struct mii_lite_data_t &this) {
 #pragma unsafe arrays
 void mii_lite_free_in_buffer(struct mii_lite_data_t &this, char * unsafe base0) {
   unsafe {
-    int base = (int) base0;
-    int bank_number = base < this.first_ptr[1] ? 0 : 1;
-    int modified_free_ptr = 0;
-    base -= 4;
-    set(base-4, -get(base-4));
-    while (1) {
-      int l = get(this.free_ptr[bank_number]);
-      if (l > 0) {
-        break;
-      }
-      modified_free_ptr = 1;
-      if (l == 0) {
-        this.free_ptr[bank_number] = this.first_ptr[bank_number];
-      } else {
-        this.free_ptr[bank_number] += (((-l) + 3) & ~3) + 4;
+    if (base0) {
+      int base = (int) base0;
+      int bank_number = base < this.first_ptr[1] ? 0 : 1;
+      base -= 4;
+      set(base-4, -get(base-4));
+      while (1) {
+        int l = get(this.free_ptr[bank_number]);
+        if (l > 0) {
+          break;
+        }
+        if (l == 0) {
+          this.free_ptr[bank_number] = this.first_ptr[bank_number];
+        } else {
+          this.free_ptr[bank_number] += round_bytes(-l);
+        }
       }
     }
-    // Note - wrptr may have been stuck
   }
+  // Note - wrptr may have been stuck
   mii_lite_restart_buffer(this);
 }
 
@@ -355,7 +342,7 @@ void mii_client_user(struct mii_lite_data_t &this, int base, int end, chanend c_
 }
 
 #pragma unsafe arrays
-int mii_lite_out_packet(chanend c_out, int * unsafe b, int index, int length) {
+int mii_lite_out_packet(chanend c_out, int * unsafe b, int length) {
   int a, rounded_length;
   int odd_bytes = length & 3;
   int precise;
@@ -367,28 +354,6 @@ int mii_lite_out_packet(chanend c_out, int * unsafe b, int index, int length) {
     b[rounded_length+2] = -rounded_length + 1;
     outuint(c_out, a + length - odd_bytes - 4);
   }
-  precise = inuint(c_out);
-
-  // 64 takes you from the start of the preamble to the start of the destination address
-  return precise + 64;
-}
-
-#define assign(base,i,c)  asm("stw %0,%1[%2]"::"r"(c),"r"(base),"r"(i))
-#define assignl(c,base,i) asm("ldw %0,%1[%2]"::"r"(c),"r"(base),"r"(i))
-
-int mii_out_packet_(chanend c_out, int a, int length) {
-  int rounded_length;
-  int odd_bytes = length & 3;
-  int precise;
-  int x;
-
-  rounded_length = length >> 2;
-  assign(a, rounded_length+1, tail_values[odd_bytes]);
-  assignl(x, a, rounded_length);
-  assign(a, rounded_length, x & (1 << (odd_bytes << 3)) - 1);
-  assign(a, rounded_length+2, -rounded_length + 1);
-  outuint(c_out, a + length - odd_bytes - 4);
-
   precise = inuint(c_out);
 
   // 64 takes you from the start of the preamble to the start of the destination address

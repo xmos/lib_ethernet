@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2015-2018, XMOS Ltd, All rights reserved
 #include <mii.h>
 #include <xs1.h>
 #include "mii_master.h"
@@ -55,7 +55,7 @@ void mii_handler(chanend c_in, chanend c_out,
       break;
     case i_mii.send_packet(int * unsafe txbuf, size_t n):
       unsafe {
-        mii_lite_out_packet(c_out, txbuf, 0, n);
+        mii_lite_out_packet(c_out, txbuf, n);
       }
       break;
     }

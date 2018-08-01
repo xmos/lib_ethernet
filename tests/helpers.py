@@ -75,35 +75,21 @@ def run_on(**kwargs):
     return True
 
 def runall_rx(test_fn):
-    # Test 100 MBit - MII XS1
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
-    if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs1'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('standard', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+    # Test 100 MBit
+    for arch in ['xs1', 'xs2']:
+        (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
+        if run_on(phy='mii', clk='25Mhz', mac='standard', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('standard', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs1'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+        if run_on(phy='mii', clk='25Mhz', mac='rt', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('rt', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs1'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt_hp', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-
-    # Test 100 MBit - MII XS2
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
-    if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('standard', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-
-    if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-
-    if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn("rt_hp", 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+        if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('rt_hp', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     # Test 100 MBit - RGMII
     (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
