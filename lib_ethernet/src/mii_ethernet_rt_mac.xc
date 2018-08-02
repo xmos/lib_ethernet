@@ -136,7 +136,6 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
 unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
                                               mii_packet_queue_t packets,
                                               unsigned &rd_index,
-                                              rx_client_state_t &client_state,
                                               streaming chanend c_rx_hp,
                                               volatile ethernet_port_state_t * unsafe p_port_state)
 {
@@ -517,7 +516,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
     }
 
     if (!isnull(c_rx_hp)) {
-      handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, rx_client_state_hp[0], c_rx_hp, p_port_state);
+      handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, c_rx_hp, p_port_state);
     }
 
     handle_incoming_packet(rx_packets_lp, rd_index_lp, rx_client_state_lp, i_rx_lp, n_rx_lp);
@@ -610,7 +609,6 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
     }
 
     mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
-    streaming chan c;
     mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk, p_rxer);
 
     ethernet_port_state_t port_state;
@@ -623,7 +621,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
       mii_master_rx_pins(rx_mem,
                          (mii_packet_queue_t)&incoming_packets,
                          p_rx_rdptr,
-                         p_rxdv, p_rxd, p_rxer, c);
+                         p_rxdv, p_rxd, p_rxer);
 
       mii_master_tx_pins(tx_mem_lp,
                          tx_mem_hp,
@@ -632,7 +630,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          ts_queue, p_txd,
                          p_port_state);
 
-      mii_ethernet_filter(c, c_conf,
+      mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
                           (mii_packet_queue_t)&rx_packets_hp);

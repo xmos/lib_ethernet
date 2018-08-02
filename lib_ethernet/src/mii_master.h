@@ -18,8 +18,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
                                unsigned * unsafe rdptr,
                                in port p_mii_rxdv,
                                in buffered port:32 p_mii_rxd,
-                               in buffered port:1 p_rxer,
-                               streaming chanend c);
+                               in buffered port:1 p_rxer);
 
 unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                mii_mempool_t tx_mem_hp,

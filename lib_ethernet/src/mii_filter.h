@@ -8,8 +8,7 @@
 
 #ifdef __XC__
 
-unsafe void mii_ethernet_filter(streaming chanend c,
-                                chanend c_conf,
+unsafe void mii_ethernet_filter(chanend c_conf,
                                 mii_packet_queue_t incoming_packets,
                                 mii_packet_queue_t rx_packets_lp,
                                 mii_packet_queue_t rx_packets_hp);

@@ -322,7 +322,6 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_states[n],
 }
 
 unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned n,
-                                   buffers_used_t &used_buffers_rx_lp,
                                    buffers_free_t &free_buffers)
 {
   for (unsigned i = 0; i < n; i++) {
@@ -389,7 +388,6 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
                                      server ethernet_rx_if i_rx_lp[n_rx_lp], unsigned n_rx_lp,
                                      streaming chanend ? c_rx_hp,
                                      streaming chanend c_rgmii_cfg,
-                                     out port p_txclk_out,
                                      in buffered port:4 p_rxd_interframe,
                                      buffers_used_t &used_buffers_rx_lp,
                                      buffers_used_t &used_buffers_rx_hp,

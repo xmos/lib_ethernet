@@ -164,8 +164,7 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
                                unsigned * unsafe rdptr,
                                in port p_mii_rxdv,
                                in buffered port:32 p_mii_rxd,
-                               in buffered port:1 p_mii_rxer,
-                               streaming chanend c)
+                               in buffered port:1 p_mii_rxer)
 {
   timer tmr;
 

@@ -197,7 +197,7 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
 
           {
             rgmii_ethernet_rx_server((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
-                                     c_rx_hp, c_rgmii_cfg, rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
+                                     c_rx_hp, c_rgmii_cfg, rgmii_ports.p_rxd_interframe,
                                      *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
                                      *p_free_buffers_rx, current_mode, speed_change_ids, p_port_state);
           }
@@ -251,8 +251,7 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
 
           {
             rgmii_ethernet_rx_server((rx_client_state_t *)p_rx_client_state_lp, i_rx_lp, n_rx_lp,
-                                     c_rx_hp, c_rgmii_cfg,
-                                     rgmii_ports.p_txclk_out, rgmii_ports.p_rxd_interframe,
+                                     c_rx_hp, c_rgmii_cfg, rgmii_ports.p_rxd_interframe,
                                      *p_used_buffers_rx_lp, *p_used_buffers_rx_hp,
                                      *p_free_buffers_rx, current_mode, speed_change_ids,
                                      p_port_state);
