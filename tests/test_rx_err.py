@@ -81,4 +81,5 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
 def runtest():
     random.seed(19)
-    runall_rx(do_test)
+    # Issue #30 - the standard MII ignores the RX_ER signal
+    runall_rx(do_test, exclude_standard=True)
