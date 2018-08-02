@@ -272,7 +272,7 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_states[n],
 
   int tcount = 0;
   if (buf->filter_result) {
-    for (int i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; i++) {
       rx_client_state_t &client_state = client_states[i];
 
       int client_wants_packet = ((buf->filter_result >> i) & 1);
@@ -285,7 +285,7 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_states[n],
           // has a 802.1q tag - read etype from next word
           etype = ((uint16_t) data[16] << 8) + data[17];
         }
-        for (int j = 0; j < client_state.num_etype_filters; j++) {
+        for (unsigned j = 0; j < client_state.num_etype_filters; j++) {
           if (client_state.etype_filters[j] == etype) {
             passed_etype_filter = 1;
             break;
@@ -325,7 +325,7 @@ unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned 
                                    buffers_used_t &used_buffers_rx_lp,
                                    buffers_free_t &free_buffers)
 {
-  for (int i = 0; i < n; i++) {
+  for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
 
     unsigned rd_index = client_state.rd_index;
@@ -490,7 +490,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
     unsafe {
       if (cur_link_state != p_port_state->link_state) {
         cur_link_state = p_port_state->link_state;
-        for (int i = 0; i < n_rx_lp; i += 1) {
+        for (unsigned i = 0; i < n_rx_lp; i += 1) {
           if (client_state_lp[i].status_update_state == STATUS_UPDATE_WAITING) {
             client_state_lp[i].status_update_state = STATUS_UPDATE_PENDING;
             i_rx_lp[i].packet_ready();
@@ -570,7 +570,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         break;
 
       [[independent_guard]]
-      case (int i = 0; i < n_tx_lp; i++)
+      case (unsigned i = 0; i < n_tx_lp; i++)
         (client_state_lp[i].has_outgoing_timestamp_info) =>
         i_tx_lp[i]._get_outgoing_timestamp() -> unsigned timestamp:
         timestamp = client_state_lp[i].outgoing_timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
@@ -578,7 +578,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         break;
 
       [[independent_guard]]
-      case (int i = 0; i < n_tx_lp; i++)
+      case (unsigned i = 0; i < n_tx_lp; i++)
         (client_state_lp[i].send_buffer != null && !prioritize_ack) =>
          i_tx_lp[i]._complete_send_packet(char data[n], unsigned n,
                                        int request_timestamp,
@@ -708,7 +708,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
       tx_buf_hp = buffers_free_take(free_buffers_hp, 0);
     }
 
-    for (int i = 0; i < n_tx_lp; i++) {
+    for (unsigned i = 0; i < n_tx_lp; i++) {
       if (client_state_lp[i].requested_send_buffer_size != 0 && client_state_lp[i].send_buffer == null) {
         client_state_lp[i].send_buffer = buffers_free_take(free_buffers_lp, 0);
       }

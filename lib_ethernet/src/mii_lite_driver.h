@@ -13,7 +13,7 @@ typedef struct mii_lite_data_t {                    // DO NOT CHANGE LOCATIONS O
     unsafe chanend mii_channel_end;
     int mii_packets_overran;
     int refill_bank_number;
-    int free_ptr[2], wr_ptr[2], last_safe_ptr[2], first_ptr[2], read_ptr[2];
+    unsigned free_ptr[2], wr_ptr[2], last_safe_ptr[2], first_ptr[2], read_ptr[2];
     char notify_last;
     char notify_seen;
     char pad0, pad1;

@@ -302,7 +302,7 @@ void mii_lite_restart_buffer(struct mii_lite_data_t &this) {
 void mii_lite_free_in_buffer(struct mii_lite_data_t &this, char * unsafe base0) {
   unsafe {
     if (base0) {
-      int base = (int) base0;
+      unsigned base = (unsigned) base0;
       int bank_number = base < this.first_ptr[1] ? 0 : 1;
       base -= 4;
       set(base-4, -get(base-4));
