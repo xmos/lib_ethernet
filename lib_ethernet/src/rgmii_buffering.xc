@@ -520,8 +520,10 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
 
     handle_incoming_packet(client_state_lp, i_rx_lp, n_rx_lp, used_buffers_rx_lp, free_buffers);
 
-    if (buffers_free_available(free_buffers) <= RGMII_RX_BUFFERS_THRESHOLD) {
-      drop_lp_packets(client_state_lp, n_rx_lp, used_buffers_rx_lp, free_buffers);
+    if (!isnull(c_rx_hp)) {
+      if (buffers_free_available(free_buffers) <= RGMII_RX_BUFFERS_THRESHOLD) {
+        drop_lp_packets(client_state_lp, n_rx_lp, free_buffers);
+      }
     }
   }
 }
