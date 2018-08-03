@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2017, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 #include <string.h>
 
 #include "ethernet.h"

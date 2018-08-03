@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2015-2018, XMOS Ltd, All rights reserved
 #ifndef __RGMII_BUFFERING_H__
 #define __RGMII_BUFFERING_H__
 

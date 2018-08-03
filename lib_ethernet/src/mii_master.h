@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 #ifndef __mii_master_h__
 #define __mii_master_h__
 #include "mii_buffering.h"
