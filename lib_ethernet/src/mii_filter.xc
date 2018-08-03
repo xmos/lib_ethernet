@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 #include "ethernet.h"
 #include "mii_filter.h"
 #include "mii_buffering.h"
@@ -43,8 +43,7 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
   return ((buf[0] == mac[0]) && ((short) buf[1] == (short) mac[1]));
 }
 
-unsafe void mii_ethernet_filter(streaming chanend c,
-                                chanend c_conf,
+unsafe void mii_ethernet_filter(chanend c_conf,
                                 mii_packet_queue_t incoming_packets,
                                 mii_packet_queue_t rx_packets_lp,
                                 mii_packet_queue_t rx_packets_hp)

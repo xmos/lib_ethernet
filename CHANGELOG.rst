@@ -11,6 +11,8 @@ Ethernet MAC library change log
     length when buffers filled.
   * RESOLVED: Ensure interrupts are disabled in the RGMII low-level driver on
     speed changes.
+  * RESOLVED: Clean up code to fix compiler signed/unsigned warnings.
+  * CHANGE: Prevent packet drop from RGMII LP queue when there is no HP queue.
 
 3.3.1
 -----

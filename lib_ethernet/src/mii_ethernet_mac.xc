@@ -48,7 +48,7 @@ static unsafe inline int compare_mac(char * unsafe buf,
 
 static unsafe inline void init_client_state(client_state_t client_state[n], static const unsigned n)
 {
-  for (int i = 0; i < n; i ++) {
+  for (unsigned i = 0; i < n; i ++) {
     client_state[i].status_update_state = STATUS_UPDATE_IGNORING;
     client_state[i].incoming_packet = 0;
     client_state[i].num_etype_filters = 0;
@@ -58,7 +58,7 @@ static unsafe inline void init_client_state(client_state_t client_state[n], stat
 static unsafe inline void update_client_state(client_state_t client_state[n], server ethernet_rx_if i_rx[n],
                                               static const unsigned n)
 {
-  for (int i = 0; i < n; i += 1) {
+  for (unsigned i = 0; i < n; i += 1) {
     if (client_state[i].status_update_state == STATUS_UPDATE_WAITING) {
       client_state[i].status_update_state = STATUS_UPDATE_PENDING;
       i_rx[i].packet_ready();
@@ -70,11 +70,11 @@ static unsafe void send_to_clients(client_state_t client_state[n], server ethern
                                    static const unsigned n, unsigned filter_result,
                                    uint16_t len_type, int &incoming_tcount)
 {
-  for (int i = 0; i < n; i++) {
+  for (unsigned i = 0; i < n; i++) {
     int client_wants_packet = ((filter_result >> i) & 1);
     if (client_state[i].num_etype_filters != 0 && (len_type >= 1536)) {
       int passed_etype_filter = 0;
-      for (int j = 0; j < client_state[i].num_etype_filters; j++) {
+      for (unsigned j = 0; j < client_state[i].num_etype_filters; j++) {
         if (client_state[i].etype_filters[j] == len_type) {
           passed_etype_filter = 1;
           break;

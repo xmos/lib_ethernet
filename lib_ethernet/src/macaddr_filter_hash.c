@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2015-2018, XMOS Ltd, All rights reserved
 #include <xs1.h>
 #include <print.h>
 #include "hwlock.h"
@@ -15,7 +15,7 @@ static unsigned int a = 1664525;
 static unsigned int c = 1013904223;
 
 // There can be one or two filter threads active
-#define MAX_NUM_FILTERS 2
+#define MAX_NUM_FILTERS 2u
 static unsigned filter_active[MAX_NUM_FILTERS];
 static unsigned waiting_for_filter[MAX_NUM_FILTERS];
 
@@ -38,12 +38,12 @@ void mii_macaddr_hash_table_init()
 
 void mii_macaddr_set_num_active_filters(unsigned num_active)
 {
-  for (int i = 0; i < MAX_NUM_FILTERS; i++) {
+  for (unsigned i = 0; i < MAX_NUM_FILTERS; i++) {
     filter_active[i] = 0;
     waiting_for_filter[i] = 0;
   }
   
-  for (int i = 0; i < num_active; i++) {
+  for (unsigned i = 0; i < num_active; i++) {
     filter_active[i] = 1;
   }
 }
@@ -129,7 +129,7 @@ static int insert(unsigned key0, unsigned key1,
                   unsigned result, unsigned set_not_or,
                   unsigned appdata)
 {
-  int count = 0;
+  unsigned count = 0;
   int conflict = 0;
   int hashtype = 0;
 
@@ -220,7 +220,7 @@ static void swap_tables(int do_memcpy)
   hash_table = backup_table;
     
   // Wait for filter clients to start using the updated table
-  for (int i = 0; i < MAX_NUM_FILTERS; i++) {
+  for (unsigned i = 0; i < MAX_NUM_FILTERS; i++) {
     if (filter_active[i]) {
       // Ensure that the accesses to this value go to memory
       volatile unsigned *p_waiting_for_filter = (volatile unsigned *)(&waiting_for_filter[i]);
@@ -230,7 +230,7 @@ static void swap_tables(int do_memcpy)
 
   backup_table = old_table;
 
-  for (int i = 0; i < MAX_NUM_FILTERS; i++) {
+  for (unsigned i = 0; i < MAX_NUM_FILTERS; i++) {
     int retries = 100;
     
     // Ensure that the accesses to this value go to memory

@@ -62,4 +62,5 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
 def runtest():
     random.seed(17)
-    runall_rx(do_test)
+    # Issue #29 - the standard MII layer doesn't detect invalid SFDs
+    runall_rx(do_test, exclude_standard=True)

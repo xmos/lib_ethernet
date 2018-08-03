@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 #ifndef __mii_buffering_h__
 #define __mii_buffering_h__
 #include "ethernet.h"
@@ -30,7 +30,7 @@ inline unsigned increment_and_wrap_power_of_2(unsigned value, unsigned max) {
 // NOTE: If this structure is modified then the MII_PACKET_HEADER_BYTES define in
 //       mii_buffering_defines.h
 typedef struct mii_packet_t {
-  int length;           //!< The length of the packet in bytes
+  unsigned length;      //!< The length of the packet in bytes
   int timestamp;        //!< The transmit or receive timestamp
   int filter_result;    //!< The bitfield of filter passes
   int src_port;         //!< The ethernet port which a packet arrived on

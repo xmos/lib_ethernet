@@ -4,6 +4,9 @@
 #include "mii_master.h"
 #include "mii_lite_driver.h"
 
+// Note that the c_notif chanend is not used in this function because only one
+// end of the channel is used by the assembler to generate notification
+// interrupts.
 void mii_driver(in port p_rxclk, in port p_rxer0, in port p_rxd0,
                 in port p_rxdv,
                 in port p_txclk, out port p_txen, out port p_txd0,

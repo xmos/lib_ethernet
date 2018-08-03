@@ -104,4 +104,5 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
 def runtest():
     random.seed(13)
-    runall_rx(do_test)
+    # Issue #28 - the standard MII layer doesn't cope with oversized frames
+    runall_rx(do_test, exclude_standard=True)

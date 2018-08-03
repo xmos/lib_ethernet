@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2017, XMOS Ltd, All rights reserved
+// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
 #include <string.h>
 
 #include "ethernet.h"
@@ -28,7 +28,7 @@ static inline unsigned int get_tile_id_from_chanend(chanend c) {
 
 unsafe static void reserve(tx_client_state_t client_state[n], unsigned n, mii_mempool_t mem, unsigned * unsafe rdptr)
 {
-  for (int i = 0; i < n; i++) {
+  for (unsigned i = 0; i < n; i++) {
     if (client_state[i].requested_send_buffer_size != 0 &&
         client_state[i].send_buffer == null) {
       debug_printf("Trying to reserve send buffer (client %d, size %d)\n",
@@ -52,7 +52,7 @@ unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
 
   int tcount = 0;
   if (buf->filter_result) {
-    for (int i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; i++) {
       rx_client_state_t &client_state = client_states[i];
 
       int client_wants_packet = ((buf->filter_result >> i) & 1);
@@ -69,7 +69,7 @@ unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
         buf->vlan_tagged = 0;
       }
       if (client_state.num_etype_filters != 0) {
-        for (int j = 0; j < client_state.num_etype_filters; j++) {
+        for (unsigned j = 0; j < client_state.num_etype_filters; j++) {
           if (client_state.etype_filters[j] == etype) {
             passed_etype_filter = 1;
             break;
@@ -113,7 +113,7 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
                                    rx_client_state_t client_states[n],
                                    unsigned n)
 {
-  for (int i = 0; i < n; i++) {
+  for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
     
     if (client_state.rd_index != client_state.wr_index) {
@@ -136,7 +136,6 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
 unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
                                               mii_packet_queue_t packets,
                                               unsigned &rd_index,
-                                              rx_client_state_t &client_state,
                                               streaming chanend c_rx_hp,
                                               volatile ethernet_port_state_t * unsafe p_port_state)
 {
@@ -181,7 +180,7 @@ static inline void update_client_state(rx_client_state_t client_state[n],
                                               server ethernet_rx_if i_rx[n],
                                               unsigned n)
 {
-  for (int i = 0; i < n; i += 1) {
+  for (unsigned i = 0; i < n; i += 1) {
     if (client_state[i].status_update_state == STATUS_UPDATE_WAITING) {
       client_state[i].status_update_state = STATUS_UPDATE_PENDING;
       i_rx[i].packet_ready();
@@ -441,7 +440,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       break;
 
     [[independent_guard]]
-    case (int i = 0; i < n_tx_lp; i++)
+    case (unsigned i = 0; i < n_tx_lp; i++)
       (tx_client_state_lp[i].has_outgoing_timestamp_info) =>
       i_tx_lp[i]._get_outgoing_timestamp() -> unsigned timestamp:
       timestamp = tx_client_state_lp[i].outgoing_timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
@@ -452,9 +451,9 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       mii_packet_t * unsafe buf = tx_client_state_hp[0].send_buffer;
       unsigned * unsafe dptr = &buf->data[0];
       unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_hp);
-      int prewrap = ((char *) wrap_ptr - (char *) dptr);
-      int len1 = prewrap > len ? len : prewrap;
-      int len2 = prewrap > len ? 0 : len - prewrap;
+      unsigned prewrap = ((char *) wrap_ptr - (char *) dptr);
+      unsigned len1 = prewrap > len ? len : prewrap;
+      unsigned len2 = prewrap > len ? 0 : len - prewrap;
       unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
 
       // sout_char_array sends bytes in reverse order so the second
@@ -478,7 +477,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       break;
 
     [[independent_guard]]
-    case (int i = 0; i < n_tx_lp; i++)
+    case (unsigned i = 0; i < n_tx_lp; i++)
       (tx_client_state_lp[i].send_buffer != null && !prioritize_rx) =>
        i_tx_lp[i]._complete_send_packet(char data[n], unsigned n,
                                      int request_timestamp,
@@ -517,7 +516,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
     }
 
     if (!isnull(c_rx_hp)) {
-      handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, rx_client_state_hp[0], c_rx_hp, p_port_state);
+      handle_incoming_hp_packets(rx_mem, rx_packets_hp, rd_index_hp, c_rx_hp, p_port_state);
     }
 
     handle_incoming_packet(rx_packets_lp, rd_index_lp, rx_client_state_lp, i_rx_lp, n_rx_lp);
@@ -610,7 +609,6 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
     }
 
     mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
-    streaming chan c;
     mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk, p_rxer);
 
     ethernet_port_state_t port_state;
@@ -623,7 +621,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
       mii_master_rx_pins(rx_mem,
                          (mii_packet_queue_t)&incoming_packets,
                          p_rx_rdptr,
-                         p_rxdv, p_rxd, p_rxer, c);
+                         p_rxdv, p_rxd, p_rxer);
 
       mii_master_tx_pins(tx_mem_lp,
                          tx_mem_hp,
@@ -632,7 +630,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          ts_queue, p_txd,
                          p_port_state);
 
-      mii_ethernet_filter(c, c_conf,
+      mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
                           (mii_packet_queue_t)&rx_packets_hp);
