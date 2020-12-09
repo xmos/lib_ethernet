@@ -1,13 +1,6 @@
 Ethernet MAC library
 ====================
 
-.. rheader::
-
-   Ethernet MAC |version|
-
-Ethernet MAC library
---------------------
-
 The Ethernet MAC library provides a complete, software defined, Ethernet MAC that supports
 10/100/1000 Mb/s data rates and is designed to IEEE Std 802.3-2002 specifications.
 
@@ -24,9 +17,7 @@ Features
   * Management Data Input/Output (MDIO) Interface for physical layer management
 
 Components
-...........
-
-.. sidebysidelist::
+..........
 
  * 10/100 Mb/s Ethernet MAC
  * 10/100 Mb/s Ethernet MAC with real-time features
@@ -36,4 +27,5 @@ Components
 Software version and dependencies
 .................................
 
-.. libdeps::
+The CHANGELOG contains information about the current and previous versions.
+For a list of direct dependencies, look for DEPENDENT_MODULES in audio_test_tools/module_build_info.

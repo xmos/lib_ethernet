@@ -1,10 +1,6 @@
 XMOS 100Mbit Ethernet application note
 ======================================
 
-.. appnote:: AN00120
-
-.. version:: 2.0.3
-
 Summary
 -------
 
@@ -32,10 +28,11 @@ to it and send/receive packets.
 Required tools and libraries
 ............................
 
-.. appdeps::
+For a list of direct dependencies, look for USED_MODULES in the Makefile.
 
 Required hardware
 .................
+
 This application note is designed to run on an XMOS xCORE-200
 series device.
 The example code provided with the application has been implemented
@@ -46,6 +43,7 @@ which has the option to connect to the ethernet sliceCARD.
 
 Prerequisites
 ..............
+
  * This document assumes familarity with the XMOS xCORE architecture,
    the Ethernet standards IEEE 802.3u (MII), the XMOS tool chain and
    the xC language. Documentation related to these aspects which are

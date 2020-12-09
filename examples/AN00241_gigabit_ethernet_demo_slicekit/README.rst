@@ -1,8 +1,6 @@
 XMOS Gigabit Ethernet application note (sliceKIT)
 =================================================
 
-.. version:: 1.0.0
-
 Summary
 -------
 
@@ -26,7 +24,7 @@ to it and send/receive packets.
 Required tools and libraries
 ............................
 
-.. appdeps::
+For a list of direct dependencies, look for USED_MODULES in the Makefile.
 
 Required hardware
 .................
@@ -41,6 +39,7 @@ Ethernet PHY.
 
 Prerequisites
 ..............
+
  * This document assumes familarity with the XMOS xCORE architecture,
    the Ethernet standards IEEE 802.3u (MII), the XMOS tool chain and
    the xC language. Documentation related to these aspects which are
