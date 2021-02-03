@@ -10,7 +10,7 @@ pipeline {
         label 'x86_64&&brew&&macOS'
       }
       environment {
-        REPO = 'lib_i2c'
+        REPO = 'lib_ethernet'
         VIEW = getViewName(REPO)
       }
       options {
