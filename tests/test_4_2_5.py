@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) 2014-2021, XMOS Ltd, All rights reserved
 
 import random
 from mii_packet import MiiPacket

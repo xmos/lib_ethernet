@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) 2018-2021, XMOS Ltd, All rights reserved
 
 import random
 import xmostest

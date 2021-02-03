@@ -1,3 +1,4 @@
+# Copyright (c) 2014-2021, XMOS Ltd, All rights reserved
 import random
 import xmostest
 import sys
