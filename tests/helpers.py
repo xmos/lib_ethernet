@@ -76,7 +76,7 @@ def run_on(**kwargs):
 
 def runall_rx(test_fn, exclude_standard=False):
     # Test 100 MBit
-    for arch in ['xs1', 'xs2']:
+    for arch in ['xs1', 'xs2', 'xcoreai']:
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
 
@@ -94,26 +94,28 @@ def runall_rx(test_fn, exclude_standard=False):
             test_fn('rt_hp', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     # Test 100 MBit - RGMII
-    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+    for arch in ['xs1', 'xs2', 'xcoreai']:
 
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt_hp', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+        (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
+        (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose)
+        if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('rt', arch, rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
-    # Test 1000 MBit - RGMII
-    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+        if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('rt_hp', arch, rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
 
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+        # Test 1000 MBit - RGMII
+        (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
+        (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose)
+        if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('rt', arch, rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+
+        if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch=arch):
+            seed = args.seed if args.seed else random.randint(0, sys.maxint)
+            test_fn('rt_hp', arch, rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
 
 def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
@@ -125,7 +127,7 @@ def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, se
 
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_rx/bin/{mac}_{phy}_{arch}/test_rx_{mac}_{phy}_{arch}.xe'.format(
+    binary = 'test_rx/bin/{arch}/{mac}_{phy}_{arch}/test_rx_{mac}_{phy}.xe'.format(
         mac=mac, phy=tx_phy.get_name(), arch=arch)
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
@@ -167,8 +169,7 @@ def get_sim_args(testname, mac, clk, phy, arch='xs1'):
 
     if args and args.trace:
         log_folder = create_if_needed("logs")
-        if phy.get_name() == 'rgmii':
-            arch = 'xs2'
+
         filename = "{log}/xsim_trace_{test}_{mac}_{phy}_{clk}_{arch}".format(
             log=log_folder, test=testname, mac=mac,
             clk=clk.get_name(), phy=phy.get_name(), arch=arch)
