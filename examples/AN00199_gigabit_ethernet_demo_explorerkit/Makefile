@@ -1,3 +1,8 @@
+# Do not build for XCOREAI
+ifeq ($(XCOREAI),1)
+$(error XCOREAI is not supported in this example)
+endif
+
 # The TARGET variable determines what target system the application is 
 # compiled for. It either refers to an XN file in the source directories
 # or a valid argument for the --target option when compiling.
@@ -20,7 +25,7 @@ APP_NAME =
 
 XCC_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -DRGMII=1
 
-XCC_FLAGS_icmp.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
+XCC_FLAGS_icmp = $(XCC_FLAGS) -Wno-reinterpret-alignment
 
 # The USED_MODULES variable lists other module used by the application.
 

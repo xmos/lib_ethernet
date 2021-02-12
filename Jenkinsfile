@@ -37,16 +37,6 @@ pipeline {
             }
           }
         }
-        stage('xCORE App XCOREAI builds') {
-          steps {
-            forAllMatch("${REPO}/examples", "app_*/") { path ->
-              runXmake(path, '', 'XCOREAI=1')
-            }
-            forAllMatch("${REPO}/examples", "AN*/") { path ->
-              runXmake(path, '', 'XCOREAI=1')
-            }
-          }
-        }
         stage('Doc builds') {
           steps {
             runXdoc("${REPO}/${REPO}/doc")
@@ -55,11 +45,11 @@ pipeline {
             }
           }
         }
-        stage('Tests XS1, XS2 and XCOREAI') {
-          steps {
-            runXmostest("${REPO}", 'tests')
-          }
-        }
+        //stage('Tests XS1, XS2 and XCOREAI') {
+        //  steps {
+        //    runXmostest("${REPO}", 'tests')
+        //  }
+        //}
       }
       post {
         cleanup {
