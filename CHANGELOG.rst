@@ -14,6 +14,12 @@ Ethernet MAC library change log
   * RESOLVED: Clean up code to fix compiler signed/unsigned warnings.
   * CHANGE: Prevent packet drop from RGMII LP queue when there is no HP queue.
 
+  * Changes to dependencies:
+
+    - lib_otpinfo: Added dependency 2.0.1
+
+    - lib_slicekit_support: Added dependency 2.0.1
+
 3.3.1
 -----
 
