@@ -128,7 +128,7 @@ def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, se
 
     resources = xmostest.request_resource("xsim")
 
-    binary = 'test_rx/bin/{arch}/{mac}_{phy}_{arch}/test_rx_{mac}_{phy}.xe'.format(
+    binary = 'test_rx/bin/{mac}_{phy}_{arch}/test_rx_{mac}_{phy}_{arch}.xe'.format(
         mac=mac, phy=tx_phy.get_name(), arch=arch)
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
