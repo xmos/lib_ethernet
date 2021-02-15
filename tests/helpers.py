@@ -77,7 +77,7 @@ def run_on(**kwargs):
 
 def runall_rx(test_fn, exclude_standard=False):
     # Test 100 MBit
-    for arch in ['xs1', 'xs2', 'xcoreai']:
+    for arch in ['xs1', 'xs2']:
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
 
@@ -95,7 +95,7 @@ def runall_rx(test_fn, exclude_standard=False):
             test_fn('rt_hp', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     # Test 100 MBit - RGMII
-    for arch in ['xs1', 'xs2', 'xcoreai']:
+    for arch in ['xs1', 'xs2']:
 
         (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
         (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose)

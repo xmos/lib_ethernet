@@ -45,11 +45,11 @@ pipeline {
             }
           }
         }
-        //stage('Tests XS1, XS2 and XCOREAI') {
-        //  steps {
-        //    runXmostest("${REPO}", 'tests')
-        //  }
-        //}
+        stage('Tests XS1, XS2 and XCOREAI') {
+          steps {
+            runXmostest("${REPO}", 'tests')
+          }
+        }
       }
       post {
         cleanup {
