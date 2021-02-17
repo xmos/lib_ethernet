@@ -97,7 +97,7 @@ class RxLpControl(xmostest.SimThread):
             xsi.drive_port_pins(self._rx_lp_ctl, 0)
 
 
-def do_test(mac, arch, tx_clk, tx_phy, seed,
+def do_test(mac, tx_clk, tx_phy, seed,
             level='nightly',
             num_packets=200,
             weight_hp=50, weight_lp=50, weight_other=50,
@@ -119,7 +119,7 @@ def do_test(mac, arch, tx_clk, tx_phy, seed,
     resources = xmostest.request_resource("xsim")
     testname = 'test_rx_queues'
 
-    binary = '{test}/bin/{mac}_{phy}_{arch}/{test}_{mac}_{phy}_{arch}.xe'.format(
+    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
         test=testname, mac=mac, phy=tx_phy.get_name())
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
@@ -259,66 +259,62 @@ def runtest():
     # Test 100 MBit - MII
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,
                                              verbose=args.verbose)
-    for arch in ['xs1', 'xs2']:
+    if run_on(phy='mii', clk='25Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        # Test having every packet going to both LP receivers
+        do_test('rt', tx_clk_25, tx_mii, seed,
+                level='smoke',
+                num_packets=200,
+                weight_hp=0, weight_lp=100, weight_other=0,
+                data_len_min=46, data_len_max=46,
+                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                max_hp_mbps=100,
+                lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
 
-        if run_on(phy='mii', clk='25Mhz', mac='rt'):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            # Test having every packet going to both LP receivers
-            do_test('rt', archh, tx_clk_25, tx_mii, seed,
-                    level='smoke',
-                    num_packets=200,
-                    weight_hp=0, weight_lp=100, weight_other=0,
-                    data_len_min=46, data_len_max=46,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=100,
-                    lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', tx_clk_25, tx_mii, seed,
+                num_packets=200,
+                weight_hp=100, weight_lp=0, weight_other=0,
+                data_len_min=200, data_len_max=200,
+                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                max_hp_mbps=100)
 
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test('rt', arch, tx_clk_25, tx_mii, seed,
-                    num_packets=200,
-                    weight_hp=100, weight_lp=0, weight_other=0,
-                    data_len_min=200, data_len_max=200,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=100)
-
-    for arch in ['xs2']:
-        # Test 100 MBit - RGMII
-        (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C',
+    # Test 100 MBit - RGMII
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C',
                                                  expect_loopback=False, verbose=args.verbose)
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', tx_clk_25, tx_rgmii, seed,
+                num_packets=args.num_packets,
+                weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
+                data_len_min=args.data_len_min, data_len_max=args.data_len_max,
+                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                max_hp_mbps=100)
 
-        if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test('rt', arch, tx_clk_25, tx_rgmii, seed,
-                    num_packets=args.num_packets,
-                    weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
-                    data_len_min=args.data_len_min, data_len_max=args.data_len_max,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=100)
-
-        # Test 1GBit - RGMII
-        (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C',
+    # Test 1GBit - RGMII
+    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C',
                                                   expect_loopback=False, verbose=args.verbose)
-        if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test('rt', arch, tx_clk_125, tx_rgmii, seed,
-                    num_packets=200,
-                    weight_hp=100, weight_lp=0, weight_other=0,
-                    data_len_min=46, data_len_max=46,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=300)
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', tx_clk_125, tx_rgmii, seed,
+                num_packets=200,
+                weight_hp=100, weight_lp=0, weight_other=0,
+                data_len_min=46, data_len_max=46,
+                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                max_hp_mbps=300)
 
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test('rt', tx_clk_125, tx_rgmii, seed,
-                    num_packets=200,
-                    weight_hp=100, weight_lp=0, weight_other=0,
-                    data_len_min=200, data_len_max=200,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=600)
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', tx_clk_125, tx_rgmii, seed,
+                num_packets=200,
+                weight_hp=100, weight_lp=0, weight_other=0,
+                data_len_min=200, data_len_max=200,
+                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                max_hp_mbps=600)
 
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test('rt', tx_clk_125, tx_rgmii, seed,
-                    num_packets=args.num_packets,
-                    weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
-                    data_len_min=args.data_len_min, data_len_max=args.data_len_max,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=args.max_hp_mbps)
+        seed = args.seed if args.seed else random.randint(0, sys.maxint)
+        do_test('rt', tx_clk_125, tx_rgmii, seed,
+                num_packets=args.num_packets,
+                weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
+                data_len_min=args.data_len_min, data_len_max=args.data_len_max,
+                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                max_hp_mbps=args.max_hp_mbps)
