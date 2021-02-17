@@ -35,7 +35,7 @@ ifeq ($(findstring xs1, $(CONFIG)), xs1)
   TARGET = STARTKIT
 endif
 
-ifeq ($(findstring xs2, $(CONFIG)), xs1)
+ifeq ($(findstring xs2, $(CONFIG)), xs2)
   TARGET = XCORE-200-EXPLORER
 endif
 
