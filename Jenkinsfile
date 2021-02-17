@@ -5,7 +5,7 @@ getApproval()
 pipeline {
   agent none
   stages {
-    stage('Standard build and XS3 tests') {
+    stage('Standard builds and tests') {
       agent {
         label 'x86_64&&brew&&macOS'
       }
