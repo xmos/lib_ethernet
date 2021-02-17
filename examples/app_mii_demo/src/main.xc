@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright (c) 2015-2021, XMOS Ltd, All rights reserved
 #include <xs1.h>
 #include <platform.h>
 #include "mii.h"

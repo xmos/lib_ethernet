@@ -38,12 +38,12 @@ XCC_FLAGS_rt_rgmii_xs2     = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -fno-xta-info
 XCC_FLAGS_rt_hp_rgmii_xs2  = $(COMMON_FLAGS) -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -fno-xta-info
 
 
-ifeq ($(CONFIG),$(filter $(CONFIG),rt_mii_xs1 rt_hp_mii_xs1 standard_mii_xs1))
-	TARGET = STARTKIT
+ifeq ($(findstring xs1, $(CONFIG)), xs1)
+  TARGET = STARTKIT
 endif
 
-ifeq ($(CONFIG),$(filter $(CONFIG),rt_mii_xs2 rt_hp_mii_xs2 standard_mii_xs2 rt_rgmii_xs2 rt_hp_rgmii_xs2))
-	TARGET = XCORE-200-EXPLORER
+ifeq ($(findstring xs2, $(CONFIG)), xs2)
+  TARGET = XCORE-200-EXPLORER
 endif
 
 # The USED_MODULES variable lists other module used by the application.

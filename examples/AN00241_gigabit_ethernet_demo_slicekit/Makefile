@@ -1,3 +1,8 @@
+# Do not build for XCOREAI
+ifeq ($(XCOREAI),1)
+$(error XCOREAI is not supported in this example)
+endif
+
 # The TARGET variable determines what target system the application is 
 # compiled for. It either refers to an XN file in the source directories
 # or a valid argument for the --target option when compiling.

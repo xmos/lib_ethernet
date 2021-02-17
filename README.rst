@@ -1,6 +1,9 @@
 Ethernet MAC library
 ====================
 
+Summary
+-------
+
 The Ethernet MAC library provides a complete, software defined, Ethernet MAC that supports
 10/100/1000 Mb/s data rates and is designed to IEEE Std 802.3-2002 specifications.
 

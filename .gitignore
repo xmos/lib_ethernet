@@ -1,28 +1,25 @@
 **/.build*/*
 **/bin/*
 *.o
-.*.swp
 *.xe
 *.vcd
 *.s
 *.xi
 *.i
 *.a
-*.pyc
 **/_build/
 **/run_*.log
 **/pdf/*
 **/html/*
-**/.settings/*
-.DS_Store
-*.yml
-*.zip
+*.pyc
+**/.settings*
+Installs/*
+test_results.csv
 *.log
-*.xmt
-*.csv
-tests/expect/*.expect
+**/.venv/**
 
 # waf build files
 .lock-waf_*
 .waf-*/
 build/
+.*.swp
