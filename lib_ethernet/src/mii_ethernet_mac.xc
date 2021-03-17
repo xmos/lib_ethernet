@@ -1,4 +1,5 @@
-// Copyright (c) 2015-2018, XMOS Ltd, All rights reserved
+// Copyright 2015-2021 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "ethernet.h"
 #include "default_ethernet_conf.h"
 #include "mii_master.h"

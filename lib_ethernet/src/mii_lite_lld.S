@@ -1,4 +1,5 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright 2013-2021 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 .cc_top mii_lite_lld.func, mii_lite_lld
     #include <xs1.h>
     // Two coroutines, IN  and OUT. The IN coroutine is jumped to on an IN event.

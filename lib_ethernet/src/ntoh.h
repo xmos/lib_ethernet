@@ -1,4 +1,5 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright 2014-2021 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __ntoh_h__
 #define __ntoh_h__
 #include <stdint.h>

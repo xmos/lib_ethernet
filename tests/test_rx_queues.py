@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright (c) 2015-2021, XMOS Ltd, All rights reserved
+# Copyright 2015-2021 XMOS LIMITED.
+# This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #
 # A test for the high and low priority traffic queues in the MAC. It sends different
 # packet types - high, low and other. The high priority traffic will be sent to the
