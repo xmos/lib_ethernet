@@ -1,6 +1,11 @@
 Ethernet MAC library change log
 ===============================
 
+3.5.0
+-----
+
+  * CHANGED: Use XMOS Public Licence Version 1
+
 3.4.0
 -----
 
