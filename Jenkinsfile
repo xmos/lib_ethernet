@@ -43,6 +43,11 @@ pipeline {
             forAllMatch("${REPO}/examples", "AN*/") { path ->
               runXdoc("${path}/doc")
             }
+
+            // Archive all the generated .pdf docs
+            archiveArtifacts artifacts: "${REPO}/**/pdf/*.pdf", fingerprint: true, allowEmptyArchive: true
+          }
+        }
           }
         }
         stage('Tests XS1 and XS2') {
