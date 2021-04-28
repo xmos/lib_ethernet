@@ -48,8 +48,6 @@ pipeline {
             archiveArtifacts artifacts: "${REPO}/**/pdf/*.pdf", fingerprint: true, allowEmptyArchive: true
           }
         }
-          }
-        }
         stage('Tests XS1 and XS2') {
           steps {
             runXmostest("${REPO}", 'tests')
