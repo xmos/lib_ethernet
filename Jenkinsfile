@@ -7,7 +7,7 @@ pipeline {
   stages {
     stage('Standard builds and tests') {
       agent {
-        label 'x86_64&&brew&&macOS'
+        label 'x86_64&&macOS'
       }
       environment {
         REPO = 'lib_ethernet'
