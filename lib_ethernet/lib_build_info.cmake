@@ -39,30 +39,28 @@ if(NOT EXISTS "${XMOS_SANDBOX_DIR}lib_gpio")
         GIT_TAG master
         SOURCE_DIR ${XMOS_SANDBOX_DIR}lib_gpio
     )
-    message(STATUS POO)
     FetchContent_Populate(lib_gpio)
-    message(STATUS WEE)
 endif()
 
-# if(NOT EXISTS "${XMOS_SANDBOX_DIR}lib_slicekit_support")
-#     FetchContent_Declare(
-#         lib_slicekit_support
-#         GIT_REPOSITORY git@github.com:xmos/lib_slicekit_support
-#         # GIT_TAG master
-#         SOURCE_DIR "${XMOS_SANDBOX_DIR}/lib_slicekit_support"
-#     )
-#     FetchContent_Populate(lib_slicekit_support)
-# endif()
+if(NOT EXISTS "${XMOS_SANDBOX_DIR}lib_slicekit_support")
+    FetchContent_Declare(
+        lib_slicekit_support
+        GIT_REPOSITORY git@github.com:xmos/lib_slicekit_support
+        GIT_TAG master
+        SOURCE_DIR "${XMOS_SANDBOX_DIR}lib_slicekit_support"
+    )
+    FetchContent_Populate(lib_slicekit_support)
+endif()
 
-# if(NOT EXISTS "${XMOS_SANDBOX_DIR}lib_otp_info")
-#     FetchContent_Declare(
-#         lib_otpinfo
-#         GIT_REPOSITORY git@github.com:xmos/lib_otpinfo
-#         # GIT_TAG master
-#         SOURCE_DIR "${XMOS_SANDBOX_DIR}/lib_otpinfo"
-#     )
-#     FetchContent_Populate(lib_otpinfo)
-# endif()
+if(NOT EXISTS "${XMOS_SANDBOX_DIR}lib_otp_info")
+    FetchContent_Declare(
+        lib_otpinfo
+        GIT_REPOSITORY git@github.com:xmos/lib_otpinfo
+        # GIT_TAG master
+        SOURCE_DIR "${XMOS_SANDBOX_DIR}/lib_otpinfo"
+    )
+    FetchContent_Populate(lib_otpinfo)
+endif()
 
 # Now add srcs and includes to app src
 file(GLOB_RECURSE SOURCES_XC RELATIVE       ${XMOS_SANDBOX_DIR}/lib_ethernet/lib_ethernet "${XMOS_SANDBOX_DIR}/lib_ethernet/lib_ethernet/src/*.xc")
