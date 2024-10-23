@@ -26,12 +26,8 @@ set(LIB_COMPILER_FLAGS_mii.xc               ${LIB_COMPILER_FLAGS} -Wno-cast-alig
 set(LIB_COMPILER_FLAGS_mii_ethernet_mac.xc  ${LIB_COMPILER_FLAGS} -Wno-cast-align)
 set(LIB_COMPILER_FLAGS_ethernet.xc          ${LIB_COMPILER_FLAGS} -Wno-cast-align)
 
-message(STATUS XMOS_SANDBOX_DIR: ${XMOS_SANDBOX_DIR})
-
 # Fetch non-XCCM modules and add manually
 include(FetchContent)
-message(STATUS lib_gpio: ${XMOS_SANDBOX_DIR}lib_gpio)
-
 if(NOT EXISTS "${XMOS_SANDBOX_DIR}lib_gpio")
     FetchContent_Declare(
         lib_gpio

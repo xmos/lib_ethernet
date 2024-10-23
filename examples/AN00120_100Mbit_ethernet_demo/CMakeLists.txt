@@ -6,14 +6,13 @@ set(APP_HW_TARGET           SLICEKIT-ETH-TRIANGLE1.xn)
 
 set(APP_DEPENDENT_MODULES   lib_ethernet)
 
-# set(APP_PCA_ENABLE ON)
+set(APP_PCA_ENABLE ON)
 
-set(COMILER_FLAGS_COMMON    -g
+set(COMPILER_FLAGS_COMMON   -g
                             -report
-                            -DDEBUG_PRINT_ENABLE
+                            -DDEBUG_PRINT_ENABLE=1
                             -save-temps
-                            -Os
-                            -Xmapper --map -Xmapper MAPFILE)
+                            -Os)
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
 set(APP_COMPILER_FLAGS_icmp ${COMPILER_FLAGS_COMMON}
