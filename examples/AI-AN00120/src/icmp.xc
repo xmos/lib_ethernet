@@ -274,8 +274,6 @@ void icmp_server(client ethernet_cfg_if cfg,
   {
     select {
     case rx.packet_ready():
-        debug_printf("p\n");
-
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       unsigned char txbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;

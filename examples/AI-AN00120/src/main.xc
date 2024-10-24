@@ -91,8 +91,8 @@ void lan8710a_phy_driver(client interface smi_if smi,
   }
 }
 
-void init_clock(void){
-    configure_clock_ref(clk_clkin, (4 / 2));
+void init_eth_clock(void){
+    configure_clock_ref(clk_clkin, (4 / 2)); // 100 / 4 = 25 MHz
     set_port_clock(p_clkin, clk_clkin);
     set_port_mode_clock(p_clkin);
     start_clock(clk_clkin);
@@ -110,7 +110,7 @@ int main()
 
   par {
     on tile[1]: {
-                    init_clock();
+                    init_eth_clock();
                     mii_ethernet_mac(i_cfg, NUM_CFG_CLIENTS,
                                      i_rx, NUM_ETH_CLIENTS,
                                      i_tx, NUM_ETH_CLIENTS,
