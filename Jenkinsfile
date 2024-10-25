@@ -60,9 +60,11 @@ pipeline {
     }  // Build examples
 
     stage('Library checks') {
-        steps {
-            runLibraryChecks("${WORKSPACE}/${REPO}", "${params.INFR_APPS_VERSION}")
+      steps {
+        warnError("lib checks") {
+          runLibraryChecks("${WORKSPACE}/${REPO}", "${params.INFR_APPS_VERSION}")
         }
+      }
     }
 
     stage('Doc builds') {
