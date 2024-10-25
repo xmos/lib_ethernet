@@ -41,6 +41,7 @@ pipeline {
         dir("${REPO}") {
           checkout scm
           createVenv()
+          installPipfile(false)
         }
       }
     }  // Get sandbox
