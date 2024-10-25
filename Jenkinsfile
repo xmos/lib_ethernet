@@ -67,15 +67,15 @@ pipeline {
       }
     }
 
-    // stage('Documentation') {
-    //     steps {
-    //         dir("${REPO}") {
-    //             warnError("Docs") {
-    //                 buildDocs()
-    //             }
-    //         }
-    //     }
-    // }
+    stage('Documentation') {
+      steps {
+        dir("${REPO}") {
+          warnError("Docs") {
+            buildDocs()
+          }
+        }
+      }
+    }
 
     stage('Tests XS1 and XS2') {
       steps {
