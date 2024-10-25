@@ -9,24 +9,23 @@
 #include "smi.h"
 
 
-
-port p_eth_txd    = on tile[1]: XS1_PORT_4A;
-port p_eth_rxdv   = on tile[1]: XS1_PORT_1A;
-port p_eth_txen   = on tile[1]: XS1_PORT_1B;
-port p_eth_txclk  = on tile[1]: XS1_PORT_1O;
-port p_eth_rxerr  = on tile[1]: XS1_PORT_1C;
-port p_eth_rxclk  = on tile[1]: XS1_PORT_1M;
-port p_eth_rxd    = on tile[1]: XS1_PORT_4B;
-port p_eth_dummy  = on tile[1]: XS1_PORT_8C;
+port p_eth_txd    = on tile[1]: XS1_PORT_4A; // J10 - 02 03 08, CODEC_RST_N
+port p_eth_rxdv   = on tile[1]: XS1_PORT_1A; // DAC
+port p_eth_txen   = on tile[1]: XS1_PORT_1B; // LRCLK
+port p_eth_txclk  = on tile[1]: XS1_PORT_1O; // J10 - 38
+port p_eth_rxerr  = on tile[1]: XS1_PORT_1C; // BCLK
+port p_eth_rxclk  = on tile[1]: XS1_PORT_1M; // J10 - 36
+port p_eth_rxd    = on tile[1]: XS1_PORT_4B; // J10 - 04 05 06 07
+port p_eth_dummy  = on tile[1]: XS1_PORT_8C; // Internal port not pinned out
 
 clock eth_rxclk   = on tile[1]: XS1_CLKBLK_1;
 clock eth_txclk   = on tile[1]: XS1_CLKBLK_2;
 
-port p_smi_mdio   = on tile[0]: XS1_PORT_1O;
-port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
-port port_led     = on tile[0]: XS1_PORT_4C; // Also RST_N
+port p_smi_mdio   = on tile[0]: XS1_PORT_1O; // SDATA
+port p_smi_mdc    = on tile[0]: XS1_PORT_1N; // SCL
+port p_phy_rst    = on tile[0]: XS1_PORT_4C; // J11 - 14, Also LEDS
 
-port p_clkin      = on tile[1]: XS1_PORT_1D;
+port p_clkin      = on tile[1]: XS1_PORT_1D; // MCLK
 clock clk_clkin   = on tile[1]: XS1_CLKBLK_3;
 
 
@@ -51,9 +50,9 @@ enum cfg_clients {
 [[combinable]]
 void lan8710a_phy_driver(client interface smi_if smi,
                          client interface ethernet_cfg_if eth) {
-  port_led <: 0;
+  p_phy_rst <: 0;
   delay_milliseconds(200);
-  port_led <: 0x1;
+  p_phy_rst <: 0x1;
   
 
   ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
@@ -64,9 +63,15 @@ void lan8710a_phy_driver(client interface smi_if smi,
   int t;
   tmr :> t;
 
+  debug_printf("Waiting for PHY\n");
+
   while (smi_phy_is_powered_down(smi, phy_address));
 
+  debug_printf("PHY powered up\n");
+
   smi_configure(smi, phy_address, LINK_100_MBPS_FULL_DUPLEX, SMI_ENABLE_AUTONEG);
+
+  debug_printf("PHY configured\n");
 
   while (1) {
     select {
@@ -82,10 +87,10 @@ void lan8710a_phy_driver(client interface smi_if smi,
       }
       if (new_state != link_state) {
         link_state = new_state;
+        debug_printf("State: %s speed: %s\n", link_state == ETHERNET_LINK_UP ? "UP" : "DOWN", link_speed == LINK_100_MBPS_FULL_DUPLEX ? "100" : "10");
         eth.set_link_state(0, new_state, link_speed);
       }
       t += link_poll_period_ms * XS1_TIMER_KHZ;
-      debug_printf("State: %u speed: %s\n", link_state, link_speed == LINK_100_MBPS_FULL_DUPLEX ? "100" : "10");
       break;
     }
   }

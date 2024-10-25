@@ -251,7 +251,7 @@ void icmp_server(client ethernet_cfg_if cfg,
   // Get the mac address from OTP and set it in the ethernet component
   // otp_board_info_get_mac(otp_ports, 0, mac_address);
   for(int i = 0; i < MACADDR_NUM_BYTES; i++){
-    debug_printf("%x", mac_address[i]); debug_printf(":");
+    debug_printf("%x%s", mac_address[i], i < MACADDR_NUM_BYTES - 1 ? ":" : "");
   }
   debug_printf("\n");
 
@@ -268,6 +268,8 @@ void icmp_server(client ethernet_cfg_if cfg,
   // Only allow ARP and IP packets to the app
   cfg.add_ethertype_filter(index, 0x0806);
   cfg.add_ethertype_filter(index, 0x0800);
+
+  unsigned icmp_count = 0;
 
   debug_printf("Test started\n");
   while (1)
@@ -293,7 +295,7 @@ void icmp_server(client ethernet_cfg_if cfg,
       {
         int len = build_icmp_response(rxbuf, txbuf, mac_address, ip_address);
         tx.send_packet(txbuf, len, ETHERNET_ALL_INTERFACES);
-        debug_printf("ICMP response sent\n");
+        debug_printf("ICMP response sent: %u\n", icmp_count++);
       }
       break;
     }
