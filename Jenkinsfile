@@ -83,7 +83,7 @@ pipeline {
       	dir("${REPO}") {
 	      withVenv {
 	      	withTools(params.TOOLS_VERSION) {
-      		  dir("tests")
+      		  dir("tests") {
       		    script {
       		      // Build all apps in the examples directory
       		      sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
