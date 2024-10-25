@@ -1,5 +1,13 @@
-Ethernet MAC library change log
-===============================
+lib_ethernet change log
+=======================
+
+3.6.0
+-----
+
+  * REMOVED: Slicekit based examples because hardware is obsolete
+  * REMOVED: Support for waf build system
+  * ADDED: Support for XCommon CMake build system
+
 
 3.5.0
 -----
