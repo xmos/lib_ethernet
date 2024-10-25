@@ -78,6 +78,20 @@ pipeline {
       }
     }
 
+    stage('New tests') {
+      steps {
+      	dir("${REPO}") {
+	      withVenv {
+	      	withTools(params.TOOLS_VERSION) {
+      		  dir("tests")
+	      	  	runPytest('-vv test_dummy.py')
+	      	  }
+	      	}
+      	  }
+      	}
+      }
+    }
+
     stage('Tests XS1 and XS2') {
       steps {
         runXmostest("${REPO}", 'tests')

@@ -13,7 +13,9 @@ setuptools.setup(
     name='lib_ethernet',
     packages=setuptools.find_packages(),
     install_requires=[
-        'flake8~=3.8',
+        'flake8~=7.0',
+        'pytest~=8.2',
+        'pytest-xdist~=3.6',
     ],
     dependency_links=[
     ],
