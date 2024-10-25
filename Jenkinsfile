@@ -67,18 +67,6 @@ pipeline {
       }
     }
 
-    stage('Doc builds') {
-      steps {
-        runXdoc("${REPO}/${REPO}/doc")
-        forAllMatch("${REPO}/examples", "AN*/") { path ->
-          runXdoc("${path}/doc")
-        }
-
-        // Archive all the generated .pdf docs
-        archiveArtifacts artifacts: "${REPO}/**/pdf/*.pdf", fingerprint: true, allowEmptyArchive: true
-      }
-    }
-
     // stage('Documentation') {
     //     steps {
     //         dir("${REPO}") {

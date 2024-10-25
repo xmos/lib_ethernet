@@ -9,9 +9,9 @@ documentation:
   exclude_patterns_path: doc/exclude_patterns.inc
   root_doc: doc/rst/lib_ethernet.rst
   cognidox_part_number: XM-006386-UG
-  doxygen_projects:
-    lib_ethernet:
-      doxyfile_path: doc/Doxyfile.inc
+  # doxygen_projects:
+    # lib_ethernet:
+      # doxyfile_path: doc/Doxyfile.inc
   pdfs:
     doc/rst/lib_ethernet.rst:
       pdf_title: '{{title}}'
