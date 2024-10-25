@@ -8,6 +8,20 @@ lib_ethernet change log
   * REMOVED: Support for waf build system
   * ADDED: Support for XCommon CMake build system
 
+  * Changes to dependencies:
+
+    - lib_gpio: Removed dependency
+
+    - lib_locks: 2.0.0 -> 2.3.1
+
+    - lib_logging: 2.0.0 -> 3.3.1
+
+    - lib_otpinfo: Removed dependency
+
+    - lib_slicekit_support: Removed dependency
+
+    - lib_xassert: 2.0.0 -> 4.3.1
+
 3.5.0
 -----
 
