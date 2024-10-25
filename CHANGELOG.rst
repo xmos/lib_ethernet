@@ -8,7 +8,6 @@ lib_ethernet change log
   * REMOVED: Support for waf build system
   * ADDED: Support for XCommon CMake build system
 
-
 3.5.0
 -----
 

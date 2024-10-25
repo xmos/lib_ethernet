@@ -1,6 +1,6 @@
 set(LIB_NAME                lib_ethernet)
 
-set(LIB_VERSION             3.5.0)
+set(LIB_VERSION             3.6.0)
 
 set(LIB_INCLUDES            api
                             src)
