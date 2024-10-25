@@ -80,7 +80,7 @@ pipeline {
 
     stage('New tests') {
       steps {
-      	sh "git clone --branch v2.0.0 git@github.com/xmos/test_support.git"
+      	sh "git clone --branch v2.0.0 git@github.com:xmos/test_support.git"
       	dir("${REPO}") {
 	      withVenv {
 	      	sh "pip install -e ../test_support"
