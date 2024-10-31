@@ -1,0 +1,5 @@
+{
+    "PROFILES": [
+        {"phy":"rgmii", "clk":125, "mac":"rt", "arch":"xs2"}
+        ]
+}

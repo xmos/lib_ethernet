@@ -1,8 +1,12 @@
 # Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import Pyxsim as px
 import os
 import sys
+import json
+from pathlib import Path
+import pytest
+
+import Pyxsim as px
 from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
@@ -10,6 +14,9 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args, run_on
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+
+with open(Path(__file__).parent / "test_tx/test_params.json") as f:
+    params = json.load(f)
 
 def packet_checker(packet, phy):
     print("Packet received:")
@@ -56,9 +63,11 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     assert result is True, f"{result}"
 
-
-def test_tx(capfd):
+@pytest.mark.parametrize("params", params["PROFILES"])
+def test_tx(capfd, params):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
+    with capfd.disabled():
+        print(params)
 
     # Test 100 MBit - MII XS2
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
