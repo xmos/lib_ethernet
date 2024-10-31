@@ -84,4 +84,4 @@ def test_tx(capfd):
     if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
         do_test(capfd, 'rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
-        do_test('rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+        do_test(capfd, 'rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
