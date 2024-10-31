@@ -88,7 +88,7 @@ class MiiPacket(object):
         self.error_nibbles = []
 
         # Get all other values from the dictionary passed in
-        for arg,value in kwargs.iteritems():
+        for arg,value in kwargs.items():
             setattr(self, arg, value)
 
         # Preamble nibbles - define valid preamble by default
@@ -148,7 +148,7 @@ class MiiPacket(object):
 
     def get_crc(self, packet_bytes):
         # Finally the CRC
-        data = ''.join(chr(x) for x in packet_bytes)
+        data = bytes(self.get_packet_bytes())
         crc = zlib.crc32(data) & 0xFFFFFFFF
         if self.corrupt_crc:
             crc = ~crc
@@ -267,11 +267,11 @@ class MiiPacket(object):
                 print(f"ERROR: Invalid preamble nibble: {nibble:x}")
 
         if self.nibble is not None:
-            print("ERROR: Odd number of data nibbles received")
+            print(f"ERROR: Odd number of data nibbles received")
 
         # Ensure that if the len/type field specifies a length then it is valid (Section 3.2.6 of 802.3-2012)
         if len(self.ether_len_type) != 2:
-            print("ERROR: The len/type field contains {len(self.ether_len_type)} bytes")
+            print(f"ERROR: The len/type field contains {len(self.ether_len_type)} bytes")
         else:
             len_type = self.ether_len_type[0] << 8 | self.ether_len_type[1]
             if len_type <= 1500:
@@ -279,12 +279,12 @@ class MiiPacket(object):
                     print(f"ERROR: len/type field value ({len_type}) != packet bytes ({self.num_data_bytes})")
 
         # Check the CRC
-        data = ''.join(chr(x) for x in self.get_packet_bytes())
+        data = bytes(self.get_packet_bytes())
         expected_crc = zlib.crc32(data) & 0xFFFFFFFF
 
         # UNH-IOL MAC Test 4.2.3
         if self.packet_crc != expected_crc:
-            print(f"ERROR: Invalid crc (got {self.packet_crc}, expecting {expected_crc})")
+            print(f"ERROR: Invalid crc (got {self.packet_crc:x}, expecting {expected_crc:x})")
 
     def dump(self, show_ifg=True):
         output = ""

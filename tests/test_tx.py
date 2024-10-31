@@ -33,70 +33,55 @@ def packet_checker(packet, phy):
             # Only print one error per packet
             break
 
-def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_tx'
 
-    binary = f'{testname}/bin/{testname}.xe'
-    # binary = f'{testname}/bin/{mac}_{rx_phy.get_name()}_{arch}/{testname}_{mac}_{rx_phy.get_name()}_{arch}.xe'
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
+    capfd.readouterr() # clear capfd buffer
 
-    print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch at {rx_clk.get_name()}")
-
-    # tester = px.testers.ComparisonTester(open('{test}.expect'.format(test=testname)),
-    #                                  'lib_ethernet', 'basic_tests', testname,
-    #                                  {'mac':mac, 'phy':rx_phy.get_name(), 'clk':rx_clk.get_name(), 'arch':arch})
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
     tester = px.testers.ComparisonTester(open(f'{testname}.expect'))
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
-    print(testname, mac, rx_clk, rx_phy)
-    print(simargs)
-    px.run_on_simulator_(   binary,
-                            simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
-                            tester=tester,
-                            simargs=simargs,
-                            do_xe_prebuild=False)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd)
 
-def runtest():
+    assert result is True, f"{result}"
+
+
+def test_tx(capfd):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
-
-    # Test 100 MBit - MII XS1
-    # (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-    # (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
-    # if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs1'):
-    #     do_test('standard', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
-    # if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs1'):
-    #     do_test('rt',  'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
-    # if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs1'):
-    #     do_test('rt_hp', 'xs1', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
     # Test 100 MBit - MII XS2
     (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
     (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
     if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs2'):
-        do_test('standard', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+        do_test(capfd, 'standard', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
     if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs2'):
-        do_test('rt', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+        do_test(capfd, 'rt', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
     if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs2'):
-        do_test('rt_hp', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+        do_test(capfd, 'rt_hp', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
     # Test 100 MBit - RGMII
-    # (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
-    #                                             test_ctrl='tile[0]:XS1_PORT_1C')
-    # (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
-    # if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch='xs2'):
-    #     do_test('rt', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
-    # if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch='xs2'):
-    #     do_test('rt_hp', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch='xs2'):
+        do_test(capfd, 'rt', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch='xs2'):
+        do_test(capfd, 'rt_hp', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
 
     # Test 1000 MBit - RGMII
-    # (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
-    #                                            test_ctrl='tile[0]:XS1_PORT_1C')
-    # (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
-    # if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
-    #     do_test('rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
-    # if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
-    #     do_test('rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
-
-
-def test_tx():
-    runtest()
+    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
+        do_test(capfd, 'rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
+        do_test('rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
