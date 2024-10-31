@@ -100,12 +100,6 @@ pipeline {
       }
     }
 
-    stage('Tests XS1 and XS2') {
-      steps {
-        runXmostest("${REPO}", 'tests')
-      }
-    }
-
   } // stages
   post {
     cleanup {

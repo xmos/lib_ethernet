@@ -65,16 +65,6 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                            dut_exit_time=dut_exit_time, initial_delay=initial_delay)
     return (clk, phy)
 
-def run_on(**kwargs):
-    if not args:
-        return True
-
-    for name,value in kwargs.items():
-        arg_value = getattr(args, name, None)
-        if arg_value is not None and value != arg_value:
-            return False
-
-    return True
 
 def runall_rx(test_fn, exclude_standard=False):
     # Test 100 MBit

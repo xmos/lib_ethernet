@@ -11,7 +11,7 @@ from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args, run_on
+from helpers import get_sim_args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 
@@ -70,27 +70,19 @@ def test_tx(capfd, params):
         print(params)
 
     # Test 100 MBit - MII XS2
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
-    if run_on(phy='mii', clk='25Mhz', mac='standard', arch='xs2'):
-        do_test(capfd, 'standard', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
-    if run_on(phy='mii', clk='25Mhz', mac='rt', arch='xs2'):
-        do_test(capfd, 'rt', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
-    if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch='xs2'):
-        do_test(capfd, 'rt_hp', 'xs2', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+    if params["phy"] == "mii":
+        (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
+        do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
-    # Test 100 MBit - RGMII
-    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch='xs2'):
-        do_test(capfd, 'rt', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch='xs2'):
-        do_test(capfd, 'rt_hp', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
-
-    # Test 1000 MBit - RGMII
-    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
-        do_test(capfd, 'rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
-        do_test(capfd, 'rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+    if params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == 25:
+            (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
+            do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+        # Test 1000 MBit - RGMII
+        if params["clk"] == 125:
+            (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
+            do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)

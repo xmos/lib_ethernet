@@ -1,5 +1,11 @@
 {
     "PROFILES": [
-        {"phy":"rgmii", "clk":125, "mac":"rt", "arch":"xs2"}
+        {"phy":"mii", "clk":25, "mac":"standard", "arch":"xs2"},
+        {"phy":"mii", "clk":25, "mac":"rt", "arch":"xs2"},
+        {"phy":"mii", "clk":25, "mac":"rt_hp", "arch":"xs2"},
+        {"phy":"rgmii", "clk":25, "mac":"rt", "arch":"xs2"},
+        {"phy":"rgmii", "clk":25, "mac":"rt_hp", "arch":"xs2"},
+        {"phy":"rgmii", "clk":125, "mac":"rt", "arch":"xs2"},
+        {"phy":"rgmii", "clk":125, "mac":"rt_hp", "arch":"xs2"}
         ]
 }
