@@ -91,7 +91,8 @@ pipeline {
       		      sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
       		      sh "xmake -C build"
       		    } // script
-	      	  	runPytest('-vv test_dummy.py')
+                runPytest('-vv test_dummy.py')
+                runPytest('-vv test_tx.py')
 	      	  }
 	      	}
       	  }
