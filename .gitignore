@@ -24,3 +24,4 @@ test_results.csv
 build/
 .*.swp
 python/lib_ethernet.egg-info
+tests/logs

@@ -3,11 +3,13 @@
 import os
 import random
 import sys
+from types import SimpleNamespace
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 
 args = None
+args = SimpleNamespace(trace=True)
 
 def create_if_needed(folder):
     if not os.path.exists(folder):
@@ -67,8 +69,8 @@ def run_on(**kwargs):
     if not args:
         return True
 
-    for name,value in kwargs.iteritems():
-        arg_value = getattr(args,name)
+    for name,value in kwargs.items():
+        arg_value = getattr(args, name, None)
         if arg_value is not None and value != arg_value:
             return False
 
