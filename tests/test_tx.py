@@ -63,11 +63,9 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     assert result is True, f"{result}"
 
-@pytest.mark.parametrize("params", params["PROFILES"])
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
 def test_tx(capfd, params):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
-    with capfd.disabled():
-        print(params)
 
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
@@ -75,14 +73,19 @@ def test_tx(capfd, params):
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
-    if params["phy"] == "rgmii":
+    else if params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
-        if params["clk"] == 25:
+        if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
             do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
         # Test 1000 MBit - RGMII
-        if params["clk"] == 125:
+        else if params["clk"] == "125MHz":
             (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
             do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
