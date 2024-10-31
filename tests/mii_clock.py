@@ -1,10 +1,10 @@
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import xmostest
+import Pyxsim as px
 import sys
 import zlib
 
-class Clock(xmostest.SimThread):
+class Clock(px.SimThread):
 
     # Use the values that need to be presented in the RGMII data pins when DV inactive
     (CLK_125MHz, CLK_25MHz, CLK_2_5MHz) = (0x4, 0x2, 0x0)

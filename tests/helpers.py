@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import xmostest
 import os
 import random
 import sys
@@ -133,9 +131,7 @@ def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, se
         mac=mac, phy=tx_phy.get_name(), arch=arch)
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {mac} mac, {phy} phy, {arch} arch sending {n} packets at {clk} (seed {seed})".format(
-            test=testname, n=len(packets), mac=mac,
-            phy=tx_phy.get_name(), arch=arch, clk=tx_clk.get_name(), seed=seed)
+        print(f"Running {testname}: {mac} mac, {tx_phy.get_name()} phy, {arch} arch sending {len(packets)} packets at {tx_clk.get_name()} (seed {seed})")
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
@@ -227,15 +223,14 @@ def check_received_packet(packet, phy):
     if phy.expect_packet_index < phy.num_expected_packets:
         expected = phy.expected_packets[phy.expect_packet_index]
         if packet != expected:
-            print "ERROR: packet {n} does not match expected packet".format(
-                n=phy.expect_packet_index)
+            print(f"ERROR: packet {phy.expect_packet_index} does not match expected packet {expected}")
 
-            print "Received:"
+            print(f"Received:")
             sys.stdout.write(packet.dump())
-            print "Expected:"
+            print("Expected:")
             sys.stdout.write(expected.dump())
 
-        print "Received packet {} ok".format(phy.expect_packet_index)
+        print(f"Received packet {phy.expect_packet_index} ok")
         # Skip this packet
         phy.expect_packet_index += 1
 
@@ -243,11 +238,11 @@ def check_received_packet(packet, phy):
         move_to_next_valid_packet(phy)
 
     else:
-        print "ERROR: received unexpected packet from DUT"
-        print "Received:"
+        print(f"ERROR: received unexpected packet from DUT")
+        print("Received:")
         sys.stdout.write(packet.dump())
 
     if phy.expect_packet_index >= phy.num_expected_packets:
-        print "Test done"
+        print("Test done")
         phy.xsi.terminate()
 

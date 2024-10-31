@@ -1,17 +1,16 @@
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import random
-import xmostest
+import Pyxsim as px
 import sys
 import zlib
-from itertools import izip
 from mii_phy import TxPhy, RxPhy
 from mii_packet import MiiPacket
 from mii_clock import Clock
 
 def pairwise(t):
     it = iter(t)
-    return izip(it,it)
+    return zip(it,it)
 
 
 class RgmiiTransmitter(TxPhy):
@@ -60,8 +59,7 @@ class RgmiiTransmitter(TxPhy):
             self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
             if self._verbose:
-                print "Sending packet {i}: {p}".format(i=i, p=packet)
-                sys.stdout.write(packet.dump())
+                print(f"Sending packet {i}: {packet}")
 
             if packet_rate == Clock.CLK_125MHz:
                 # The RGMII phy puts a nibble on each edge at 1Gb/s. This is mapped
@@ -105,7 +103,7 @@ class RgmiiTransmitter(TxPhy):
             xsi.drive_port_pins(self._rxer, 0)
 
             if self._verbose:
-                print "Sent"
+                print("Sent")
 
         self.end_test()
 

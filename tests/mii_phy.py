@@ -1,12 +1,12 @@
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import random
-import xmostest
+import Pyxsim as px
 import sys
 import zlib
 from mii_packet import MiiPacket
 
-class TxPhy(xmostest.SimThread):
+class TxPhy(px.SimThread):
 
     # Time in ns from the last packet being sent until the end of test is signalled to the DUT
     END_OF_TEST_TIME = 5000
@@ -40,7 +40,7 @@ class TxPhy(xmostest.SimThread):
 
     def end_test(self):
         if self._verbose:
-            print "All packets sent"
+            print("All packets sent")
 
         if self._complete_fn:
             self._complete_fn(self)
@@ -76,7 +76,7 @@ class TxPhy(xmostest.SimThread):
             # Allow time for the DUT to exit
             self.wait_until(self.xsi.get_time() + self._dut_exit_time)
 
-            print "ERROR: Test timed out"
+            print("ERROR: Test timed out")
             self.xsi.terminate()
 
     def set_clock(self, clock):
@@ -111,7 +111,7 @@ class MiiTransmitter(TxPhy):
             self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
             if self._verbose:
-                print "Sending packet {i}: {p}".format(i=i, p=packet)
+                print(f"Sending packet {i}: {packet}")
                 sys.stdout.write(packet.dump())
 
             for (i, nibble) in enumerate(packet.get_nibbles()):
@@ -132,12 +132,12 @@ class MiiTransmitter(TxPhy):
             xsi.drive_port_pins(self._rxer, 0)
 
             if self._verbose:
-                print "Sent"
+                print("Sent")
 
         self.end_test()
 
 
-class RxPhy(xmostest.SimThread):
+class RxPhy(px.SimThread):
 
     def __init__(self, name, txd, txen, clock, print_packets, packet_fn, verbose, test_ctrl):
         self._name = name

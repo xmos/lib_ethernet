@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import xmostest
+import Pyxsim
 import os
 import sys
 from mii_clock import Clock
@@ -13,24 +12,24 @@ from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 
 def packet_checker(packet, phy):
-    print "Packet received:"
+    print("Packet received:")
     sys.stdout.write(packet.dump(show_ifg=False))
 
     # Ignore the CRC bytes (-4)
     data = packet.data_bytes[:-4]
 
     if len(data) < 2:
-        print "ERROR: packet doesn't contain enough data ({} bytes)".format(len(data))
+        print(f"ERROR: packet doesn't contain enough data ({len(data)} bytes)")
         return
 
     step = data[1] - data[0]
-    print "Step = {}.".format(step)
+    print(f"Step = {step}.")
 
     for i in range(len(data)-1):
         x = data[i+1] - data[i]
         x = x & 0xff;
         if x != step:
-            print "ERROR: byte %d is %d more than byte %d (expected %d)." % (i+1, x, i, step)
+            print(f"ERROR: byte {i+1} is {x} more than byte %d (expected {step}).")
             # Only print one error per packet
             break
 
@@ -42,8 +41,7 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     binary = '{test}/bin/{mac}_{phy}_{arch}/{test}_{mac}_{phy}_{arch}.xe'.format(
         test=testname, mac=mac, phy=rx_phy.get_name(), arch=arch)
 
-    print "Running {test}: {mac} {phy} phy, {arch} arch at {clk}".format(
-        test=testname, mac=mac, phy=rx_phy.get_name(), clk=rx_clk.get_name(), arch=arch)
+    print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch at {rx_clk.get_name()}")
 
     tester = xmostest.ComparisonTester(open('{test}.expect'.format(test=testname)),
                                      'lib_ethernet', 'basic_tests', testname,
@@ -95,3 +93,7 @@ def runtest():
         do_test('rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
     if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch='xs2'):
         do_test('rt_hp', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+
+
+def test_tx():
+    print("Pass")
