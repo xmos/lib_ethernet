@@ -89,7 +89,7 @@ pipeline {
       		    script {
       		      // Build all apps in the examples directory
       		      sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
-      		      sh "xmake -C build"
+      		      sh "xmake -j -C build"
       		    } // script
                 runPytest('-vv test_dummy.py')
                 runPytest('-vv test_tx.py')
