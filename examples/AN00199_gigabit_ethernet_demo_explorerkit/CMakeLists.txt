@@ -14,9 +14,9 @@ set(COMPILER_FLAGS_COMMON   -g
                             -save-temps
                             -DRGMII=1)
 
-set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
-set(APP_COMPILER_FLAGS_icmp ${COMPILER_FLAGS_COMMON}
-                            -Wno-reinterpret-alignment)
+set(APP_COMPILER_FLAGS          ${COMPILER_FLAGS_COMMON})
+set(APP_COMPILER_FLAGS_icmp.xc  ${COMPILER_FLAGS_COMMON}
+                                -Wno-reinterpret-alignment)
 
 set(APP_XSCOPE_SRCS         src/config.xscope)
 
