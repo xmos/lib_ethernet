@@ -10,7 +10,8 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 
-args = SimpleNamespace(trace=True) # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 3x slower
+args = SimpleNamespace(trace=True) # Set to True to enable VCD and instruction tracing for debug.
+# Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
 
 def create_if_needed(folder):
     if not os.path.exists(folder):

@@ -69,7 +69,7 @@ class MiiPacket(object):
             self.num_preamble_nibbles = 15
             self.sfd_nibble = 0xd
             self.num_data_bytes = 46
-            self.inter_frame_gap = 960
+            self.inter_frame_gap = 960 * 1e6
             self.dst_mac_addr = None
             self.src_mac_addr = None
             self.vlan_prio_tag = None
