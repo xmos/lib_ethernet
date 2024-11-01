@@ -25,7 +25,7 @@ APP_NAME =
 
 XCC_FLAGS = -g -report -DDEBUG_PRINT_ENABLE -save-temps -Os -Xmapper --map -Xmapper MAPFILE -DRGMII=1
 
-XCC_FLAGS_icmp = $(XCC_FLAGS) -Wno-reinterpret-alignment
+XCC_FLAGS_icmp.xc = $(XCC_FLAGS) -Wno-reinterpret-alignment
 
 # The USED_MODULES variable lists other module used by the application.
 
