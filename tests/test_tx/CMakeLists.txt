@@ -6,12 +6,12 @@ set(APP_HW_TARGET           XCORE-200-EXPLORER)
 
 set(APP_PCA_ENABLE ON)
 
-set(APP_DEPENDENT_MODULES   lib_ethernet)
-
-# Used libs and common code
 include(../test_deps.cmake)
-set(APP_XC_SRCS             src/main.xc)
-set(APP_INCLUDES            ../include)
+
+file(GLOB_RECURSE SOURCES_XC RELATIVE  ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
+set(APP_XC_SRCS             ${SOURCES_XC})
+set(APP_INCLUDES            ../include src)
+message(STATUS "APP_XC_SRCS: ${APP_XC_SRCS}")
 
 set(COMPILER_FLAGS_COMMON   -g
                             -report
@@ -36,14 +36,6 @@ foreach(i RANGE 0 ${NUM_PROFILES})
     message(STATUS "Building cfg_name: ${config}")
 
     set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
-
-
-# set(APP_COMPILER_FLAGS_rt_mii           ${COMPILER_FLAGS_COMMON} -DRT=1 -DRGMII=0)
-# set(APP_COMPILER_FLAGS_rt_hp_mii        ${COMPILER_FLAGS_COMMON} -DRT=1 -DRGMII=0 -DETHERNET_SUPPORT_HP_QUEUES=1)
-# set(APP_COMPILER_FLAGS_standard_mii     ${COMPILER_FLAGS_COMMON} -DRT=0 -DRGMII=0)
-
-# set(APP_COMPILER_FLAGS_rt_rgmii         ${COMPILER_FLAGS_COMMON} -DRT=0 -DRGMII=1)
-# set(APP_COMPILER_FLAGS_rt_hp_rgmii      ${COMPILER_FLAGS_COMMON} -DRT=0 -DRGMII=1 -DETHERNET_SUPPORT_HP_QUEUES=1)
 
     string(FIND "${PROFILE}" "rt" position)
     if(position GREATER -1)
