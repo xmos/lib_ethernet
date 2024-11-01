@@ -8,8 +8,8 @@ from mii_packet import MiiPacket
 
 class TxPhy(px.SimThread):
 
-    # Time in ns from the last packet being sent until the end of test is signalled to the DUT
-    END_OF_TEST_TIME = 5000
+    # Time in fs from the last packet being sent until the end of test is signalled to the DUT
+    END_OF_TEST_TIME = 5000*1e6
 
     def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay, verbose,
                  test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time):
@@ -59,7 +59,7 @@ class TxPhy(px.SimThread):
                 total_data_bits = total_packet_bytes * 8
 
                 # Allow 2 cycles per bit
-                timeout_time += 2 * total_data_bits
+                timeout_time += 2 * total_data_bits * 1e6 # scale to femtoseconds vs nanoseconds in old xsim
 
                 # The clock ticks are 2ns long
                 timeout_time *= 2
@@ -92,9 +92,9 @@ class TxPhy(px.SimThread):
 class MiiTransmitter(TxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
-                 initial_delay=85000, verbose=False, test_ctrl=None,
+                 initial_delay=85000*1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=25000):
+                 dut_exit_time=25000*1e6):
         super(MiiTransmitter, self).__init__('mii', rxd, rxdv, rxer, clock,
                                              initial_delay, verbose, test_ctrl,
                                              do_timeout, complete_fn, expect_loopback,

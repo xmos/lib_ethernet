@@ -10,8 +10,7 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 
-args = None
-args = SimpleNamespace(trace=True)
+args = SimpleNamespace(trace=True) # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 3x slower
 
 def create_if_needed(folder):
     if not os.path.exists(folder):
@@ -30,7 +29,7 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
 
 def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                        complete_fn=None, expect_loopback=True,
-                       dut_exit_time=50000, initial_delay=85000):
+                       dut_exit_time=50000*1e6, initial_delay=85000*1e6):
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
@@ -52,7 +51,7 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
 
 def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                           do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=50000, initial_delay=130000):
+                          dut_exit_time=50000*1e6, initial_delay=130000*1e6):
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_4E',
@@ -68,7 +67,7 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
     return (clk, phy)
 
 
-def runall_rx(capfd, test_fn, params, exclude_standard=False, verbose=False, seed=False):
+def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, verbose=False, seed=False):
     seed = seed if seed else random.randint(0, sys.maxsize)
 
     # Test 100 MBit - MII XS2
@@ -122,6 +121,8 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     tester = px.testers.ComparisonTester(open(expect_filename))
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
+    with capfd.disabled():
+        print(f"simargs {simargs}\n bin: {binary}")
     result = px.run_on_simulator_(  binary,
                                     simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
                                     tester=tester,

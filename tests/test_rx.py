@@ -10,7 +10,7 @@ import pytest
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size, check_received_packet, runall_rx
+from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
 
 with open(Path(__file__).parent / "test_tx/test_params.json") as f:
     params = json.load(f)
@@ -20,7 +20,7 @@ class TxError(px.SimThread):
     def __init__(self, tx_phy, do_error):
         self._tx_phy = tx_phy
         self._do_error = do_error
-        self._initial_delay = tx_phy._initial_delay - 5000
+        self._initial_delay = tx_phy._initial_delay - 5000*1e6
 
     def run(self):
         xsi = self.xsi
@@ -30,7 +30,7 @@ class TxError(px.SimThread):
 
         self.wait_until(xsi.get_time() + self._initial_delay)
         self._tx_phy.drive_error(1)
-        self.wait_until(xsi.get_time() + 100)
+        self.wait_until(xsi.get_time() + 100*1e6)
         self._tx_phy.drive_error(0)
 
 
@@ -82,8 +82,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
                level='smoke', extra_tasks=[error_driver])
 
 # @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-@pytest.mark.parametrize("params", [{'phy': 'mii', 'clk': '25MHz', 'mac': 'standard', 'arch': 'xs2'}])
-def test_tx(capfd, params):
+@pytest.mark.parametrize("params", [{'phy': 'mii', 'clk': '25MHz', 'mac': 'rt', 'arch': 'xs2'}])
+def test_rx(capfd, params):
     print(params)
     random.seed(1)
-    runall_rx(capfd, do_test, params)
+    run_parametrised_test_rx(capfd, do_test, params)
