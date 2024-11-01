@@ -9,6 +9,8 @@ class Clock(px.SimThread):
     # Use the values that need to be presented in the RGMII data pins when DV inactive
     (CLK_125MHz, CLK_25MHz, CLK_2_5MHz) = (0x4, 0x2, 0x0)
 
+    # ifg = inter frame gap
+
     def __init__(self, port, clk):
         self._running = True
         self._clk = clk
@@ -16,7 +18,6 @@ class Clock(px.SimThread):
         if clk == self.CLK_125MHz:
             self._period = float(sim_clock_rate) / 125e6
             self._name = '125Mhz'
-            self._min_ifg = 96
             self._bit_time = 1
         elif clk == self.CLK_25MHz:
             self._period = float(sim_clock_rate) / 25e6
