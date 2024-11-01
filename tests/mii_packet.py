@@ -119,10 +119,10 @@ class MiiPacket(object):
 
         # If the ether length/type field is not specified then set it to something sensible
         if self.ether_len_type is None:
-            if self.ether_len_type <= self.MAX_ETHER_LEN:
+            # if self.ether_len_type <= self.MAX_ETHER_LEN:
                 self.ether_len_type = [ (self.num_data_bytes >> 8) & 0xff, self.num_data_bytes & 0xff ]
-            else:
-                self.ether_len_type = [ 0x00, 0x00 ]
+            # else:
+                # self.ether_len_type = [ 0x00, 0x00 ]
 
         # If there is an extra nibble, choose it now
         if self.extra_nibble:

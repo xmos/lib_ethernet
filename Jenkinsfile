@@ -92,6 +92,7 @@ pipeline {
       		      sh "xmake -j -C build"
       		    } // script
                 runPytest('-vv test_tx.py')
+                runPytest('-vv test_rx.py')
 	      	  }
 	      	}
       	  }

@@ -1,15 +1,21 @@
-#!/usr/bin/env python
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
-import xmostest
+import Pyxsim as px
+import json
+from pathlib import Path
+import pytest
+
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, runall_rx
 
-class TxError(xmostest.SimThread):
+with open(Path(__file__).parent / "test_tx/test_params.json") as f:
+    params = json.load(f)
+
+class TxError(px.SimThread):
 
     def __init__(self, tx_phy, do_error):
         self._tx_phy = tx_phy
@@ -28,7 +34,7 @@ class TxError(xmostest.SimThread):
         self._tx_phy.drive_error(0)
 
 
-def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -72,9 +78,12 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     error_driver = TxError(tx_phy, do_error)
 
-    do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
                level='smoke', extra_tasks=[error_driver])
 
-def runtest():
+# @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+@pytest.mark.parametrize("params", [{'phy': 'mii', 'clk': '25MHz', 'mac': 'standard', 'arch': 'xs2'}])
+def test_tx(capfd, params):
+    print(params)
     random.seed(1)
-    runall_rx(do_test)
+    runall_rx(capfd, do_test, params)

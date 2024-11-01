@@ -4,6 +4,8 @@ import os
 import random
 import sys
 from types import SimpleNamespace
+import Pyxsim as px
+
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
@@ -66,64 +68,48 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
     return (clk, phy)
 
 
-def runall_rx(test_fn, exclude_standard=False):
-    # Test 100 MBit
-    for arch in ['xs1', 'xs2']:
+def runall_rx(capfd, test_fn, params, exclude_standard=False, verbose=False, seed=False):
+    seed = seed if seed else random.randint(0, sys.maxsize)
+
+    # Test 100 MBit - MII XS2
+    if params["phy"] == "mii" and not exclude_standard:
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=verbose)
+        test_fn(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-        if not exclude_standard:
-            if run_on(phy='mii', clk='25Mhz', mac='standard', arch=arch):
-                seed = args.seed if args.seed else random.randint(0, sys.maxint)
-                test_fn('standard', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-
-        if run_on(phy='mii', clk='25Mhz', mac='rt', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-
-        if run_on(phy='mii', clk='25Mhz', mac='rt_hp', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt_hp', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
-
-    # Test 100 MBit - RGMII
-    for arch in ['xs2']:
-
-        (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
-        (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose)
-        if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt', arch, rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
-
-        if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt_hp', arch, rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
-
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=verbose)
+            test_fn(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
         # Test 1000 MBit - RGMII
-        (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
-        (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose)
-        if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt', arch, rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+        elif params["clk"] == "125MHz":
+            (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=verbose)
+            test_fn(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
-        if run_on(phy='rgmii', clk='125Mhz', mac='rt_hp', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt_hp', arch, rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
 
 
-def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
+def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
                level='nightly', extra_tasks=[]):
 
     """ Shared test code for all RX tests using the test_rx application.
     """
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
-    resources = xmostest.request_resource("xsim")
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
+    capfd.readouterr() # clear capfd buffer
 
-    binary = 'test_rx/bin/{mac}_{phy}_{arch}/test_rx_{mac}_{phy}_{arch}.xe'.format(
-        mac=mac, phy=tx_phy.get_name(), arch=arch)
-
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print(f"Running {testname}: {mac} mac, {tx_phy.get_name()} phy, {arch} arch sending {len(packets)} packets at {tx_clk.get_name()} (seed {seed})")
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
@@ -133,17 +119,18 @@ def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, se
         folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name(), clk=tx_clk.get_name(), arch=arch)
     create_expect(packets, expect_filename)
 
-    tester = xmostest.ComparisonTester(open(expect_filename),
-                                      'lib_ethernet', 'basic_tests', testname,
-                                     {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(), 'arch':arch})
-
-    tester.set_min_testlevel(level)
+    tester = px.testers.ComparisonTester(open(expect_filename))
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
-                              tester=tester,
-                              simargs=simargs)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd)
+
+    assert result is True, f"{result}"
+
 
 def create_expect(packets, filename):
     """ Create the expect file for what packets should be reported by the DUT
