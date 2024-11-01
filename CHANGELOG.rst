@@ -1,12 +1,14 @@
 lib_ethernet change log
 =======================
 
-3.6.0
+4.0.0
 -----
 
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * ADDED: Support for XCommon CMake build system
+  * REMOVED: Support for XS1 devices
+  * RESOLVED: Build warnings even when compile successful
 
   * Changes to dependencies:
 

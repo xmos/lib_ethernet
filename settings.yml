@@ -2,8 +2,8 @@
 
 lib_name: lib_ethernet
 project: '{{lib_name}}'
-title: '{{lib_name}}: ADAT lightpipe'
-version: 3.6.0
+title: '{{lib_name}}: Ethernet library'
+version: 4.0.0
 
 documentation:
   exclude_patterns_path: doc/exclude_patterns.inc
