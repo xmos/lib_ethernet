@@ -81,8 +81,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
                level='smoke', extra_tasks=[error_driver])
 
-# @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-@pytest.mark.parametrize("params", [{'phy': 'mii', 'clk': '25MHz', 'mac': 'rt', 'arch': 'xs2'}])
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+# @pytest.mark.parametrize("params", [{'phy': 'mii', 'clk': '25MHz', 'mac': 'rt', 'arch': 'xs2'}]) # Just run one test
 def test_rx(capfd, params):
     print(params)
     random.seed(1)

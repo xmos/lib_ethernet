@@ -19,9 +19,9 @@ class RgmiiTransmitter(TxPhy):
     (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
     def __init__(self, rxd, rxd_100, rxdv, mode_rxd, mode_rxdv, rxer, clock,
-                 initial_delay=130000, verbose=False, test_ctrl=None,
+                 initial_delay=130000*1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=25000):
+                 dut_exit_time=25000*1e6):
         super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, rxer, clock,
                                                initial_delay, verbose, test_ctrl,
                                                do_timeout, complete_fn, expect_loopback,
