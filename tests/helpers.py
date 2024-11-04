@@ -143,7 +143,7 @@ def create_expect(packets, filename):
                 f.write("Received packet {} ok\n".format(i))
         f.write("Test done\n")
 
-def get_sim_args(testname, mac, clk, phy, arch='xs1'):
+def get_sim_args(testname, mac, clk, phy, arch='xs2'):
     sim_args = []
 
     if args and args.trace:
