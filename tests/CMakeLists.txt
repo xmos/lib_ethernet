@@ -4,3 +4,4 @@ project(lib_ethernet_tests)
 
 add_subdirectory(test_tx)
 add_subdirectory(test_rx)
+add_subdirectory(test_link_status)
