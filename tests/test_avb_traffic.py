@@ -1,15 +1,22 @@
-#!/usr/bin/env python
-# Copyright 2015-2021 XMOS LIMITED.
+# Copyright 2015-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #
-import xmostest
-import random
+import os
 import sys
+import json
+from pathlib import Path
+import pytest
+import Pyxsim as px
+import random
+
 from mii_clock import Clock
 from mii_packet import MiiPacket
-from helpers import packet_processing_time, get_dut_mac_address, args, run_on
+from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
+
+with open(Path(__file__).parent / "test_tx/test_params.json") as f:
+    params = json.load(f)
 
 debug_fill = 0
 
@@ -26,7 +33,7 @@ def get_min_packet_time(bit_time):
     return total_bytes * 8 * bit_time
 
 
-class RxLpControl(xmostest.SimThread):
+class RxLpControl(px.SimThread):
 
     def __init__(self, rx_lp_ctl, bit_time, initial_value, randomise, seed):
         self._rx_lp_ctl = rx_lp_ctl
@@ -88,7 +95,7 @@ class PacketFiller:
         min_ifg = 96 * self.bit_time
 
         if debug_fill:
-            print "fill_gap {}, {} / {} / {}".format(last_packet_end, ifg, gap_size, self.min_packet_time)
+            print(f"fill_gap {last_packet_end}, {ifg} / {gap_size} / {self.min_packet_time}")
         
         while gap_size > self.min_packet_time:
 
@@ -144,7 +151,7 @@ class PacketFiller:
                 packet_time = packet.get_packet_time(self.bit_time)
 
                 if debug_fill:
-                    print "FILLER {} -> {} ({})".format(last_packet_end, last_packet_end + packet_time, frame_size)
+                    print(f"FILLER {last_packet_end} -> {last_packet_end + packet_time} ({frame_size})")
 
                 gap_size -= packet_time
                 last_packet_end += packet_time
@@ -157,7 +164,7 @@ class PacketFiller:
                     ifg = rand.randint(min_ifg, 2 * min_ifg)
 
                 if debug_fill:
-                    print "filled {} {} {} {}".format(packet.inter_frame_gap, packet_time, gap_size, packet_type)
+                    print(f"filled {packet.inter_frame_gap} {packet_time} {gap_size} {packet_type}")
                 
         return (last_packet_end, ifg)
 
@@ -174,16 +181,13 @@ def do_test(mac, tx_clk, tx_phy, seed,
     bit_time = tx_phy.get_clock().get_bit_time()
     rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxint))
 
-    resources = xmostest.request_resource("xsim")
     testname = 'test_avb_traffic'
     level = 'nightly'
 
     binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
         test=testname, mac=mac, phy=tx_phy.get_name())
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {phy} phy at {clk} (seed {seed})".format(
-            test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
+    print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
 
     stream_mac_addresses = {}
     stream_seq_id = {}
@@ -206,7 +210,7 @@ def do_test(mac, tx_clk, tx_phy, seed,
         packet_start_times = sorted([rand.randint(0, window_size) for x in range(num_avb_streams)])
 
         if debug_fill:
-            print "Window {} - times {}".format(window, packet_start_times)
+            print(f"Window {window} - times {packet_start_times}")
 
         rand.shuffle(stream_ids)
         for (i, stream) in enumerate(stream_ids):
@@ -229,7 +233,7 @@ def do_test(mac, tx_clk, tx_phy, seed,
             packet_time = avb_packet.get_packet_time(bit_time)
 
             if debug_fill:
-                print "PACKET {} -> {}".format(last_packet_end, last_packet_end + packet_time)
+                print(f"PACKET {last_packet_end} -> {last_packet_end + packet_time}")
             last_packet_end += packet_time
 
         # Fill the window after the last packet
@@ -242,11 +246,11 @@ def do_test(mac, tx_clk, tx_phy, seed,
     tx_phy.set_packets(packets)
 
     if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {w} windows of {s} AVB streams with {b} data bytes each".format(
+        print("Running {w} windows of {s} AVB streams with {b} data bytes each").format(
             w=num_windows, s=num_avb_streams, b=num_avb_data_bytes)
-        print "Sending {n} lp packets with {b} bytes hp data".format(
+        print("Sending {n} lp packets with {b} bytes hp data").format(
             n=filler.lp_seq_id, b=filler.lp_data_bytes)
-        print "Sending {n} other packets with {b} bytes hp data".format(
+        print("Sending {n} other packets with {b} bytes hp data").format(
             n=filler.other_seq_id, b=filler.other_data_bytes)
 
     expect_folder = create_if_needed("expect")
@@ -282,26 +286,36 @@ def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
                 i, num_windows, stream_bytes))
         f.write("Received \d+ lp bytes\n")
 
-def runtest():
+
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_avb_traffic(capfd, params, seed=False):
 
     if args.data_len_max < args.data_len_min:
-        print "ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})".format(
-            min=args.data_len_min, max=args.data_len_max)
+        print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(
+        min=args.data_len_min, max=args.data_len_max)
         return
 
     random.seed(1)
+    seed = seed if seed else random.randint(0, sys.maxsize)
 
-    # Test 100 MBit - MII
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,
-                                             dut_exit_time=100000, verbose=args.verbose)
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', tx_clk_25, tx_mii, seed, num_avb_streams=2, num_avb_data_bytes=200)
+    # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time=100000*1e6, test_ctrl='tile[0]:XS1_PORT_1C')
 
-    # Test 1GBit - RGMII
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C',
-                                                  expect_loopback=False, dut_exit_time=200000,
-                                                  verbose=args.verbose)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', tx_clk_125, tx_rgmii, seed, num_avb_streams=12)
+        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=2, num_avb_data_bytes=200)
+
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=100000*1e6)
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=12)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=200000*1e6)
+            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, num_avb_streams=12)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
+
