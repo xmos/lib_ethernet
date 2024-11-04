@@ -22,12 +22,12 @@ with open(Path(__file__).parent / "test_appdata/test_params.json") as f:
 def do_test(capfd, mac, arch, tx_clk, tx_phy):
     testname = 'test_appdata'
 
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print("Running {test}: {phy} phy at {clk}".format(
-            test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name()))
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}")
 
     rand = random.Random()
 
