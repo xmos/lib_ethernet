@@ -201,7 +201,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
     filler = PacketFiller(weight_none, weight_lp, weight_other, weight_tagged, weight_untagged,
                           data_len_min, data_len_max, bit_time)
 
-    window_size = 125000
+    window_size = 125000 * 1e6
     
     min_ifg = 96 * bit_time
     last_packet_end = 0
@@ -246,28 +246,11 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
         
     tx_phy.set_packets(packets)
 
-    # if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-    #     print("Running {w} windows of {s} AVB streams with {b} data bytes each").format(
-    #         w=num_windows, s=num_avb_streams, b=num_avb_data_bytes)
-    #     print("Sending {n} lp packets with {b} bytes hp data").format(
-    #         n=filler.lp_seq_id, b=filler.lp_data_bytes)
-    #     print("Sending {n} other packets with {b} bytes hp data").format(
-    #         n=filler.other_seq_id, b=filler.other_data_bytes)
-
     expect_folder = create_if_needed("expect")
     expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
         folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
     create_expect(packets, expect_filename, num_windows, num_avb_streams, num_avb_data_bytes)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
-    """
-                                     'lib_ethernet', 'basic_tests', testname,
-                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(),
-                                       'n_stream':num_avb_streams, 'b_p_stream':num_avb_data_bytes,
-                                       'len_min':data_len_min, 'len_max':data_len_max,
-                                       'w_none':weight_none, 'w_lp':weight_lp, 'w_other':weight_other,
-                                       'n_windows':num_windows},
-                                      regexp=True)
-    """
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
     result = px.run_on_simulator_(  binary,
