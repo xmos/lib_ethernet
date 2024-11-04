@@ -21,7 +21,7 @@ with open(Path(__file__).parent / "test_avb_traffic/test_params.json") as f:
 debug_fill = 0 # print extra debug information
 
 def choose_data_size(rand, data_len_min, data_len_max):
-    return rand.randint(data_len_min, data_len_max)
+    return rand.randint(int(data_len_min), int(data_len_max))
 
 def get_min_packet_time(bit_time):
     preamble_bytes = 8
@@ -99,12 +99,12 @@ class PacketFiller:
         
         while gap_size > self.min_packet_time:
 
-            if (rand.randint(0, self.total_weight_tag) < self.weight_tagged):
-                tag = [0x81, 0x00, rand.randint(0,0xff), rand.randint(0, 0xff)]
+            if (rand.randint(0, int(self.total_weight_tag)) < self.weight_tagged):
+                tag = [0x81, 0x00, rand.randint(0, 0xff), rand.randint(0, 0xff)]
             else:
                 tag = None
 
-            mac_choice = rand.randint(0, self.total_weight_tc - 1)
+            mac_choice = rand.randint(0, int(self.total_weight_tc - 1))
             if (mac_choice < self.weight_none):
                 dst_mac_addr = self.none_mac_address
             elif (mac_choice < self.weight_none + self.weight_lp):
@@ -114,8 +114,8 @@ class PacketFiller:
 
             frame_size = choose_data_size(rand, self.data_len_min, self.data_len_max)
             
-            if (rand.randint(0,100) > 30):
-                burst_len = rand.randint(1,20)
+            if (rand.randint(0, 100) > 30):
+                burst_len = rand.randint(1, 20)
             else:
                 burst_len = 1
 
@@ -161,7 +161,7 @@ class PacketFiller:
                     ifg += packet_time
                 else:
                     packets.append(packet)
-                    ifg = rand.randint(min_ifg, 2 * min_ifg)
+                    ifg = rand.randint(int(min_ifg), int(2 * min_ifg))
 
                 if debug_fill:
                     print(f"filled {packet.inter_frame_gap} {packet_time} {gap_size} {packet_type}")
@@ -179,10 +179,9 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxsize))
+    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, int(sys.maxsize)))
 
     testname = 'test_avb_traffic'
-    level = 'nightly'
 
     binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
         test=testname, mac=mac, phy=tx_phy.get_name())
@@ -201,14 +200,14 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
     filler = PacketFiller(weight_none, weight_lp, weight_other, weight_tagged, weight_untagged,
                           data_len_min, data_len_max, bit_time)
 
-    window_size = 125000 * 1e6
+    window_size = 125000 * 1e6 # in xsim fs units
     
     min_ifg = 96 * bit_time
     last_packet_end = 0
     ifg = 0
     for window in range(num_windows):
         # Randomly place the streams in the 125us window
-        packet_start_times = sorted([rand.randint(0, window_size) for x in range(num_avb_streams)])
+        packet_start_times = sorted([rand.randint(0, int(window_size)) for x in range(num_avb_streams)])
 
         if debug_fill:
             print(f"Window {window} - times {packet_start_times}")
@@ -229,7 +228,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
                 inter_frame_gap=ifg)
             stream_seq_id[stream] += 1
             packets.append(avb_packet)
-            ifg = rand.randint(min_ifg, 2 * min_ifg)
+            ifg = rand.randint(int(min_ifg), int(2 * min_ifg))
 
             packet_time = avb_packet.get_packet_time(bit_time)
 
@@ -277,7 +276,7 @@ def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
 def test_avb_traffic(capfd, params):
-    seed=1
+    seed =1 
 
     if args.data_len_max < args.data_len_min:
         print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(
