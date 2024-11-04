@@ -10,8 +10,17 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 
-args = SimpleNamespace(trace=False) # Set to True to enable VCD and instruction tracing for debug.
-# Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
+args = SimpleNamespace( trace=False, # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
+                        num_packets=100, # Number of packets in the test
+                        weight_hp=50, # Weight of high priority traffic
+                        weight_lp=25, # Weight of low priority traffic
+                        weight_other=25, # Weight of other (dropped) traffic
+                        data_len_min=46, # Minimum packet data bytes
+                        data_len_max=500, # Maximum packet data bytes
+                        weight_tagged=50, # Weight of VLAN tagged traffic'
+                        weight_untagged=50, # Weight of non-VLAN tagged traffic
+                        max_hp_mbps=1000, # The maximum megabits per second
+                        )
 
 def create_if_needed(folder):
     if not os.path.exists(folder):

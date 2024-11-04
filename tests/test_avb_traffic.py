@@ -18,7 +18,7 @@ from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, 
 with open(Path(__file__).parent / "test_tx/test_params.json") as f:
     params = json.load(f)
 
-debug_fill = 0
+debug_fill = 0 # print extra debug information
 
 def choose_data_size(rand, data_len_min, data_len_max):
     return rand.randint(data_len_min, data_len_max)
@@ -57,7 +57,7 @@ class RxLpControl(px.SimThread):
 
             # Create a high pulse
             xsi.drive_port_pins(self._rx_lp_ctl, 1)
-            self.wait_until(xsi.get_time() + 100)
+            self.wait_until(xsi.get_time() + 100 * 1e6)
             xsi.drive_port_pins(self._rx_lp_ctl, 0)
 
 
@@ -169,7 +169,7 @@ class PacketFiller:
         return (last_packet_end, ifg)
 
 
-def do_test(mac, tx_clk, tx_phy, seed,
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
             num_windows=10, num_avb_streams=12, num_avb_data_bytes=400,
             weight_none=50, weight_lp=50, weight_other=50,
             data_len_min=46, data_len_max=500,
@@ -179,7 +179,7 @@ def do_test(mac, tx_clk, tx_phy, seed,
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxint))
+    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxsize))
 
     testname = 'test_avb_traffic'
     level = 'nightly'
@@ -187,7 +187,8 @@ def do_test(mac, tx_clk, tx_phy, seed,
     binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
         test=testname, mac=mac, phy=tx_phy.get_name())
 
-    print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
+    with capfd.disabled():
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
 
     stream_mac_addresses = {}
     stream_seq_id = {}
@@ -245,19 +246,20 @@ def do_test(mac, tx_clk, tx_phy, seed,
         
     tx_phy.set_packets(packets)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print("Running {w} windows of {s} AVB streams with {b} data bytes each").format(
-            w=num_windows, s=num_avb_streams, b=num_avb_data_bytes)
-        print("Sending {n} lp packets with {b} bytes hp data").format(
-            n=filler.lp_seq_id, b=filler.lp_data_bytes)
-        print("Sending {n} other packets with {b} bytes hp data").format(
-            n=filler.other_seq_id, b=filler.other_data_bytes)
+    # if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
+    #     print("Running {w} windows of {s} AVB streams with {b} data bytes each").format(
+    #         w=num_windows, s=num_avb_streams, b=num_avb_data_bytes)
+    #     print("Sending {n} lp packets with {b} bytes hp data").format(
+    #         n=filler.lp_seq_id, b=filler.lp_data_bytes)
+    #     print("Sending {n} other packets with {b} bytes hp data").format(
+    #         n=filler.other_seq_id, b=filler.other_data_bytes)
 
     expect_folder = create_if_needed("expect")
     expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
         folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
     create_expect(packets, expect_filename, num_windows, num_avb_streams, num_avb_data_bytes)
-    tester = xmostest.ComparisonTester(open(expect_filename),
+    tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
+    """
                                      'lib_ethernet', 'basic_tests', testname,
                                       {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(),
                                        'n_stream':num_avb_streams, 'b_p_stream':num_avb_data_bytes,
@@ -265,14 +267,17 @@ def do_test(mac, tx_clk, tx_phy, seed,
                                        'w_none':weight_none, 'w_lp':weight_lp, 'w_other':weight_other,
                                        'n_windows':num_windows},
                                       regexp=True)
-
-    tester.set_min_testlevel(level)
+    """
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[tx_clk, tx_phy, rxLpControl],
-                              tester=tester,
-                              simargs=simargs)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[tx_clk, tx_phy, rxLpControl],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd)
+
+    assert result is True, f"{result}"
 
 def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
     """ Create the expect file for what packets should be reported by the DUT
@@ -284,31 +289,28 @@ def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
         for i in range(num_streams):
             f.write("Stream {} received {} packets, {} bytes\n".format(
                 i, num_windows, stream_bytes))
-        f.write("Received \d+ lp bytes\n")
+        f.write("Received \\d+ lp bytes\n")
 
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-def test_avb_traffic(capfd, params, seed=False):
+def test_avb_traffic(capfd, params):
+    seed=1
 
     if args.data_len_max < args.data_len_min:
         print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(
         min=args.data_len_min, max=args.data_len_max)
         return
 
-    random.seed(1)
-    seed = seed if seed else random.randint(0, sys.maxsize)
-
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time=100000*1e6, test_ctrl='tile[0]:XS1_PORT_1C')
-
         do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=2, num_avb_data_bytes=200)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=100000*1e6)
-            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=12)
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, num_avb_streams=12)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=200000*1e6)
