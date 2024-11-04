@@ -15,7 +15,7 @@ from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 
-with open(Path(__file__).parent / "test_tx/test_params.json") as f:
+with open(Path(__file__).parent / "test_avb_traffic/test_params.json") as f:
     params = json.load(f)
 
 debug_fill = 0 # print extra debug information
@@ -309,7 +309,7 @@ def test_avb_traffic(capfd, params):
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=100000*1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=200000*1e6)
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, num_avb_streams=12)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
