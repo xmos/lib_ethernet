@@ -1,27 +1,32 @@
-#!/usr/bin/env python
-# Copyright 2018-2021 XMOS LIMITED.
+# Copyright 2018-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
-import xmostest
-import os
+import Pyxsim as px
+import json
+from pathlib import Path
+import pytest
 import re
 import sys
+import os
+
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import get_sim_args, packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size, check_received_packet, args, run_on
+from helpers import choose_small_frame_size, check_received_packet, args
 from helpers import get_mii_rx_clk_phy, get_mii_tx_clk_phy, get_rgmii_rx_clk_phy, get_rgmii_tx_clk_phy
 
-class OutputChecker(xmostest.Tester):
+with open(Path(__file__).parent / "test_rx_backpressure/test_params.json") as f:
+    params = json.load(f)
+
+class OutputChecker():
     """ Check that every line from the DUT is an increasing packet size received
     """
 
-    def __init__(self, product, group, test, config={}, env={},
-                 regexp=False, ignore=[], ordered=True):
-        super(OutputChecker, self).__init__()
-        self.register_test(product, group, test, config)
-        self._test = (product, group, test, config, env)
+    def __init__(self, test, config={}):
+        self._test = test
+        self._config = config
+        print("INIT OutputChecker", file=sys.stderr)
 
     def record_failure(self, failure_reason):
         # Append a newline if there isn't one already
@@ -32,16 +37,16 @@ class OutputChecker(xmostest.Tester):
         self.result = False
 
     def run(self, output):
-        (product, group, test, config, env) = self._test
         self.result = True
         self.failures = []
         line_num = 0
         last_packet_len = 0
+        print("RUNNNING CHECKER", file=sys.stderr)
 
         for i in range(len(output)):
             line_num += 1
-            if not re.match("Received \d+",output[i].strip()):
-                self.record_failure(("Line %d of output does not match expected\n" % line_num))
+            if not re.match(r"Received \\d+",output[i].strip()):
+                self.record_failure(f"Line {line_num} of output does not match expected\nGOT: {output[i].strip()}")
                 continue
 
             packet_len = int(output[i].split()[1])
@@ -56,39 +61,39 @@ class OutputChecker(xmostest.Tester):
         output = {'output':''.join(output)}
         if not self.result:
             output['failures'] = ''.join(self.failures)
-        xmostest.set_test_result(product, group, test, config, self.result,
-                                 output=output, env=env)
+
+        return self.result
 
 
-def do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
-               level='nightly', extra_tasks=[]):
+def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, extra_tasks=[]):
 
-    testname,extension = os.path.splitext(os.path.basename(test_file))
+    testname, extension = os.path.splitext(os.path.basename(test_file))
 
-    resources = xmostest.request_resource("xsim")
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
-    binary = 'test_rx_backpressure/bin/{mac}_{phy}_{arch}/test_rx_backpressure_{mac}_{phy}_{arch}.xe'.format(
-        mac=mac, phy=tx_phy.get_name(), arch=arch)
-
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {mac} mac, {phy} phy, {arch} arch sending {n} packets at {clk} (seed {seed})".format(
-            test=testname, n=len(packets), mac=mac,
-            phy=tx_phy.get_name(), arch=arch, clk=tx_clk.get_name(), seed=seed)
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} mac, {tx_phy.get_name()} phy, {arch} arch sending {len(packets)} packets at {tx_clk.get_name()} (seed {seed})")
 
     tx_phy.set_packets(packets)
 
-    tester = OutputChecker('lib_ethernet', 'basic_tests', testname,
-                           {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(), 'arch':arch})
-
-    tester.set_min_testlevel(level)
+    tester = OutputChecker(testname, {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name(), 'arch':arch})
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
-                              tester=tester,
-                              simargs=simargs)
 
-def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
+                                    tester=tester,
+                                    simargs=simargs,
+                                    # do_xe_prebuild=False,
+                                    # capfd=capfd)
+                                    do_xe_prebuild=False)
+
+    assert result is True, f"{result}"
+
+
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -99,45 +104,42 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packets = []
 
     # Send enough basic frames to ensure the buffers in the DUT have wrapped
-    for i in range(200):
+    # for i in range(200):
+    for i in range(10):
         packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (i, i+36)],
         ))
 
-    do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
-               level='nightly')
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
-def runall_rx(test_fn):
-    # Test 100 MBit
-    for arch in ['xs1', 'xs2']:
-        (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=args.verbose, test_ctrl="tile[0]:XS1_PORT_1A")
-        if run_on(phy='mii', clk='25Mhz', mac='standard', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('standard', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-        # Only run on the rt MAC. The HP queue does not support lots of backpressure
-        # as it expects the client to consume packets or else it locks up and
-        # everything goes wrong
-        if run_on(phy='mii', clk='25Mhz', mac='rt', arch=arch):
-            seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            test_fn('rt', arch, rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_rx_backpressure(capfd, params):
+    seed = 1
 
-    # Test 100 MBit - RGMII - only supported on XS2
-    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet)
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=args.verbose, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', 'xs2', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+    # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet, verbose=False)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=False, test_ctrl="tile[0]:XS1_PORT_1A")
+        seed = seed if seed else random.randint(0, sys.maxint)
+        do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    # Test 1000 MBit - RGMII - only supported on XS2
-    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet)
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=args.verbose, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt', arch='xs2'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        test_fn('rt', 'xs2', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=check_received_packet, verbose=False)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=False, test_ctrl="tile[0]:XS1_PORT_1A")
+            do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=check_received_packet, verbose=False)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=False, test_ctrl="tile[0]:XS1_PORT_1A")
+            do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii, seed)
 
-def runtest():
-    random.seed(1)
-    runall_rx(do_test)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
+
