@@ -183,8 +183,9 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
 
     testname = 'test_avb_traffic'
 
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
     with capfd.disabled():
         print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
@@ -276,7 +277,7 @@ def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
 def test_avb_traffic(capfd, params):
-    seed =1 
+    seed = 1 
 
     if args.data_len_max < args.data_len_min:
         print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(

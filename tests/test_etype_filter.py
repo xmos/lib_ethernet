@@ -1,30 +1,36 @@
-#!/usr/bin/env python
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
-import xmostest
 import os
-import random
 import sys
+import json
+from pathlib import Path
+import pytest
+import Pyxsim as px
+import random
+
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
-from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, run_on
+from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 
-def do_test(mac, tx_clk, tx_phy):
-    resources = xmostest.request_resource("xsim")
+with open(Path(__file__).parent / "test_etype_filter/test_params.json") as f:
+    params = json.load(f)
 
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     testname = 'test_etype_filter'
 
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
-
-    print "Running {test}: {phy} phy at {clk}".format(
-        test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
-
     rand = random.Random()
+    rand.seed(seed)
+
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
+
+    with capfd.disabled():
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}")
 
     dut_mac_address = get_dut_mac_address()
     packets = [
@@ -36,33 +42,39 @@ def do_test(mac, tx_clk, tx_phy):
 
     tx_phy.set_packets(packets)
 
-    tester = xmostest.ComparisonTester(open('test_etype_filter.expect'),
-                                     'lib_ethernet', 'basic_tests', testname,
-                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
+    tester = px.testers.ComparisonTester(open('test_etype_filter.expect'), ordered=False)
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
-    tester.set_min_testlevel('nightly')
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[tx_clk, tx_phy],
-                              tester=tester,
-                              simargs=simargs)
 
-def runtest():
-    random.seed(1)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[tx_clk, tx_phy],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd)
 
-    # Test 100 MBit - MII
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='mii', clk='25Mhz', mac='standard'):
-        do_test('standard', tx_clk_25, tx_mii)
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
-        do_test('rt', tx_clk_25, tx_mii)
+    assert result is True, f"{result}"
 
-    # Test 100 MBit - RGMII
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
-        do_test('rt', tx_clk_25, tx_rgmii)
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_etype_filter(capfd, params):
+    seed = 1
 
-    # Test 1000 MBit - RGMII
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-        do_test('rt', tx_clk_125, tx_rgmii)
+      # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
+        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed)
+
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
+            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
