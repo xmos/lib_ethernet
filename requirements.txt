@@ -21,6 +21,7 @@
 flake8==7.0.0
 pytest==8.2.2
 pytest-xdist==3.6.1
+filelock==3.16.1
 
 # Development dependencies
 #

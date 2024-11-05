@@ -5,6 +5,7 @@ import random
 import sys
 from types import SimpleNamespace
 import Pyxsim as px
+from filelock import FileLock
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -23,9 +24,12 @@ args = SimpleNamespace( trace=False, # Set to True to enable VCD and instruction
                         )
 
 def create_if_needed(folder):
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    return folder
+    lock_path = f"{folder}.lock"
+    # xdist can cause race conditions so use a lock
+    with FileLock(lock_path):
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        return folder
 
 # A set of functions to create the clock and phy for tests. This set of functions
 # contains all the port mappings for the different phys.
