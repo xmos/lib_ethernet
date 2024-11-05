@@ -101,6 +101,12 @@ int main()
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
 
+    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
+    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
+    on tile[0]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
+    on tile[0]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+
+
     #else // RGMII
 
     #if RT
@@ -115,6 +121,12 @@ int main()
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);
     on tile[0]: filler(0x77);
 
+    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
+    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
+    on tile[1]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
+    on tile[1]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+
+
     #else
 
     on tile[0]: mii_ethernet_mac(i_cfg, NUM_CFG_IF,
@@ -127,13 +139,13 @@ int main()
                                  1600);
     on tile[0]: filler(0x44);
 
-    #endif // RT
-    #endif // RGMII
-
     on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
     on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
-    on tile[RT]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
-    on tile[RT]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+    on tile[1]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
+    on tile[1]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+
+    #endif // RT
+    #endif // RGMII
 
     on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
