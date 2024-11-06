@@ -27,3 +27,4 @@ python/lib_ethernet.egg-info
 tests/logs
 tests/expect
 *.lock
+tests/*.xml

@@ -1,16 +1,23 @@
-#!/usr/bin/env python
-# Copyright 2015-2021 XMOS LIMITED.
+# Copyright 2015-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import xmostest
+import random
+import copy
+import pytest
+from pathlib import Path
+import json
+import Pyxsim as px
 import os
-import sys
+
 from mii_clock import Clock
 from mii_phy import MiiReceiver
 from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
-from helpers import get_sim_args, run_on, create_if_needed, args
+from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+
+with open(Path(__file__).parent / "test_shaper/test_params.json") as f:
+    params = json.load(f)
 
 high_priority_mac_addr = [0, 1, 2, 3, 4, 5]
 
@@ -22,14 +29,13 @@ def packet_checker(packet, phy):
         done = phy.timeout_monitor.packet_received()
         if done:
             if phy.n_hp_packets >= phy.n_lp_packets:
-                print "ERROR: Only {} low priority packets received vs {} high priority".format(
-                    phy.n_lp_packets, phy.n_hp_packets)
+                print(f"ERROR: Only {phy.n_lp_packets} low priority packets received vs {phy.n_hp_packets} high priority")
             phy.xsi.terminate()
     else:
         phy.n_lp_packets += 1
 
 
-class TimeoutMonitor(xmostest.SimThread):
+class TimeoutMonitor(px.pyxsim.SimThreadImpl):
 
     def __init__(self, initial_delay, packet_period, expect_count, verbose):
         self._seen_packets = 0
@@ -44,16 +50,16 @@ class TimeoutMonitor(xmostest.SimThread):
 
         self._packet_count += 1
         self._seen_packets += 1
-        print "{}: Received HP packet {}".format(xsi.get_time(), self._packet_count)
+        print(f"{xsi.get_time()}: Received HP packet {self._packet_count}")
         if self._verbose:
-            print "{}: seen_packets {}".format(xsi.get_time(), self._seen_packets)
+            print(f"{xsi.get_time()}: seen_packets {self._seen_packets}")
 
         if self._seen_packets > 2:
-            print "ERROR: More than 2 packets seen in time period"
+            print("ERROR: More than 2 packets seen in time period")
             return True
 
         if self._packet_count == self._expect_count:
-            print "DONE"
+            print("DONE")
             return True
 
         return False
@@ -68,25 +74,21 @@ class TimeoutMonitor(xmostest.SimThread):
             self._seen_packets -= 1
 
             if self._verbose:
-                print "{}: seen_packets {}".format(xsi.get_time(), self._seen_packets)
+                print("{xsi.get_time()}: seen_packets {self._seen_packets}")
 
             if self._seen_packets < -1:
-                print "ERROR: More than 2 periods without packets seen"
+                print("ERROR: More than 2 periods without packets seen")
                 xsi.terminate()
 
 
-def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
-    resources = xmostest.request_resource("xsim")
-
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_shaper'
 
-    level = 'nightly'
-    binary = '{test}/bin/{phy}_{clk}/{test}_{phy}_{clk}.xe'.format(
-        test=testname, phy=rx_phy.get_name(), clk=rx_clk.get_name())
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {phy} phy at {clk}".format(
-            test=testname, phy=rx_phy.get_name(), clk=rx_clk.get_name())
+    print("Running {testname}: {rx_phy.get_name()} phy at {x_clk.get_name()}")
 
     # MAC request 1MB/s
     slope = 5 * 1024 * 1024
@@ -100,10 +102,12 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
     packets_per_second = slope / (packet_bytes * 8)
     packet_period = 1000000000 / packets_per_second
 
-    print "Running with {n} byte packets, {b} bps requested, packet preiod {p} ns".format(
-        n=data_bytes, b=slope, p=packet_period)
+    with capfd.disabled():
+        print("Running with {data_bytes} byte packets, {slope} bps requested, packet preiod {packet_period} ns")
+
+    verbose = True
     num_expected_packets = 30
-    timeout_monitor = TimeoutMonitor(20000, packet_period, num_expected_packets, args.verbose)
+    timeout_monitor = TimeoutMonitor(20000, packet_period, num_expected_packets, verbose)
     rx_phy.timeout_monitor = timeout_monitor
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0
@@ -112,25 +116,29 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
     expect_filename = '{folder}/{test}_{phy}_{clk}.expect'.format(
         folder=expect_folder, test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
     create_expect(expect_filename, num_expected_packets)
-    tester = xmostest.ComparisonTester(open(expect_filename),
-                                       'lib_ethernet', 'basic_tests', testname,
-                                       {'phy':rx_phy.get_name(), 'clk':rx_clk.get_name()},
-                                       regexp=True)
-
-    tester.set_min_testlevel(level)
+    tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
+
     if rx_phy.get_name() == 'rgmii' and rx_clk.get_name() == '125Mhz':
-        xmostest.run_on_simulator(resources['xsim'], binary,
-                                  simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
-                                  tester=tester,
-                                  simargs=simargs,
-                                  timeout=1200)
+        result = px.run_on_simulator_(  binary,
+                                        simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
+                                        tester=tester,
+                                        simargs=simargs,
+                                        do_xe_prebuild=False,
+                                        capfd=capfd,
+                                        timeout=1200)
     else:
-        xmostest.run_on_simulator(resources['xsim'], binary,
-                                  simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
-                                  tester=tester,
-                                  simargs=simargs)
+        result = px.run_on_simulator_(  binary,
+                                        simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
+                                        tester=tester,
+                                        simargs=simargs,
+                                        do_xe_prebuild=False,
+                                        capfd=capfd)
+
+
+    assert result is True, f"{result}"
+
 
 def create_expect(filename, num_expected_packets):
     """ Create the expect file for what packets should be reported by the DUT
@@ -140,25 +148,33 @@ def create_expect(filename, num_expected_packets):
             f.write("\d+.0: Received HP packet {}\n".format(i + 1))
         f.write("DONE\n")
 
-def runtest():
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_rx_err(capfd, params):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
 
-    # Test 100 MBit - MII
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, verbose=args.verbose)
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
-        do_test('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+    verbose = False
 
-    # Test 100 MBit - RGMII
-    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
-                                                 verbose=args.verbose)
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
-        do_test('rt', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+    # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, verbose=verbose)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
+        do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
-    # Test 1000 MBit - RGMII
-    (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker,
-                                                  verbose=args.verbose)
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-        do_test('rt', rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, verbose=verbose)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
+            do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, verbose=verbose)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
+            do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
+
+
