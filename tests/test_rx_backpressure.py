@@ -41,17 +41,16 @@ class OutputChecker():
         self.failures = []
         line_num = 0
         last_packet_len = 0
-        print("RUNNNING CHECKER", file=sys.stderr)
 
         for i in range(len(output)):
             line_num += 1
-            if not re.match(r"Received \\d+",output[i].strip()):
-                self.record_failure(f"Line {line_num} of output does not match expected\nGOT: {output[i].strip()}")
+            if not re.match(r"Received \d+",output[i].strip()):
+                self.record_failure(f"Line {line_num} of output does not match expected, got:\n{output[i].strip()}")
                 continue
 
             packet_len = int(output[i].split()[1])
             if packet_len <= last_packet_len:
-                self.record_failure(("Line %d of output contains invalid packet size %d\n" % (line_num, packet_len)))
+                self.record_failure("Line {line_num} of output contains invalid packet size {packet_len} (last size: {last_packet_len})\n")
                 continue
 
             last_packet_len = packet_len
@@ -86,9 +85,9 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
                                     simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
                                     tester=tester,
                                     simargs=simargs,
-                                    # do_xe_prebuild=False,
-                                    # capfd=capfd)
-                                    do_xe_prebuild=False)
+                                    do_xe_prebuild=False,
+                                    capfd=capfd)
+                                    # do_xe_prebuild=False)
 
     assert result is True, f"{result}"
 
@@ -104,8 +103,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packets = []
 
     # Send enough basic frames to ensure the buffers in the DUT have wrapped
-    # for i in range(200):
-    for i in range(10):
+    for i in range(200):
         packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (i, i+36)],

@@ -6,6 +6,7 @@ import sys
 from types import SimpleNamespace
 import Pyxsim as px
 from filelock import FileLock
+import pytest
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -85,7 +86,9 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
     seed = seed if seed else random.randint(0, sys.maxsize)
 
     # Test 100 MBit - MII XS2
-    if params["phy"] == "mii" and not exclude_standard:
+    if params["phy"] == "mii":
+        if exclude_standard and params["mac"] == "standard":
+            pytest.skip()
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet)
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=verbose)
         test_fn(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
@@ -110,7 +113,7 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
 
 
 def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
-               level='nightly', extra_tasks=[]):
+               extra_tasks=[], override_dut_dir=False):
 
     """ Shared test code for all RX tests using the test_rx application.
     """
@@ -121,7 +124,8 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     capfd.readouterr() # clear capfd buffer
 
     profile = f'{mac}_{tx_phy.get_name()}'
-    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    dut_dir = override_dut_dir if override_dut_dir else testname
+    binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
     assert os.path.isfile(binary)
 
     tx_phy.set_packets(packets)

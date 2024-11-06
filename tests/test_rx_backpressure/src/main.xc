@@ -24,7 +24,8 @@ port p_ctrl = on tile[0]: XS1_PORT_1A;
 
 #define N_BACKPRESSURE_DELAYS 1
 const int backpressure_ticks[N_BACKPRESSURE_DELAYS] = {
-  100000
+  // 100000
+  1000
 };
 
 
