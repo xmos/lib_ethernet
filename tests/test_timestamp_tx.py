@@ -15,7 +15,7 @@ from helpers import get_sim_args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 
-with open(Path(__file__).parent / "test_shaper/test_params.json") as f:
+with open(Path(__file__).parent / "test_timestamp_tx/test_params.json") as f:
     params = json.load(f)
 
 def packet_checker(packet, phy):
