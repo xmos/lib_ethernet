@@ -1,15 +1,20 @@
-#!/usr/bin/env python
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
 import copy
 from mii_packet import MiiPacket
-from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size, check_received_packet, runall_rx
 from mii_clock import Clock
+from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
+from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
+import pytest
+from pathlib import Path
+import json
 
-def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+with open(Path(__file__).parent / "test_rx/test_params.json") as f:
+    params = json.load(f)
+
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -64,8 +69,10 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx")
 
-def runtest():
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_4_1_8(params, capfd):
     random.seed(18)
-    runall_rx(do_test)
+    # Issue #29 - the standard MII layer doesn't detect invalid SFDs
+    run_parametrised_test_rx(capfd, do_test, params)
