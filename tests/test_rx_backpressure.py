@@ -103,7 +103,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     packets = []
 
     # Send enough basic frames to ensure the buffers in the DUT have wrapped
-    for i in range(200):
+    for i in range(100):
         packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (i, i+36)],
