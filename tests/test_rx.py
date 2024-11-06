@@ -78,8 +78,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     error_driver = TxError(tx_phy, do_error)
 
-    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed,
-               level='smoke', extra_tasks=[error_driver])
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, extra_tasks=[error_driver])
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
 def test_rx(capfd, params):
