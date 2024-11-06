@@ -139,8 +139,8 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     tester = px.testers.ComparisonTester(open(expect_filename))
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
-    with capfd.disabled():
-        print(f"simargs {simargs}\n bin: {binary}")
+    # with capfd.disabled():
+    #     print(f"simargs {simargs}\n bin: {binary}")
     result = px.run_on_simulator_(  binary,
                                     simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
                                     tester=tester,
