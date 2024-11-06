@@ -1,33 +1,38 @@
-#!/usr/bin/env python
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
-import xmostest
+import Pyxsim as px
 import os
 import random
 import sys
+from pathlib import Path
+import json
+import pytest
+
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
-from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, run_on, args
+from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, args
 from helpers import get_rgmii_tx_clk_phy
 
-def do_test(mac, tx_clk, tx_phy, seed):
+
+with open(Path(__file__).parent / "test_time_rx/test_params.json") as f:
+    params = json.load(f)
+
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
-    resources = xmostest.request_resource("xsim")
     testname = 'test_time_rx'
-    level = 'nightly'
 
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {phy} phy at {clk} (seed {seed})".format(
-            test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy at {tx_clk.get_name()}")
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
@@ -64,24 +69,26 @@ def do_test(mac, tx_clk, tx_phy, seed):
 
     tx_phy.set_packets(packets)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Sending {n} packets with {b} bytes at the DUT".format(n=len(packets), b=num_data_bytes)
+    with capfd.disabled():
+        print(f"Sending {len(packets)} packets with {num_data_bytes} bytes at the DUT")
 
     expect_folder = create_if_needed("expect")
     expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
         folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
     create_expect(packets, expect_filename)
-    tester = xmostest.ComparisonTester(open(expect_filename),
-                                     'lib_ethernet', 'basic_tests', testname,
-                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()})
-
-    tester.set_min_testlevel('nightly')
+    tester = px.testers.ComparisonTester(open(expect_filename))
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[tx_clk, tx_phy],
-                              tester=tester,
-                              simargs=simargs)
+
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[tx_clk, tx_phy],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    capfd=capfd,
+                                    do_xe_prebuild=False)
+
+    assert result is True, f"{result}"
+
 
 def create_expect(packets, filename):
     """ Create the expect file for what packets should be reported by the DUT
@@ -94,34 +101,29 @@ def create_expect(packets, filename):
                 num_bytes += len(packet.get_packet_bytes())
                 num_packets += 1
         f.write("Received {} packets, {} bytes\n".format(num_packets, num_bytes))
-    
-def runtest():
-    random.seed(1)
 
-    # Test 100 MBit - MII
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', verbose=args.verbose)
-    if run_on(phy='mii', clk='25Mhz', mac='standard'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('standard', tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', tx_clk_25, tx_mii, seed)
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_time_rx(capfd, params):
+    verbose = False
+    seed = random.randint(0, sys.maxsize)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt_hp'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt_hp', tx_clk_25, tx_mii, seed)
+    # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=verbose, test_ctrl='tile[0]:XS1_PORT_1C')
+        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed)
 
-    # Test 100 MBit - RGMII
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C',
-                                                 verbose=args.verbose)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', tx_clk_25, tx_rgmii, seed)
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=verbose, test_ctrl='tile[0]:XS1_PORT_1C')
+            do_test(capfd, params["mac"], params["arch"],tx_clk_25, tx_rgmii, seed)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            # The RGMII application cannot keep up with line-rate gigabit data
+            pytest.skip()
+        else:
+            assert 0, f"Invalid params: {params}"
 
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt_hp', tx_clk_25, tx_rgmii, seed)
-
-    # Test 1000 MBit - RGMII
-    # The RGMII application cannot keep up with line-rate gigabit data
+    else:
+        assert 0, f"Invalid params: {params}"

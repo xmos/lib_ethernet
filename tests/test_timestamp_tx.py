@@ -43,7 +43,6 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-
     with capfd.disabled():
         print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()}")
 
@@ -57,6 +56,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
                                     simargs=simargs,
                                     capfd=capfd,
                                     do_xe_prebuild=False)
+
+    assert result is True, f"{result}"
 
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
