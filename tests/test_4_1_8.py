@@ -74,5 +74,4 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
 def test_4_1_8(params, capfd):
     random.seed(18)
-    # Issue #29 - the standard MII layer doesn't detect invalid SFDs
     run_parametrised_test_rx(capfd, do_test, params)
