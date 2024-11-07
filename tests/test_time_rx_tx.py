@@ -1,18 +1,26 @@
-#!/usr/bin/env python
-# Copyright 2015-2021 XMOS LIMITED.
+# Copyright 2015-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
-import xmostest
+import Pyxsim as px
 import os
 import random
 import sys
+from pathlib import Path
+import json
+import pytest
+import subprocess
+
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
-from helpers import do_rx_test, get_dut_mac_address, check_received_packet, run_on, args
+from helpers import do_rx_test, get_dut_mac_address, check_received_packet, args
 from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, get_mii_rx_clk_phy
 from helpers import get_rgmii_tx_clk_phy, get_rgmii_rx_clk_phy
+
+
+with open(Path(__file__).parent / "test_time_rx_tx/test_params.json") as f:
+    params = json.load(f)
 
 tx_complete = False
 rx_complete = False
@@ -76,33 +84,39 @@ def packet_checker(packet, phy):
             phy.xsi.terminate()
 
     else:
-        print "Packet {} received; bytes: {}, ifg: {} => {:.2f} Mb/s, efficiency {:.2f}%".format(
-            phy.num_packets, num_packet_bytes, packet.get_ifg(), mega_bits_per_second, efficiency)
+        print(f"Packet {phy.num_packets} received; bytes: {num_packet_bytes}, ifg: {packet.get_ifg():.2f} => {mega_bits_per_second:.2f} Mb/s, efficiency {efficiency:.2f}%")
 
         if phy.num_packets == num_test_packets:
             rx_complete = True
 
 
-def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
-    start_test(rx_phy)
+def build_xccm(testname, config):
+    result = subprocess.run('cmake -B build -G "Unix Makefiles"', shell=True, cwd=testname)
+    result.check_returncode()
+    result = subprocess.run(f'xmake -j 8 -C build {config}', shell=True, cwd=testname)
+    result.check_returncode()
+    
 
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
+    start_test(rx_phy) # setup globs used in checkers
 
     # Generate an include file to define the seed
     with open(os.path.join("include", "seed.inc"), "w") as f:
         f.write("#define SEED {}".format(seed))
 
-    resources = xmostest.request_resource("xsim")
     testname = 'test_time_rx_tx'
-    level = 'nightly'
 
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
+    profile = f'{mac}_{tx_phy.get_name()}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    with capfd.disabled():
+        build_xccm(testname, profile)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: {phy} phy at {clk} (seed {seed})".format(
-            test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed)
+    assert os.path.isfile(binary)
+
+    with capfd.disabled():
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
@@ -136,32 +150,31 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     tx_phy.set_packets(packets)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Sending {n} packets with {b} bytes at the DUT".format(n=len(packets), b=num_data_bytes)
+    with capfd.disabled():
+        print(f"Sending {len(packets)} packets with {num_data_bytes} bytes at the DUT")
 
     expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac)
+    expect_filename = '{folder}/{test}_{mac}.expect'.format(folder=expect_folder, test=testname, mac=mac)
     create_expect(packets, expect_filename)
-    tester = xmostest.ComparisonTester(open(expect_filename),
-                                     'lib_ethernet', 'basic_tests', testname,
-                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()},
-                                      regexp=True)
-
-    tester.set_min_testlevel('nightly')
+    tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
-                              tester=tester,
-                              simargs=simargs)
+
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    capfd=capfd,
+                                    do_xe_prebuild=False)
+
+    assert result is True, f"{result}"
 
 def create_expect(packets, filename):
     """ Create the expect file for what packets should be reported by the DUT
     """
     with open(filename, 'w') as f:
         for i in range(num_test_packets):
-            f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0 => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
+            f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0+ => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
 
         num_bytes = 0
         num_packets = 0
@@ -171,35 +184,33 @@ def create_expect(packets, filename):
                 num_packets += 1
         f.write("Received {} packets, {} bytes\n".format(num_packets, num_bytes))
 
-def runtest():
-    random.seed(100)
 
-    # Test 100 MBit - MII
-    (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker,
-                                             test_ctrl=test_ctrl)
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete,
-                                             verbose=args.verbose, dut_exit_time=200000)
-    if run_on(phy='mii', clk='25Mhz', mac='standard'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('standard', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    if run_on(phy='mii', clk='25Mhz', mac='rt_hp'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt_hp', rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_time_rx_tx(capfd, params):
+    seed = 100
+    verbose = False
 
-    # Test 100 MBit - RGMII
-    (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker,
-                                                 test_ctrl=test_ctrl)
-    (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False,
-                                                 complete_fn=set_tx_complete, verbose=args.verbose,
-                                                 dut_exit_time=200000)
-    if run_on(phy='rgmii', clk='25Mhz', mac='rt_hp'):
-        seed = args.seed if args.seed else random.randint(0, sys.maxint)
-        do_test('rt_hp', rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+      # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl=test_ctrl)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=200000 * 1e6)
+        do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
-    # Test 1000 MBit - RGMII
-    # The RGMII application cannot keep up with line-rate gigabit data
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl=test_ctrl)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=200000 * 1e6)
+            do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            # The RGMII application cannot keep up with line-rate gigabit data
+            pytest.skip()
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"
+

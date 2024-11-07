@@ -12,3 +12,4 @@ add_subdirectory(test_rx_backpressure)
 add_subdirectory(test_shaper)
 add_subdirectory(test_time_rx)
 add_subdirectory(test_timestamp_tx)
+# add_subdirectory(test_time_rx_tx) # This test is built in pytest as we autogen the seed file 
