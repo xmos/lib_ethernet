@@ -9,6 +9,8 @@ from pathlib import Path
 import json
 import pytest
 import subprocess
+from filelock import FileLock
+import re
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -72,7 +74,7 @@ def packet_checker(packet, phy):
 
             # Allow time for the end of the packet to be received by the application
             # before signalling the end of the test
-            phy.xsi._wait_until(phy.xsi.get_time() + 20000)
+            phy.xsi._wait_until(phy.xsi.get_time() + 20000 * 1e6)
 
             # Indicate to the DUT receiver to print the byte count
             phy.xsi.drive_port_pins(test_ctrl, 1)
@@ -80,7 +82,7 @@ def packet_checker(packet, phy):
                 phy.end_time = phy.xsi.get_time()
 
             # Allow time for the byte count to be printed
-            phy.xsi._wait_until(phy.end_time + 50000)
+            phy.xsi._wait_until(phy.end_time + 50000 * 1e6)
             phy.xsi.terminate()
 
     else:
@@ -91,10 +93,49 @@ def packet_checker(packet, phy):
 
 
 def build_xccm(testname, config):
-    result = subprocess.run('cmake -B build -G "Unix Makefiles"', shell=True, cwd=testname)
-    result.check_returncode()
-    result = subprocess.run(f'xmake -j 8 -C build {config}', shell=True, cwd=testname)
-    result.check_returncode()
+    lock_path = f"{testname}.lock"
+    # xdist can cause race conditions so use a lock
+    with FileLock(lock_path):
+        result = subprocess.run('cmake -B build -G "Unix Makefiles"', shell=True, cwd=testname)
+        result.check_returncode()
+        result = subprocess.run(f'xmake -j 8 -C build {config}', shell=True, cwd=testname)
+        result.check_returncode()
+
+
+# I had problems with the comparison tester putting a newline in the expected regex so wrote custom one and replaced create_expect
+class mytester:
+    def __init__(self, packets):
+        num_bytes = 0
+        num_packets = 0
+        for i,packet in enumerate(packets):
+            if not packet.dropped:
+                num_bytes += len(packet.get_packet_bytes())
+                num_packets += 1
+
+        self.num_packets = num_packets
+        self.num_bytes = num_bytes
+
+    def run(self, output):
+        result = True
+
+        expected_line_0 = f"Received {self.num_packets} packets, {self.num_bytes} bytes"
+        match = re.match(expected_line_0, output[0].strip())
+        if not match:
+            result = False
+            sys.stderr.write(f"Line 0 expected:\n `{expected_line_0}`\n got:\n `{output[0].strip()}`\n")
+
+        exected_other_lines = r"Packet \d+ received; bytes: \d+, ifg: \d+.0+ => \d+.\d+ Mb/s, efficiency \d+.\d+%"
+        if self.num_packets > len(output) + 1:
+            sys.stderr.write(f"Unexpectedly short output:\n `{output[1:]}`\n")
+            return False
+        for line_num in range(1, 1 + self.num_packets):
+            match = re.match(exected_other_lines, output[line_num].strip())
+            if not match:
+                result = False
+                sys.stderr.write(f"Line {line_num} expected:\n `{exected_other_lines}`\n got:\n `{output[line_num].strip()}`\n")
+        
+        return result
+
     
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
@@ -153,38 +194,16 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     with capfd.disabled():
         print(f"Sending {len(packets)} packets with {num_data_bytes} bytes at the DUT")
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}.expect'.format(folder=expect_folder, test=testname, mac=mac)
-    create_expect(packets, expect_filename)
-    tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
-
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
 
     result = px.run_on_simulator_(  binary,
                                     simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
-                                    tester=tester,
+                                    tester=mytester(packets),
                                     simargs=simargs,
                                     capfd=capfd,
                                     do_xe_prebuild=False)
 
     assert result is True, f"{result}"
-
-def create_expect(packets, filename):
-    """ Create the expect file for what packets should be reported by the DUT
-    """
-    with open(filename, 'w') as f:
-        for i in range(num_test_packets):
-            f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0+ => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
-
-        num_bytes = 0
-        num_packets = 0
-        for i,packet in enumerate(packets):
-            if not packet.dropped:
-                num_bytes += len(packet.get_packet_bytes())
-                num_packets += 1
-        f.write("Received {} packets, {} bytes\n".format(num_packets, num_bytes))
-
-
 
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
