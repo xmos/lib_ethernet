@@ -106,8 +106,7 @@ class RxLpControl(px.SimThread):
             xsi.drive_port_pins(self._rx_lp_ctl, 0)
 
 
-def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
-            level='nightly',
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
             num_packets=200,
             weight_hp=50, weight_lp=50, weight_other=50,
             data_len_min=46, data_len_max=500,
@@ -216,10 +215,9 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
         print("Sending {n} other packets with {b} bytes hp data".format(n=other_seq_id, b=other_data_bytes))
 
     expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{test_id}.expect'
     create_expect(packets, expect_filename, hp_mac_address)
-    tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
+    tester = px.testers.ComparisonTester(open(expect_filename), regexp=True, ordered=False)
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
 
@@ -248,8 +246,9 @@ def create_expect(packets, filename, hp_mac_address):
     with open(filename, 'w') as f:
         num_bytes = 0
         f.write("Received {} hp bytes\n".format(num_bytes_hp))
-        f.write(r"LP client 1 received \d+ bytes\n")
-        f.write(r"LP client 2 received \d+ bytes\n")
+        f.write("LP client 1 received \\d+ bytes\n")
+        f.write("LP client 2 received \\d+ bytes\n")
+
 
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
@@ -265,56 +264,62 @@ def test_rx_queues(capfd, params):
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, verbose=verbose)
 
         # Test having every packet going to both LP receivers
-        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed,
-                num_packets=200,
-                weight_hp=0, weight_lp=100, weight_other=0,
-                data_len_min=46, data_len_max=46,
-                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                max_hp_mbps=100,
-                lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
+        if params["test_id"] == "a":
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, params["test_id"],
+                    num_packets=200,
+                    weight_hp=0, weight_lp=100, weight_other=0,
+                    data_len_min=46, data_len_max=46,
+                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                    max_hp_mbps=100,
+                    lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
 
-        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed,
-                num_packets=200,
-                weight_hp=100, weight_lp=0, weight_other=0,
-                data_len_min=200, data_len_max=200,
-                weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                max_hp_mbps=100)
+        if params["test_id"] == "b":
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, params["test_id"],
+                    num_packets=200,
+                    weight_hp=100, weight_lp=0, weight_other=0,
+                    data_len_min=200, data_len_max=200,
+                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                    max_hp_mbps=100)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, verbose=verbose)
-            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed,
-                    num_packets=args.num_packets,
-                    weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
-                    data_len_min=args.data_len_min, data_len_max=args.data_len_max,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=100)
+            if params["test_id"] == "a":
+                do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, params["test_id"],
+                        num_packets=args.num_packets,
+                        weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
+                        data_len_min=args.data_len_min, data_len_max=args.data_len_max,
+                        weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                        max_hp_mbps=100)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,verbose=verbose)
-            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed,
-                    num_packets=200,
-                    weight_hp=100, weight_lp=0, weight_other=0,
-                    data_len_min=46, data_len_max=46,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=300)
+            if params["test_id"] == "a":
+                do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
+                        num_packets=200,
+                        weight_hp=100, weight_lp=0, weight_other=0,
+                        data_len_min=46, data_len_max=46,
+                        weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                        max_hp_mbps=300)
 
             # seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed,
-                    num_packets=200,
-                    weight_hp=100, weight_lp=0, weight_other=0,
-                    data_len_min=200, data_len_max=200,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=600)
+            if params["test_id"] == "b":
+                do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
+                        num_packets=200,
+                        weight_hp=100, weight_lp=0, weight_other=0,
+                        data_len_min=200, data_len_max=200,
+                        weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                        max_hp_mbps=600)
 
             # seed = args.seed if args.seed else random.randint(0, sys.maxint)
-            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed,
-                    num_packets=args.num_packets,
-                    weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
-                    data_len_min=args.data_len_min, data_len_max=args.data_len_max,
-                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
-                    max_hp_mbps=args.max_hp_mbps)
+            if params["test_id"] == "c":
+                do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
+                        num_packets=args.num_packets,
+                        weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
+                        data_len_min=args.data_len_min, data_len_max=args.data_len_max,
+                        weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                        max_hp_mbps=args.max_hp_mbps)
         else:
             assert 0, f"Invalid params: {params}"
 
