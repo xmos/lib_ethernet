@@ -14,3 +14,4 @@ add_subdirectory(test_time_rx)
 add_subdirectory(test_timestamp_tx)
 # add_subdirectory(test_time_rx_tx) # This test is built in pytest as we autogen the seed include file at runtime
 add_subdirectory(test_time_tx)
+add_subdirectory(test_vlan_strip)

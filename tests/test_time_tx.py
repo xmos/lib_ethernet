@@ -7,9 +7,6 @@ import sys
 from pathlib import Path
 import json
 import pytest
-import subprocess
-from filelock import FileLock
-import re
 
 from mii_clock import Clock
 from mii_phy import MiiReceiver
