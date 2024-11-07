@@ -18,7 +18,6 @@ from helpers import get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 with open(Path(__file__).parent / "test_speed_change/test_params.json") as f:
     params = json.load(f)
 
-
 initial_delay = 100000 * 1e6
 
 class ClockControl(px.SimThread):

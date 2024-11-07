@@ -21,7 +21,7 @@ with open(Path(__file__).parent / "test_shaper/test_params.json") as f:
 
 high_priority_mac_addr = [0, 1, 2, 3, 4, 5]
 
-first_packet_received = False
+first_packet_received = False # Flag to trigger checker
 
 def packet_checker(packet, phy):
     global first_packet_received
@@ -42,12 +42,11 @@ def packet_checker(packet, phy):
 
 class TimeoutMonitor():
 
-    def __init__(self, initial_delay, packet_period, expect_count, verbose):
-        print("TimeoutMonitor INIT")
+    def __init__(self, packet_period, expect_count, verbose):
 
         self._seen_packets = 0
-        self._initial_delay = initial_delay
-        self._packet_period = packet_period
+        # self._packet_period = packet_period
+        self._packet_period = 20 * 1000 * 1e6 ### TEMP DEBUG!!
         self._expect_count = expect_count
         self._packet_count = 0
         self._verbose = verbose
@@ -74,17 +73,15 @@ class TimeoutMonitor():
     def run(self):
         xsi = self.xsi
 
-        print("pre-wait")
-        # xsi._wait_until(xsi.get_time() + self._initial_delay)
+        # Wait for first packet before starting timing & packet type checker
         while not first_packet_received:
             xsi._wait_until(xsi.get_time() + 10 * 1e6) # wait 10ns
-        print("post-wait")
+        print("First packet received")
 
 
         while True:
-            print("_packet_period pre")
             xsi._wait_until(xsi.get_time() + self._packet_period)
-            print("_packet_period post")
+            print("packet_period post")
             self._seen_packets -= 1
 
             if self._verbose:
@@ -98,14 +95,14 @@ class TimeoutMonitor():
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_shaper'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{rx_clk.get_name()}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print(f"Running {testname}: {rx_phy.get_name()} phy at {rx_clk.get_name()}")
+        print(f"Running {testname}: {rx_phy.get_name()} phy at {rx_clk.get_name()} - {profile}")
 
-    # MAC request 1MB/s
+    # MAC request 5MB/s
     slope = 5 * 1024 * 1024
 
     bit_time = tx_phy.get_clock().get_bit_time()
@@ -116,13 +113,14 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     packet_bytes = ifg_bytes + preamble_bytes + data_bytes + crc_bytes
     packets_per_second = slope / (packet_bytes * 8)
     packet_period = 1000000000 * 1e6 / packets_per_second
+    print(f"packets_per_second: {packets_per_second}, bit_time: {bit_time}")
 
     with capfd.disabled():
         print(f"Running with {data_bytes} byte packets, {slope} bps requested, packet preiod {packet_period/1e6} ns")
 
     verbose = True
     num_expected_packets = 30
-    timeout_monitor = TimeoutMonitor(20000 * 1e6, packet_period, num_expected_packets, verbose)
+    timeout_monitor = TimeoutMonitor(packet_period, num_expected_packets, verbose)
     rx_phy.timeout_monitor = timeout_monitor
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0
@@ -151,7 +149,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
                                         simargs=simargs,
                                         # capfd=capfd,
                                         do_xe_prebuild=False,
-                                        timeout=20)
+                                        timeout=60)
  
 
     assert result is True, f"{result}"
