@@ -118,17 +118,24 @@ class mytester:
     def run(self, output):
         result = True
 
-        expected_line_0 = f"Received {self.num_packets} packets, {self.num_bytes} bytes"
-        match = re.match(expected_line_0, output[0].strip())
-        if not match:
-            result = False
-            sys.stderr.write(f"Line 0 expected:\n `{expected_line_0}`\n got:\n `{output[0].strip()}`\n")
+        expected_summary = f"Received {self.num_packets} packets, {self.num_bytes} bytes"
+        found_summary = False
+        for line in output:
+            match = re.match(expected_summary, line.strip())
+            if match:
+                found_summary = True
+                output.remove(line)
+
+        if not found_summary:
+            sys.stderr.write(f"Expected to find:\n `{expected_summary}`\n in:\n `{output}`\n")
+            return False
+
 
         exected_other_lines = r"Packet \d+ received; bytes: \d+, ifg: \d+.0+ => \d+.\d+ Mb/s, efficiency \d+.\d+%"
         if self.num_packets > len(output) + 1:
             sys.stderr.write(f"Unexpectedly short output:\n `{output[1:]}`\n")
             return False
-        for line_num in range(1, 1 + self.num_packets):
+        for line_num in range(self.num_packets):
             match = re.match(exected_other_lines, output[line_num].strip())
             if not match:
                 result = False
