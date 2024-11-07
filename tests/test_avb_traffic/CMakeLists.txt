@@ -16,7 +16,7 @@ include(../test_deps.cmake)
 file(GLOB_RECURSE SOURCES_XC RELATIVE  ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
 set(APP_XC_SRCS             ${SOURCES_XC})
 set(APP_INCLUDES            ../include src)
-message(STATUS "APP_XC_SRCS: ${APP_XC_SRCS}")
+
 
 set(COMPILER_FLAGS_COMMON   -g
                             -report
