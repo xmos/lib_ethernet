@@ -57,7 +57,7 @@ foreach(i RANGE 0 ${NUM_PROFILES})
         list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=0)
     endif()
 
-    message(STATUS "FLAGS: ${APP_COMPILER_FLAGS_${config}}")
+
 endforeach()
 
 XMOS_REGISTER_APP()
