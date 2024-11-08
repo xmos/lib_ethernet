@@ -12,7 +12,7 @@ include(../test_deps.cmake)
 file(GLOB_RECURSE SOURCES_XC RELATIVE  ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
 set(APP_XC_SRCS             ${SOURCES_XC})
 set(APP_INCLUDES            ../include src)
-message(STATUS "APP_XC_SRCS: ${APP_XC_SRCS}")
+
 
 set(COMPILER_FLAGS_COMMON   -g
                             -report
@@ -33,7 +33,7 @@ foreach(i RANGE 0 ${NUM_PROFILES})
     string(JSON clk GET ${PROFILE} clk)
     string(JSON mac GET ${PROFILE} mac)
     string(JSON arch GET ${PROFILE} arch)
-    set(config "${mac}_${phy}")
+    set(config "${mac}_${phy}_${clk}")
     message(STATUS "Building cfg_name: ${config}")
 
     set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
@@ -58,7 +58,15 @@ foreach(i RANGE 0 ${NUM_PROFILES})
         list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=0)
     endif()
 
-    message(STATUS "FLAGS: ${APP_COMPILER_FLAGS_${config}}")
+    string(FIND "${PROFILE}" "125MHz" position)
+    if(position GREATER -1)
+        list(APPEND APP_COMPILER_FLAGS_${config} -DCLK_125=1)
+
+    else()
+        list(APPEND APP_COMPILER_FLAGS_${config} -DCLK_125=0)
+    endif()
+
+
 endforeach()
 
 XMOS_REGISTER_APP()

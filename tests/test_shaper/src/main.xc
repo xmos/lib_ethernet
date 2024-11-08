@@ -54,7 +54,9 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend
   ((char*)data)[j++] = (length - header_bytes) >> 8;
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
 
+  // Wait for LP to be ready
   c_synch_packet_gen :> int _;
+
   while (1) {
     printf("Sending HP size: %d\n", length);
     ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
