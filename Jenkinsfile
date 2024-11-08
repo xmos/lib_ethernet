@@ -92,10 +92,10 @@ pipeline {
       		      sh "xmake -j 32 -C build"
       		    } // script
                 ///// TEMP DEBUG TO WORK OUT WHY SHAPER NOT FINDING THE XE
+                sh 'tree test_shaper/bin'
                 warnError("shaper") {
-                  sh 'tree test_shaper/bin'
+                  sh 'pytest -s test_shaper.py'
                 }
-                sh 'pytest -s test_shaper.py'
                 runPytest('-vv')
 	      	  }
 	      	}

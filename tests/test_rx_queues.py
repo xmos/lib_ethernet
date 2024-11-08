@@ -133,6 +133,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
 
     with capfd.disabled():
         print("Running {test}: {phy} phy at {clk} (seed {seed})".format(test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed))
+        print(f"weight_hp {weight_hp}, weight_lp {weight_lp}, weight_other {weight_other}, data_len_min {data_len_min}, data_len_max {data_len_max} weight_tagged {weight_tagged} weight_untagged {weight_untagged} max_hp_mbps {max_hp_mbps}")
 
     hp_mac_address = [0,1,2,3,4,5]
     hp_seq_id = 0
@@ -297,6 +298,7 @@ def test_rx_queues(capfd, params):
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,verbose=verbose)
             if params["test_id"] == "a":
+                pytest.skip("https://github.com/xmos/lib_ethernet/issues/57")
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -304,8 +306,8 @@ def test_rx_queues(capfd, params):
                         weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                         max_hp_mbps=300)
 
-            # seed = args.seed if args.seed else random.randint(0, sys.maxint)
             if params["test_id"] == "b":
+                pytest.skip("https://github.com/xmos/lib_ethernet/issues/57")
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -313,7 +315,6 @@ def test_rx_queues(capfd, params):
                         weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                         max_hp_mbps=600)
 
-            # seed = args.seed if args.seed else random.randint(0, sys.maxint)
             if params["test_id"] == "c":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
