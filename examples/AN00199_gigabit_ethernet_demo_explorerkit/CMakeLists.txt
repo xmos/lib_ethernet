@@ -11,7 +11,6 @@ set(APP_PCA_ENABLE          ON)
 set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE
-                            -save-temps
                             -DRGMII=1)
 
 set(APP_COMPILER_FLAGS          ${COMPILER_FLAGS_COMMON})

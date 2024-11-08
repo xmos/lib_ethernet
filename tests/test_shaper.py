@@ -86,8 +86,8 @@ class TimeoutMonitor(px.SimThread):
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_shaper'
-
-    profile = f'{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}'
+    mii_clk_name = "125MHz" if "125" in tx_clk.get_name() else "25MHz" # Fix issue with lower case h
+    profile = f'{mac}_{tx_phy.get_name()}_{mii_clk_name}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 

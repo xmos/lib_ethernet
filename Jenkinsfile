@@ -53,7 +53,7 @@ pipeline {
             script {
               // Build all apps in the examples directory
               sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
-              sh "xmake -j 8 -C build"
+              sh "xmake -j 32 -C build"
             } // script
           } // dir
         } //withTools
@@ -91,11 +91,6 @@ pipeline {
       		      sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
       		      sh "xmake -j 32 -C build"
       		    } // script
-                ///// TEMP DEBUG TO WORK OUT WHY SHAPER NOT FINDING THE XE
-                sh 'tree test_shaper/bin'
-                warnError("shaper") {
-                  sh 'pytest -s test_shaper.py'
-                }
                 runPytest('-vv')
 	      	  }
 	      	}
