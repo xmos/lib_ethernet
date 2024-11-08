@@ -90,12 +90,12 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     with capfd.disabled():
         print(f"Running {testname}: {rx_phy.get_name()} phy at {tx_clk.get_name()} binary: {binary}")
-        print(1e15 / tx_phy.get_clock().get_bit_time())
-    # MAC request 5MB/s
+
+    # MAC request 5Mb/s
     slope = 5 * 1024 * 1024
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    # bit_rate = 1e15 / bit_time
+    bit_rate = 1e15 / bit_time
     data_bytes = 100
     ifg_bytes = 96/8
     preamble_bytes = 8
@@ -105,7 +105,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     packet_period = 1e15 / packets_per_second
 
     with capfd.disabled():
-        print(f"Running with {data_bytes} byte packets, {slope} bps requested, packet preiod {packet_period} ns")
+        print(f"Running with {data_bytes} byte packets, {slope} bps requested, packet preiod {packet_period/1e6} ns, bit rate: {bit_rate/1e6}Mbps")
 
     num_expected_packets = 30
     initial_delay_us = 55 # To allow DUT ethernet to come up and start transmitting
