@@ -1,10 +1,9 @@
-// Copyright 2014-2024 XMOS LIMITED.
+// Copyright 2014-2021 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
 #include "ethernet.h"
 #include "helpers.xc"
-#include <stdio.h>
 
 #include "ports.h"
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
@@ -24,7 +23,7 @@ static int calc_idle_slope(int bps)
   return (int) slope;
 }
 
-void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend c_synch_packet_gen)
+void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
 {
   // Request 5MB/s
   i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
@@ -54,11 +53,7 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend
   ((char*)data)[j++] = (length - header_bytes) >> 8;
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
 
-  // Wait for LP to be ready
-  c_synch_packet_gen :> int _;
-
   while (1) {
-    printf("Sending HP size: %d\n", length);
     ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
   }
 
@@ -80,10 +75,11 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend
 #define MAX_INTER_PACKET_DELAY 0x3f
 #endif
 
-void lp_traffic(client ethernet_tx_if tx, chanend c_synch_packet_gen)
+void lp_traffic(client ethernet_tx_if tx)
 {
   // Send a burst of frames to test the TX performance of the MAC layer and buffering
   // Just repeat the same frame numerous times to eliminate the frame setup time
+
   char data[ETHERNET_MAX_PACKET_SIZE];
   int lengths[NUM_PACKET_LENGTHS];
 
@@ -118,7 +114,6 @@ void lp_traffic(client ethernet_tx_if tx, chanend c_synch_packet_gen)
     data[j] = x;
   }
 
-  c_synch_packet_gen <: 1;
   while (1) {
     int do_burst = (random_get_random_number(rand) & 0xff) > 200;
     int len_index = random_get_random_number(rand) & (NUM_PACKET_LENGTHS - 1);
@@ -135,7 +130,6 @@ void lp_traffic(client ethernet_tx_if tx, chanend c_synch_packet_gen)
       data[12] = (length - header_bytes) >> 8;
       data[13] = (length - header_bytes) & 0xff;
 
-      printf("Sending LP size: %d\n", length);
       tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
     }
     
@@ -155,8 +149,6 @@ int main()
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_tx_hp;
-
-  chan c_synch_packet_gen;
 
 #if RGMII
   streaming chan c_rgmii_cfg;
@@ -181,8 +173,8 @@ int main()
       t when timerafter(time + 5000) :> time;
 
       par {
-        hp_traffic(i_cfg[0], c_tx_hp, c_synch_packet_gen);
-        lp_traffic(i_tx_lp[0], c_synch_packet_gen);
+        hp_traffic(i_cfg[0], c_tx_hp);
+        lp_traffic(i_tx_lp[0]);
       }
     }
 
@@ -199,8 +191,8 @@ int main()
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x3333);
 
-    on tile[0]: hp_traffic(i_cfg[0], c_tx_hp, c_synch_packet_gen);
-    on tile[0]: lp_traffic(i_tx_lp[0], c_synch_packet_gen);
+    on tile[0]: hp_traffic(i_cfg[0], c_tx_hp);
+    on tile[0]: lp_traffic(i_tx_lp[0]);
 
     #endif // RGMII
 
