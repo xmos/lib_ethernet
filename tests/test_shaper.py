@@ -80,7 +80,7 @@ def do_test(mac, rx_clk, rx_phy, tx_clk, tx_phy):
 
     testname = 'test_shaper'
 
-    level = 'nightly'
+    level = 'smoke'
     binary = '{test}/bin/{phy}_{clk}/{test}_{phy}_{clk}.xe'.format(
         test=testname, phy=rx_phy.get_name(), clk=rx_clk.get_name())
 

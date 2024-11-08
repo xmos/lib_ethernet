@@ -99,7 +99,7 @@ class RxLpControl(xmostest.SimThread):
 
 
 def do_test(mac, tx_clk, tx_phy, seed,
-            level='nightly',
+            level='smoke',
             num_packets=200,
             weight_hp=50, weight_lp=50, weight_other=50,
             data_len_min=46, data_len_max=500,
