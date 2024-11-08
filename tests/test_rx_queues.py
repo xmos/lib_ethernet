@@ -73,8 +73,9 @@ class DataLimiter(object):
             data_limited_time = packet_time
             ifg_time = ifg_bytes * 8 * self._bit_time
 
-        #print "Packet {n} bytes {ns} ns, limited means {scaled}ns -> {ifg}".format(
-        #    n=num_data_bytes, ns=packet_time, scaled=data_limited_time, ifg=ifg_time)
+        if 0:
+            print("Packet {n} bytes {ns} ns, limited means {scaled}ns -> {ifg}".format(
+               n=num_data_bytes, ns=packet_time, scaled=data_limited_time, ifg=ifg_time), file=sys.stderr)
 
         return ifg_time
 
