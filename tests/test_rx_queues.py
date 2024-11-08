@@ -256,8 +256,7 @@ def create_expect(packets, filename, hp_mac_address):
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
 def test_rx_queues(capfd, params):
 
-    seed = 1
-    seed = seed if seed else random.randint(0, sys.maxsize)
+    seed = random.randint(0, sys.maxsize)
 
     verbose = False
 
