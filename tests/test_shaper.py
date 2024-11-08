@@ -25,6 +25,7 @@ def packet_checker(packet, phy):
     if phy._verbose:
         sys.stdout.write(packet.dump())
     if packet.dst_mac_addr == high_priority_mac_addr:
+        # print("HP")
         phy.n_hp_packets += 1
         done = phy.timeout_monitor.hp_packet_received()
         if done:
@@ -32,6 +33,7 @@ def packet_checker(packet, phy):
                 print(f"ERROR: Only {phy.n_lp_packets} low priority packets received vs {phy.n_hp_packets} high priority")
             phy.xsi.terminate()
     else:
+        # print("LP")
         phy.n_lp_packets += 1
 
 
@@ -50,12 +52,13 @@ class TimeoutMonitor(px.SimThread):
 
         self._packet_count += 1
         self._seen_packets += 1
-        print(f"{xsi.get_time()}: Received HP packet {self._packet_count}")
+        print(f"{xsi.get_time()/1e9}: Received HP packet {self._packet_count}")
         if self._verbose:
             print(f"{xsi.get_time()}: HP seen_packets {self._seen_packets}")
 
-        if self._seen_packets > 2:
-            print("ERROR: More than 2 HP packets seen in time period")
+        max_conscutive_hp_pckts = 2
+        if self._seen_packets > max_conscutive_hp_pckts:
+            print(f"ERROR: More than {max_conscutive_hp_pckts} HP packets seen in time period")
             return True
 
         if self._packet_count == self._expect_count:
@@ -101,15 +104,16 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     preamble_bytes = 8
     crc_bytes = 4
     packet_bytes = ifg_bytes + preamble_bytes + data_bytes + crc_bytes
-    packets_per_second = slope / (packet_bytes * 8)
-    packet_period = 1e15 / packets_per_second
+    packet_bits = packet_bytes * 8
+    packets_per_second = slope / packet_bits
+    packet_period_fs = 1e15 / packets_per_second
 
     with capfd.disabled():
-        print(f"Running with {data_bytes} byte packets, {slope} bps requested, packet preiod {packet_period/1e6} ns, bit rate: {bit_rate/1e6}Mbps")
+        print(f"Running with {data_bytes} byte packets (total {packet_bits} bits), {slope} bps requested, packet period {packet_period_fs/1e9:.2f} us, wire rate: {bit_rate/1e6}Mbps")
 
     num_expected_packets = 30
     initial_delay_us = 55 # To allow DUT ethernet to come up and start transmitting
-    timeout_monitor = TimeoutMonitor(initial_delay_us * 1e9, packet_period, num_expected_packets, False)
+    timeout_monitor = TimeoutMonitor(initial_delay_us * 1e9, packet_period_fs, num_expected_packets, False)
     rx_phy.timeout_monitor = timeout_monitor
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0
@@ -147,7 +151,7 @@ def create_expect(filename, num_expected_packets):
     """
     with open(filename, 'w') as f:
         for i in range(num_expected_packets):
-            f.write("\\d+.0: Received HP packet {}\n".format(i + 1))
+            f.write("\\d+.?\\d*: Received HP packet {}\n".format(i + 1))
         f.write("DONE\n")
 
 @pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
