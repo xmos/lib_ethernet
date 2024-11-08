@@ -1,6 +1,6 @@
 {
     "PROFILES": [
-        {"phy":"mii", "clk":"25MHz", "mac":"hp", "arch":"xs2"},
+        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2"},
         {"phy":"rgmii", "clk":"125MHz", "mac":"rt_hp", "arch":"xs2"}
         ]
 }
