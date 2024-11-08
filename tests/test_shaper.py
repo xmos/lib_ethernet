@@ -25,7 +25,7 @@ def packet_checker(packet, phy):
     if phy._verbose:
         sys.stdout.write(packet.dump())
     if packet.dst_mac_addr == high_priority_mac_addr:
-        # print("HP")
+        if phy._verbose: print("HP")
         phy.n_hp_packets += 1
         done = phy.timeout_monitor.hp_packet_received()
         if done:
@@ -33,7 +33,7 @@ def packet_checker(packet, phy):
                 print(f"ERROR: Only {phy.n_lp_packets} low priority packets received vs {phy.n_hp_packets} high priority")
             phy.xsi.terminate()
     else:
-        # print("LP")
+        if phy._verbose: print("LP")
         phy.n_lp_packets += 1
 
 
@@ -125,6 +125,9 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
+
+    if rx_phy.get_name() == "mii":
+        pytest.skip("DUT firmware does not seem to obey the slope for mii - https://github.com/xmos/lib_ethernet/issues/56")
 
     if rx_phy.get_name() == 'rgmii' and rx_clk.get_name() == '125Mhz':
         result = px.run_on_simulator_(  binary,

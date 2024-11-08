@@ -78,7 +78,7 @@ pipeline {
       }
     }
 
-    stage('New tests') {
+    stage('Simulator tests') {
       steps {
       	sh "git clone --branch v2.0.0 git@github.com:xmos/test_support.git"
       	dir("${REPO}") {
@@ -91,7 +91,10 @@ pipeline {
       		      sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
       		      sh "xmake -j 32 -C build"
       		    } // script
-                sh 'tree test_shaper/bin'
+                ///// TEMP DEBUG TO WORK OUT WHY SHAPER NOT FINDING THE XE
+                warnError("shaper") {
+                  sh 'tree test_shaper/bin'
+                }
                 sh 'pytest -s test_shaper.py'
                 runPytest('-vv')
 	      	  }
