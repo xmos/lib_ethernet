@@ -1,15 +1,15 @@
 :orphan:
 
-########################
-lib_adat: ADAT lightpipe
-########################
+##############################
+lib_ethernet: Ethernet library
+##############################
 
 :vendor: XMOS
-:version: 2.0.1
+:version: 4.0.0
 :scope: General Use
-:description: ADAT Lightpipe digital audio interface
-:category: Audio
-:keywords: Ethernet, MII, RGMII
+:description: XMOS Ethernet Library
+:category: Networking
+:keywords: Ethernet, MII, RGMII, AVB, SMI
 :devices: xcore.ai, xcore-200
 
 *******
