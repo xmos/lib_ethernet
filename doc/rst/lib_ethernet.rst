@@ -2,14 +2,47 @@
 lib_ethernet: Ethernet library
 ##############################
 
+|newpage|
+
 Introduction
 ************
+
+``lib_ethernet`` allows interfacing to MII or RGMII Ethernet PHYs and provides the Media Access Control (MAC)
+for the Ethernet stack.
+
+Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed.
+
+.. list-table:: Ethernet MAC support by XMOS device family
+ :header-rows: 1
+
+ * - XCORE Architecture
+   - MII 100 Mb
+   - RMII 100 Mb
+   - GMII 1 Gb
+   - RGMII 1 Gb
+ * - XS1
+   - Deprecated from version 4.0.0
+   - N/A
+   - N/A
+   - N/A
+ * - XS2 (xCORE-200)
+   - Supported
+   - N/A
+   - N/A
+   - Supported
+ * - XS3 (xcore.ai)
+   - Supported
+   - Contact XMOS
+   - Contact XMOS
+   - N/A
+
+|newpage|
 
 Typical Resource Usage
 **********************
 
 Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
-The amount required depends on the feature set. The table below summarises the main requirements.
+The amount required depends on the feature set of the MAC. The table below summarises the main requirements.
 
 .. list-table:: Ethernet XCORE resource usage
  :header-rows: 1
@@ -51,6 +84,7 @@ The amount required depends on the feature set. The table below summarises the m
    - ~1 k
    - 0
 
+|newpage|
 
 External signal description
 ***************************
@@ -207,6 +241,9 @@ PHY Serial Management Interface (MDIO)
 
 The MDIO interface consists of clock (MDC) and data (MDIO) signals. Both should be connected to two one-bit ports that are
 configured as open-drain IOs, using external pull-ups to either 3.3V or 2.5V (RGMII).
+
+|newpage|
+
 
 Usage
 *****
@@ -447,6 +484,8 @@ For example, the following code instantiates a MII component and connects to it:
   }
 
 More information on interfaces and tasks can be be found in the `XMOS Programming Guide <https://www.xmos.com/file/xmos-programming-guide>`_.
+
+|newpage|
 
 API
 ***
