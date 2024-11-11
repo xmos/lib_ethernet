@@ -5,6 +5,10 @@
 #include <xs1.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <xccompat.h>
+#include "doxygen.h"    // Sphynx Documentation Workarounds
+
+
 
 #define ETHERNET_ALL_INTERFACES  (-1)
 #define ETHERNET_MAX_PACKET_SIZE (1518)
@@ -56,12 +60,12 @@ typedef enum ethernet_macaddr_filter_result_t {
   ETHERNET_MACADDR_FILTER_TABLE_FULL  /**< The filter entry was not added because the filter table is full */
 } ethernet_macaddr_filter_result_t;
 
-#ifdef __XC__
+#if (defined(__XC__) || defined(__DOXYGEN__))
 
 /** Ethernet MAC configuration interface.
  *
  *  This interface allows clients to configure the Ethernet MAC.  */
-typedef interface ethernet_cfg_if {
+typedef_interface ethernet_cfg_if {
   /** Set the source MAC address of the Ethernet MAC
    *
    * \param ifnum       The index of the MAC interface to set
@@ -154,7 +158,7 @@ typedef interface ethernet_cfg_if {
    *  \param tile_id      The tile ID returned from the Ethernet MAC
    *  \param time_on_tile The current timer value from the Ethernet MAC
    */
-  void get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile);
+  void get_tile_id_and_timer_value(REFERENCE_PARAM(unsigned, tile_id), REFERENCE_PARAM(unsigned, time_on_tile));
 
   /** Set the high-priority TX queue's credit based shaper idle slope.
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
@@ -319,7 +323,7 @@ typedef interface ethernet_rx_if {
    *  \param n          The number of bytes to receive. The ``data`` array must be
    *                    large enough to receive the number of bytes specified.
    */
-  [[clears_notification]] void get_packet(ethernet_packet_info_t &desc,
+  [[clears_notification]] void get_packet(REFERENCE_PARAM(ethernet_packet_info_t, desc),
                                           char packet[n],
                                           unsigned n);
 } ethernet_rx_if;
@@ -336,9 +340,9 @@ typedef interface ethernet_rx_if {
  *
  */
 #pragma select handler
-inline void ethernet_receive_hp_packet(streaming chanend c_rx_hp,
+inline void ethernet_receive_hp_packet(streaming_chanend_t c_rx_hp,
                                        char packet[],
-                                       ethernet_packet_info_t &packet_info)
+                                       REFERENCE_PARAM(ethernet_packet_info_t, packet_info))
 {
   sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info));
 
@@ -361,7 +365,7 @@ inline void ethernet_receive_hp_packet(streaming chanend c_rx_hp,
  *  \param ifnum       The index of the MAC interface to send the packet
  *                     Use the ``ETHERNET_ALL_INTERFACES`` define to send to all interfaces.
  */
-inline void ethernet_send_hp_packet(streaming chanend c_tx_hp,
+inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
                                     char packet[n],
                                     unsigned n,
                                     unsigned ifnum)
@@ -386,18 +390,18 @@ enum ethernet_enable_shaper_t {
     \endverbatim
 */
 typedef struct rgmii_ports_t {
-  in port p_rxclk;                      /**< RX clock port */
-  in buffered port:1 p_rxer;            /**< RX error port */
-  in buffered port:32 p_rxd_1000;       /**< 1Gb RX data port */
-  in buffered port:32 p_rxd_10_100;     /**< 10/100Mb RX data port */
-  in buffered port:4 p_rxd_interframe;  /**< Interframe RX data port */
-  in port p_rxdv;                       /**< RX data valid port */
-  in port p_rxdv_interframe;            /**< Interframe RX data valid port */
-  in port p_txclk_in;                   /**< TX clock input port */
-  out port p_txclk_out;                 /**< TX clock output port */
-  out port p_txer;                      /**< TX error port */
-  out port p_txen;                      /**< TX enable port */
-  out buffered port:32 p_txd;           /**< TX data port */
+  in_port_t p_rxclk;                    /**< RX clock port */
+  in_buffered_port_1_t p_rxer;          /**< RX error port */
+  in_buffered_port_32_t p_rxd_1000;     /**< 1Gb RX data port */
+  in_buffered_port_32_t p_rxd_10_100;   /**< 10/100Mb RX data port */
+  in_buffered_port_4_t p_rxd_interframe;/**< Interframe RX data port */
+  in_port_t p_rxdv;                     /**< RX data valid port */
+  in_port_t p_rxdv_interframe;          /**< Interframe RX data valid port */
+  in_port_t p_txclk_in;                 /**< TX clock input port */
+  out_port_t p_txclk_out;               /**< TX clock output port */
+  out_port_t p_txer;                    /**< TX error port */
+  out_port_t p_txen;                    /**< TX enable port */
+  out_buffered_port_32_t p_txd;         /**< TX data port */
   clock rxclk;                          /**< Clock used for receive timing */
   clock rxclk_interframe;               /**< Clock used for interframe receive timing */
   clock txclk;                          /**< Clock used for transmit timing */
@@ -446,12 +450,12 @@ typedef struct rgmii_ports_t {
  *                            or disable the 802.1Qav traffic shaper within the
  *                            MAC.
  */
-void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                        server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                        streaming chanend ? c_rx_hp,
-                        streaming chanend ? c_tx_hp,
-                        streaming chanend c_rgmii_cfg,
-                        rgmii_ports_t &rgmii_ports,
+void rgmii_ethernet_mac(SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                        SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                        nullable_streaming_chanend_t c_rx_hp,
+                        nullable_streaming_chanend_t c_tx_hp,
+                        streaming_chanend_t c_rgmii_cfg,
+                        REFERENCE_PARAM(rgmii_ports_t, rgmii_ports),
                         enum ethernet_enable_shaper_t shaper_enabled);
 
 /** RGMII Ethernet MAC configuration task
@@ -466,9 +470,9 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
  *  \param c_rgmii_cfg        A streaming channel end connected to rgmii_ethernet_mac()
  */
 [[combinable]]
-void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
+void rgmii_ethernet_mac_config(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n]),
                                unsigned n,
-                               streaming chanend c_rgmii_cfg);
+                               streaming_chanend_t c_rgmii_cfg);
 
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an MII interface.
@@ -508,17 +512,17 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
  *                             or disable the 802.1Qav traffic shaper within the
  *                             MAC.
  */
-void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                         server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                         server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                         streaming chanend ? c_rx_hp,
-                         streaming chanend ? c_tx_hp,
-                         in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
-                         in port p_txclk, out port p_txen, out port p_txd,
+void mii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                         SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                         SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                         nullable_streaming_chanend_t c_rx_hp,
+                         nullable_streaming_chanend_t c_tx_hp,
+                         in_port_t p_rxclk, in_port_t p_rxer, in_port_t p_rxd, in_port_t p_rxdv,
+                         in_port_t p_txclk, out_port_t p_txen, out_port_t p_txd,
                          clock rxclk,
                          clock txclk,
-                         static const unsigned rx_bufsize_words,
-                         static const unsigned tx_bufsize_words,
+                         static_const_unsigned_t rx_bufsize_words,
+                         static_const_unsigned_t tx_bufsize_words,
                          enum ethernet_enable_shaper_t shaper_enabled);
 
 /** 10/100 Mb/s Ethernet MAC component that connects to an MII interface.
@@ -551,15 +555,15 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
  */
-void mii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                      server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
-                      server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
-                      in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
-                      in port p_txclk, out port p_txen, out port p_txd,
+void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                      SERVER_INTERFACE(ethernet_rx_if, i_rx[n_rx]), static_const_unsigned_t n_rx,
+                      SERVER_INTERFACE(ethernet_tx_if, i_tx[n_tx]), static_const_unsigned_t n_tx,
+                      in_port_t p_rxclk, in_port_t p_rxer, in_port_t p_rxd, in_port_t p_rxdv,
+                      in_port_t p_txclk, out_port_t p_txen, out_port_t p_txd,
                       port p_timing,
                       clock rxclk,
                       clock txclk,
-                      static const unsigned rx_bufsize_words);
-#endif
+                      static_const_unsigned_t rx_bufsize_words);
+#endif // __XC__ || __DOXY__
 
 #endif // __ethernet__h__
