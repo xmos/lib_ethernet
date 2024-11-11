@@ -1,8 +1,15 @@
-.. include:: ../../README.rst
+##############################
+lib_ethernet: Ethernet library
+##############################
+
+Introduction
+************
 
 Typical Resource Usage
-......................
+**********************
 
+Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
+The amount required depends on the feature set. The table below summarises the main requirements.
 
 .. list-table:: Ethernet XCORE resource usage
  :header-rows: 1
@@ -46,7 +53,7 @@ Typical Resource Usage
 
 
 External signal description
----------------------------
+***************************
 
 .. _mii_signals_section:
 
@@ -202,7 +209,7 @@ The MDIO interface consists of clock (MDC) and data (MDIO) signals. Both should 
 configured as open-drain IOs, using external pull-ups to either 3.3V or 2.5V (RGMII).
 
 Usage
------
+*****
 
 10/100 Mb/s Ethernet MAC operation
 ..................................
@@ -218,8 +225,8 @@ configuration interface of the real-time MACs that will cause a run-time asserti
 non-real-time configuration.
 
 Ethernet MAC components are instantiated as parallel tasks that run in a ``par`` statement. The application
-can connect via a transmit, receive and configuration interface connection using the :ref:`ethernet_tx_if`,
-:ref:`ethernet_rx_if` and :ref:`ethernet_cfg_if` interface types:
+can connect via a transmit, receive and configuration interface connection using the :ref:`ethernet_tx_if<ethernet_tx_if_section>`,
+:ref:`ethernet_rx_if<ethernet_rx_if_section>` and :ref:`ethernet_cfg_if` interface types:
 
 .. figure:: images/10_100_mac_tasks.pdf
 
@@ -400,14 +407,14 @@ interfaces and connects to it::
 .. _mii:
 
 Raw MII interface
-.................
+*****************
 
 The raw MII interface implements a MII layer component with a basic buffering scheme that is shared with the application. It
 provides a direct access to the MII pins as described in :ref:`mii_signals_section`. It does not implement the buffering and
 filtering required by a compliant Ethernet MAC layer, and defers this to the application.
 
 The buffering of this task is shared with the application it is connected to. It sets up an interrupt handler
-on the logical core the application is running on (via the ``init`` function on the :ref:`mii_if` interface connection) and also
+on the logical core the application is running on (via the ``init`` function on the :ref:`mii_if<mii_if_section>` interface connection) and also
 consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on.
 
 .. figure:: images/mii_tasks.pdf
@@ -442,7 +449,7 @@ For example, the following code instantiates a MII component and connects to it:
 More information on interfaces and tasks can be be found in the `XMOS Programming Guide <https://www.xmos.com/file/xmos-programming-guide>`_.
 
 API
----
+***
 
 All Ethernet functions can be accessed via the ``ethernet.h`` header::
 
@@ -501,11 +508,11 @@ The Ethernet MAC configuration interface
 The Ethernet MAC data handling interface
 ........................................
 
-.. _ethernet_tx_if:
+.. _ethernet_tx_if_section:
 
 .. doxygengroup:: ethernet_tx_if
 
-.. _ethernet_rx_if:
+.. _ethernet_rx_if_section:
 
 .. doxygengroup:: ethernet_rx_if
 
@@ -536,7 +543,7 @@ All raw MII functions can be accessed via the ``mii.h`` header::
 The MII interface
 .................
 
-.. _mii_if:
+.. _mii_if_section:
 
 .. doxygengroup:: mii_if
 
@@ -588,9 +595,11 @@ SMI PHY configuration helper functions
 
 
 Known Issues
-------------
+************
 
-There are no known issues with this library.
+Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
 
+Changelog
+*********
 
-.. include:: ../../CHANGELOG.rst
+Please see the active repo for the latest `changelog <https://github.com/xmos/lib_ethernet/blob/develop/CHANGELOG.rst>`_.
