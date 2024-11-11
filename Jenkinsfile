@@ -51,6 +51,7 @@ pipeline {
         stage('Tests XS1 and XS2') {
           steps {
             runXmostest("${REPO}", 'tests')
+            archiveArtifacts artifacts: "${REPO}/tests/**/*.xe", fingerprint: true, allowEmptyArchive: true
           }
         }
       }
