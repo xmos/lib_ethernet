@@ -9,7 +9,6 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 
-
 #define ETHERNET_ALL_INTERFACES  (-1)
 #define ETHERNET_MAX_PACKET_SIZE (1518)
 
@@ -65,7 +64,14 @@ typedef enum ethernet_macaddr_filter_result_t {
 /** Ethernet MAC configuration interface.
  *
  *  This interface allows clients to configure the Ethernet MAC.  */
-typedef_interface ethernet_cfg_if {
+#ifdef __XC__
+typedef interface ethernet_cfg_if {
+#endif
+  /**
+   * \addtogroup ethernet_config_if
+   * @{
+   */
+
   /** Set the source MAC address of the Ethernet MAC
    *
    * \param ifnum       The index of the MAC interface to set
@@ -233,12 +239,26 @@ typedef_interface ethernet_cfg_if {
    */
   void disable_link_status_notification(size_t client_num);
 
+#ifdef __XC__
 } ethernet_cfg_if;
+#endif
+
+/**@}*/ // END: addtogroup ethernet_config_if
+
+
+
 
 /** Ethernet MAC data transmit interface
  *
  *  This interface allows clients to send packets to the Ethernet MAC for transmission */
+ /**
+ * \addtogroup ethernet_tx_if
+ * @{
+ */
+#ifdef __XC__
 typedef interface ethernet_tx_if {
+#endif
+
   /** Internal API call. Do not use. */
   void _init_send_packet(size_t n, size_t ifnum);
   /** Internal API call. Do not use. */
@@ -246,9 +266,11 @@ typedef interface ethernet_tx_if {
                              int request_timestamp, size_t ifnum);
   /** Internal API call. Do not use. */
   unsigned _get_outgoing_timestamp();
+#ifdef __XC__
 } ethernet_tx_if;
 
 extends client interface ethernet_tx_if : {
+#endif
   /** Function to send an Ethernet packet on the specified interface.
    *
    *  The call will block until a transmit buffer is available and the packet
@@ -260,7 +282,7 @@ extends client interface ethernet_tx_if : {
    *  \param ifnum        The index of the MAC interface to send the packet
    *                      Use the ``ETHERNET_ALL_INTERFACES`` define to send to all interfaces.
    */
-  inline void send_packet(client ethernet_tx_if i, char packet[n], unsigned n,
+  inline void send_packet(CLIENT_INTERFACE(ethernet_tx_if, i), char packet[n], unsigned n,
                           unsigned ifnum) {
     i._init_send_packet(n, ifnum);
     i._complete_send_packet(packet, n, 0, ifnum);
@@ -280,13 +302,15 @@ extends client interface ethernet_tx_if : {
    *                      the egress time. May be corrected for egress latency, see
    *                      set_egress_timestamp_latency() on the ``ethernet_cfg_if`` interface.
    */
-  inline unsigned send_timed_packet(client ethernet_tx_if i, char packet[n],
+  inline unsigned send_timed_packet(CLIENT_INTERFACE(ethernet_tx_if, i), char packet[n],
                                     unsigned n,
                                     unsigned ifnum) {
     i._init_send_packet(n, ifnum);
     i._complete_send_packet(packet, n, 1, ifnum);
     return i._get_outgoing_timestamp();
   }
+/**@}*/ // END: addtogroup ethernet_tx_if
+#ifdef __XC__
 }
 
 
@@ -294,6 +318,12 @@ extends client interface ethernet_tx_if : {
  *
  *  This interface allows clients to receive packets from the Ethernet MAC. */
 typedef interface ethernet_rx_if {
+#endif
+  /**
+   * \addtogroup ethernet_rx_if
+   * @{
+   */
+
   /** Get the index of a given receiver client
    *
    */
@@ -313,7 +343,7 @@ typedef interface ethernet_rx_if {
     }
     \endverbatim
    */
-  [[notification]] slave void packet_ready();
+   XC_NOTIFICATION slave void packet_ready();
 
   /** Function to receive an Ethernet packet or status/control data from the MAC.
    *  Should be called after a packet_ready() notification.
@@ -323,10 +353,15 @@ typedef interface ethernet_rx_if {
    *  \param n          The number of bytes to receive. The ``data`` array must be
    *                    large enough to receive the number of bytes specified.
    */
-  [[clears_notification]] void get_packet(REFERENCE_PARAM(ethernet_packet_info_t, desc),
+  XC_CLEARS_NOTIFICATION void get_packet(REFERENCE_PARAM(ethernet_packet_info_t, desc),
                                           char packet[n],
                                           unsigned n);
+#ifdef __XC__
 } ethernet_rx_if;
+#endif
+
+/**@}*/ // END: addtogroup ethernet_rx_if
+
 
 /** Function to receive a priority-queued packet over a high priority channel
  *  from the 10/100 Mb/s real-time MAC.
@@ -469,7 +504,7 @@ void rgmii_ethernet_mac(SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), stat
  *  \param n                  The number of configuration clients connected
  *  \param c_rgmii_cfg        A streaming channel end connected to rgmii_ethernet_mac()
  */
-[[combinable]]
+XC_COMBINABLE
 void rgmii_ethernet_mac_config(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n]),
                                unsigned n,
                                streaming_chanend_t c_rgmii_cfg);
@@ -564,6 +599,6 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
                       clock rxclk,
                       clock txclk,
                       static_const_unsigned_t rx_bufsize_words);
-#endif // __XC__ || __DOXY__
+#endif // __XC__ || __DOXYGEN__
 
 #endif // __ethernet__h__

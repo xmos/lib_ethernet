@@ -44,12 +44,6 @@ Typical Resource Usage
    - ~1 k
    - 0
 
-Related application notes
-.........................
-
-The following application notes use this library:
-
-  * AN00120 - How to use the Ethernet MAC library
 
 External signal description
 ---------------------------
@@ -127,9 +121,7 @@ RGMII requires half the number of data pins used in GMII by clocking data on bot
 clock, and by eliminating non-essential signals (carrier sense and collision indication).
 
 xCORE-200 XE/XEF devices have a set of pins that are dedicated to communication with a Gigabit Ethernet PHY or switch via RGMII,
-designed to comply with the timings in the RGMII v1.3 specification:
-
-http://www.hp.com/rnd/pdfs/RGMIIv1_3.pdf
+designed to comply with the timings in the RGMII v1.3 specification.
 
 RGMII supports Ethernet speeds of 10 Mb/s, 100 Mb/s and 1000 Mb/s.
 
@@ -226,8 +218,8 @@ configuration interface of the real-time MACs that will cause a run-time asserti
 non-real-time configuration.
 
 Ethernet MAC components are instantiated as parallel tasks that run in a ``par`` statement. The application
-can connect via a transmit, receive and configuration interface connection using the `ethernet_tx_if`_,
-`ethernet_rx_if`_ and `ethernet_cfg_if`_ interface types:
+can connect via a transmit, receive and configuration interface connection using the :ref:`ethernet_tx_if`,
+:ref:`ethernet_rx_if` and :ref:`ethernet_cfg_if` interface types:
 
 .. figure:: images/10_100_mac_tasks.pdf
 
@@ -405,6 +397,8 @@ interfaces and connects to it::
 
 |newpage|
 
+.. _mii:
+
 Raw MII interface
 .................
 
@@ -413,8 +407,8 @@ provides a direct access to the MII pins as described in :ref:`mii_signals_secti
 filtering required by a compliant Ethernet MAC layer, and defers this to the application.
 
 The buffering of this task is shared with the application it is connected to. It sets up an interrupt handler
-on the logical core the application is running on (via the ``init`` function on the `mii_if`_ interface connection) and also
-consumes some of the MIPs on that core in addition to the core `mii`_ is running on.
+on the logical core the application is running on (via the ``init`` function on the :ref:`mii_if` interface connection) and also
+consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on.
 
 .. figure:: images/mii_tasks.pdf
 
@@ -487,10 +481,12 @@ Creating a 10/100/1000 Mb/s Ethernet MAC instance
 
 |newpage|
 
+.. _ethernet_cfg_if:
+
 The Ethernet MAC configuration interface
 ........................................
 
-.. doxygeninterface:: ethernet_cfg_if
+.. doxygengroup:: ethernet_config_if
 
 .. doxygenenum:: ethernet_link_state_t
 
@@ -505,9 +501,13 @@ The Ethernet MAC configuration interface
 The Ethernet MAC data handling interface
 ........................................
 
-.. doxygeninterface:: ethernet_tx_if
+.. _ethernet_tx_if:
 
-.. doxygeninterface:: ethernet_rx_if
+.. doxygengroup:: ethernet_tx_if
+
+.. _ethernet_rx_if:
+
+.. doxygengroup:: ethernet_rx_if
 
 .. doxygenenum:: eth_packet_type_t
 
@@ -536,7 +536,9 @@ All raw MII functions can be accessed via the ``mii.h`` header::
 The MII interface
 .................
 
-.. doxygeninterface:: mii_if
+.. _mii_if:
+
+.. doxygengroup:: mii_if
 
 .. doxygenfunction:: mii_incoming_packet
 
@@ -562,7 +564,7 @@ All SMI functions can be accessed via the ``smi.h`` header::
 The SMI/MDIO PHY interface
 ..........................
 
-.. doxygeninterface:: smi_if
+.. doxygengroup:: smi_if
 
 |newpage|
 
@@ -591,4 +593,4 @@ Known Issues
 There are no known issues with this library.
 
 
-.. include:: ../../../CHANGELOG.rst
+.. include:: ../../CHANGELOG.rst

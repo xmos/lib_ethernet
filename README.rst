@@ -42,6 +42,7 @@ Features
 Known issues
 ************
 
+Please see the active repo for up to date `known issues <https://github.com/xmos/lib_ethernet/issues>`_.
 
 ****************
 Development repo
@@ -70,6 +71,7 @@ Related application notes
 The following application notes use this library:
 
   * `AN00199: XMOS Gigabit Ethernet application note (eXplorerKIT) <https://www.xmos.com/file/an00199>`_
+  * `AN00120: How to use the Ethernet MAC library <https://www.xmos.com/file/an00120-xmos-100mbit-ethernet-application-note>`_
 
 *******
 Support
