@@ -42,7 +42,7 @@ Features
 Known issues
 ************
 
-Please see the active repo for up to date `known issues <https://github.com/xmos/lib_ethernet/issues>`_.
+Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
 
 ****************
 Development repo
