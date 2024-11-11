@@ -3,72 +3,46 @@
 Typical Resource Usage
 ......................
 
- .. resusage::
 
-  * - configuration: 10/100 Mb/s
-    - globals: port rxclk = XS1_PORT_1J;
-               port rxd = XS1_PORT_4E;
-               port txd = XS1_PORT_4F;
-               port rxdv = XS1_PORT_1K;
-               port txen = XS1_PORT_1L;
-               port txclk = XS1_PORT_1I;
-               port rxerr = XS1_PORT_1P;
-               port dummy = XS1_PORT_8C;
-               clock eth_rxclk = XS1_CLKBLK_1;
-               clock eth_txclk = XS1_CLKBLK_2;
-    - locals: ethernet_cfg_if i_cfg[1]; ethernet_rx_if i_rx[1]; ethernet_tx_if i_tx[1];
-    - fn: mii_ethernet_mac(i_cfg, 1, i_rx, 1, i_tx, 1,
-                           rxclk, rxerr, rxd, rxdv, txclk, txen, txd, dummy, eth_rxclk,
-                           eth_txclk, 1600);
-    - pins: 13
-    - ports: 5 (1-bit), 2 (4-bit), 1 (any-bit)
-  * - configuration: 10/100 Mb/s real-time
-    - globals: port rxclk = XS1_PORT_1J;
-               port rxd = XS1_PORT_4E;
-               port txd = XS1_PORT_4F;
-               port rxdv = XS1_PORT_1K;
-               port txen = XS1_PORT_1L;
-               port txclk = XS1_PORT_1I;
-               port rxerr = XS1_PORT_1P;
-               clock eth_rxclk = XS1_CLKBLK_1;
-               clock eth_txclk = XS1_CLKBLK_2;
-    - locals: ethernet_cfg_if i_cfg[1]; ethernet_rx_if i_rx[1]; ethernet_tx_if i_tx[1];
-              streaming chan c_rx; streaming chan c_tx;
-    - fn: mii_ethernet_rt_mac(i_cfg, 1, i_rx, 1, i_tx, 1, c_rx, c_tx, rxclk, rxerr,
-                              rxd, rxdv, txclk, txen, txd, eth_rxclk, eth_txclk, 1600, 1600, 1);
-    - pins: 13
-    - ports: 5 (1-bit), 2 (4-bit)
-  * - configuration: 10/100/1000 Mb/s
-    - target: XCORE-200-EXPLORER
-    - globals: rgmii_ports_t rgmii_ports = RGMII_PORTS_INITIALIZER;
-    - locals: ethernet_cfg_if i_cfg[1]; ethernet_rx_if i_rx[1]; ethernet_tx_if i_tx[1];
-              streaming chan c_rx; streaming chan c_tx; streaming chan c_rgmii_cfg;
-    - fn: par { rgmii_ethernet_mac(i_rx, 1, i_tx, 1, c_rx, c_tx,c_rgmii_cfg, rgmii_ports, 1);
-          rgmii_ethernet_mac_config(i_cfg, 1, c_rgmii_cfg); }
-    - pins: 12
-    - ports: 8 (1-bit), 2 (4-bit), 2 (8-bit)
-  * - configuration: Raw MII
-    - globals: port rxclk = XS1_PORT_1J;
-               port rxd = XS1_PORT_4E;
-               port txd = XS1_PORT_4F;
-               port rxdv = XS1_PORT_1K;
-               port txen = XS1_PORT_1L;
-               port txclk = XS1_PORT_1I;
-               port rxerr = XS1_PORT_1P;
-               port dummy = XS1_PORT_8C;
-               clock eth_rxclk = XS1_CLKBLK_1;
-               clock eth_txclk = XS1_CLKBLK_2;
-    - locals: mii_if i_mii;
-    - fn: mii(i_mii, rxclk, rxerr, rxd, rxdv, txclk, txen, txd, dummy, eth_rxclk, eth_txclk, 1600)
-    - cores: 1
-    - pins: 13
-    - ports: 5 (1-bit), 2 (4-bit)
-  * - configuration: SMI (MDIO)
-    - globals: port p_smi_mdio  = XS1_PORT_1C; port p_smi_mdc = XS1_PORT_1D;
-    - locals: smi_if i_smi;
-    - fn: smi(i_smi, p_smi_mdio, p_smi_mdc);
-    - pins: 2
-    - ports: 2 (1-bit) or 1 (multi-bit)
+.. list-table:: Ethernet XCORE resource usage
+ :header-rows: 1
+
+ * - Configuration
+   - Pins
+   - Port Requirement
+   - Clocks
+   - RAM
+   - Threads
+ * - 10/100 Mb/s standard
+   - 13
+   - 5 (1-bit), 2 (4-bit), 1 (any-bit)
+   - 2
+   - ~16 k
+   - 2
+ * - 10/100 Mb/s Real-Time
+   - 13
+   - 5 (1-bit), 2 (4-bit)
+   - 2
+   - ~23 k
+   - 4
+ * - 10/100/1000Mb/s
+   - 12
+   - 8 (1-bit), 2 (4-bit), 2 (8-bit)
+   - 4
+   - ~102 k
+   - 8
+ * - Raw MII 
+   - 13
+   - 5 (1-bit), 2 (4-bit)
+   - 2
+   - ~10 k
+   - 1
+ * - SMI (MDIO) 
+   - 2
+   - 2 (1-bit) or 1 (multi-bit)
+   - 0
+   - ~1 k
+   - 0
 
 Related application notes
 .........................
