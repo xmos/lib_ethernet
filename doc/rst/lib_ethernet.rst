@@ -137,7 +137,7 @@ The Ethernet MAC implements ID mode as specified by RGMII. TX clock from xCORE t
 1000 Mb/s delays are set in rgmii_consts.h to an integer number of system clock ticks (e.g. 1 x 2ns if system clock
 is 500MHz):
 
-.. literalinclude:: rgmii_consts.h
+.. literalinclude:: ../../lib_ethernet/src/rgmii_consts.h
    :start-at: RGMII_DELAY
    :end-at: RGMII_DELAY_100M
 
@@ -445,7 +445,7 @@ For example, the following code instantiates a MII component and connects to it:
     return 0;
   }
 
-More information on interfaces and tasks can be be found in the :ref:`XMOS Programming Guide<programming_guide>`.
+More information on interfaces and tasks can be be found in the `XMOS Programming Guide <https://www.xmos.com/file/xmos-programming-guide>`_.
 
 API
 ---
@@ -584,7 +584,6 @@ SMI PHY configuration helper functions
 
 |newpage|
 
-|appendix|
 
 Known Issues
 ------------
