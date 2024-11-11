@@ -47,7 +47,7 @@ Known issues
 Development repo
 ****************
 
-  * `lib_adat <https://www.github.com/xmos/lib_adat>`_
+  * `lib_ethernet <https://www.github.com/xmos/lib_ethernet>`_
 
 **************
 Required tools
@@ -59,7 +59,9 @@ Required tools
 Required libraries (dependencies)
 *********************************
 
-  * None
+  * `lib_locks <https://www.github.com/xmos/lib_locks>`_
+  * `lib_logging <https://www.github.com/xmos/lib_logging>`_
+  * `lib_xassert <https://www.github.com/xmos/lib_xassert>`_
 
 *************************
 Related application notes

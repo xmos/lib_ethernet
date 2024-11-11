@@ -1,4 +1,4 @@
-.. include:: ../../../README.rst
+.. include:: ../../README.rst
 
 Typical Resource Usage
 ......................
@@ -138,8 +138,8 @@ The Ethernet MAC implements ID mode as specified by RGMII. TX clock from xCORE t
 is 500MHz):
 
 .. literalinclude:: rgmii_consts.h
-   :start-on: RGMII_DELAY
-   :end-on: RGMII_DELAY_100M
+   :start-at: RGMII_DELAY
+   :end-at: RGMII_DELAY_100M
 
 Note that some Ethernet PHY operate in "hybrid mode" and apply skew compensation on incoming TX clock. You may need to
 adjust this compensation, disable it, or set the above delay to 0 in the Ethernet MAC.
