@@ -1,5 +1,28 @@
-Ethernet MAC library change log
-===============================
+lib_ethernet change log
+=======================
+
+4.0.0
+-----
+
+  * REMOVED: Slicekit based examples because hardware is obsolete
+  * REMOVED: Support for waf build system
+  * ADDED: Support for XCommon CMake build system
+  * REMOVED: Support for XS1 devices
+  * RESOLVED: Build warnings even when compile successful
+
+  * Changes to dependencies:
+
+    - lib_gpio: Removed dependency
+
+    - lib_locks: 2.0.0 -> 2.3.1
+
+    - lib_logging: 2.0.0 -> 3.3.1
+
+    - lib_otpinfo: Removed dependency
+
+    - lib_slicekit_support: Removed dependency
+
+    - lib_xassert: 2.0.0 -> 4.3.1
 
 3.5.0
 -----

@@ -1,5 +1,6 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
+
 /*
  * Simply receive packets with a level of backpressure so that some are dropped.
  * The backpressure needs to be applied in a way that doesn't stop the check for
@@ -24,7 +25,7 @@ port p_ctrl = on tile[0]: XS1_PORT_1A;
 
 #define N_BACKPRESSURE_DELAYS 1
 const int backpressure_ticks[N_BACKPRESSURE_DELAYS] = {
-  100000
+  10000
 };
 
 

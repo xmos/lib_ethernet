@@ -1,9 +1,10 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
 #include "ethernet.h"
 #include "helpers.xc"
+#include <print.h>
 
 #include "ports.h"
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
@@ -23,9 +24,9 @@ static int calc_idle_slope(int bps)
   return (int) slope;
 }
 
-void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
+void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend c_packet_start_synch)
 {
-  // Request 5MB/s
+  // Request 5Mbps
   i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
   
   // Indicate the test is not yet complete
@@ -53,6 +54,9 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
   ((char*)data)[j++] = (length - header_bytes) >> 8;
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
 
+
+  c_packet_start_synch :> int _;
+
   while (1) {
     ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
   }
@@ -75,7 +79,7 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
 #define MAX_INTER_PACKET_DELAY 0x3f
 #endif
 
-void lp_traffic(client ethernet_tx_if tx)
+void lp_traffic(client ethernet_tx_if tx, chanend c_packet_start_synch)
 {
   // Send a burst of frames to test the TX performance of the MAC layer and buffering
   // Just repeat the same frame numerous times to eliminate the frame setup time
@@ -114,6 +118,7 @@ void lp_traffic(client ethernet_tx_if tx)
     data[j] = x;
   }
 
+  c_packet_start_synch <: 1;
   while (1) {
     int do_burst = (random_get_random_number(rand) & 0xff) > 200;
     int len_index = random_get_random_number(rand) & (NUM_PACKET_LENGTHS - 1);
@@ -149,6 +154,7 @@ int main()
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_tx_hp;
+  chan c_packet_start_synch;
 
 #if RGMII
   streaming chan c_rgmii_cfg;
@@ -173,8 +179,8 @@ int main()
       t when timerafter(time + 5000) :> time;
 
       par {
-        hp_traffic(i_cfg[0], c_tx_hp);
-        lp_traffic(i_tx_lp[0]);
+        hp_traffic(i_cfg[0], c_tx_hp, c_packet_start_synch);
+        lp_traffic(i_tx_lp[0], c_packet_start_synch);
       }
     }
 
@@ -191,8 +197,8 @@ int main()
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x3333);
 
-    on tile[0]: hp_traffic(i_cfg[0], c_tx_hp);
-    on tile[0]: lp_traffic(i_tx_lp[0]);
+    on tile[0]: hp_traffic(i_cfg[0], c_tx_hp, c_packet_start_synch);
+    on tile[0]: lp_traffic(i_tx_lp[0], c_packet_start_synch);
 
     #endif // RGMII
 

@@ -23,3 +23,9 @@ test_results.csv
 .waf-*/
 build/
 .*.swp
+python/lib_ethernet.egg-info
+tests/logs
+tests/expect
+*.lock
+tests/*.xml
+seed.inc

@@ -1,6 +1,7 @@
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+import Pyxsim as px
 import sys
 import zlib
 import random
@@ -68,7 +69,8 @@ class MiiPacket(object):
             self.num_preamble_nibbles = 15
             self.sfd_nibble = 0xd
             self.num_data_bytes = 46
-            self.inter_frame_gap = 960
+            self.inter_frame_gap = 960 * 1e6 # Min as per ethernet spec
+
             self.dst_mac_addr = None
             self.src_mac_addr = None
             self.vlan_prio_tag = None
@@ -87,7 +89,7 @@ class MiiPacket(object):
         self.error_nibbles = []
 
         # Get all other values from the dictionary passed in
-        for arg,value in kwargs.iteritems():
+        for arg,value in kwargs.items():
             setattr(self, arg, value)
 
         # Preamble nibbles - define valid preamble by default
@@ -118,10 +120,10 @@ class MiiPacket(object):
 
         # If the ether length/type field is not specified then set it to something sensible
         if self.ether_len_type is None:
-            if self.ether_len_type <= self.MAX_ETHER_LEN:
+            # if self.ether_len_type <= self.MAX_ETHER_LEN:
                 self.ether_len_type = [ (self.num_data_bytes >> 8) & 0xff, self.num_data_bytes & 0xff ]
-            else:
-                self.ether_len_type = [ 0x00, 0x00 ]
+            # else:
+                # self.ether_len_type = [ 0x00, 0x00 ]
 
         # If there is an extra nibble, choose it now
         if self.extra_nibble:
@@ -147,7 +149,7 @@ class MiiPacket(object):
 
     def get_crc(self, packet_bytes):
         # Finally the CRC
-        data = ''.join(chr(x) for x in packet_bytes)
+        data = bytes(self.get_packet_bytes())
         crc = zlib.crc32(data) & 0xFFFFFFFF
         if self.corrupt_crc:
             crc = ~crc
@@ -252,40 +254,38 @@ class MiiPacket(object):
 
         # UNH-IOL MAC Test 4.2.2 (only check if it is non-zero as otherwise it is simply the first packet)
         if self.inter_frame_gap and (self.inter_frame_gap < clock.get_min_ifg()):
-            print "ERROR: Invalid interframe gap of {0} ns".format(self.inter_frame_gap)
+            print(f"ERROR: Invalid interframe gap of {self.inter_frame_gap} ns")
 
         # UNH-IOL MAC Test 4.2.1
         if self.num_preamble_nibbles != 15:
-            print "ERROR: Invalid number of 0x5 preamble nibbles: {0}".format(self.num_preamble_nibbles)
+            print(f"ERROR: Invalid number of 0x5 preamble nibbles: {self.num_preamble_nibbles}")
 
         if self.sfd_nibble != 0xd:
-            print "ERROR: Invalid SFD nibble: {0:#x}".format(self.sfd_nibble)
+            print(f"ERROR: Invalid SFD nibble: {self.sfd_nibble:x}")
 
         for nibble in self.preamble_nibbles:
             if nibble != 0x5:
-                print "ERROR: Invalid preamble value: {0:#x}".format(nibble)
+                print(f"ERROR: Invalid preamble nibble: {nibble:x}")
 
         if self.nibble is not None:
-            print "ERROR: Odd number of data nibbles received"
+            print(f"ERROR: Odd number of data nibbles received")
 
         # Ensure that if the len/type field specifies a length then it is valid (Section 3.2.6 of 802.3-2012)
         if len(self.ether_len_type) != 2:
-            print "ERROR: The len/type field contains {0} bytes".format(len(self.ether_len_type))
+            print(f"ERROR: The len/type field contains {len(self.ether_len_type)} bytes")
         else:
             len_type = self.ether_len_type[0] << 8 | self.ether_len_type[1]
             if len_type <= 1500:
                 if len_type > self.num_data_bytes:
-                    print "ERROR: len/type field value ({0}) != packet bytes ({1})".format(
-                        len_type, self.num_data_bytes)
+                    print(f"ERROR: len/type field value ({len_type}) != packet bytes ({self.num_data_bytes})")
 
         # Check the CRC
-        data = ''.join(chr(x) for x in self.get_packet_bytes())
+        data = bytes(self.get_packet_bytes())
         expected_crc = zlib.crc32(data) & 0xFFFFFFFF
 
         # UNH-IOL MAC Test 4.2.3
         if self.packet_crc != expected_crc:
-            print "ERROR: Invalid crc (got {got}, expecting {expect})".format(
-                got=self.packet_crc, expect=expected_crc)
+            print(f"ERROR: Invalid crc (got {self.packet_crc:x}, expecting {expected_crc:x})")
 
     def dump(self, show_ifg=True):
         output = ""

@@ -1,4 +1,4 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
@@ -88,6 +88,9 @@ int main()
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
 
+    on tile[0]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
+    on tile[0]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
+
     #else // RGMII
 
     #if RT
@@ -115,13 +118,14 @@ int main()
     on tile[0]: filler(0x44);
 
     #endif // RT
+    on tile[RT]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
+    on tile[RT]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
+
     #endif // RGMII
 
     on tile[0]: test_task(i_cfg[0], i_rx_lp[0], 0x1111, 1, i_ctrl[0]);
     on tile[0]: test_task(i_cfg[1], i_rx_lp[1], 0x2222, 1, i_ctrl[1]);
-    on tile[RT]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
-    on tile[RT]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
-
+    
     on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;

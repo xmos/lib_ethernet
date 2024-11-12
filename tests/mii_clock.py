@@ -1,30 +1,33 @@
-# Copyright 2014-2021 XMOS LIMITED.
+# Copyright 2014-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import xmostest
+import Pyxsim as px
 import sys
 import zlib
 
-class Clock(xmostest.SimThread):
+class Clock(px.SimThread):
 
     # Use the values that need to be presented in the RGMII data pins when DV inactive
     (CLK_125MHz, CLK_25MHz, CLK_2_5MHz) = (0x4, 0x2, 0x0)
 
+    # ifg = inter frame gap
+    # bit_time = time per physical layer bit in femtoseconds
+
     def __init__(self, port, clk):
         self._running = True
         self._clk = clk
+        sim_clock_rate = 1e15 # xsim uses femotseconds
         if clk == self.CLK_125MHz:
-            self._period = float(1000000000) / 125000000
+            self._period = float(sim_clock_rate) / 125e6
             self._name = '125Mhz'
-            self._min_ifg = 96
-            self._bit_time = 1
+            self._bit_time = 1*1e6
         elif clk == self.CLK_25MHz:
-            self._period = float(1000000000) / 25000000
+            self._period = float(sim_clock_rate) / 25e6
             self._name = '25Mhz'
-            self._bit_time = 10
+            self._bit_time = 10*1e6
         elif clk == self.CLK_2_5MHz:
-            self._period = float(1000000000) / 2500000
+            self._period = float(sim_clock_rate) / 2.5e6
             self._name = '2.5Mhz'
-            self._bit_time = 100
+            self._bit_time = 100*1e6
         self._min_ifg = 96 * self._bit_time
         self._val = 0
         self._port = port

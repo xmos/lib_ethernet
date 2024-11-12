@@ -1,19 +1,26 @@
-#!/usr/bin/env python
-# Copyright 2015-2021 XMOS LIMITED.
+# Copyright 2015-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
-import xmostest
-import random
+import os
 import sys
+import json
+from pathlib import Path
+import pytest
+import random
+import Pyxsim as px
+
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address, args
-from helpers import choose_small_frame_size, check_received_packet, runall_rx, run_on
+from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 
-initial_delay = 100000
+with open(Path(__file__).parent / "test_speed_change/test_params.json") as f:
+    params = json.load(f)
 
-class ClockControl(xmostest.SimThread):
+initial_delay = 100000 * 1e6
+
+class ClockControl(px.SimThread):
     """ A class to control the clocks, alternating between the 25 and 125 MHz clocks
         being active.
     """
@@ -76,23 +83,21 @@ def create_packets(rand, clk, dut_mac_address, speed_change_time,
     return packets
         
 
-def do_test(mac, tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed):
+def do_test(capfd, mac, arch, tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed):
     rand = random.Random()
     rand.seed(seed)
 
     # The time to run at each speed before switching to the other
-    speed_change_time = 2000000
+    speed_change_time = 2000000 * 1e6
 
-    resources = xmostest.request_resource("xsim")
     testname = 'test_speed_change'
-    level = 'nightly'
 
-    binary = '{test}/bin/{mac}_rgmii/{test}_{mac}_rgmii.xe'.format(
-        test=testname, mac=mac)
+    profile = f'{mac}_rgmii'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
-    if xmostest.testlevel_is_at_least(xmostest.get_testlevel(), level):
-        print "Running {test}: rgmii phy (seed {seed})".format(
-            test=testname, seed=seed)
+    with capfd.disabled():
+        print("Running {test}: rgmii phy (seed {seed})".format(test=testname, seed=seed))
 
     dut_mac_address = get_dut_mac_address()
 
@@ -109,22 +114,23 @@ def do_test(mac, tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed):
     expect_filename = '{folder}/{test}_{mac}_rgmii.expect'.format(
         folder=expect_folder, test=testname, mac=mac)
     create_expect(expect_filename, packets_25, packets_125)
-    tester = xmostest.ComparisonTester(open(expect_filename),
-                                        'lib_ethernet', 'basic_tests', testname,
-                                        {'mac':mac, 'phy':'rgmii'})
-
-    tester.set_min_testlevel(level)
+    tester = px.testers.ComparisonTester(open(expect_filename))
 
     clock_control = ClockControl(speed_change_time, tx_clk_25, tx_rgmii_25,
                                  tx_clk_125, tx_rgmii_125)
     
     simargs = get_sim_args(testname, mac, tx_clk_25, tx_rgmii_25)
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[tx_clk_25, tx_rgmii_25,
-                                          tx_clk_125, tx_rgmii_125,
-                                          clock_control],
-                              tester=tester,
-                              simargs=simargs)
+
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, clock_control],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    capfd=capfd,
+                                    do_xe_prebuild=False)
+    
+
+    assert result is True, f"{result}"
+
 
 def create_expect(filename, packets_25, packets_125):
     """ Create the expect file for what packets should be reported by the DUT
@@ -138,19 +144,15 @@ def create_expect(filename, packets_25, packets_125):
     with open(filename, 'w') as f:
         f.write("Received {} packets, {} bytes\n".format(num_packets, num_data_bytes))
 
-def runtest():
-    random.seed(1)
+@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+def test_speed_change(capfd, params):
+    seed = random.randint(0, sys.maxsize)
+    verbose = False
     
     (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay=initial_delay,
-                                                  expect_loopback=False, verbose=args.verbose, dut_exit_time=5000000)
+                                                  expect_loopback=False, verbose=verbose, dut_exit_time=5000000*1e6)
     (tx_clk_125, tx_rgmii_125) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, initial_delay=initial_delay,
                                                       test_ctrl='tile[0]:XS1_PORT_1C',
-                                                      expect_loopback=False, verbose=args.verbose, dut_exit_time=5000000)
+                                                      expect_loopback=False, verbose=verbose, dut_exit_time=5000000*1e6)
 
-    seed = args.seed if args.seed else random.randint(0, sys.maxint)
-    if run_on(mac='rt'):
-        do_test('rt', tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed)
-
-    seed = args.seed if args.seed else random.randint(0, sys.maxint)
-    if run_on(mac='rt_hp'):
-        do_test('rt_hp', tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed)
+    do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed)
