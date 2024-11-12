@@ -1,15 +1,15 @@
 :orphan:
 
-########################
-lib_adat: ADAT lightpipe
-########################
+##############################
+lib_ethernet: Ethernet library
+##############################
 
 :vendor: XMOS
-:version: 2.0.1
+:version: 4.0.0
 :scope: General Use
-:description: ADAT Lightpipe digital audio interface
-:category: Audio
-:keywords: Ethernet, MII, RGMII
+:description: XMOS Ethernet Library
+:category: Networking
+:keywords: Ethernet, MII, RGMII, AVB, SMI
 :devices: xcore.ai, xcore-200
 
 *******
@@ -42,6 +42,7 @@ Features
 Known issues
 ************
 
+Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
 
 ****************
 Development repo
@@ -70,6 +71,7 @@ Related application notes
 The following application notes use this library:
 
   * `AN00199: XMOS Gigabit Ethernet application note (eXplorerKIT) <https://www.xmos.com/file/an00199>`_
+  * `AN00120: How to use the Ethernet MAC library <https://www.xmos.com/file/an00120-xmos-100mbit-ethernet-application-note>`_
 
 *******
 Support

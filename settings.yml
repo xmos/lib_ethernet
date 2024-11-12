@@ -7,6 +7,7 @@ version: 4.0.0
 
 documentation:
   exclude_patterns_path: doc/exclude_patterns.inc
+  substitutions_path: doc/substitutions.inc
   root_doc: doc/rst/lib_ethernet.rst
   cognidox_part_number: XM-006386-UG
   doxygen_projects:

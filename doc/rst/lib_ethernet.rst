@@ -1,10 +1,52 @@
-.. include:: ../../README.rst
+##############################
+lib_ethernet: Ethernet library
+##############################
 
+|newpage|
+
+************
+Introduction
+************
+
+``lib_ethernet`` allows interfacing to MII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
+for the Ethernet stack.
+
+Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed.
+
+.. list-table:: Ethernet MAC support by XMOS device family
+ :header-rows: 1
+
+ * - XCORE Architecture
+   - MII 100 Mb
+   - RMII 100 Mb
+   - GMII 1 Gb
+   - RGMII 1 Gb
+ * - XS1
+   - Deprecated from version 4.0.0
+   - N/A
+   - N/A
+   - N/A
+ * - XS2 (xCORE-200)
+   - Supported
+   - N/A
+   - N/A
+   - Supported
+ * - XS3 (xcore.ai)
+   - Supported
+   - Contact XMOS
+   - Contact XMOS
+   - N/A
+
+|newpage|
+
+**********************
 Typical Resource Usage
-......................
+**********************
 
+Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
+The amount required depends on the feature set of the MAC. The table below summarises the main requirements.
 
-.. list-table:: Ethernet XCORE resource usage
+.. list-table:: Ethernet MAC XCORE resource usage
  :header-rows: 1
 
  * - Configuration
@@ -13,19 +55,19 @@ Typical Resource Usage
    - Clocks
    - RAM
    - Threads
- * - 10/100 Mb/s standard
+ * - 10/100 Mb/s standard MII
    - 13
    - 5 (1-bit), 2 (4-bit), 1 (any-bit)
    - 2
    - ~16 k
    - 2
- * - 10/100 Mb/s Real-Time
+ * - 10/100 Mb/s Real-Time MII
    - 13
    - 5 (1-bit), 2 (4-bit)
    - 2
    - ~23 k
    - 4
- * - 10/100/1000Mb/s
+ * - 10/100/1000Mb/s RGMII
    - 12
    - 8 (1-bit), 2 (4-bit), 2 (8-bit)
    - 4
@@ -44,20 +86,25 @@ Typical Resource Usage
    - ~1 k
    - 0
 
-Related application notes
-.........................
+.. note::
+    Not all ports are brought out to pins since they are used internally to the device.
+    Hence the total port bit-count may not always match the required device pin count.
 
-The following application notes use this library:
+.. note::
+    The SMI configuration API is a function call and so uses no dedicated threads. It
+    blocks until the last bit of the transaction is complete.
 
-  * AN00120 - How to use the Ethernet MAC library
 
+|newpage|
+
+***************************
 External signal description
----------------------------
+***************************
 
 .. _mii_signals_section:
 
 MII: Media Independent Interface
-................................
+================================
 
 MII is an interface standardized by IEEE 802.3 that connects different types of PHYs to the same Ethernet Media Access Control (MAC).
 The MAC can interact with any PHY using the same hardware interface, independent of the media the PHYs are connected to.
@@ -121,15 +168,13 @@ resource to instantiate the relevant Ethernet MAC component on that Tile.
 .. _rgmii_signals_section:
 
 RGMII: Reduced Gigabit Media Independent Interface
-..................................................
+==================================================
 
 RGMII requires half the number of data pins used in GMII by clocking data on both the rising and the falling edges of the
 clock, and by eliminating non-essential signals (carrier sense and collision indication).
 
 xCORE-200 XE/XEF devices have a set of pins that are dedicated to communication with a Gigabit Ethernet PHY or switch via RGMII,
-designed to comply with the timings in the RGMII v1.3 specification:
-
-http://www.hp.com/rnd/pdfs/RGMIIv1_3.pdf
+designed to comply with the timings in the RGMII v1.3 specification.
 
 RGMII supports Ethernet speeds of 10 Mb/s, 100 Mb/s and 1000 Mb/s.
 
@@ -204,16 +249,20 @@ Other IO pins and ports are unaffected.
    RGMII port structure
 
 PHY Serial Management Interface (MDIO)
-......................................
+======================================
 
 The MDIO interface consists of clock (MDC) and data (MDIO) signals. Both should be connected to two one-bit ports that are
 configured as open-drain IOs, using external pull-ups to either 3.3V or 2.5V (RGMII).
 
+|newpage|
+
+
+*****
 Usage
------
+*****
 
 10/100 Mb/s Ethernet MAC operation
-..................................
+==================================
 
 There are two types of 10/100 Mb/s Ethernet MAC that are optimized for different feature sets. Both connect to a
 standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`.
@@ -226,8 +275,8 @@ configuration interface of the real-time MACs that will cause a run-time asserti
 non-real-time configuration.
 
 Ethernet MAC components are instantiated as parallel tasks that run in a ``par`` statement. The application
-can connect via a transmit, receive and configuration interface connection using the `ethernet_tx_if`_,
-`ethernet_rx_if`_ and `ethernet_cfg_if`_ interface types:
+can connect via a transmit, receive and configuration interface connection using the :ref:`ethernet_tx_if<ethernet_tx_if_section>`,
+:ref:`ethernet_rx_if<ethernet_rx_if_section>` and :ref:`ethernet_cfg_if` interface types:
 
 .. figure:: images/10_100_mac_tasks.pdf
 
@@ -292,7 +341,7 @@ perform Ethernet MAC operations e.g.::
 |newpage|
 
 10/100 Mb/s real-time Ethernet MAC
-..................................
+==================================
 
 The real-time 10/100 Mb/s Ethernet MAC supports additional features required to implement, for example,
 an AVB Talker and/or Listener endpoint, but has additional xCORE resource requirements compared to the
@@ -365,7 +414,7 @@ The application can use the other end of the streaming channels to send and rece
 |newpage|
 
 10/100/1000 Mb/s real-time Ethernet MAC
-.......................................
+=======================================
 
 The 10/100/1000 Mb/s Ethernet MAC supports the same feature set and API as the 10/100 Mb/s real-time MAC but
 with higher throughput and lower end-to-end latency. The component connects to a Gigabit Ethernet PHY via an RGMII
@@ -405,16 +454,19 @@ interfaces and connects to it::
 
 |newpage|
 
+.. _mii:
+
+*****************
 Raw MII interface
-.................
+*****************
 
 The raw MII interface implements a MII layer component with a basic buffering scheme that is shared with the application. It
 provides a direct access to the MII pins as described in :ref:`mii_signals_section`. It does not implement the buffering and
 filtering required by a compliant Ethernet MAC layer, and defers this to the application.
 
 The buffering of this task is shared with the application it is connected to. It sets up an interrupt handler
-on the logical core the application is running on (via the ``init`` function on the `mii_if`_ interface connection) and also
-consumes some of the MIPs on that core in addition to the core `mii`_ is running on.
+on the logical core the application is running on (via the ``init`` function on the :ref:`mii_if<mii_if_section>` interface connection) and also
+consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on.
 
 .. figure:: images/mii_tasks.pdf
 
@@ -447,8 +499,11 @@ For example, the following code instantiates a MII component and connects to it:
 
 More information on interfaces and tasks can be be found in the `XMOS Programming Guide <https://www.xmos.com/file/xmos-programming-guide>`_.
 
+|newpage|
+
+***
 API
----
+***
 
 All Ethernet functions can be accessed via the ``ethernet.h`` header::
 
@@ -458,26 +513,26 @@ You will also have to add ``lib_ethernet`` to the
 ``USED_MODULES`` field of your application Makefile.
 
 Creating a 10/100 Mb/s Ethernet MAC instance
-............................................
+============================================
 
 .. doxygenfunction:: mii_ethernet_mac
 
 |newpage|
 
 Creating a 10/100 Mb/s real-time Ethernet MAC instance
-......................................................
+======================================================
 
 .. doxygenfunction:: mii_ethernet_rt_mac
 
 Real-time supporting typedefs
-.............................
+=============================
 
 .. doxygenenum:: ethernet_enable_shaper_t
 
 |newpage|
 
 Creating a 10/100/1000 Mb/s Ethernet MAC instance
-.................................................
+=================================================
 
 .. doxygenstruct:: rgmii_ports_t
 
@@ -487,10 +542,12 @@ Creating a 10/100/1000 Mb/s Ethernet MAC instance
 
 |newpage|
 
-The Ethernet MAC configuration interface
-........................................
+.. _ethernet_cfg_if:
 
-.. doxygeninterface:: ethernet_cfg_if
+The Ethernet MAC configuration interface
+========================================
+
+.. doxygengroup:: ethernet_config_if
 
 .. doxygenenum:: ethernet_link_state_t
 
@@ -503,11 +560,15 @@ The Ethernet MAC configuration interface
 |newpage|
 
 The Ethernet MAC data handling interface
-........................................
+========================================
 
-.. doxygeninterface:: ethernet_tx_if
+.. _ethernet_tx_if_section:
 
-.. doxygeninterface:: ethernet_rx_if
+.. doxygengroup:: ethernet_tx_if
+
+.. _ethernet_rx_if_section:
+
+.. doxygengroup:: ethernet_rx_if
 
 .. doxygenenum:: eth_packet_type_t
 
@@ -516,7 +577,7 @@ The Ethernet MAC data handling interface
 |newpage|
 
 The Ethernet MAC high-priority data handling interface
-......................................................
+======================================================
 
 .. doxygenfunction:: ethernet_send_hp_packet
 
@@ -525,7 +586,7 @@ The Ethernet MAC high-priority data handling interface
 |newpage|
 
 Creating a raw MII instance
-...........................
+===========================
 
 All raw MII functions can be accessed via the ``mii.h`` header::
 
@@ -534,9 +595,11 @@ All raw MII functions can be accessed via the ``mii.h`` header::
 .. doxygenfunction:: mii
 
 The MII interface
-.................
+=================
 
-.. doxygeninterface:: mii_if
+.. _mii_if_section:
+
+.. doxygengroup:: mii_if
 
 .. doxygenfunction:: mii_incoming_packet
 
@@ -547,7 +610,7 @@ The MII interface
 |newpage|
 
 Creating an SMI/MDIO instance
-.............................
+=============================
 
 All SMI functions can be accessed via the ``smi.h`` header::
 
@@ -560,14 +623,14 @@ All SMI functions can be accessed via the ``smi.h`` header::
 |newpage|
 
 The SMI/MDIO PHY interface
-..........................
+==========================
 
-.. doxygeninterface:: smi_if
+.. doxygengroup:: smi_if
 
 |newpage|
 
 SMI PHY configuration helper functions
-......................................
+======================================
 
 .. doxygenfunction:: smi_configure
 
@@ -585,10 +648,14 @@ SMI PHY configuration helper functions
 |newpage|
 
 
+************
 Known Issues
-------------
+************
 
-There are no known issues with this library.
+Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
 
+*********
+Changelog
+*********
 
-.. include:: ../../../CHANGELOG.rst
+Please see the active repo for the latest `changelog <https://github.com/xmos/lib_ethernet/blob/develop/CHANGELOG.rst>`_.
