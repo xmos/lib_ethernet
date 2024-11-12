@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import Pyxsim as px
 from filelock import FileLock
 import pytest
+import json
+import copy
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -123,10 +125,10 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
         print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
     capfd.readouterr() # clear capfd buffer
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     dut_dir = override_dut_dir if override_dut_dir else testname
     binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
-    assert os.path.isfile(binary)
+    assert os.path.isfile(binary), f"Missing .xe {binary}"
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
@@ -244,3 +246,19 @@ def check_received_packet(packet, phy):
         print("Test done")
         phy.xsi.terminate()
 
+def generate_tests(test_params_json):
+    with open(test_params_json) as f:
+        params = json.load(f)
+        test_config_list = []
+        test_config_ids = []
+        for profile in params['PROFILES']:
+            base_profile = {key: value for key,value in profile.items() if key != 'arch'} # copy everything but 'arch'
+            if isinstance(profile['arch'], str):
+                profile['arch'] = [profile['arch']]
+            for a in profile['arch']: # Add a test case per architecture
+                test_profile = copy.deepcopy(base_profile)
+                test_profile['arch'] = a
+                id = '-'.join([v for v in test_profile.values()])
+                test_config_ids.append(id)
+                test_config_list.append(test_profile)
+    return test_config_list, test_config_ids
