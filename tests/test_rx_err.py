@@ -11,9 +11,7 @@ from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
-
-with open(Path(__file__).parent / "test_rx/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -87,12 +85,10 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx")
 
-
-    print(params)
     random.seed(1)
 
-
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_rx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx_err(capfd, params):
     random.seed(19)
     # Issue #30 - the standard MII ignores the RX_ER signal

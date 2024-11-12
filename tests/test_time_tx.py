@@ -5,7 +5,6 @@ import os
 import random
 import sys
 from pathlib import Path
-import json
 import pytest
 
 from mii_clock import Clock
@@ -14,9 +13,8 @@ from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
 from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_mii_tx_clk_phy, get_rgmii_rx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import generate_tests
 
-with open(Path(__file__).parent / "test_time_tx/test_params.json") as f:
-    params = json.load(f)
 
 num_test_packets = 150
 
@@ -55,21 +53,21 @@ def packet_checker(packet, phy):
     if phy.num_packets == num_test_packets:
         phy.xsi.terminate()
 
+
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     start_test(rx_phy)
 
     testname = 'test_time_tx'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
-    
-    with capfd.disabled():
-        print("Running {test}: {mac} {phy} phy at {clk}".format(test=testname, mac=mac, phy=rx_phy.get_name(), clk=rx_clk.get_name()))
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=rx_phy.get_name(), clk=rx_clk.get_name())
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()} for {arch} arch")
+
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{rx_phy.get_name()}_{rx_clk.get_name()}_{arch}.expect'
     create_expect(expect_filename)
 
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
@@ -96,7 +94,8 @@ def create_expect(filename):
             f.write("Packet \\d+ received; bytes: \\d+, ifg: \\d+\\.0 => \\d+\\.\\d+ Mb/s, efficiency \\d+\\.\\d+%\n")
 
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_time_tx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_time_tx(capfd, params):
     verbose = False
       # Test 100 MBit - MII XS2

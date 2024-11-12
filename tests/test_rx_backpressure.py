@@ -3,7 +3,6 @@
 
 import random
 import Pyxsim as px
-import json
 from pathlib import Path
 import pytest
 import re
@@ -15,9 +14,7 @@ from mii_clock import Clock
 from helpers import get_sim_args, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, args
 from helpers import get_mii_rx_clk_phy, get_mii_tx_clk_phy, get_rgmii_rx_clk_phy, get_rgmii_tx_clk_phy
-
-with open(Path(__file__).parent / "test_rx_backpressure/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 class OutputChecker():
     """ Check that every line from the DUT is an increasing packet size received
@@ -68,7 +65,7 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
 
     testname, extension = os.path.splitext(os.path.basename(test_file))
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -112,7 +109,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
 
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_rx_backpressure/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx_backpressure(capfd, params):
     seed = 1
 

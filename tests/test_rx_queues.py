@@ -27,10 +27,8 @@ from mii_packet import MiiPacket
 from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
+from helpers import generate_tests
 
-
-with open(Path(__file__).parent / "test_rx_queues/test_params.json") as f:
-    params = json.load(f)
 
 def choose_data_size(rand, data_len_min, data_len_max):
     return rand.randint(data_len_min, data_len_max)
@@ -127,7 +125,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
 
     testname = 'test_rx_queues'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -216,8 +214,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
         print("Sending {n} lp packets with {b} bytes hp data".format(n=lp_seq_id, b=lp_data_bytes))
         print("Sending {n} other packets with {b} bytes hp data".format(n=other_seq_id, b=other_data_bytes))
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{test_id}.expect'
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}_{test_id}.expect'
     create_expect(packets, expect_filename, hp_mac_address)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True, ordered=False)
 
@@ -229,7 +227,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
                                     simargs=simargs,
                                     capfd=capfd,
                                     do_xe_prebuild=False)
-    
+
 
     assert result is True, f"{result}"
 
@@ -252,8 +250,8 @@ def create_expect(packets, filename, hp_mac_address):
         f.write("LP client 2 received \\d+ bytes\n")
 
 
-
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_rx_queues/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx_queues(capfd, params):
 
     seed = random.randint(0, sys.maxsize)

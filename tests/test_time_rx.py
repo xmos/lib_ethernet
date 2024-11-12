@@ -16,10 +16,7 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
 from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, args
 from helpers import get_rgmii_tx_clk_phy
-
-
-with open(Path(__file__).parent / "test_time_rx/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -27,16 +24,16 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
 
     testname = 'test_time_rx'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy at {tx_clk.get_name()}")
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy at {tx_clk.get_name()} for {arch} arch")
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
-    
+
     packets = []
     done = False
     num_data_bytes = 0
@@ -47,7 +44,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
             length = rand.randint(46, 100)
         else:
             length = rand.randint(46, 1500)
-            
+
         burst_len = 1
         do_burst = rand.randint(0, 100) > 80
         if do_burst:
@@ -72,9 +69,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     with capfd.disabled():
         print(f"Sending {len(packets)} packets with {num_data_bytes} bytes at the DUT")
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}'
     create_expect(packets, expect_filename)
     tester = px.testers.ComparisonTester(open(expect_filename))
 
@@ -103,7 +99,8 @@ def create_expect(packets, filename):
         f.write("Received {} packets, {} bytes\n".format(num_packets, num_bytes))
 
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_time_rx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_time_rx(capfd, params):
     verbose = False
     seed = random.randint(0, sys.maxsize)

@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
+project(test_rx)
 
 include(../helpers.cmake)
+include(../test_deps.cmake)
 
 set(APP_PCA_ENABLE ON)
 
-include(../test_deps.cmake)
-
 file(GLOB_RECURSE SOURCES_XC RELATIVE  ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
+set(APP_XC_SRCS             ${SOURCES_XC})
+set(APP_INCLUDES            ../include src)
 
 set(COMPILER_FLAGS_COMMON   -g
                             -report
@@ -23,26 +25,18 @@ get_json_list(${JSON_CONTENT} PROFILES profile_list)
 set(done_configs "")
 foreach(PROFILE ${profile_list})
     get_json_list(${PROFILE} arch arch_list) # Get archs to build for, for this particular profile
-    foreach(ARCH ${arch_list})
-        if(ARCH STREQUAL "xs3")
-            set(target "XK-EVK-XU316")
-        elseif(ARCH STREQUAL "xs2")
-            set(target "XCORE-200-EXPLORER")
-        endif()
-
+    foreach(arch ${arch_list})
         string(JSON phy GET ${PROFILE} phy)
         string(JSON clk GET ${PROFILE} clk)
         string(JSON mac GET ${PROFILE} mac)
-        set(config "${mac}_${phy}_${ARCH}")
-        message(STATUS "Building cfg_name: ${config}")
+        set(config "${mac}_${phy}_${arch}")
 
         list (FIND done_configs ${config} _index)
         if(${_index} EQUAL -1) # Only build if it is a new config
             list(APPEND done_configs ${config})
-            project(test_rx)
-            set(APP_HW_TARGET ${target})
-            set(APP_XC_SRCS             ${SOURCES_XC})
-            set(APP_INCLUDES            ../include src)
+            message(STATUS "Building cfg_name: ${config}")
+
+            set_app_hw_target(arch)
 
             set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
 
@@ -72,5 +66,3 @@ foreach(PROFILE ${profile_list})
     endforeach() # foreach(arch ${arch_list})
     unset(arch_list)
 endforeach() # foreach(PROFILE ${profile_list})
-
-XMOS_REGISTER_APP()

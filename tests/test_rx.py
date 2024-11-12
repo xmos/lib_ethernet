@@ -3,7 +3,6 @@
 
 import random
 import Pyxsim as px
-import json
 from pathlib import Path
 import pytest
 

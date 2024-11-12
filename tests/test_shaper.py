@@ -4,9 +4,9 @@ import random
 import copy
 import pytest
 from pathlib import Path
-import json
 import Pyxsim as px
 import os
+import sys
 
 from mii_clock import Clock
 from mii_phy import MiiReceiver
@@ -15,9 +15,8 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import generate_tests
 
-with open(Path(__file__).parent / "test_shaper/test_params.json") as f:
-    params = json.load(f)
 
 high_priority_mac_addr = [0, 1, 2, 3, 4, 5]
 
@@ -66,7 +65,7 @@ class TimeoutMonitor(px.SimThread):
             return True
 
         return False
-    
+
     def run(self):
         xsi = self.xsi
 
@@ -87,7 +86,7 @@ class TimeoutMonitor(px.SimThread):
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_shaper'
     mii_clk_name = "125MHz" if "125" in tx_clk.get_name() else "25MHz" # Fix issue with lower case h
-    profile = f'{mac}_{tx_phy.get_name()}_{mii_clk_name}'
+    profile = f'{mac}_{tx_phy.get_name()}_{mii_clk_name}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -117,10 +116,10 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     rx_phy.timeout_monitor = timeout_monitor
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0
-   
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{phy}_{clk}.expect'.format(
-        folder=expect_folder, test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
+
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+
     create_expect(expect_filename, num_expected_packets)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
@@ -157,7 +156,8 @@ def create_expect(filename, num_expected_packets):
             f.write("\\d+.?\\d*: Received HP packet {}\n".format(i + 1))
         f.write("DONE\n")
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_shaper/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx_err(capfd, params):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
 

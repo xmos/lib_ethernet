@@ -133,9 +133,9 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}_{arch}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name(), clk=tx_clk.get_name(), arch=arch)
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+
     create_expect(packets, expect_filename)
 
     tester = px.testers.ComparisonTester(open(expect_filename))

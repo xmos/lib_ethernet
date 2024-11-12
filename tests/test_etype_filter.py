@@ -3,7 +3,6 @@
 
 import os
 import sys
-import json
 from pathlib import Path
 import pytest
 import Pyxsim as px
@@ -15,9 +14,7 @@ from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
 from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
-
-with open(Path(__file__).parent / "test_etype_filter/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     testname = 'test_etype_filter'
@@ -25,7 +22,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -55,7 +52,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
 
     assert result is True, f"{result}"
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_etype_filter/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_etype_filter(capfd, params):
     seed = 1
 
