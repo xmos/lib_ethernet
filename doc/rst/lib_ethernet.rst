@@ -7,7 +7,7 @@ lib_ethernet: Ethernet library
 Introduction
 ************
 
-``lib_ethernet`` allows interfacing to MII or RGMII Ethernet PHYs and provides the Media Access Control (MAC)
+``lib_ethernet`` allows interfacing to MII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
 for the Ethernet stack.
 
 Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed.
@@ -44,7 +44,7 @@ Typical Resource Usage
 Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
 The amount required depends on the feature set of the MAC. The table below summarises the main requirements.
 
-.. list-table:: Ethernet XCORE resource usage
+.. list-table:: Ethernet MAC XCORE resource usage
  :header-rows: 1
 
  * - Configuration
@@ -53,19 +53,19 @@ The amount required depends on the feature set of the MAC. The table below summa
    - Clocks
    - RAM
    - Threads
- * - 10/100 Mb/s standard
+ * - 10/100 Mb/s standard MII
    - 13
    - 5 (1-bit), 2 (4-bit), 1 (any-bit)
    - 2
    - ~16 k
    - 2
- * - 10/100 Mb/s Real-Time
+ * - 10/100 Mb/s Real-Time MII
    - 13
    - 5 (1-bit), 2 (4-bit)
    - 2
    - ~23 k
    - 4
- * - 10/100/1000Mb/s
+ * - 10/100/1000Mb/s RGMII
    - 12
    - 8 (1-bit), 2 (4-bit), 2 (8-bit)
    - 4
@@ -83,6 +83,15 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 0
    - ~1 k
    - 0
+
+.. note::
+    Not all ports are brought out to pins since they are used internally to the device.
+    Hence the total port bit-count may not always match the required device pin count.
+
+.. note::
+    The SMI configuration API is a function call and so uses no dedicated threads. It
+    blocks until the last bit of the transaction is complete.
+
 
 |newpage|
 
