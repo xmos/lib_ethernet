@@ -9,7 +9,7 @@ from mii_packet import MiiPacket
 class TxPhy(px.SimThread):
 
     # Time in fs from the last packet being sent until the end of test is signalled to the DUT
-    END_OF_TEST_TIME = 5000*1e6
+    END_OF_TEST_TIME = 10000*1e6
 
     def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay, verbose,
                  test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time):

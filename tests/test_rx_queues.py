@@ -43,7 +43,8 @@ class DataLimiter(object):
         self._limited_hp_mbps = limited_hp_mbps
         self._credit = 0
         self._bit_time = bit_time
-        self._max_mbps = 1000 / bit_time
+        max_bits_per_fs = 1/bit_time # bit_time is in fs
+        self._max_mbps = max_bits_per_fs * 1e15 * 1e-6
 
     def get_ifg(self, packet_type, num_data_bytes, tag):
         preamble_bytes = 8
@@ -295,7 +296,6 @@ def test_rx_queues(capfd, params):
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,verbose=verbose)
             if params["test_id"] == "a":
-                pytest.skip("https://github.com/xmos/lib_ethernet/issues/57")
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -304,7 +304,6 @@ def test_rx_queues(capfd, params):
                         max_hp_mbps=300)
 
             if params["test_id"] == "b":
-                pytest.skip("https://github.com/xmos/lib_ethernet/issues/57")
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
