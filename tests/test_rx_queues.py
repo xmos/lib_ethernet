@@ -16,7 +16,6 @@
 
 import os
 import sys
-import json
 from pathlib import Path
 import pytest
 import random
@@ -253,9 +252,10 @@ def create_expect(packets, filename, hp_mac_address):
 
 test_params_file = Path(__file__).parent / "test_rx_queues/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_rx_queues(capfd, params):
-
-    seed = random.randint(0, sys.maxsize)
+def test_rx_queues(capfd, pytestconfig, params):
+    seed = pytestconfig.getoption("seed")
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
 
     verbose = False
 

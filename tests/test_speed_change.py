@@ -145,8 +145,11 @@ def create_expect(filename, packets_25, packets_125):
 
 test_params_file = Path(__file__).parent / "test_speed_change/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_speed_change(capfd, params):
-    seed = random.randint(0, sys.maxsize)
+def test_speed_change(capfd, pytestconfig, params):
+    seed = pytestconfig.getoption("seed")
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
+
     verbose = False
 
     (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay=initial_delay,

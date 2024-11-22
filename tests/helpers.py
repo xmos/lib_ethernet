@@ -122,7 +122,7 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
     profile = f'{mac}_{tx_phy.get_name()}_{arch}'

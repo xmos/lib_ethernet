@@ -4,8 +4,6 @@
 import Pyxsim as px
 import pytest
 import os
-import random
-import sys
 from pathlib import Path
 
 from mii_clock import Clock

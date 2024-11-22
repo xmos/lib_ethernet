@@ -6,7 +6,6 @@ import os
 import random
 import sys
 from pathlib import Path
-import json
 import pytest
 
 from mii_clock import Clock
@@ -29,7 +28,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy at {tx_clk.get_name()} for {arch} arch")
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy at {tx_clk.get_name()} for {arch} arch (seed {seed})")
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
@@ -101,9 +100,11 @@ def create_expect(packets, filename):
 
 test_params_file = Path(__file__).parent / "test_time_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_time_rx(capfd, params):
+def test_time_rx(capfd, pytestconfig, params):
     verbose = False
-    seed = random.randint(0, sys.maxsize)
+    seed = pytestconfig.getoption("seed")
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
 
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":

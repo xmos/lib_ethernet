@@ -2,7 +2,6 @@
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import Pyxsim as px
 import os
-import sys
 from pathlib import Path
 import pytest
 

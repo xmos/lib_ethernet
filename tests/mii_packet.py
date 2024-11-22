@@ -81,7 +81,6 @@ class MiiPacket(object):
         self.send_crc_word = True
         self.corrupt_crc = False
         self.extra_nibble = False
-        self.seed = None
         self.create_data_args = None
         self.send_header = True
         self.nibble = None

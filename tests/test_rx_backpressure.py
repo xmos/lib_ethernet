@@ -111,14 +111,15 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
 test_params_file = Path(__file__).parent / "test_rx_backpressure/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_rx_backpressure(capfd, params):
-    seed = 1
+def test_rx_backpressure(capfd, pytestconfig, params):
+    seed = pytestconfig.getoption("seed")
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
 
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=check_received_packet, verbose=False)
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=False, test_ctrl="tile[0]:XS1_PORT_1A")
-        seed = seed if seed else random.randint(0, sys.maxint)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     elif params["phy"] == "rgmii":

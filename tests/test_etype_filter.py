@@ -27,7 +27,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}")
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
 
     dut_mac_address = get_dut_mac_address()
     packets = [
@@ -54,8 +54,10 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
 
 test_params_file = Path(__file__).parent / "test_etype_filter/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_etype_filter(capfd, params):
-    seed = 1
+def test_etype_filter(capfd, pytestconfig, params):
+    seed = pytestconfig.getoption("seed")
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
 
       # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
