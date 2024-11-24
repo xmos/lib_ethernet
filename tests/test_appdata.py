@@ -65,8 +65,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
 
 test_params_file = Path(__file__).parent / "test_appdata/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_appdata(capfd, pytestconfig, params):
-    seed = pytestconfig.getoption("seed")
+def test_appdata(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 

@@ -272,8 +272,7 @@ def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
 
 test_params_file = Path(__file__).parent / "test_avb_traffic/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_avb_traffic(capfd, pytestconfig, params):
-    seed = pytestconfig.getoption("seed")
+def test_avb_traffic(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 

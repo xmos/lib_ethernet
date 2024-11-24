@@ -89,10 +89,10 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
 test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_rx_err(capfd, pytestconfig, params):
-    seed = pytestconfig.getoption("seed")
+def test_rx_err(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
+
 
     # Issue #30 - the standard MII ignores the RX_ER signal
     run_parametrised_test_rx(capfd, do_test, params, exclude_standard=True, seed=seed)

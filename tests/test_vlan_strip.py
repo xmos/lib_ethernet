@@ -64,10 +64,10 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
 
 test_params_file = Path(__file__).parent / "test_vlan_strip/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_vlan_strip(capfd, pytestconfig, params):
-    seed = pytestconfig.getoption("seed")
+def test_vlan_strip(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
+
     verbose = False
       # Test 100 MBit - MII XS2
     if params["phy"] == "mii":

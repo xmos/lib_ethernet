@@ -100,11 +100,11 @@ def create_expect(packets, filename):
 
 test_params_file = Path(__file__).parent / "test_time_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_time_rx(capfd, pytestconfig, params):
+def test_time_rx(capfd, seed, params):
     verbose = False
-    seed = pytestconfig.getoption("seed")
     if seed == None:
         seed = random.randint(0, sys.maxsize)
+
 
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
