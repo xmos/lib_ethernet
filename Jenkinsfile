@@ -35,7 +35,7 @@ pipeline {
     REPO = 'lib_ethernet'
     PIP_VERSION = "24.0"
     PYTHON_VERSION = "3.12.1"
-    SEED = "1234"
+    SEED = "12345"
   }
   stages {
     stage('Checkout') {
@@ -48,20 +48,6 @@ pipeline {
         }
       }
     }  // Get sandbox
-
-    stage('Generate seed') {
-      when {
-        expression {
-          params.TEST_TYPE == "random_seed"
-        }
-      }
-      steps {
-        script {
-          echo "Setting random seed!!!"
-          env.SEED = "6789"
-        }
-      }
-    }
 
     stage('Build examples') {
       steps {
@@ -77,6 +63,37 @@ pipeline {
         } //withTools
       } // steps
     }  // Build examples
+
+    stage('Simulator tests') {
+      steps {
+      	sh "git clone --branch change_time_step_increment git@github.com:xmos/test_support.git"
+      	dir("${REPO}") {
+	        withVenv {
+	      	  sh "pip install -e ../test_support"
+	      	  withTools(params.TOOLS_VERSION) {
+      		    dir("tests") {
+      		      script {
+                  // Build all apps in the examples directory
+      		        sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
+      		        sh "xmake -j 32 -C build"
+                  if(params.TEST_TYPE == 'fixed_seed')
+                  {
+                    echo "Running tests with fixed seed ${env.SEED}"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED}"
+                  }
+                  else
+                  {
+                    echo "Running tests with random seed"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml"
+                  }
+                  junit "pytest_result.xml"
+      		      } // script
+	      	    } // dir("tests")
+	      	  } // withTools
+      	  } // withVenv
+      	} // dir("${REPO}")
+      } // steps
+    } // stage('Simulator tests')
 
     stage('Library checks') {
       steps {
@@ -95,30 +112,6 @@ pipeline {
         }
       }
     }
-
-    stage('Simulator tests') {
-      steps {
-      	sh "git clone --branch change_time_step_increment git@github.com:xmos/test_support.git"
-      	dir("${REPO}") {
-	        withVenv {
-	      	  sh "pip install -e ../test_support"
-	      	  withTools(params.TOOLS_VERSION) {
-      		    dir("tests") {
-                echo "Test Stage: SEED is ${env.SEED}"
-      		      script {
-      		        // Build all apps in the examples directory
-      		        sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
-      		        sh "xmake -j 32 -C build"
-      		      } // script
-                sh "pytest -v -n auto --junitxml=pytest_result.xml"
-                junit "pytest_result.xml"
-	      	    } // dir("tests")
-	      	  } // withTools
-      	  } // withVenv
-      	} // dir("${REPO}")
-      } // steps
-    } // stage('Simulator tests')
-
   } // stages
   post {
     cleanup {
