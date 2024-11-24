@@ -264,7 +264,7 @@ def test_rx_queues(capfd, seed, params):
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, verbose=verbose)
 
         # Test having every packet going to both LP receivers
-        if params["test_id"] == "a":
+        if params["test_id"] == "hp_min_sz":
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, params["test_id"],
                     num_packets=200,
                     weight_hp=0, weight_lp=100, weight_other=0,
@@ -273,7 +273,7 @@ def test_rx_queues(capfd, seed, params):
                     max_hp_mbps=100,
                     lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
 
-        if params["test_id"] == "b":
+        if params["test_id"] == "hp_max_sz":
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, params["test_id"],
                     num_packets=200,
                     weight_hp=100, weight_lp=0, weight_other=0,
@@ -285,7 +285,7 @@ def test_rx_queues(capfd, seed, params):
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, verbose=verbose)
-            if params["test_id"] == "a":
+            if params["test_id"] == "hp_min_sz":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
                         weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
@@ -295,7 +295,7 @@ def test_rx_queues(capfd, seed, params):
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,verbose=verbose)
-            if params["test_id"] == "a":
+            if params["test_id"] == "hp_min_sz":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -303,7 +303,7 @@ def test_rx_queues(capfd, seed, params):
                         weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                         max_hp_mbps=300)
 
-            if params["test_id"] == "b":
+            if params["test_id"] == "hp_max_sz":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -311,7 +311,7 @@ def test_rx_queues(capfd, seed, params):
                         weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                         max_hp_mbps=600)
 
-            if params["test_id"] == "c":
+            if params["test_id"] == "mixed":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
                         weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,

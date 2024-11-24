@@ -1,10 +1,10 @@
 {
     "PROFILES": [
-        {"phy":"mii", "clk":"25MHz", "mac":"rt_hp", "arch":["xs2", "xs3"], "test_id":"a"},
-        {"phy":"mii", "clk":"25MHz", "mac":"rt_hp", "arch":["xs2", "xs3"], "test_id":"b"},
-        {"phy":"rgmii", "clk":"25MHz", "mac":"hp", "arch":"xs2", "test_id":"a"},
-        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"a"},
-        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"b"},
-        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"c"}
+        {"phy":"mii", "clk":"25MHz", "mac":"rt_hp", "arch":["xs2", "xs3"], "test_id":"hp_min_sz"},
+        {"phy":"mii", "clk":"25MHz", "mac":"rt_hp", "arch":["xs2", "xs3"], "test_id":"hp_max_sz"},
+        {"phy":"rgmii", "clk":"25MHz", "mac":"hp", "arch":"xs2", "test_id":"hp_min_sz"},
+        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"hp_min_sz"},
+        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"hp_max_sz"},
+        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"mixed"}
         ]
 }
