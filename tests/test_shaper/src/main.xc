@@ -19,24 +19,24 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 static int calc_idle_slope(int bps)
 {
   long long slope = ((long long) bps) << (MII_CREDIT_FRACTIONAL_BITS);
-  slope = slope / 100000000;
+  slope = slope / 100000000; // bits that should be sent per ref timer tick
 
   return (int) slope;
 }
 
 void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend c_packet_start_synch)
 {
-  // Request 5Mbps
+  // Request 5Mbits/sec
   i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
-  
+
   // Indicate the test is not yet complete
   p_test_ctrl <: 0;
-  
+
   unsigned data[PACKET_WORDS];
   for (size_t i = 0; i < PACKET_WORDS; i++) {
     data[i] = i;
   }
-  
+
   // src/dst MAC addresses
   size_t j = 0;
   for (; j < 12; j++)
@@ -137,7 +137,7 @@ void lp_traffic(client ethernet_tx_if tx, chanend c_packet_start_synch)
 
       tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
     }
-    
+
     int delay = random_get_random_number(rand) % MAX_INTER_PACKET_DELAY;
     delay_microseconds(delay);
   }

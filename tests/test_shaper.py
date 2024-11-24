@@ -53,9 +53,9 @@ class TimeoutMonitor(px.SimThread):
         if self._verbose:
             print(f"{xsi.get_time()/1e6} ns: HP seen_packets {self._seen_packets}")
 
-        max_conscutive_hp_pckts = 2
-        if self._seen_packets > max_conscutive_hp_pckts:
-            print(f"ERROR: More than {max_conscutive_hp_pckts} HP packets seen in time period")
+        max_consecutive_hp_pckts = 2
+        if self._seen_packets > max_consecutive_hp_pckts:
+            print(f"ERROR: More than {max_consecutive_hp_pckts} HP packets seen in time period")
             return True
 
         if self._packet_count == self._expect_count:
