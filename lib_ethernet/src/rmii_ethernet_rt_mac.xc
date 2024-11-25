@@ -107,16 +107,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     switch(rx_port_width){
       case 4:
         rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd->rmii_data_1b.data_0), 32);
-        printstr("RX Using 4b port. Pins: ");printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
-        printhexln((unsigned)*rx_data_0);
         rmii_master_init_rx_4b(p_clk, rx_data_0, rx_port_4b_pins, p_rxdv, rxclk);
         break;
       case 1:
         rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_0, 32);
         rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_1, 32);
-        printstrln("RX Using 1b ports.");
-        printhexln((unsigned)*rx_data_0);
-        printhexln((unsigned)*rx_data_1);
         rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk);
         break;
       default:
@@ -134,16 +129,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     switch(tx_port_width){
       case 4:
         tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
-        printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
-        printhexln((unsigned)*tx_data_0);
         rmii_master_init_tx_4b(p_clk, tx_data_0, tx_port_4b_pins, p_txen, txclk);
         break;
       case 1:
         tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
         tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_1, 32);
-        printstrln("TX Using 1b ports.");
-        printhexln((unsigned)*tx_data_0);
-        printhexln((unsigned)*tx_data_1);
         rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk);
         break;
       default:
@@ -151,7 +141,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
         break;
     }
 
-
+    // Setup server
     ethernet_port_state_t port_state;
     init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
 
@@ -159,18 +149,45 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
     chan c_conf;
     par {
+      // Rx task
       {
         if(rx_port_width == 4){
-          printstr("rmii_master_rx_pins_4b\n");
+          rmii_master_rx_pins_4b(rx_mem,
+                                 (mii_packet_queue_t)&incoming_packets,
+                                 p_rx_rdptr,
+                                 p_rxdv,
+                                 rx_data_0,
+                                 rx_port_4b_pins);
         } else {
-          printstr("rmii_master_rx_pins_1b\n");
+          rmii_master_rx_pins_1b(rx_mem,
+                                 (mii_packet_queue_t)&incoming_packets,
+                                 p_rx_rdptr,
+                                 p_rxdv,
+                                 rx_data_0,
+                                 rx_data_1);
         }
       }
+      // Tx task
       {
         if(tx_port_width == 4){
-          printstr("rmii_master_tx_pins_4b\n");
+          rmii_master_tx_pins_4b(tx_mem_lp,
+                                tx_mem_hp,
+                                (mii_packet_queue_t)&tx_packets_lp,
+                                (mii_packet_queue_t)&tx_packets_hp,
+                                ts_queue,
+                                tx_data_0,
+                                tx_port_4b_pins,
+                                p_port_state);
+          
         } else {
-          printstr("rmii_master_tx_pins_1b\n");
+          rmii_master_tx_pins_1b(tx_mem_lp,
+                                tx_mem_hp,
+                                (mii_packet_queue_t)&tx_packets_lp,
+                                (mii_packet_queue_t)&tx_packets_hp,
+                                ts_queue,
+                                tx_data_0,
+                                tx_data_1,
+                                p_port_state);
         }
       }
 
@@ -198,4 +215,3 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     }
   } // unsafe block
 }
-

@@ -32,19 +32,36 @@ void rmii_master_init_tx_1b(in port p_clk,
                             out port p_txen,
                             clock txclk);
 
-unsafe void rmii_master_rx_pins(mii_mempool_t rx_mem,
+unsafe void rmii_master_rx_pins_4b(mii_mempool_t rx_mem,
                                 mii_packet_queue_t incoming_packets,
                                 unsigned * unsafe rdptr,
                                 in port p_mii_rxdv,
-                                in buffered port:32 p_mii_rxd,
-                                in buffered port:1 p_rxer);
+                                in buffered port:32 * unsafe p_mii_rxd,
+                                rmii_data_4b_pin_assignment_t rx_port_4b_pins);
 
-unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
+unsafe void rmii_master_rx_pins_1b(mii_mempool_t rx_mem,
+                                mii_packet_queue_t incoming_packets,
+                                unsigned * unsafe rdptr,
+                                in port p_mii_rxdv,
+                                in buffered port:32 * unsafe p_mii_rxd_0,
+                                in buffered port:32 * unsafe p_mii_rxd_1);
+
+unsafe void rmii_master_tx_pins_4b(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
                                 mii_packet_queue_t hp_packets,
                                 mii_packet_queue_t lp_packets,
                                 mii_ts_queue_t ts_queue_lp,
-                                out buffered port:32 p_mii_txd,
+                                out buffered port:32 * unsafe p_mii_txd,
+                                rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                volatile ethernet_port_state_t * unsafe p_port_state);
+
+unsafe void rmii_master_tx_pins_1b(mii_mempool_t tx_mem_lp,
+                                mii_mempool_t tx_mem_hp,
+                                mii_packet_queue_t hp_packets,
+                                mii_packet_queue_t lp_packets,
+                                mii_ts_queue_t ts_queue_lp,
+                                out buffered port:32 * unsafe p_mii_txd_0,
+                                out buffered port:32 * unsafe  p_mii_txd_1,
                                 volatile ethernet_port_state_t * unsafe p_port_state);
 
 // This is re-used by RMII as it is abstracted from the MAC pins
