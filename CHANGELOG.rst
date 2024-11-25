@@ -9,6 +9,7 @@ lib_ethernet change log
   * ADDED: Support for XCommon CMake build system
   * REMOVED: Support for XS1 devices
   * RESOLVED: Build warnings even when compile successful
+  * ADDED: Support for running MII sim tests for XS3 architecture
 
   * Changes to dependencies:
 

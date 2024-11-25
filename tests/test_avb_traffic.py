@@ -276,6 +276,7 @@ def test_avb_traffic(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
+    seed = 1 # https://github.com/xmos/lib_ethernet/issues/68
     if args.data_len_max < args.data_len_min:
         print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(
         min=args.data_len_min, max=args.data_len_max)

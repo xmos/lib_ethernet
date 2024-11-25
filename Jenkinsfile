@@ -64,37 +64,6 @@ pipeline {
       } // steps
     }  // Build examples
 
-    stage('Simulator tests') {
-      steps {
-      	sh "git clone --branch change_time_step_increment git@github.com:xmos/test_support.git"
-      	dir("${REPO}") {
-	        withVenv {
-	      	  sh "pip install -e ../test_support"
-	      	  withTools(params.TOOLS_VERSION) {
-      		    dir("tests") {
-      		      script {
-                  // Build all apps in the examples directory
-      		        sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
-      		        sh "xmake -j 32 -C build"
-                  if(params.TEST_TYPE == 'fixed_seed')
-                  {
-                    echo "Running tests with fixed seed ${env.SEED}"
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED}"
-                  }
-                  else
-                  {
-                    echo "Running tests with random seed"
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml"
-                  }
-                  junit "pytest_result.xml"
-      		      } // script
-	      	    } // dir("tests")
-	      	  } // withTools
-      	  } // withVenv
-      	} // dir("${REPO}")
-      } // steps
-    } // stage('Simulator tests')
-
     stage('Library checks') {
       steps {
         warnError("lib checks") {
@@ -112,7 +81,41 @@ pipeline {
         }
       }
     }
+
+    stage('Simulator tests') {
+      steps {
+        sh "git clone git@github.com:xmos/test_support"
+        sh "git -C test_support checkout 025997a385a6e7edb62107779b6548e6cf9e12a3"
+        dir("${REPO}") {
+          withVenv {
+            sh "pip install -e ../test_support"
+            withTools(params.TOOLS_VERSION) {
+              dir("tests") {
+                script {
+                // Build all apps in the examples directory
+                  sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
+                  sh "xmake -j 32 -C build"
+                  if(params.TEST_TYPE == 'fixed_seed')
+                  {
+                    echo "Running tests with fixed seed ${env.SEED}"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED}"
+                  }
+                  else
+                  {
+                    echo "Running tests with random seed"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml"
+                  }
+                  junit "pytest_result.xml"
+                } // script
+              } // dir("tests")
+            } // withTools
+          } // withVenv
+        } // dir("${REPO}")
+      } // steps
+    } // stage('Simulator tests')
+
   } // stages
+
   post {
     cleanup {
       xcoreCleanSandbox()
