@@ -604,7 +604,7 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 /** ENUM to determine which two bits of a four bit port are to be used as data lines 
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
- *  port cannot be used. */
+ *  port cannot be used. For Tx, the unused pins are driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
     USE_LOWER_2B,                           /**< Use bit 0 and bit 1 of the four bit port */
     USE_UPPER_2B                            /**< Use bit 2 and bit 3 of the four bit port */
@@ -615,8 +615,8 @@ typedef struct rmii_data_4b_t
 {
     port data;                              /**< Four bit data port */
     rmii_data_4b_pin_assignment_t pins_used;/**< Which two bits of the data port to use.
-                                                 Unused rx pins are ignored and unused
-                                                 tx pins are driven low. */
+                                                 Unused Rx pins are ignored and unused
+                                                 Tx pins are driven low. */
 } rmii_data_4b_t;
 
 /** Structure type representing a pair one bit ports used for RMII data transmission or reception. */
@@ -641,7 +641,7 @@ typedef union rmii_data_port_t
  *  RMII interface, with real-time features (priority queuing and traffic shaping).
  *  Interaction to the component is via the connected configuration
  *  and data interfaces.
- *  Each of the 2 bit data ports may be defined either as part of a 4 bit port
+ *  Each of the 2 bit data ports may be defined either as half of a 4 bit port
  *  (upper or lower 2 bits) or a pair of 1 bit ports.
  *
  *  \param i_cfg               Array of client configuration interfaces

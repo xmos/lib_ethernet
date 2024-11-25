@@ -25,10 +25,6 @@
 #define crc32(a, b, c) {__builtin_crc32(a, b, c); asm volatile (""::"r"(a):"memory");}
 
 
-#ifndef ETHERNET_ENABLE_FULL_TIMINGS
-#define ETHERNET_ENABLE_FULL_TIMINGS (1)
-#endif
-
 // Timing tuning constants
 #define PAD_DELAY_RECEIVE    0
 #define PAD_DELAY_TRANSMIT   0
@@ -50,6 +46,11 @@
 #define MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
 
+static void rmii_master_init_rx_common(){
+
+}
+
+
 void rmii_master_init_rx_4b(in port p_clk,
                             in buffered port:32 * unsafe rx_data_0,
                             rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -65,6 +66,11 @@ void rmii_master_init_rx_1b(in port p_clk,
                             clock rxclk){
 
 }
+
+static void rmii_master_init_tx_common(){
+
+}
+
 
 void rmii_master_init_tx_4b(in port p_clk,
                             out buffered port:32 * unsafe tx_data_0,

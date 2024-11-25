@@ -49,7 +49,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           clock txclk,
                           static_const_unsigned_t rx_bufsize_words,
                           static_const_unsigned_t tx_bufsize_words,
-                          enum ethernet_enable_shaper_t shaper_enabled)
+                          enum ethernet_enable_shaper_t enable_shaper)
 {
   // Establish types of data ports presented
   printstrln("rmii_ethernet_rt_mac");
@@ -152,8 +152,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     }
 
 
-    #if 0
-
     ethernet_port_state_t port_state;
     init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
 
@@ -161,17 +159,20 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
     chan c_conf;
     par {
-      mii_master_rx_pins(rx_mem,
-                         (mii_packet_queue_t)&incoming_packets,
-                         p_rx_rdptr,
-                         p_rxdv, p_rxd, p_rxer);
-
-      mii_master_tx_pins(tx_mem_lp,
-                         tx_mem_hp,
-                         (mii_packet_queue_t)&tx_packets_lp,
-                         (mii_packet_queue_t)&tx_packets_hp,
-                         ts_queue, p_txd,
-                         p_port_state);
+      {
+        if(rx_port_width == 4){
+          printstr("rmii_master_rx_pins_4b\n");
+        } else {
+          printstr("rmii_master_rx_pins_1b\n");
+        }
+      }
+      {
+        if(tx_port_width == 4){
+          printstr("rmii_master_tx_pins_4b\n");
+        } else {
+          printstr("rmii_master_tx_pins_1b\n");
+        }
+      }
 
       mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
@@ -195,7 +196,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           c_conf,
                           p_port_state);
     }
-#endif
   } // unsafe block
 }
 

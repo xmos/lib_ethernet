@@ -203,22 +203,22 @@ unsafe static inline void handle_ts_queue(mii_ts_queue_t ts_queue,
   }
 }
 
-unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
-                                       mii_packet_queue_t rx_packets_lp,
-                                       mii_packet_queue_t rx_packets_hp,
-                                       unsigned * unsafe rx_rdptr,
-                                       mii_mempool_t tx_mem_lp,
-                                       mii_mempool_t tx_mem_hp,
-                                       mii_packet_queue_t tx_packets_lp,
-                                       mii_packet_queue_t tx_packets_hp,
-                                       mii_ts_queue_t ts_queue_lp,
-                                       server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                                       server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                                       server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                                       streaming chanend ? c_rx_hp,
-                                       streaming chanend ? c_tx_hp,
-                                       chanend c_macaddr_filter,
-                                       volatile ethernet_port_state_t * unsafe p_port_state)
+unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
+                               mii_packet_queue_t rx_packets_lp,
+                               mii_packet_queue_t rx_packets_hp,
+                               unsigned * unsafe rx_rdptr,
+                               mii_mempool_t tx_mem_lp,
+                               mii_mempool_t tx_mem_hp,
+                               mii_packet_queue_t tx_packets_lp,
+                               mii_packet_queue_t tx_packets_hp,
+                               mii_ts_queue_t ts_queue_lp,
+                               server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                               server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                               server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                               streaming chanend ? c_rx_hp,
+                               streaming chanend ? c_tx_hp,
+                               chanend c_macaddr_filter,
+                               volatile ethernet_port_state_t * unsafe p_port_state)
 {
   uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
