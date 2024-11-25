@@ -22,6 +22,7 @@ XCC_FLAGS_ethernet.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
 XCC_FLAGS_mii_ethernet_rt_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
 XCC_FLAGS_rgmii_buffering.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
 XCC_FLAGS_rgmii_ethernet_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
+XCC_FLAGS_rmii_ethernet_rt_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
 
 
 VERSION = 4.0.0
