@@ -16,13 +16,25 @@
 #include "server_state.h"
 
 
-static void enable_buffered_port(port p, unsigned transferWidth)
+static in buffered port:32 * unsafe enable_buffered_in_port(unsigned *port_pointer, unsigned transferWidth)
 {
-    asm volatile("setc res[%0], %1"::"r"(p), "r"(XS1_SETC_INUSE_ON));
-    asm volatile("setc res[%0], %1"::"r"(p), "r"(XS1_SETC_BUF_BUFFERS));
-    asm volatile("settw res[%0], %1"::"r"(p),"r"(transferWidth));
+    asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_INUSE_ON));
+    asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_BUF_BUFFERS));
+    asm volatile("settw res[%0], %1"::"r"(*port_pointer),"r"(transferWidth));
+    in buffered port:32 * unsafe bpp = NULL;
+    asm("add %0, %1, %2": "=r"(bpp) : "r"(port_pointer), "r"(0));
+    return bpp;
 }
 
+static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_pointer, unsigned transferWidth)
+{
+    asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_INUSE_ON));
+    asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_BUF_BUFFERS));
+    asm volatile("settw res[%0], %1"::"r"(*port_pointer),"r"(transferWidth));
+    out buffered port:32 * unsafe bpp = NULL;
+    asm("add %0, %1, %2": "=r"(bpp) : "r"(port_pointer), "r"(0));
+    return bpp;
+}
 
 
 void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
@@ -42,19 +54,28 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
   printstrln("rmii_ethernet_rt_mac");
 
   unsafe{
+    // Setup RX ports
+    // First declare C pointers for port resources
+    in buffered port:32 * unsafe rx_data_0 = NULL;
+    in buffered port:32 * unsafe rx_data_1 = NULL;
+
+    // Extract width and optionally which 4b pins to use
     unsigned rx_port_width = ((unsigned)(p_rxd->rmii_data_1b.data_0) >> 16) & 0xff;
     rmii_data_4b_pin_assignment_t rx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_rxd->rmii_data_1b.data_1);
-    unsigned tx_port_width = ((unsigned)((*p_txd).rmii_data_1b.data_0) >> 16) & 0xff;
-    rmii_data_4b_pin_assignment_t tx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_txd->rmii_data_1b.data_1);
-  
-    // Setup RX ports
+
+    // Extract pointers to ports with correct port qualifiers
     switch(rx_port_width){
       case 4:
-        enable_buffered_port(p_rxd->rmii_data_1b.data_0, 32);
+        rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd->rmii_data_1b.data_0), 32);
+        printstr("RX Using 4b port. Pins: ");printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
+        printhexln((unsigned)*rx_data_0);
         break;
       case 1:
-        enable_buffered_port(p_rxd->rmii_data_1b.data_0, 32);
-        enable_buffered_port(p_rxd->rmii_data_1b.data_1, 32);
+        rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_0, 32);
+        rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_1, 32);
+        printstrln("RX Using 1b ports.");
+        printhexln((unsigned)*rx_data_0);
+        printhexln((unsigned)*rx_data_1);
         break;
       default:
         fail("Invald port width for RMII Rx");
@@ -62,20 +83,31 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     }
 
     // Setup TX ports
+    out buffered port:32 * unsafe tx_data_0 = NULL;
+    out buffered port:32 * unsafe tx_data_1 = NULL;
+
+    unsigned tx_port_width = ((unsigned)(p_txd->rmii_data_1b.data_0) >> 16) & 0xff;
+    rmii_data_4b_pin_assignment_t tx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_txd->rmii_data_1b.data_1);
+
     switch(tx_port_width){
       case 4:
-        enable_buffered_port(p_txd->rmii_data_1b.data_0, 32);
+        tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
+        printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
+        printhexln((unsigned)*tx_data_0);
         break;
       case 1:
-        enable_buffered_port(p_txd->rmii_data_1b.data_0, 32);
-        enable_buffered_port(p_txd->rmii_data_1b.data_1, 32);
+        tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
+        tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_1, 32);
+        printstrln("TX Using 1b ports.");
+        printhexln((unsigned)*tx_data_0);
+        printhexln((unsigned)*tx_data_1);
         break;
       default:
         fail("Invald port width for RMII Tx");
         break;
     }
 
-    in buffered port:32 * unsafe ppp = p_rxd->rmii_data_1b.data_0;
+
 
     // in buffered port:32 * movable p_rxd = reconfigure_port(move(p_rx_ptr), in buffered port:32);
     // in buffered port:32 &p_rxd = *pp_rxd;
@@ -167,6 +199,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           p_port_state);
     }
 #endif
-  } // unsafe area
+  } // unsafe block
 }
 
