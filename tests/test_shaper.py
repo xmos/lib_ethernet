@@ -22,7 +22,7 @@ def packet_checker(packet, phy):
     if phy._verbose:
         sys.stdout.write(packet.dump())
     if packet.dst_mac_addr == high_priority_mac_addr:
-        if phy._verbose: print(f"HP recvd time {phy.xsi.get_time()/1e6} ns")
+        if phy._verbose: print(f"HP recvd time {phy.xsi.get_time_ns()} ns")
         phy.n_hp_packets += 1
         done = phy.timeout_monitor.hp_packet_received()
         if done:
@@ -30,7 +30,7 @@ def packet_checker(packet, phy):
                 print(f"ERROR: Only {phy.n_lp_packets} low priority packets received vs {phy.n_hp_packets} high priority")
             phy.xsi.terminate()
     else:
-        if phy._verbose: print(f"LP recvd time {phy.xsi.get_time()/1e6} ns")
+        if phy._verbose: print(f"LP recvd time {phy.xsi.get_time_ns()} ns")
         phy.n_lp_packets += 1
 
 
@@ -49,9 +49,9 @@ class TimeoutMonitor(px.SimThread):
 
         self._packet_count += 1
         self._seen_packets += 1
-        print(f"{xsi.get_time()/1e6}: Received HP packet {self._packet_count}")
+        print(f"{xsi._xsi.get_time()}: Received HP packet {self._packet_count}")
         if self._verbose:
-            print(f"{xsi.get_time()/1e6} ns: HP seen_packets {self._seen_packets}")
+            print(f"{xsi._xsi.get_time()} ns: HP seen_packets {self._seen_packets}")
 
         max_consecutive_hp_pckts = 2
         if self._seen_packets > max_consecutive_hp_pckts:
@@ -94,8 +94,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     # MAC request 5Mb/s
     slope = 5 * 1024 * 1024
 
-    bit_time = tx_phy.get_clock().get_bit_time()
-    bit_rate = 1e15 / bit_time
+    bit_time = tx_phy.get_clock().get_bit_time() # bit_time is in xsi_ticks/bit
+    bit_rate = px.Xsi.get_xsi_tick_freq_hz() / bit_time
     data_bytes = 100
     ifg_bytes = 96/8
     preamble_bytes = 8
@@ -103,14 +103,15 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     packet_bytes = ifg_bytes + preamble_bytes + data_bytes + crc_bytes
     packet_bits = packet_bytes * 8
     packets_per_second = slope / packet_bits
-    packet_period_fs = 1e15 / packets_per_second
+    packet_period_xsi_ticks = px.Xsi.get_xsi_tick_freq_hz() / packets_per_second
 
     with capfd.disabled():
-        print(f"Running with {data_bytes} byte packets (total {packet_bits} bits), {slope} bps requested, packet period {packet_period_fs/1e9:.2f} us, wire rate: {bit_rate/1e6}Mbps")
+        print(f"Running with {data_bytes} byte packets (total {packet_bits} bits), {slope} bps requested, packet period {(packet_period_xsi_ticks*1e6)/px.Xsi.get_xsi_tick_freq_hz():.2f} us, wire rate: {bit_rate/1e6}Mbps")
 
     num_expected_packets = 30
     initial_delay_us = 55 # To allow DUT ethernet to come up and start transmitting
-    timeout_monitor = TimeoutMonitor(initial_delay_us * 1e9, packet_period_fs, num_expected_packets, False)
+    initial_delay_xsi_ticks = (initial_delay_us * px.Xsi.get_xsi_tick_freq_hz())/ 1e6
+    timeout_monitor = TimeoutMonitor(initial_delay_xsi_ticks, packet_period_xsi_ticks, num_expected_packets, False)
     rx_phy.timeout_monitor = timeout_monitor
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0

@@ -85,7 +85,8 @@ pipeline {
     stage('Simulator tests') {
       steps {
         sh "git clone git@github.com:xmos/test_support"
-        sh "git -C test_support checkout 025997a385a6e7edb62107779b6548e6cf9e12a3"
+        //sh "git -C test_support checkout 025997a385a6e7edb62107779b6548e6cf9e12a3"
+        sh "git -C test_support checkout change_time_step_increment" // use custom branch till https://github.com/xmos/test_support/pull/48 is merged
         dir("${REPO}") {
           withVenv {
             sh "pip install -e ../test_support"

@@ -42,8 +42,8 @@ class DataLimiter(object):
         self._limited_hp_mbps = limited_hp_mbps
         self._credit = 0
         self._bit_time = bit_time
-        max_bits_per_fs = 1/bit_time # bit_time is in fs
-        self._max_mbps = max_bits_per_fs * 1e15 * 1e-6
+        max_bits_per_xsi_tick = 1/bit_time # bit_time is in xsi ticks per bit
+        self._max_mbps = max_bits_per_xsi_tick * px.Xsi.get_xsi_tick_freq_hz() * 1e-6
 
     def get_ifg(self, packet_type, num_data_bytes, tag):
         preamble_bytes = 8
