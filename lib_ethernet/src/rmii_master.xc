@@ -171,7 +171,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 #define MASTER_RX_CHUNK_HEAD \
     timer tmr; \
                 \
-    unsigned kernel_stack[MII_COMMON_HANDLER_STACK_WORDS]; \
     /* Pointers to data that needs the latest value being read */ \
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr; \
                                                                             \
@@ -235,7 +234,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
         } \
     } \
 return; 
-
 // END OF MASTER_RX_CHUNK_TAIL
 
 
