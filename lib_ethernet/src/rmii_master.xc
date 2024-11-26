@@ -171,7 +171,7 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 }
 
 //////////////////////// RX ///////////////////////////
-// Common code for 1b and 4b versions
+// Common code for 1b and 4b versions. Use a macro to avoid repetition.
 
 #define MASTER_RX_CHUNK_HEAD \
     timer tmr; \
@@ -248,7 +248,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins){
     printstr("rmii_master_rx_pins_4b\n");
-    printstr("rmii_master_rx_pins_1b\n");
     printstr("RX Using 4b port. Pins: ");
     printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
     printhexln((unsigned)*p_mii_rxd);
@@ -303,7 +302,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_TAIL
 }
-
 
 
 unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
@@ -374,83 +372,75 @@ unsafe unsigned rmii_transmit_packet(mii_mempool_t tx_mem,
                                     out buffered port:32 p_mii_txd,
                                     hwtimer_t ifg_tmr, unsigned &ifg_time)
 {
-  unsigned time;
-  register const unsigned poly = 0xEDB88320;
-  unsigned int crc = 0;
-  unsigned * unsafe dptr;
-  int i=0;
-  int word_count = buf->length >> 2;
-  int tail_byte_count = buf->length & 3;
-  unsigned * unsafe wrap_ptr;
-  dptr = &buf->data[0];
-  wrap_ptr = mii_get_wrap_ptr(tx_mem);
+    unsigned time;
+    register const unsigned poly = 0xEDB88320;
+    unsigned int crc = 0;
+    unsigned * unsafe dptr;
+    int i=0;
+    int word_count = buf->length >> 2;
+    int tail_byte_count = buf->length & 3;
+    unsigned * unsafe wrap_ptr;
+    dptr = &buf->data[0];
+    wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
-  // Check that we are out of the inter-frame gap
-#pragma xta endpoint "mii_tx_start"
-  asm volatile ("in %0, res[%1]"
+    // Check that we are out of the inter-frame gap
+    asm volatile ("in %0, res[%1]"
                   : "=r" (ifg_time)
                   : "r" (ifg_tmr));
 
-#pragma xta endpoint "mii_tx_sof"
-  p_mii_txd <: 0x55555555;
-  p_mii_txd <: 0xD5555555;
+    p_mii_txd <: 0x55555555;
+    p_mii_txd <: 0xD5555555;
 
-  if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
-    ifg_tmr :> time;
-  }
+    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
 
-#pragma xta endpoint "mii_tx_first_word"
-  unsigned word = *dptr;
-  p_mii_txd <: *dptr;
-  dptr++;
-  i++;
-  crc32(crc, ~word, poly);
-
-  do {
-#pragma xta label "mii_tx_loop"
     unsigned word = *dptr;
+    p_mii_txd <: *dptr;
     dptr++;
-    if (dptr == wrap_ptr)
-      dptr = (unsigned *) *dptr;
     i++;
-    crc32(crc, word, poly);
-#pragma xta endpoint "mii_tx_word"
-    p_mii_txd <: word;
-    ifg_tmr :> ifg_time;
-  } while (i < word_count);
+    crc32(crc, ~word, poly);
 
-  if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
-    ifg_tmr :> time;
-  }
+    do {
+        unsigned word = *dptr;
+        dptr++;
+        if (dptr == wrap_ptr) {
+            dptr = (unsigned *) *dptr;
+        }
+        i++;
+        crc32(crc, word, poly);
+        p_mii_txd <: word;
+        ifg_tmr :> ifg_time;
+    } while (i < word_count);
 
-  if (tail_byte_count) {
-    unsigned word = *dptr;
-    switch (tail_byte_count)
-      {
-      default:
-        __builtin_unreachable();
-        break;
+    if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
+
+    if (tail_byte_count) {
+        unsigned word = *dptr;
+        switch (tail_byte_count) {
+            default:
+                __builtin_unreachable();
+                break;
 #pragma fallthrough
-      case 3:
-#pragma xta endpoint "mii_tx_final_partword_3"
-        partout(p_mii_txd, 8, word);
-        word = crc8shr(crc, word, poly);
+            case 3:
+                partout(p_mii_txd, 8, word);
+                word = crc8shr(crc, word, poly);
 #pragma fallthrough
-      case 2:
-#pragma xta endpoint "mii_tx_final_partword_2"
-        partout(p_mii_txd, 8, word);
-        word = crc8shr(crc, word, poly);
-      case 1:
-#pragma xta endpoint "mii_tx_final_partword_1"
-        partout(p_mii_txd, 8, word);
-        crc8shr(crc, word, poly);
-        break;
-      }
-  }
-  crc32(crc, ~0, poly);
-#pragma xta endpoint "mii_tx_end"
-  p_mii_txd <: crc;
-  return time;
+            case 2:
+                partout(p_mii_txd, 8, word);
+                word = crc8shr(crc, word, poly);
+            case 1:
+                partout(p_mii_txd, 8, word);
+                crc8shr(crc, word, poly);
+                break;
+        }
+    }
+    crc32(crc, ~0, poly);
+
+    p_mii_txd <: crc;
+    return time;
 }
 
 
