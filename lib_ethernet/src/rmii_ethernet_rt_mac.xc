@@ -172,28 +172,17 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
         }
       }
       // Tx task
-      {
-        if(tx_port_width == 4){
-          rmii_master_tx_pins_4b(tx_mem_lp,
-                                tx_mem_hp,
-                                (mii_packet_queue_t)&tx_packets_lp,
-                                (mii_packet_queue_t)&tx_packets_hp,
-                                ts_queue,
-                                tx_data_0,
-                                tx_port_4b_pins,
-                                p_port_state);
-          
-        } else {
-          rmii_master_tx_pins_1b(tx_mem_lp,
-                                tx_mem_hp,
-                                (mii_packet_queue_t)&tx_packets_lp,
-                                (mii_packet_queue_t)&tx_packets_hp,
-                                ts_queue,
-                                tx_data_0,
-                                tx_data_1,
-                                p_port_state);
-        }
-      }
+
+      rmii_master_tx_pins(tx_mem_lp,
+                          tx_mem_hp,
+                          (mii_packet_queue_t)&tx_packets_lp,
+                          (mii_packet_queue_t)&tx_packets_hp,
+                          ts_queue,
+                          tx_port_width,
+                          tx_data_0,
+                          tx_data_1,
+                          tx_port_4b_pins,
+                          p_port_state);
 
       mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,

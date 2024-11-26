@@ -7,6 +7,7 @@
 #include <syscall.h>
 #include <xclib.h>
 #include <hwtimer.h>
+#include "string.h"
 #include "mii_buffering.h"
 #include "debug_print.h"
 #include "default_ethernet_conf.h"
@@ -167,6 +168,7 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 
 //////////////////////// RX ///////////////////////////
 
+// Common code for 1b and 4b versions
 
 #define MASTER_RX_CHUNK_HEAD \
     timer tmr; \
@@ -183,7 +185,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
     while (1) { \
         /* Discount the CRC word */ \
         int num_rx_bytes = -4; \
-                                \
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */ \
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr; \
                                                                 \
@@ -311,31 +312,77 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     printstrln("RX Using 1b ports.");
     printhexln((unsigned)*p_mii_rxd_0);
     printhexln((unsigned)*p_mii_rxd_1);
+
+    MASTER_RX_CHUNK_HEAD
+
+    *p_mii_rxd_0 when pinseq(0xD) :> sfd_preamble;
+
+    if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
+        /* Corrupt the CRC so that the packet is discarded */
+        crc = ~crc;
+    }
+
+    /* Timestamp the start of packet and record it in the packet structure */
+    unsigned time;
+    tmr :> time;
+    buf->timestamp = time;
+
+    unsigned end_of_frame = 0;
+    unsigned word;
+
+    do {
+        select {
+           case *p_mii_rxd_0 :> word:
+                crc32(crc, word, poly);
+
+                /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
+                * then this packet will be dropped as there is not enough room in the buffer. */
+                if (dptr != end_ptr) {
+                    *dptr = word;
+                    dptr++;
+                    /* The wrap pointer contains the address of the start of the buffer */
+                    if (dptr == wrap_ptr)
+                        dptr = (unsigned * unsafe) *dptr;
+                }
+
+                num_rx_bytes += 4;
+                break;
+
+           case p_mii_rxdv when pinseq(0) :> int:
+                end_of_frame = 1;
+                break;
+        }
+    } while (!end_of_frame);
+
+    /* Note: we don't store the last word since it contains the CRC and
+     * we don't need it from this point on. */
+    unsigned taillen = endin(*p_mii_rxd_0);
+
+    unsigned tail;
+    *p_mii_rxd_0 :> tail;
+
+    MASTER_RX_CHUNK_TAIL
 }
 
-unsafe void rmii_master_tx_pins_4b( mii_mempool_t tx_mem_lp,
-                                    mii_mempool_t tx_mem_hp,
-                                    mii_packet_queue_t hp_packets,
-                                    mii_packet_queue_t lp_packets,
-                                    mii_ts_queue_t ts_queue_lp,
-                                    out buffered port:32 * unsafe p_mii_txd,
-                                    rmii_data_4b_pin_assignment_t tx_port_4b_pins,
-                                    volatile ethernet_port_state_t * unsafe p_port_state){
-    printstr("rmii_master_tx_pins_4b\n");
-    printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
-    printhexln((unsigned)*p_mii_txd);
-}
 
-unsafe void rmii_master_tx_pins_1b( mii_mempool_t tx_mem_lp,
-                                    mii_mempool_t tx_mem_hp,
-                                    mii_packet_queue_t hp_packets,
-                                    mii_packet_queue_t lp_packets,
-                                    mii_ts_queue_t ts_queue_lp,
-                                    out buffered port:32 * unsafe p_mii_txd_0,
-                                    out buffered port:32 * unsafe p_mii_txd_1,
-                                    volatile ethernet_port_state_t * unsafe p_port_state){
-    printstr("rmii_master_tx_pins_1b\n");
-    printstrln("TX Using 1b ports.");
-    printhexln((unsigned)*p_mii_txd_0);
-    printhexln((unsigned)*p_mii_txd_1);
+unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
+                                mii_mempool_t tx_mem_hp,
+                                mii_packet_queue_t hp_packets,
+                                mii_packet_queue_t lp_packets,
+                                mii_ts_queue_t ts_queue_lp,
+                                unsigned tx_port_width,
+                                out buffered port:32 * unsafe p_mii_txd_0,
+                                out buffered port:32 * unsafe  p_mii_txd_1,
+                                rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                volatile ethernet_port_state_t * unsafe p_port_state){
+    if(tx_port_width == 4){
+        printstr("rmii_master_tx_pins_4b\n");
+        printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
+        printhexln((unsigned)*p_mii_txd_0);
+    } else {
+        printstr("rmii_master_tx_pins_1b\n");
+        printstrln("TX Using 1b ports.");
+        printhexln((unsigned)*p_mii_txd_0);
+        printhexln((unsigned)*p_mii_txd_1);
+    }
 }
