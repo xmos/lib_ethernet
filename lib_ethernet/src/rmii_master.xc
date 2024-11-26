@@ -48,6 +48,7 @@
 #define MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
 
+//////////////////// RMII PORT SETUP ////////////////////////
 
 static void rmii_master_init_rx_common(in port p_clk,
                                        in port p_rxdv,
@@ -164,6 +165,86 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
     start_clock(txclk);
 }
 
+//////////////////////// RX ///////////////////////////
+
+
+#define MASTER_RX_CHUNK_HEAD \
+    timer tmr; \
+                \
+    unsigned kernel_stack[MII_COMMON_HANDLER_STACK_WORDS]; \
+    /* Pointers to data that needs the latest value being read */ \
+    volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer, p_mii_rxdv, kernel_stack); \
+    volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr; \
+                                                                            \
+    /* Set up the wrap markers for the two memory buffers. These are the points at which we must wrap data back to the beginning of the buffer */ \
+    unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem); \
+                                                            \
+    /* Make sure we do not start in the middle of a packet */ \
+    p_mii_rxdv when pinseq(0) :> int lo; \
+                                        \
+    while (1) { \
+        /* Discount the CRC word */ \
+        int num_rx_bytes = -4; \
+                                \
+        /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */ \
+        unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr; \
+                                                                \
+        /* Grab buffers to read the packet into. mii_reserve always returns a buffer we can use (though it may be a dummy buffer that gets thrown away later if we are out of buffer space). */ \
+        unsigned * unsafe end_ptr; \
+        mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr); \
+                                                                           \
+        unsigned crc = 0x9226F562; \
+        unsigned poly = 0xEDB88320; \
+        unsigned * unsafe dptr = &buf->data[0]; \
+                                                 \
+        /* Enable interrupts as the rx_err port is configured to raise an interrupt that logs the error and continues. */ \
+        asm("setsr 0x2"); \
+                           \
+        /* Wait for the start of the packet and timestamp it */ \
+        unsigned sfd_preamble;
+// END OF MASTER_RX_CHUNK_HEAD
+
+
+#define MASTER_RX_CHUNK_TAIL \
+        unsigned tail; \
+        p_mii_rxd :> tail; \
+                            \
+        if (taillen & ~0x7) { \
+            num_rx_bytes += (taillen>>3); \
+                                            \
+            /* Ensure that the mask is byte-aligned */ \
+            unsigned mask = ~0U >> (taillen & ~0x7); \
+                                                     \
+            /* Correct for non byte-aligned frames */ \
+            tail <<= taillen & 0x7; \
+                                    \
+            /* Mask out junk bits in last input */ \
+            tail &= ~mask; \
+                            \
+            /* Incorporate tailbits of input data, see https://github.com/xcore/doc_tips_and_tricks for details. */ \
+            { tail, crc } = mac(crc, mask, tail, crc); \
+            crc32(crc, tail, poly); \
+        } \
+            \
+        buf->length = num_rx_bytes; \
+        buf->crc = crc; \
+                         \
+        if (dptr != end_ptr) { \
+            /* Update where the write pointer is in memory */ \
+            mii_commit(rx_mem, dptr); \
+                                        \
+            /* Record the fact that there is a valid packet ready for filtering */ \
+            /*  - the assumption is that the filtering is running fast enough */ \
+            /*    to keep up and process the packets so that the incoming_packet */ \
+            /*    pointers never fill up */ \
+            mii_add_packet(incoming_packets, buf); \
+        } \
+    } \
+return; \
+}
+// END OF MASTER_RX_CHUNK_TAIL
+
+
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
                                     unsigned * unsafe rdptr,
@@ -174,7 +255,67 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     printstr("rmii_master_rx_pins_1b\n");
     printstr("RX Using 4b port. Pins: ");printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
     printhexln((unsigned)*p_mii_rxd);
+
+    MASTER_RX_CHUNK_HEAD
+
+    p_mii_rxd when pinseq(0xD) :> sfd_preamble;
+
+    if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
+        /* Corrupt the CRC so that the packet is discarded */
+        crc = ~crc;
+    }
+
+    /* Timestamp the start of packet and record it in the packet structure */
+    unsigned time;
+    tmr :> time;
+    buf->timestamp = time;
+
+    unsigned end_of_frame = 0;
+    unsigned word;
+
+    do {
+        select {
+           case p_mii_rxd :> word:
+                crc32(crc, word, poly);
+
+                /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
+                * then this packet will be dropped as there is not enough room in the buffer. */
+                if (dptr != end_ptr) {
+                    *dptr = word;
+                    dptr++;
+                    /* The wrap pointer contains the address of the start of the buffer */
+                    if (dptr == wrap_ptr)
+                        dptr = (unsigned * unsafe) *dptr;
+                }
+
+                num_rx_bytes += 4;
+                break;
+
+           case p_mii_rxdv when pinseq(0) :> int:
+                end_of_frame = 1;
+                break;
+        }
+    } while (!end_of_frame);
+
+    /* Clear interrupts used by rx_err port handler */
+    asm("clrsr 0x2");
+
+    /* If the rx_err port detects an error then drop the packet */
+    if (*error_ptr) {
+        endin(p_mii_rxd);
+        p_mii_rxd :> void;
+        *error_ptr = 0;
+        continue;
+    }
+
+    /* Note: we don't store the last word since it contains the CRC and
+     * we don't need it from this point on. */
+    unsigned taillen = endin(p_mii_rxd);
+
+    MASTER_RX_CHUNK_TAIL
 }
+
+
 
 unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
