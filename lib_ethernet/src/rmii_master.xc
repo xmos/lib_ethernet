@@ -173,7 +173,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
                 \
     unsigned kernel_stack[MII_COMMON_HANDLER_STACK_WORDS]; \
     /* Pointers to data that needs the latest value being read */ \
-    volatile unsigned * unsafe error_ptr = mii_setup_error_port(p_mii_rxer, p_mii_rxdv, kernel_stack); \
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr; \
                                                                             \
     /* Set up the wrap markers for the two memory buffers. These are the points at which we must wrap data back to the beginning of the buffer */ \
@@ -197,9 +196,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
         unsigned poly = 0xEDB88320; \
         unsigned * unsafe dptr = &buf->data[0]; \
                                                  \
-        /* Enable interrupts as the rx_err port is configured to raise an interrupt that logs the error and continues. */ \
-        asm("setsr 0x2"); \
-                           \
         /* Wait for the start of the packet and timestamp it */ \
         unsigned sfd_preamble;
 // END OF MASTER_RX_CHUNK_HEAD
@@ -253,7 +249,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins){
     printstr("rmii_master_rx_pins_4b\n");
     printstr("rmii_master_rx_pins_1b\n");
-    printstr("RX Using 4b port. Pins: ");printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
+    printstr("RX Using 4b port. Pins: ");
+    printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
     printhexln((unsigned)*p_mii_rxd);
 
     MASTER_RX_CHUNK_HEAD
@@ -296,17 +293,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                 break;
         }
     } while (!end_of_frame);
-
-    /* Clear interrupts used by rx_err port handler */
-    asm("clrsr 0x2");
-
-    /* If the rx_err port detects an error then drop the packet */
-    if (*error_ptr) {
-        endin(p_mii_rxd);
-        p_mii_rxd :> void;
-        *error_ptr = 0;
-        continue;
-    }
 
     /* Note: we don't store the last word since it contains the CRC and
      * we don't need it from this point on. */
