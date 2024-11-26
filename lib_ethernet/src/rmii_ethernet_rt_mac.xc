@@ -94,7 +94,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
 
 
-    // Setup RX ports
+
+    // Common initialisation
+    set_port_use_on(p_clk); // RMII 50MHz clock input port
+
+    // Setup RX data ports
     // First declare C pointers for port resources
     in buffered port:32 * unsafe rx_data_0 = NULL;
     in buffered port:32 * unsafe rx_data_1 = NULL;
@@ -103,11 +107,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     unsigned rx_port_width = ((unsigned)(p_rxd->rmii_data_1b.data_0) >> 16) & 0xff;
     rmii_data_4b_pin_assignment_t rx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_rxd->rmii_data_1b.data_1);
 
-    // Extract pointers to ports with correct port qualifiers
+    // Extract pointers to ports with correct port qualifiers and setup data pins
     switch(rx_port_width){
       case 4:
         rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd->rmii_data_1b.data_0), 32);
-        rmii_master_init_rx_4b(p_clk, rx_data_0, rx_port_4b_pins, p_rxdv, rxclk);
+        rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk);
         break;
       case 1:
         rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_0, 32);
@@ -119,7 +123,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
         break;
     }
 
-    // Setup TX ports
+    // Setup TX data ports
     out buffered port:32 * unsafe tx_data_0 = NULL;
     out buffered port:32 * unsafe tx_data_1 = NULL;
 
@@ -129,7 +133,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     switch(tx_port_width){
       case 4:
         tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
-        rmii_master_init_tx_4b(p_clk, tx_data_0, tx_port_4b_pins, p_txen, txclk);
+        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk);
         break;
       case 1:
         tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
@@ -212,6 +216,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           c_tx_hp,
                           c_conf,
                           p_port_state);
-    }
+    } // par
   } // unsafe block
 }

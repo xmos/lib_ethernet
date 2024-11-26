@@ -26,11 +26,13 @@
 
 
 // Timing tuning constants
+// TODO THESE NEED SETTING UP
 #define PAD_DELAY_RECEIVE    0
 #define PAD_DELAY_TRANSMIT   0
 #define CLK_DELAY_RECEIVE    0
-#define CLK_DELAY_TRANSMIT   7  // Note: used to be 2 (improved simulator?)
-// After-init delay (used at the end of mii_init)
+#define CLK_DELAY_TRANSMIT   0
+
+// After-init delay (used at the end of rmii_init)
 #define PHY_INIT_DELAY 10000000
 
 // The inter-frame gap is 96 bit times (1 clock tick at 100Mb/s). However,
@@ -46,46 +48,120 @@
 #define MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
 
-static void rmii_master_init_rx_common(){
 
+static void rmii_master_init_rx_common(in port p_clk,
+                                       in port p_rxdv,
+                                       clock rxclk){
+    // Enable data valid. Data ports already on and configured to 32b buffered.
+    set_port_use_on(p_rxdv);
+
+    // Init Rx capture clock block
+    set_clock_on(rxclk);
+    set_clock_src(rxclk, p_clk);        // Use ext clock
+
+    // Connect to data valid and configure 
+    set_port_clock(p_rxdv, rxclk);      // Connect to clock block
+    set_clock_ready_src(rxclk, p_rxdv); // Enable data valid
+
+    set_clock_rise_delay(rxclk, CLK_DELAY_RECEIVE);
+    set_clock_fall_delay(rxclk, CLK_DELAY_RECEIVE);
 }
 
 
-void rmii_master_init_rx_4b(in port p_clk,
-                            in buffered port:32 * unsafe rx_data_0,
-                            rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+unsafe void rmii_master_init_rx_4b(in port p_clk,
+                            in buffered port:32 * unsafe rx_data,
                             in port p_rxdv,
                             clock rxclk){
-    rmii_master_init_rx_common();
+    rmii_master_init_rx_common(p_clk, p_rxdv, rxclk);
+
+    set_port_clock(*rx_data, rxclk); // Connect to rx clock block
+    set_port_strobed(*rx_data);      // Strobed slave (only accept data when valid asserted)
+    set_port_slave(*rx_data);
+
+    clearbuf(*rx_data);
+
+    start_clock(rxclk);
 }
 
-void rmii_master_init_rx_1b(in port p_clk,
+unsafe void rmii_master_init_rx_1b(in port p_clk,
                             in buffered port:32 * unsafe rx_data_0,
                             in buffered port:32 * unsafe rx_data_1,
                             in port p_rxdv,
                             clock rxclk){
-    rmii_master_init_rx_common();
+    rmii_master_init_rx_common(p_clk, p_rxdv, rxclk);
+
+    set_port_clock(*rx_data_0, rxclk);  // Connect to rx clock block
+    set_port_strobed(*rx_data_0);       // Strobed slave (only accept data when valid asserted)
+    set_port_slave(*rx_data_0);
+
+    set_port_clock(*rx_data_1, rxclk);
+    set_port_strobed(*rx_data_1);
+    set_port_slave(*rx_data_1);
+
+    clearbuf(*rx_data_0);
+    clearbuf(*rx_data_1);
+
+    start_clock(rxclk);
 }
 
-static void rmii_master_init_tx_common(){
+static void rmii_master_init_tx_common( in port p_clk,
+                                        out port p_txen,
+                                        clock txclk){
+    // Enable tx enable valid signal. Data ports already on and configured to 32b buffered.
+    set_port_use_on(p_txen);
 
+    // Init Tx transmit clock block and clock from clk input port
+    set_clock_on(txclk);
+    set_clock_src(txclk, p_clk);
+
+    // Connect txen and configure as ready (valid) signal 
+    set_port_clock(p_txen, txclk);
+    set_port_mode_ready(p_txen);
+    
+    set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
+    set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
 }
 
 
-void rmii_master_init_tx_4b(in port p_clk,
-                            out buffered port:32 * unsafe tx_data_0,
-                            rmii_data_4b_pin_assignment_t tx_port_4b_pins,
-                            out port p_txen,
-                            clock txclk){
-    rmii_master_init_tx_common();
+unsafe void rmii_master_init_tx_4b( in port p_clk,
+                                    out buffered port:32 * unsafe tx_data,
+                                    out port p_txen,
+                                    clock txclk){
+    rmii_master_init_tx_common(p_clk, p_txen, txclk);
+
+    clearbuf(*tx_data);
+
+    // Configure so that tx_data controls the ready signal strobe
+    set_port_strobed(*tx_data);
+    set_port_master(*tx_data);
+    set_port_ready_src(p_txen, *tx_data);
+    set_port_clock(*tx_data, txclk);
+
+    start_clock(txclk);
 }
 
-void rmii_master_init_tx_1b(in port p_clk,
-                            out buffered port:32 * unsafe tx_data_0,
-                            out buffered port:32 * unsafe tx_data_1,
-                            out port p_txen,
-                            clock txclk){
-    rmii_master_init_tx_common();
+unsafe void rmii_master_init_tx_1b( in port p_clk,
+                                    out buffered port:32 * unsafe tx_data_0,
+                                    out buffered port:32 * unsafe tx_data_1,
+                                    out port p_txen,
+                                    clock txclk){
+    rmii_master_init_tx_common(p_clk, p_txen, txclk);
+
+    clearbuf(*tx_data_0);
+    clearbuf(*tx_data_1);
+
+    // Configure so that just tx_data_0 controls the read signal strobe
+    // When we transmit we will ensure both port buffers are launched
+    // at the same time so aligned 
+    set_port_strobed(*tx_data_0);
+    set_port_master(*tx_data_0);
+    set_port_ready_src(p_txen, *tx_data_0);
+
+    // But we still want both ports connected to the tx clock block
+    set_port_clock(*tx_data_0, txclk);
+    set_port_clock(*tx_data_1, txclk);
+
+    start_clock(txclk);
 }
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
