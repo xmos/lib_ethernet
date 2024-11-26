@@ -202,10 +202,8 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 
 
 #define MASTER_RX_CHUNK_TAIL \
-        unsigned tail; \
-        p_mii_rxd :> tail; \
-                            \
-        if (taillen & ~0x7) { \
+                              \
+        if (taillen & ~0x7) {  \
             num_rx_bytes += (taillen>>3); \
                                             \
             /* Ensure that the mask is byte-aligned */ \
@@ -236,8 +234,8 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
             mii_add_packet(incoming_packets, buf); \
         } \
     } \
-return; \
-}
+return; 
+
 // END OF MASTER_RX_CHUNK_TAIL
 
 
@@ -255,7 +253,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
-    p_mii_rxd when pinseq(0xD) :> sfd_preamble;
+    *p_mii_rxd when pinseq(0xD) :> sfd_preamble;
 
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
@@ -272,7 +270,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     do {
         select {
-           case p_mii_rxd :> word:
+           case *p_mii_rxd :> word:
                 crc32(crc, word, poly);
 
                 /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
@@ -296,7 +294,10 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     /* Note: we don't store the last word since it contains the CRC and
      * we don't need it from this point on. */
-    unsigned taillen = endin(p_mii_rxd);
+    unsigned taillen = endin(*p_mii_rxd);
+
+    unsigned tail;
+    *p_mii_rxd :> tail;
 
     MASTER_RX_CHUNK_TAIL
 }
