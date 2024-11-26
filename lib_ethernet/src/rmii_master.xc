@@ -531,7 +531,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             continue;
         }
 
-        unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, ifg_tmr, ifg_time);
+        unsigned time = rmii_transmit_packet(tx_mem, buf, *p_mii_txd_0, ifg_tmr, ifg_time);
 
         // Setup the hardware timer to enforce the IFG
         ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
