@@ -367,8 +367,8 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
 
 unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
-                                mii_packet_queue_t hp_packets,
-                                mii_packet_queue_t lp_packets,
+                                mii_packet_queue_t packets_hp,
+                                mii_packet_queue_t packets_lp,
                                 mii_ts_queue_t ts_queue_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
@@ -384,5 +384,95 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         printstrln("TX Using 1b ports.");
         printhexln((unsigned)*p_mii_txd_0);
         printhexln((unsigned)*p_mii_txd_1);
+    }
+
+    int credit = 0;
+    int credit_time;
+    // Need one timer to be able to read at any time for the shaper
+    timer credit_tmr;
+    // And a second timer to be enforcing the IFG gap
+    hwtimer_t ifg_tmr;
+    unsigned ifg_time;
+    unsigned enable_shaper = p_port_state->qav_shaper_enabled;
+
+    if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
+        enable_shaper = 0;
+    }
+    if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
+        credit_tmr :> credit_time;
+    }
+
+    ifg_tmr :> ifg_time;
+
+    while (1) {
+        mii_packet_t * unsafe buf = null;
+        mii_ts_queue_t *p_ts_queue = null;
+        mii_mempool_t tx_mem = tx_mem_hp;
+
+        if (ETHERNET_SUPPORT_HP_QUEUES){
+            buf = mii_get_next_buf(packets_hp);
+        }
+
+        if (enable_shaper) {
+            int prev_credit_time = credit_time;
+            credit_tmr :> credit_time;
+
+            int elapsed = credit_time - prev_credit_time;
+            credit += elapsed * p_port_state->qav_idle_slope;
+
+            if (buf) {
+                if (credit < 0) {
+                    buf = 0;
+                }
+            } else {
+                if (credit > 0) {
+                    credit = 0;
+                }
+            }
+        }
+
+        if (!buf) {
+            buf = mii_get_next_buf(packets_lp);
+            p_ts_queue = &ts_queue_lp;
+            tx_mem = tx_mem_lp;
+        }
+
+        if (!buf) {
+            continue;
+        }
+
+        unsigned time = 0; //mii_transmit_packet(tx_mem, buf, p_mii_txd, ifg_tmr, ifg_time);
+
+        // Setup the hardware timer to enforce the IFG
+        ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
+        ifg_time += (buf->length & 0x3) * 8;
+        asm volatile ("setd res[%0], %1"
+                        : // No dests
+                        : "r" (ifg_tmr), "r" (ifg_time));
+        asm volatile ("setc res[%0], " QUOTE(XS1_SETC_COND_AFTER)
+                        : // No dests
+                        : "r" (ifg_tmr));
+
+        const int packet_is_high_priority = (p_ts_queue == null);
+        if (enable_shaper && packet_is_high_priority) {
+            const int preamble_bytes = 8;
+            const int ifg_bytes = 96/8;
+            const int crc_bytes = 4;
+            int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
+            credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
+        }
+
+        if (mii_get_and_dec_transmit_count(buf) == 0) {
+            /* The timestamp queue is only set for low-priority packets */
+            if (!packet_is_high_priority) {
+                if (buf->timestamp_id) {
+                    mii_ts_queue_add_entry(*p_ts_queue, buf->timestamp_id, time);
+                }
+
+                mii_free_current(packets_lp);
+            } else {
+                mii_free_current(packets_hp);
+            }
+        }
     }
 }
