@@ -182,6 +182,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_data_0,
                           tx_data_1,
                           tx_port_4b_pins,
+                          txclk,
                           p_port_state);
 
       mii_ethernet_filter(c_conf,

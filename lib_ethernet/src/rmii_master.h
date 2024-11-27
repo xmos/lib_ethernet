@@ -53,6 +53,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 out buffered port:32 * unsafe p_mii_txd_0,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state);
 
 

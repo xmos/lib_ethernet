@@ -448,6 +448,7 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd_0,
                                     out buffered port:32 p_mii_txd_1,
+                                    clock txclk,
                                     hwtimer_t ifg_tmr, unsigned &ifg_time)
 {
     unsigned time;
@@ -532,6 +533,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 out buffered port:32 * unsafe p_mii_txd_0,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state){
     
     // Flag for readability and faster comparison
@@ -603,7 +605,13 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             continue;
         }
 
-        unsigned time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time);
+
+        unsigned time;
+        if(use_4b) {
+            time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time);
+        } else {
+            time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time);
+        }
 
         // Setup the hardware timer to enforce the IFG
         ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
