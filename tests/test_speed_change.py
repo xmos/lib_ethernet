@@ -153,9 +153,9 @@ def test_speed_change(capfd, seed, params):
     verbose = False
 
     (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay=initial_delay,
-                                                  expect_loopback=False, verbose=verbose, dut_exit_time=5000000*1e6)
+                                                  expect_loopback=False, verbose=verbose, dut_exit_time=(5 * px.Xsi.get_xsi_tick_freq_hz())/1e3)
     (tx_clk_125, tx_rgmii_125) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, initial_delay=initial_delay,
                                                       test_ctrl='tile[0]:XS1_PORT_1C',
-                                                      expect_loopback=False, verbose=verbose, dut_exit_time=5000000*1e6)
+                                                      expect_loopback=False, verbose=verbose, dut_exit_time=(5 * px.Xsi.get_xsi_tick_freq_hz())/1e3)
 
     do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed)
