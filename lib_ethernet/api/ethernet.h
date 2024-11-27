@@ -606,8 +606,8 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
  *  port cannot be used. For Tx, the unused pins are driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
-    USE_LOWER_2B,                           /**< Use bit 0 and bit 1 of the four bit port */
-    USE_UPPER_2B                            /**< Use bit 2 and bit 3 of the four bit port */
+    USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port */
+    USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port */
 } rmii_data_4b_pin_assignment_t;
 
 /** Structure representing a four bit port used for RMII data transmission or reception */

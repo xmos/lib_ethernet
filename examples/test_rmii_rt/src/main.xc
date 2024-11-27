@@ -18,10 +18,10 @@ clock eth_txclk = XS1_CLKBLK_2;
 
 
 void application(client ethernet_cfg_if i_cfg,
-client ethernet_rx_if i_rx,
-client ethernet_tx_if i_tx,
-streaming chanend c_rx_hp,
-streaming chanend c_tx_hp)
+                client ethernet_rx_if i_rx,
+                client ethernet_tx_if i_tx,
+                streaming chanend c_rx_hp,
+                streaming chanend c_tx_hp)
 {
     ethernet_macaddr_filter_t macaddr_filter;
     size_t index = i_rx.get_index();
