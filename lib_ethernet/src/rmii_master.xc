@@ -367,9 +367,10 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
 
 //////////////////////// TX ///////////////////////////
 
-unsafe unsigned rmii_transmit_packet(mii_mempool_t tx_mem,
+unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
+                                    rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                     hwtimer_t ifg_tmr, unsigned &ifg_time)
 {
     unsigned time;
@@ -443,6 +444,83 @@ unsafe unsigned rmii_transmit_packet(mii_mempool_t tx_mem,
     return time;
 }
 
+unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
+                                    mii_packet_t * unsafe buf,
+                                    out buffered port:32 p_mii_txd_0,
+                                    out buffered port:32 p_mii_txd_1,
+                                    hwtimer_t ifg_tmr, unsigned &ifg_time)
+{
+    unsigned time;
+    register const unsigned poly = 0xEDB88320;
+    unsigned int crc = 0;
+    unsigned * unsafe dptr;
+    int i=0;
+    int word_count = buf->length >> 2;
+    int tail_byte_count = buf->length & 3;
+    unsigned * unsafe wrap_ptr;
+    dptr = &buf->data[0];
+    wrap_ptr = mii_get_wrap_ptr(tx_mem);
+
+    // Check that we are out of the inter-frame gap
+    asm volatile ("in %0, res[%1]"
+                  : "=r" (ifg_time)
+                  : "r" (ifg_tmr));
+
+    // p_mii_txd <: 0x55555555;
+    // p_mii_txd <: 0xD5555555;
+
+    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
+
+    unsigned word = *dptr;
+    // p_mii_txd <: *dptr;
+    dptr++;
+    i++;
+    crc32(crc, ~word, poly);
+
+    do {
+        unsigned word = *dptr;
+        dptr++;
+        if (dptr == wrap_ptr) {
+            dptr = (unsigned *) *dptr;
+        }
+        i++;
+        crc32(crc, word, poly);
+        // p_mii_txd <: word;
+        ifg_tmr :> ifg_time;
+    } while (i < word_count);
+
+    if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
+
+    if (tail_byte_count) {
+        unsigned word = *dptr;
+        switch (tail_byte_count) {
+            default:
+                __builtin_unreachable();
+                break;
+#pragma fallthrough
+            case 3:
+                // partout(p_mii_txd, 8, word);
+                word = crc8shr(crc, word, poly);
+#pragma fallthrough
+            case 2:
+                // partout(p_mii_txd, 8, word);
+                word = crc8shr(crc, word, poly);
+            case 1:
+                // partout(p_mii_txd, 8, word);
+                crc8shr(crc, word, poly);
+                break;
+        }
+    }
+    crc32(crc, ~0, poly);
+
+    // p_mii_txd <: crc;
+    return time;
+}
+
 
 
 unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
@@ -455,7 +533,11 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 volatile ethernet_port_state_t * unsafe p_port_state){
-    if(tx_port_width == 4){
+    
+    // Flag for readability and faster comparison
+    unsigned use_4b = (tx_port_width == 4);
+
+    if(use_4b){
         printstr("rmii_master_tx_pins_4b\n");
         printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
         printhexln((unsigned)*p_mii_txd_0);
@@ -521,7 +603,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             continue;
         }
 
-        unsigned time = rmii_transmit_packet(tx_mem, buf, *p_mii_txd_0, ifg_tmr, ifg_time);
+        unsigned time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time);
 
         // Setup the hardware timer to enforce the IFG
         ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
