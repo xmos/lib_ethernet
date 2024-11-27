@@ -170,7 +170,7 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
     start_clock(txclk);
 }
 
-//////////////////////// RX ///////////////////////////
+//////////////////////////////////////// RX ////////////////////////////////////
 // Common code for 1b and 4b versions. Use a macro to avoid repetition.
 
 #define MASTER_RX_CHUNK_HEAD \
@@ -365,7 +365,33 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     MASTER_RX_CHUNK_TAIL
 }
 
-//////////////////////// TX ///////////////////////////
+///////////////////////////////////// TX /////////////////////////////////////////
+static inline void tx_4b_word(out buffered port:32 p_mii_txd,
+                              unsigned word,
+                              rmii_data_4b_pin_assignment_t tx_port_4b_pins){
+    uint64_t zipped;
+    if(tx_port_4b_pins == USE_LOWER_2B){
+        zipped = zip(0, word, 1);
+    } else {
+        zipped = zip(word, 0, 1);
+    }
+    p_mii_txd <: zipped & 0xffffffff;
+    p_mii_txd <: zipped >> 32;
+}
+
+
+static inline void tx_4b_byte(out buffered port:32 p_mii_txd,
+                              unsigned word,
+                              rmii_data_4b_pin_assignment_t tx_port_4b_pins){
+    uint64_t zipped;
+    if(tx_port_4b_pins == USE_LOWER_2B){
+        zipped = zip(0, word, 1);
+    } else {
+        zipped = zip(word, 0, 1);
+    }
+    partout(p_mii_txd, 16, zipped & 0xffffffff);
+}
+
 
 unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
@@ -389,15 +415,15 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                   : "=r" (ifg_time)
                   : "r" (ifg_tmr));
 
-    p_mii_txd <: 0x55555555;
-    p_mii_txd <: 0xD5555555;
+    tx_4b_word(p_mii_txd, 0x55555555, tx_port_4b_pins);
+    tx_4b_word(p_mii_txd, 0xD5555555, tx_port_4b_pins);
 
     if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
         ifg_tmr :> time;
     }
 
     unsigned word = *dptr;
-    p_mii_txd <: *dptr;
+    tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
     dptr++;
     i++;
     crc32(crc, ~word, poly);
@@ -410,7 +436,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
         }
         i++;
         crc32(crc, word, poly);
-        p_mii_txd <: word;
+        tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
         ifg_tmr :> ifg_time;
     } while (i < word_count);
 
@@ -426,23 +452,54 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                 break;
 #pragma fallthrough
             case 3:
-                partout(p_mii_txd, 8, word);
+                tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
                 word = crc8shr(crc, word, poly);
 #pragma fallthrough
             case 2:
-                partout(p_mii_txd, 8, word);
+                tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
                 word = crc8shr(crc, word, poly);
             case 1:
-                partout(p_mii_txd, 8, word);
+                tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
                 crc8shr(crc, word, poly);
                 break;
         }
     }
     crc32(crc, ~0, poly);
+    tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
 
-    p_mii_txd <: crc;
     return time;
 }
+
+
+static inline void tx_1b_word(out buffered port:32 p_mii_txd_0,
+                              out buffered port:32 p_mii_txd_1,
+                              unsigned word,
+                              clock txclk){
+    uint64_t combined = (uint64_t)word;
+    uint32_t p0_val, p1_val;
+    {p1_val, p0_val} = unzip(combined, 0);
+
+    stop_clock(txclk);
+    partout(p_mii_txd_1, 16, p1_val);
+    partout(p_mii_txd_0, 16, p0_val);
+    start_clock(txclk);
+}
+
+
+static inline void tx_1b_byte(out buffered port:32 p_mii_txd_0,
+                              out buffered port:32 p_mii_txd_1,
+                              unsigned word,
+                              clock txclk){
+    uint64_t combined = (uint64_t)word;
+    uint32_t p0_val, p1_val;
+    {p1_val, p0_val} = unzip(combined, 0);
+
+    stop_clock(txclk);
+    partout(p_mii_txd_1, 4, p1_val);
+    partout(p_mii_txd_0, 4, p0_val);
+    start_clock(txclk);
+}
+
 
 unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
@@ -467,15 +524,15 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                   : "=r" (ifg_time)
                   : "r" (ifg_tmr));
 
-    // p_mii_txd <: 0x55555555;
-    // p_mii_txd <: 0xD5555555;
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555, txclk);
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0xD5555555, txclk);
 
     if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
         ifg_tmr :> time;
     }
 
     unsigned word = *dptr;
-    // p_mii_txd <: *dptr;
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, word, txclk);
     dptr++;
     i++;
     crc32(crc, ~word, poly);
@@ -488,7 +545,7 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
         }
         i++;
         crc32(crc, word, poly);
-        // p_mii_txd <: word;
+        tx_1b_word(p_mii_txd_0, p_mii_txd_1, word, txclk);
         ifg_tmr :> ifg_time;
     } while (i < word_count);
 
@@ -504,21 +561,21 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                 break;
 #pragma fallthrough
             case 3:
-                // partout(p_mii_txd, 8, word);
+                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word, txclk);
                 word = crc8shr(crc, word, poly);
 #pragma fallthrough
             case 2:
-                // partout(p_mii_txd, 8, word);
+                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word, txclk);
                 word = crc8shr(crc, word, poly);
             case 1:
-                // partout(p_mii_txd, 8, word);
+                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word, txclk);
                 crc8shr(crc, word, poly);
                 break;
         }
     }
     crc32(crc, ~0, poly);
 
-    // p_mii_txd <: crc;
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, crc, txclk);
     return time;
 }
 
@@ -537,7 +594,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 volatile ethernet_port_state_t * unsafe p_port_state){
     
     // Flag for readability and faster comparison
-    unsigned use_4b = (tx_port_width == 4);
+    const unsigned use_4b = (tx_port_width == 4);
 
     if(use_4b){
         printstr("rmii_master_tx_pins_4b\n");
