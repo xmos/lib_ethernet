@@ -1,4 +1,4 @@
-// Copyright 2013-2021 XMOS LIMITED.
+// Copyright 2013-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "mii_master.h"
 #include <xs1.h>
@@ -463,7 +463,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                out buffered port:32 p_mii_txd,
                                volatile ethernet_port_state_t * unsafe p_port_state)
 {
-  int credit = 0;
+  int credit = 0; // No. of bits allowed to send
   int credit_time;
   // Need one timer to be able to read at any time for the shaper
   timer credit_tmr;
@@ -495,11 +495,11 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       credit_tmr :> credit_time;
 
       int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * p_port_state->qav_idle_slope;
+      credit += elapsed * p_port_state->qav_idle_slope; // add bit budget since last transmission to credit. ticks * bits/tick = bits
 
       if (buf) {
         if (credit < 0) {
-          buf = 0;
+          buf = 0; // if out of credit drop this HP packet
         }
       }
       else {
@@ -537,7 +537,8 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       const int ifg_bytes = 96/8;
       const int crc_bytes = 4;
       int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
-      credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
+      // decrease credit by no. of bits transmitted
+      credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3)); // MII_CREDIT_FRACTIONAL_BITS+3 to convert from bytes to bits
     }
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {

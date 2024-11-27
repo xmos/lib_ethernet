@@ -1,7 +1,7 @@
 {
     "PROFILES": [
-        {"phy":"mii", "clk":"25MHz", "mac":"standard", "arch":"xs2"},
-        {"phy":"mii", "clk":"25MHz", "mac":"rt", "arch":"xs2"},
+        {"phy":"mii", "clk":"25MHz", "mac":"standard", "arch":["xs2", "xs3"]},
+        {"phy":"mii", "clk":"25MHz", "mac":"rt", "arch":["xs2", "xs3"]},
         {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2"},
         {"phy":"rgmii", "clk":"125MHz", "mac":"rt_hp", "arch":"xs2"}
         ]

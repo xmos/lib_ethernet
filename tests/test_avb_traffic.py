@@ -3,7 +3,6 @@
 #
 import os
 import sys
-import json
 from pathlib import Path
 import pytest
 import Pyxsim as px
@@ -14,9 +13,7 @@ from mii_packet import MiiPacket
 from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
-
-with open(Path(__file__).parent / "test_avb_traffic/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 debug_fill = 0 # print extra debug information
 
@@ -50,7 +47,7 @@ class RxLpControl(px.SimThread):
 
         if not self._randomise:
             return
-                
+
         while True:
             delay = self._rand.randint(1, 10000) * self._bit_time
             self.wait_until(xsi.get_time() + delay)
@@ -66,7 +63,7 @@ class PacketFiller:
     TYPE_NONE = 0
     TYPE_LP = 1
     TYPE_OTHER = 2
-    
+
     none_mac_address = [0,0,0,0,0,0]
     lp_mac_address = [1,1,1,1,1,1]
     lp_seq_id = 0
@@ -96,7 +93,7 @@ class PacketFiller:
 
         if debug_fill:
             print(f"fill_gap {last_packet_end}, {ifg} / {gap_size} / {self.min_packet_time}")
-        
+
         while gap_size > self.min_packet_time:
 
             if (rand.randint(0, int(self.total_weight_tag)) < self.weight_tagged):
@@ -113,7 +110,7 @@ class PacketFiller:
                 dst_mac_addr = self.other_mac_address
 
             frame_size = choose_data_size(rand, self.data_len_min, self.data_len_max)
-            
+
             if (rand.randint(0, 100) > 30):
                 burst_len = rand.randint(1, 20)
             else:
@@ -123,7 +120,7 @@ class PacketFiller:
                 # The seq_ids are effectively packet counts
                 if (gap_size < self.min_packet_time):
                     break
-        
+
                 if dst_mac_addr == self.none_mac_address:
                     packet_type = self.TYPE_NONE
                     seq_id = 0
@@ -155,7 +152,7 @@ class PacketFiller:
 
                 gap_size -= packet_time
                 last_packet_end += packet_time
-                
+
                 if packet_type == self.TYPE_NONE:
                     # Simply skip this packet
                     ifg += packet_time
@@ -165,7 +162,7 @@ class PacketFiller:
 
                 if debug_fill:
                     print(f"filled {packet.inter_frame_gap} {packet_time} {gap_size} {packet_type}")
-                
+
         return (last_packet_end, ifg)
 
 
@@ -183,7 +180,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
 
     testname = 'test_avb_traffic'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -196,13 +193,13 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
     for i in stream_ids:
         stream_mac_addresses[i] = [i, 1, 2, 3, 4, 5]
         stream_seq_id[i] = 0
-        
+
     packets = []
     filler = PacketFiller(weight_none, weight_lp, weight_other, weight_tagged, weight_untagged,
                           data_len_min, data_len_max, bit_time)
 
     window_size = 125000 * 1e6 # in xsim fs units
-    
+
     min_ifg = 96 * bit_time
     last_packet_end = 0
     ifg = 0
@@ -243,12 +240,11 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
 
         # Compute where in the next window the last packet has finished
         last_packet_end = last_packet_end - window_size
-        
+
     tx_phy.set_packets(packets)
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name())
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
     create_expect(packets, expect_filename, num_windows, num_avb_streams, num_avb_data_bytes)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
@@ -274,11 +270,13 @@ def create_expect(packets, filename, num_windows, num_streams, num_data_bytes):
                 i, num_windows, stream_bytes))
         f.write("Received \\d+ lp bytes\n")
 
+test_params_file = Path(__file__).parent / "test_avb_traffic/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_avb_traffic(capfd, seed, params):
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-def test_avb_traffic(capfd, params):
-    seed = 1 
-
+    seed = 1 # https://github.com/xmos/lib_ethernet/issues/68
     if args.data_len_max < args.data_len_min:
         print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(
         min=args.data_len_min, max=args.data_len_max)
@@ -286,17 +284,17 @@ def test_avb_traffic(capfd, params):
 
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time=100000*1e6, test_ctrl='tile[0]:XS1_PORT_1C')
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6, test_ctrl='tile[0]:XS1_PORT_1C')
         do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=2, num_avb_data_bytes=200)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=200000*1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, num_avb_streams=12)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
-            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=200000*1e6)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, num_avb_streams=12)
         else:
             assert 0, f"Invalid params: {params}"

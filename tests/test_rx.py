@@ -3,17 +3,15 @@
 
 import random
 import Pyxsim as px
-import json
 from pathlib import Path
 import pytest
+import sys
 
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
-
-with open(Path(__file__).parent / "test_tx/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 class TxError(px.SimThread):
 
@@ -80,8 +78,14 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, extra_tasks=[error_driver])
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-def test_rx(capfd, params):
-    print(params)
-    random.seed(1)
-    run_parametrised_test_rx(capfd, do_test, params)
+test_params_file = Path(__file__).parent / "test_rx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_rx(capfd, seed, params):
+    with capfd.disabled():
+        print(params)
+
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
+
+
+    run_parametrised_test_rx(capfd, do_test, params, seed=seed)

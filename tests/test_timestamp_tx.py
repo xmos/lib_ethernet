@@ -2,9 +2,7 @@
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import Pyxsim as px
 import os
-import sys
 from pathlib import Path
-import json
 import pytest
 
 from mii_clock import Clock
@@ -14,9 +12,7 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
-
-with open(Path(__file__).parent / "test_timestamp_tx/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 def packet_checker(packet, phy):
     # Ignore the CRC bytes (-4)
@@ -39,12 +35,12 @@ def packet_checker(packet, phy):
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_timestamp_tx'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()}")
+        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()}, {arch} arch")
 
     tester = px.testers.ComparisonTester(open(f'{testname}.expect'), regexp=True)
 
@@ -59,8 +55,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     assert result is True, f"{result}"
 
-
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_timestamp_tx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_timestamp_tx(capfd, params):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
 
@@ -69,19 +65,19 @@ def test_timestamp_tx(capfd, params):
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, verbose=verbose, test_ctrl='tile[0]:XS1_PORT_1C')
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(dut_exit_time=200000 * 1e6)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, dut_exit_time=200000 * 1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, verbose=verbose, test_ctrl='tile[0]:XS1_PORT_1C')
-            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, dut_exit_time=300000 * 1e6)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, dut_exit_time=(300 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
         else:
             assert 0, f"Invalid params: {params}"
