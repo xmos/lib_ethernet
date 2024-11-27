@@ -524,7 +524,9 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                   : "=r" (ifg_time)
                   : "r" (ifg_tmr));
 
+    // TBD should we stop the clock here...
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555, txclk);
+    // And start it here?
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0xD5555555, txclk);
 
     if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
