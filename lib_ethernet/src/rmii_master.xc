@@ -241,6 +241,22 @@ return;
 // END OF MASTER_RX_CHUNK_TAIL
 
 
+static inline unsigned rx_4b_word(in buffered port:32 p_mii_rxd,
+                                  rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+        unsigned word1, word2;
+        p_mii_rxd :> word1;
+        p_mii_rxd :> word2;
+        uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
+        // Reuse word1/2
+        {word2, word1} = unzip(combined, 1);
+        if(rx_port_4b_pins == USE_LOWER_2B){
+            return word1;
+        } else {
+            return word2;
+        }
+ }
+
+
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
                                     unsigned * unsafe rdptr,
@@ -254,8 +270,14 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
-    *p_mii_rxd when pinseq(0xD) :> sfd_preamble;
+    // TODO - do we need this pinseq for preable given it is always 8 bytes?
+    // *p_mii_rxd when pinseq(0xD) :> sfd_preamble;
 
+    // Read twice for 8 byte preamble. Discard first word.
+    sfd_preamble = rx_4b_word(*p_mii_rxd, rx_port_4b_pins);
+    sfd_preamble = rx_4b_word(*p_mii_rxd, rx_port_4b_pins);
+
+    // This could be simplified by loading full 0xD5555555 without shifts?
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
@@ -272,7 +294,16 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     do {
         select {
            case *p_mii_rxd :> word:
+                unsigned word1 = word, word2;
+                *p_mii_rxd :> word2;
                 crc32(crc, word, poly);
+                uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
+                {word2, word1} = unzip(combined, 1);
+                if(rx_port_4b_pins == USE_LOWER_2B){
+                    word = word1;
+                } else {
+                    word = word2;
+                }
 
                 /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
                 * then this packet will be dropped as there is not enough room in the buffer. */
@@ -294,10 +325,13 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     } while (!end_of_frame);
 
     /* Note: we don't store the last word since it contains the CRC and
-     * we don't need it from this point on. */
-    unsigned taillen = endin(*p_mii_rxd);
+     * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
+    
+    // TODO what happens if tail is more than 2 bytes? I think we need to handle 1, 2, 3 bytes which is 1, 1 or 2 ins...
+    unsigned taillen = endin(*p_mii_rxd) / 2; // /2 because we need to discard half
 
     unsigned tail;
+    // Can't use rx_4b_word here because might only be one in... Hmmm
     *p_mii_rxd :> tail;
 
     MASTER_RX_CHUNK_TAIL
@@ -526,7 +560,7 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
 
     // TBD should we stop the clock here...
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555, txclk);
-    // And start it here?
+    // And start it here so it runs until completion. In which case remove txclk from the args??
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0xD5555555, txclk);
 
     if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
