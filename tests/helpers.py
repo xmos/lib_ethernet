@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import Pyxsim as px
 from filelock import FileLock
 import pytest
+import json
+import copy
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -44,7 +46,7 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
 
 def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                        complete_fn=None, expect_loopback=True,
-                       dut_exit_time=50000*1e6, initial_delay=85000*1e6):
+                       dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 85us
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
@@ -66,7 +68,7 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
 
 def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                           do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=50000*1e6, initial_delay=130000*1e6):
+                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 135us
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_4E',
@@ -120,20 +122,20 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     dut_dir = override_dut_dir if override_dut_dir else testname
     binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
-    assert os.path.isfile(binary)
+    assert os.path.isfile(binary), f"Missing .xe {binary}"
 
     tx_phy.set_packets(packets)
     rx_phy.set_expected_packets(packets)
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{mac}_{phy}_{clk}_{arch}.expect'.format(
-        folder=expect_folder, test=testname, mac=mac, phy=tx_phy.get_name(), clk=tx_clk.get_name(), arch=arch)
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+
     create_expect(packets, expect_filename)
 
     tester = px.testers.ComparisonTester(open(expect_filename))
@@ -244,3 +246,19 @@ def check_received_packet(packet, phy):
         print("Test done")
         phy.xsi.terminate()
 
+def generate_tests(test_params_json):
+    with open(test_params_json) as f:
+        params = json.load(f)
+        test_config_list = []
+        test_config_ids = []
+        for profile in params['PROFILES']:
+            base_profile = {key: value for key,value in profile.items() if key != 'arch'} # copy everything but 'arch'
+            if isinstance(profile['arch'], str):
+                profile['arch'] = [profile['arch']]
+            for a in profile['arch']: # Add a test case per architecture
+                test_profile = copy.deepcopy(base_profile)
+                test_profile['arch'] = a
+                id = '-'.join([v for v in test_profile.values()])
+                test_config_ids.append(id)
+                test_config_list.append(test_profile)
+    return test_config_list, test_config_ids

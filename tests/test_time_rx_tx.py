@@ -6,7 +6,6 @@ import os
 import random
 import sys
 from pathlib import Path
-import json
 import pytest
 import subprocess
 from filelock import FileLock
@@ -19,10 +18,7 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, args
 from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, get_mii_rx_clk_phy
 from helpers import get_rgmii_tx_clk_phy, get_rgmii_rx_clk_phy
-
-
-with open(Path(__file__).parent / "test_time_rx_tx/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 tx_complete = False
 rx_complete = False
@@ -140,10 +136,10 @@ class mytester:
             if not match:
                 result = False
                 sys.stderr.write(f"Line {line_num} expected:\n `{exected_other_lines}`\n got:\n `{output[line_num].strip()}`\n")
-        
+
         return result
 
-    
+
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -156,7 +152,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     testname = 'test_time_rx_tx'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     with capfd.disabled():
         build_xccm(testname, profile)
@@ -164,7 +160,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed}) for {arch} arch")
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
@@ -213,22 +209,25 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     assert result is True, f"{result}"
 
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-def test_time_rx_tx(capfd, params):
-    seed = 100
+test_params_file = Path(__file__).parent / "test_time_rx_tx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_time_rx_tx(capfd, seed, params):
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
+
     verbose = False
 
       # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl=test_ctrl)
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=200000 * 1e6)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl=test_ctrl)
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=200000 * 1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":

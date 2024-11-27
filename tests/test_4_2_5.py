@@ -7,10 +7,7 @@ from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
 import pytest
 from pathlib import Path
-import json
-
-with open(Path(__file__).parent / "test_rx/test_params.json") as f:
-    params = json.load(f)
+from helpers import generate_tests
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
@@ -56,10 +53,11 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     # Part E
     # Not doing half duplex 1000Mb/s, so don't test this
-        
+
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx")
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_rx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_4_2_5(params, capfd):
     random.seed(25)
     run_parametrised_test_rx(capfd, do_test, params)

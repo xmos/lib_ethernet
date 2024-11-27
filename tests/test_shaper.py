@@ -1,12 +1,10 @@
 # Copyright 2015-2024 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
-import random
-import copy
 import pytest
 from pathlib import Path
-import json
 import Pyxsim as px
 import os
+import sys
 
 from mii_clock import Clock
 from mii_phy import MiiReceiver
@@ -15,9 +13,8 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import generate_tests
 
-with open(Path(__file__).parent / "test_shaper/test_params.json") as f:
-    params = json.load(f)
 
 high_priority_mac_addr = [0, 1, 2, 3, 4, 5]
 
@@ -25,7 +22,7 @@ def packet_checker(packet, phy):
     if phy._verbose:
         sys.stdout.write(packet.dump())
     if packet.dst_mac_addr == high_priority_mac_addr:
-        if phy._verbose: print("HP")
+        if phy._verbose: print(f"HP recvd time {phy.xsi.get_time_ns()} ns")
         phy.n_hp_packets += 1
         done = phy.timeout_monitor.hp_packet_received()
         if done:
@@ -33,7 +30,7 @@ def packet_checker(packet, phy):
                 print(f"ERROR: Only {phy.n_lp_packets} low priority packets received vs {phy.n_hp_packets} high priority")
             phy.xsi.terminate()
     else:
-        if phy._verbose: print("LP")
+        if phy._verbose: print(f"LP recvd time {phy.xsi.get_time_ns()} ns")
         phy.n_lp_packets += 1
 
 
@@ -52,13 +49,13 @@ class TimeoutMonitor(px.SimThread):
 
         self._packet_count += 1
         self._seen_packets += 1
-        print(f"{xsi.get_time()/1e9}: Received HP packet {self._packet_count}")
+        print(f"{xsi._xsi.get_time()}: Received HP packet {self._packet_count}")
         if self._verbose:
-            print(f"{xsi.get_time()}: HP seen_packets {self._seen_packets}")
+            print(f"{xsi._xsi.get_time()} ns: HP seen_packets {self._seen_packets}")
 
-        max_conscutive_hp_pckts = 2
-        if self._seen_packets > max_conscutive_hp_pckts:
-            print(f"ERROR: More than {max_conscutive_hp_pckts} HP packets seen in time period")
+        max_consecutive_hp_pckts = 2
+        if self._seen_packets > max_consecutive_hp_pckts:
+            print(f"ERROR: More than {max_consecutive_hp_pckts} HP packets seen in time period")
             return True
 
         if self._packet_count == self._expect_count:
@@ -66,7 +63,7 @@ class TimeoutMonitor(px.SimThread):
             return True
 
         return False
-    
+
     def run(self):
         xsi = self.xsi
 
@@ -87,7 +84,7 @@ class TimeoutMonitor(px.SimThread):
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     testname = 'test_shaper'
     mii_clk_name = "125MHz" if "125" in tx_clk.get_name() else "25MHz" # Fix issue with lower case h
-    profile = f'{mac}_{tx_phy.get_name()}_{mii_clk_name}'
+    profile = f'{mac}_{tx_phy.get_name()}_{mii_clk_name}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -97,8 +94,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     # MAC request 5Mb/s
     slope = 5 * 1024 * 1024
 
-    bit_time = tx_phy.get_clock().get_bit_time()
-    bit_rate = 1e15 / bit_time
+    bit_time = tx_phy.get_clock().get_bit_time() # bit_time is in xsi_ticks/bit
+    bit_rate = px.Xsi.get_xsi_tick_freq_hz() / bit_time
     data_bytes = 100
     ifg_bytes = 96/8
     preamble_bytes = 8
@@ -106,28 +103,26 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     packet_bytes = ifg_bytes + preamble_bytes + data_bytes + crc_bytes
     packet_bits = packet_bytes * 8
     packets_per_second = slope / packet_bits
-    packet_period_fs = 1e15 / packets_per_second
+    packet_period_xsi_ticks = px.Xsi.get_xsi_tick_freq_hz() / packets_per_second
 
     with capfd.disabled():
-        print(f"Running with {data_bytes} byte packets (total {packet_bits} bits), {slope} bps requested, packet period {packet_period_fs/1e9:.2f} us, wire rate: {bit_rate/1e6}Mbps")
+        print(f"Running with {data_bytes} byte packets (total {packet_bits} bits), {slope} bps requested, packet period {(packet_period_xsi_ticks*1e6)/px.Xsi.get_xsi_tick_freq_hz():.2f} us, wire rate: {bit_rate/1e6}Mbps")
 
     num_expected_packets = 30
     initial_delay_us = 55 # To allow DUT ethernet to come up and start transmitting
-    timeout_monitor = TimeoutMonitor(initial_delay_us * 1e9, packet_period_fs, num_expected_packets, False)
+    initial_delay_xsi_ticks = (initial_delay_us * px.Xsi.get_xsi_tick_freq_hz())/ 1e6
+    timeout_monitor = TimeoutMonitor(initial_delay_xsi_ticks, packet_period_xsi_ticks, num_expected_packets, False)
     rx_phy.timeout_monitor = timeout_monitor
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0
-   
-    expect_folder = create_if_needed("expect")
-    expect_filename = '{folder}/{test}_{phy}_{clk}.expect'.format(
-        folder=expect_folder, test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
+
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+
     create_expect(expect_filename, num_expected_packets)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
-
-    if rx_phy.get_name() == "mii":
-        pytest.skip("DUT firmware does not seem to obey the slope for mii - https://github.com/xmos/lib_ethernet/issues/56")
 
     if rx_phy.get_name() == 'rgmii' and rx_clk.get_name() == '125Mhz':
         result = px.run_on_simulator_(  binary,
@@ -157,7 +152,8 @@ def create_expect(filename, num_expected_packets):
             f.write("\\d+.?\\d*: Received HP packet {}\n".format(i + 1))
         f.write("DONE\n")
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
+test_params_file = Path(__file__).parent / "test_shaper/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx_err(capfd, params):
     # Even though this is a TX-only test, both PHYs are needed in order to drive the mode pins for RGMII
 

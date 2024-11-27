@@ -16,7 +16,6 @@
 
 import os
 import sys
-import json
 from pathlib import Path
 import pytest
 import random
@@ -27,10 +26,8 @@ from mii_packet import MiiPacket
 from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
+from helpers import generate_tests
 
-
-with open(Path(__file__).parent / "test_rx_queues/test_params.json") as f:
-    params = json.load(f)
 
 def choose_data_size(rand, data_len_min, data_len_max):
     return rand.randint(data_len_min, data_len_max)
@@ -45,7 +42,8 @@ class DataLimiter(object):
         self._limited_hp_mbps = limited_hp_mbps
         self._credit = 0
         self._bit_time = bit_time
-        self._max_mbps = 1000 / bit_time
+        max_bits_per_xsi_tick = 1/bit_time # bit_time is in xsi ticks per bit
+        self._max_mbps = max_bits_per_xsi_tick * px.Xsi.get_xsi_tick_freq_hz() * 1e-6
 
     def get_ifg(self, packet_type, num_data_bytes, tag):
         preamble_bytes = 8
@@ -127,7 +125,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
 
     testname = 'test_rx_queues'
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
@@ -216,8 +214,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
         print("Sending {n} lp packets with {b} bytes hp data".format(n=lp_seq_id, b=lp_data_bytes))
         print("Sending {n} other packets with {b} bytes hp data".format(n=other_seq_id, b=other_data_bytes))
 
-    expect_folder = create_if_needed("expect")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{test_id}.expect'
+    expect_folder = create_if_needed("expect_temp")
+    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}_{test_id}.expect'
     create_expect(packets, expect_filename, hp_mac_address)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True, ordered=False)
 
@@ -229,7 +227,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
                                     simargs=simargs,
                                     capfd=capfd,
                                     do_xe_prebuild=False)
-    
+
 
     assert result is True, f"{result}"
 
@@ -252,11 +250,12 @@ def create_expect(packets, filename, hp_mac_address):
         f.write("LP client 2 received \\d+ bytes\n")
 
 
+test_params_file = Path(__file__).parent / "test_rx_queues/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_rx_queues(capfd, seed, params):
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-def test_rx_queues(capfd, params):
-
-    seed = random.randint(0, sys.maxsize)
 
     verbose = False
 
@@ -265,7 +264,7 @@ def test_rx_queues(capfd, params):
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, verbose=verbose)
 
         # Test having every packet going to both LP receivers
-        if params["test_id"] == "a":
+        if params["test_id"] == "hp_min_sz":
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, params["test_id"],
                     num_packets=200,
                     weight_hp=0, weight_lp=100, weight_other=0,
@@ -274,7 +273,7 @@ def test_rx_queues(capfd, params):
                     max_hp_mbps=100,
                     lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]])
 
-        if params["test_id"] == "b":
+        if params["test_id"] == "hp_max_sz":
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, params["test_id"],
                     num_packets=200,
                     weight_hp=100, weight_lp=0, weight_other=0,
@@ -286,7 +285,7 @@ def test_rx_queues(capfd, params):
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, verbose=verbose)
-            if params["test_id"] == "a":
+            if params["test_id"] == "hp_min_sz":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
                         weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,
@@ -296,8 +295,7 @@ def test_rx_queues(capfd, params):
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False,verbose=verbose)
-            if params["test_id"] == "a":
-                pytest.skip("https://github.com/xmos/lib_ethernet/issues/57")
+            if params["test_id"] == "hp_min_sz":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -305,8 +303,7 @@ def test_rx_queues(capfd, params):
                         weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                         max_hp_mbps=300)
 
-            if params["test_id"] == "b":
-                pytest.skip("https://github.com/xmos/lib_ethernet/issues/57")
+            if params["test_id"] == "hp_max_sz":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=200,
                         weight_hp=100, weight_lp=0, weight_other=0,
@@ -314,7 +311,7 @@ def test_rx_queues(capfd, params):
                         weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                         max_hp_mbps=600)
 
-            if params["test_id"] == "c":
+            if params["test_id"] == "mixed":
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
                         weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,

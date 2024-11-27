@@ -6,7 +6,6 @@ import os
 import random
 import sys
 from pathlib import Path
-import json
 import pytest
 
 from mii_clock import Clock
@@ -15,22 +14,21 @@ from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, packet_processing_time
 from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import generate_tests
 
-with open(Path(__file__).parent / "test_vlan_strip/test_params.json") as f:
-    params = json.load(f)
 
-def do_test(capfd, mac, arch, tx_clk, tx_phy):
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     testname = 'test_vlan_strip'
 
-    random.seed(1)
-
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
+    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print("Running {test}: {phy} phy at {clk}".format(test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name()))
+        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}, {arch} arch (seed {seed})")
 
     rand = random.Random()
+    rand.seed(seed)
 
     dut_mac_address = get_dut_mac_address()
     packets = [
@@ -64,23 +62,27 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy):
     assert result is True, f"{result}"
 
 
-@pytest.mark.parametrize("params", params["PROFILES"], ids=["-".join(list(profile.values())) for profile in params["PROFILES"]])
-def test_vlan_strip(capfd, params):
+test_params_file = Path(__file__).parent / "test_vlan_strip/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_vlan_strip(capfd, seed, params):
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
+
     verbose = False
       # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii)
+        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii)
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii)
+            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed)
         else:
             assert 0, f"Invalid params: {params}"
 

@@ -15,19 +15,22 @@ class Clock(px.SimThread):
     def __init__(self, port, clk):
         self._running = True
         self._clk = clk
-        sim_clock_rate = 1e15 # xsim uses femotseconds
+        sim_clock_rate = px.Xsi.get_xsi_tick_freq_hz() # xsim uses femotseconds
         if clk == self.CLK_125MHz:
             self._period = float(sim_clock_rate) / 125e6
             self._name = '125Mhz'
-            self._bit_time = 1*1e6
+            # 8 bits per clock period at 125MHz = 1000 Mbps. bit time = 1/1000Mbps = 1e-9 (or 1ns) seconds per bit
+            self._bit_time = sim_clock_rate / 1e9 # xsim ticks per bit
         elif clk == self.CLK_25MHz:
             self._period = float(sim_clock_rate) / 25e6
             self._name = '25Mhz'
-            self._bit_time = 10*1e6
+            # 4 bits per clock at 25MHz = 100Mbps. bit time = 1e-8 (or 10ns) seconds per bit
+            self._bit_time = sim_clock_rate / 1e8 # xsim ticks per bit
         elif clk == self.CLK_2_5MHz:
             self._period = float(sim_clock_rate) / 2.5e6
             self._name = '2.5Mhz'
-            self._bit_time = 100*1e6
+            # 4 bits per clock at 2.5MHz = 10Mbps. bit time = 1e-7 (or 100ns) seconds per bit
+            self._bit_time = sim_clock_rate / 1e7 # xsim ticks per bit
         self._min_ifg = 96 * self._bit_time
         self._val = 0
         self._port = port
