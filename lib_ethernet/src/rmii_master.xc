@@ -115,14 +115,15 @@ static void rmii_master_init_tx_common( in port p_clk,
                                         clock txclk){
     // Enable tx enable valid signal. Data ports already on and configured to 32b buffered.
     set_port_use_on(p_txen);
+    p_txen <: 0; // Ensure is initially low so no spurious enables
 
     // Init Tx transmit clock block and clock from clk input port
     set_clock_on(txclk);
     set_clock_src(txclk, p_clk);
 
     // Connect txen and configure as ready (valid) signal 
-    set_port_clock(p_txen, txclk);
     set_port_mode_ready(p_txen);
+    set_port_clock(p_txen, txclk);
     
     set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
     set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
@@ -133,9 +134,10 @@ unsafe void rmii_master_init_tx_4b( in port p_clk,
                                     out buffered port:32 * unsafe tx_data,
                                     out port p_txen,
                                     clock txclk){
-    rmii_master_init_tx_common(p_clk, p_txen, txclk);
+    *tx_data <: 0;  // Ensure lines are low
+    sync(*tx_data); // And wait to empty. This ensures no spurious p_txen on init
 
-    clearbuf(*tx_data);
+    rmii_master_init_tx_common(p_clk, p_txen, txclk);
 
     // Configure so that tx_data controls the ready signal strobe
     set_port_strobed(*tx_data);
@@ -151,10 +153,12 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
                                     out buffered port:32 * unsafe tx_data_1,
                                     out port p_txen,
                                     clock txclk){
-    rmii_master_init_tx_common(p_clk, p_txen, txclk);
+    *tx_data_0 <: 0;  // Ensure lines are low
+    sync(*tx_data_0); // And wait to empty. This ensures no spurious p_txen on init
+    *tx_data_0 <: 0;
+    sync(*tx_data_1);
 
-    clearbuf(*tx_data_0);
-    clearbuf(*tx_data_1);
+    rmii_master_init_tx_common(p_clk, p_txen, txclk);
 
     // Configure so that just tx_data_0 controls the read signal strobe
     // When we transmit we will ensure both port buffers are launched
