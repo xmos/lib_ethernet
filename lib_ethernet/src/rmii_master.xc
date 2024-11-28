@@ -350,6 +350,22 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 }
 
 
+static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
+                                  in buffered port:32 p_mii_rxd_1){
+ 
+    unsigned word, word2;
+    set_port_shift_count(p_mii_rxd_1, 16);
+    word = partin(p_mii_rxd_0, 16);
+    p_mii_rxd_1 :> word2;
+
+    uint64_t combined = zip(word2 >> 16, word, 0);
+    // resuse word
+    word = (uint32_t) combined;
+
+    return word;
+}
+
+
 unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
                                     unsigned * unsafe rdptr,
@@ -362,7 +378,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
-    *p_mii_rxd_0 when pinseq(0xD) :> sfd_preamble;
+    sfd_preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
 
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
@@ -377,9 +393,18 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     unsigned end_of_frame = 0;
     unsigned word;
 
+    // This clears after each in so setup again
+    set_port_shift_count(*p_mii_rxd_0, 16);
+    set_port_shift_count(*p_mii_rxd_1, 16);
+
     do {
         select {
            case *p_mii_rxd_0 :> word:
+                unsigned word2;
+                *p_mii_rxd_1 :> word2;
+                uint64_t combined = zip(word2 >> 16, word, 0);
+                word = (uint32_t)combined;
+
                 crc32(crc, word, poly);
 
                 /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
@@ -393,6 +418,9 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                 }
 
                 num_rx_bytes += 4;
+
+                set_port_shift_count(*p_mii_rxd_0, 16);
+                set_port_shift_count(*p_mii_rxd_1, 16);
                 break;
 
            case p_mii_rxdv when pinseq(0) :> int:
@@ -405,8 +433,13 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
      * we don't need it from this point on. */
     unsigned taillen = endin(*p_mii_rxd_0);
 
-    unsigned tail;
-    *p_mii_rxd_0 :> tail;
+    unsigned word2;
+    *p_mii_rxd_0 :> unsigned word;
+    *p_mii_rxd_1 :> unsigned word2;
+    uint64_t combined = zip(word2 >> 16, word, 0);
+    unsigned tail = (uint32_t)combined;
+
+    taillen <<= 1; // Because we have twice as many total port input bits as data bits 
 
     MASTER_RX_CHUNK_TAIL
 }
