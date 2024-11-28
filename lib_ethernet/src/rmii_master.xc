@@ -155,7 +155,7 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
                                     clock txclk){
     *tx_data_0 <: 0;  // Ensure lines are low
     sync(*tx_data_0); // And wait to empty. This ensures no spurious p_txen on init
-    *tx_data_0 <: 0;
+    *tx_data_1 <: 0;
     sync(*tx_data_1);
 
     rmii_master_init_tx_common(p_clk, p_txen, txclk);
