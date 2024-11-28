@@ -295,6 +295,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         select {
            case *p_mii_rxd :> word:
                 unsigned word1 = word, word2;
+                // TODO need to work out if this works for tail. May need endin?
                 *p_mii_rxd :> word2;
                 uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
                 {word2, word1} = unzip(combined, 1);
@@ -328,11 +329,22 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
      * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
     
     // TODO what happens if tail is more than 2 bytes? I think we need to handle 1, 2, 3 bytes which is 1, 1 or 2 ins...
-    unsigned taillen = endin(*p_mii_rxd) / 2; // /2 because we need to discard half
+    unsigned taillen = endin(*p_mii_rxd); 
 
-    unsigned tail;
     // Can't use rx_4b_word here because might only be one in... Hmmm
-    *p_mii_rxd :> tail;
+    unsigned word1, word2;
+    *p_mii_rxd :> word1;
+    uint64_t combined = (uint64_t)word1;
+    // Reuse word1/2
+    {word2, word1} = unzip(combined, 1);
+    unsigned tail;
+
+    if(rx_port_4b_pins == USE_LOWER_2B){
+        tail = word1;
+    } else {
+        tail = word2;
+    }
+    taillen >>= 1; // Because we have half as many data bits as port bits 
 
     MASTER_RX_CHUNK_TAIL
 }
