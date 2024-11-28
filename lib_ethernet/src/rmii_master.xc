@@ -507,31 +507,25 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
 
 static inline void tx_1b_word(out buffered port:32 p_mii_txd_0,
                               out buffered port:32 p_mii_txd_1,
-                              unsigned word,
-                              clock txclk){
+                              unsigned word){
     uint64_t combined = (uint64_t)word;
     uint32_t p0_val, p1_val;
     {p1_val, p0_val} = unzip(combined, 0);
 
-    stop_clock(txclk);
     partout(p_mii_txd_1, 16, p1_val);
     partout(p_mii_txd_0, 16, p0_val);
-    start_clock(txclk);
 }
 
 
 static inline void tx_1b_byte(out buffered port:32 p_mii_txd_0,
                               out buffered port:32 p_mii_txd_1,
-                              unsigned word,
-                              clock txclk){
+                              unsigned word){
     uint64_t combined = (uint64_t)word;
     uint32_t p0_val, p1_val;
     {p1_val, p0_val} = unzip(combined, 0);
 
-    stop_clock(txclk);
-    partout(p_mii_txd_1, 4, p1_val);
     partout(p_mii_txd_0, 4, p0_val);
-    start_clock(txclk);
+    partout(p_mii_txd_1, 4, p1_val);
 }
 
 
@@ -558,17 +552,18 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                   : "=r" (ifg_time)
                   : "r" (ifg_tmr));
 
-    // TBD should we stop the clock here...
-    tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555, txclk);
-    // And start it here so it runs until completion. In which case remove txclk from the args??
-    tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0xD5555555, txclk);
+    // Ensure first Tx is synchronised so they launch at the same time. We will continue filling the buffer until the end of packet.
+    stop_clock(txclk);
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555);
+    start_clock(txclk);
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0xD5555555);
 
     if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
         ifg_tmr :> time;
     }
 
     unsigned word = *dptr;
-    tx_1b_word(p_mii_txd_0, p_mii_txd_1, word, txclk);
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, word);
     dptr++;
     i++;
     crc32(crc, ~word, poly);
@@ -581,7 +576,7 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
         }
         i++;
         crc32(crc, word, poly);
-        tx_1b_word(p_mii_txd_0, p_mii_txd_1, word, txclk);
+        tx_1b_word(p_mii_txd_0, p_mii_txd_1, word);
         ifg_tmr :> ifg_time;
     } while (i < word_count);
 
@@ -597,21 +592,21 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                 break;
 #pragma fallthrough
             case 3:
-                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word, txclk);
+                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word);
                 word = crc8shr(crc, word, poly);
 #pragma fallthrough
             case 2:
-                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word, txclk);
+                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word);
                 word = crc8shr(crc, word, poly);
             case 1:
-                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word, txclk);
+                tx_1b_byte(p_mii_txd_0, p_mii_txd_1, word);
                 crc8shr(crc, word, poly);
                 break;
         }
     }
     crc32(crc, ~0, poly);
 
-    tx_1b_word(p_mii_txd_0, p_mii_txd_1, crc, txclk);
+    tx_1b_word(p_mii_txd_0, p_mii_txd_1, crc);
     return time;
 }
 
