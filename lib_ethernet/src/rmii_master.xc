@@ -538,14 +538,14 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                 break;
 #pragma fallthrough
             case 3:
-                tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
+                tx_4b_byte(p_mii_txd, word, tx_port_4b_pins);
                 word = crc8shr(crc, word, poly);
 #pragma fallthrough
             case 2:
-                tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
+                tx_4b_byte(p_mii_txd, word, tx_port_4b_pins);
                 word = crc8shr(crc, word, poly);
             case 1:
-                tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
+                tx_4b_byte(p_mii_txd, word, tx_port_4b_pins);
                 crc8shr(crc, word, poly);
                 break;
         }
