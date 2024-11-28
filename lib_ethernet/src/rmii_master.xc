@@ -296,7 +296,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
            case *p_mii_rxd :> word:
                 unsigned word1 = word, word2;
                 *p_mii_rxd :> word2;
-                crc32(crc, word, poly);
                 uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
                 {word2, word1} = unzip(combined, 1);
                 if(rx_port_4b_pins == USE_LOWER_2B){
@@ -304,6 +303,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                 } else {
                     word = word2;
                 }
+                crc32(crc, word, poly);
 
                 /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
                 * then this packet will be dropped as there is not enough room in the buffer. */
