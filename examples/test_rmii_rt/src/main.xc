@@ -3,6 +3,7 @@
 #include <xs1.h>
 #include <platform.h>
 #include <stdio.h>
+#include <print.h>
 #include "ethernet.h"
 
 port p_eth_clk = XS1_PORT_1J;
@@ -22,7 +23,7 @@ clock eth_txclk = XS1_CLKBLK_2;
 clock eth_clk_harness = XS1_CLKBLK_3;
 port p_eth_clk_harness = XS1_PORT_1I;
 
-#define PACKET_BYTES 80
+#define PACKET_BYTES 53
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
 
 #define VLAN_TAGGED 1
@@ -37,6 +38,12 @@ static int calc_idle_slope(int bps)
   return (int) slope;
 }
 
+static void printbytes(char *b, int n){
+    for(int i=0; i<n;i++){
+        printstr(", 0x"); printhex(b[i]);
+    }
+    printstr("\n");
+}
 
 void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, streaming chanend c_tx_hp)
 {
@@ -73,10 +80,13 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   printf("TX pre\n");
   // ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
   // printf("HP packet sent: %d bytes\n", length);
+
+  printbytes((char*)data, length);
   tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
   printf("LP packet sent: %d bytes\n", length);
   t :> time;
   t when timerafter(time + 3000) :> time;
+  while(1);
   tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
   printf("LP packet sent: %d bytes\n", length);
 

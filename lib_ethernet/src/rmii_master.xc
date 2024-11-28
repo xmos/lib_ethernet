@@ -245,21 +245,28 @@ return;
 // END OF MASTER_RX_CHUNK_TAIL
 
 
-static inline unsigned rx_4b_word(in buffered port:32 p_mii_rxd,
+static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                                   rmii_data_4b_pin_assignment_t rx_port_4b_pins){
-        unsigned word1, word2;
-        p_mii_rxd :> word1;
-        p_mii_rxd :> word2;
-        uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
-        // Reuse word1/2
-        {word2, word1} = unzip(combined, 1);
-        if(rx_port_4b_pins == USE_LOWER_2B){
-            return word1;
-        } else {
-            return word2;
-        }
- }
+    unsigned word1, word2;
+    p_mii_rxd :> word1;
+    p_mii_rxd :> word2;
+    uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
+    // Reuse word1/2
+    {word2, word1} = unzip(combined, 1);
+    if(rx_port_4b_pins == USE_LOWER_2B){
+        return word1;
+    } else {
+        return word2;
+    }
+}
 
+
+void printbytes(char *b, int n){
+    for(int i=0; i<n;i++){
+        printstr(", 0x"); printhex(b[i]);
+    }
+    printstr("\n");
+}
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
@@ -274,19 +281,18 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
-    clearbuf(*p_mii_rxd); // TODO WORK OUT WHY THIS GETS FILLED BEFORE
-
     // TODO - do we need this pinseq for preable given it is always 8 bytes?
     // *p_mii_rxd when pinseq(0xD) :> sfd_preamble;
 
     // Read twice for 8 byte preamble. Discard first word.
-    sfd_preamble = rx_4b_word(*p_mii_rxd, rx_port_4b_pins);
-    sfd_preamble = rx_4b_word(*p_mii_rxd, rx_port_4b_pins);
+    sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
+    sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
 
     // This could be simplified by loading full 0xD5555555 without shifts?
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
+        printstrln("incorrect preamble");
     }
 
     /* Timestamp the start of packet and record it in the packet structure */
@@ -295,68 +301,117 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     buf->timestamp = time;
 
     unsigned end_of_frame = 0;
-    unsigned word;
+    unsigned word, word_last;
+    unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
+
+    // Consume frame one long word at a time
     do {
         select {
-           case *p_mii_rxd :> word:
-                unsigned word1 = word, word2;
-                // TODO need to work out if this works for tail. May need endin?
-                *p_mii_rxd :> word2;
-                uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
-                {word2, word1} = unzip(combined, 1);
-                if(rx_port_4b_pins == USE_LOWER_2B){
-                    word = word1;
-                } else {
-                    word = word2;
-                }
-                crc32(crc, word, poly);
-
-                /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
-                * then this packet will be dropped as there is not enough room in the buffer. */
-                if (dptr != end_ptr) {
-                    *dptr = word;
-                    dptr++;
-                    /* The wrap pointer contains the address of the start of the buffer */
-                    if (dptr == wrap_ptr)
-                        dptr = (unsigned * unsafe) *dptr;
-                }
-
-                num_rx_bytes += 4;
+            case p_mii_rxdv when pinseq(0) :> int:
+                end_of_frame = 1;
                 break;
 
-           case p_mii_rxdv when pinseq(0) :> int:
-                end_of_frame = 1;
+            case *p_mii_rxd :> word:
+                if(in_counter) {
+                    uint64_t combined = (uint64_t)word_last | ((uint64_t)word << 32);
+                    unsigned upper, lower;
+                    {upper, lower} = unzip(combined, 1);
+                    if(rx_port_4b_pins == USE_LOWER_2B){
+                        word = lower;
+                    } else {
+                        word = upper;
+                    }
+                    crc32(crc, word, poly);
+
+                    /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
+                    * then this packet will be dropped as there is not enough room in the buffer. */
+                    if (dptr != end_ptr) {
+                        *dptr = word;
+                        dptr++;
+                        /* The wrap pointer contains the address of the start of the buffer */
+                        if (dptr == wrap_ptr)
+                            dptr = (unsigned * unsafe) *dptr;
+                    }
+                    num_rx_bytes += 4;
+                }
+                word_last = word; 
+                // unsigned dv_level = peek(p_mii_rxdv);
+                // if(dv_level){
+                //     *p_mii_rxd :> word2;
+                // } else {
+                //     printstrln("DV gone low");
+                //     word2 = 0;
+                // }
+
+
+                in_counter ^= 1; // Efficient (++in_counter % 2)
                 break;
         }
     } while (!end_of_frame);
 
     /* Note: we don't store the last word since it contains the CRC and
      * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
-    
-    // TODO what happens if tail is more than 2 bytes? I think we need to handle 1, 2, 3 bytes which is 1, 1 or 2 ins...
-    unsigned taillen = endin(*p_mii_rxd);
-    // printintln(taillen);
+    unsigned bits_left_in_port = endin(*p_mii_rxd);
+    unsigned last_byte;
+    uint64_t combined;
+    unsigned taillen;
 
-    // Can't use rx_4b_word here because might only be one in... Hmmm
-    unsigned word1, word2;
-    *p_mii_rxd :> word1;
-    uint64_t combined = (uint64_t)word1;
-    // Reuse word1/2
-    {word2, word1} = unzip(combined, 1);
+    // in_counter will be set if 2 data bytes or more remaining
+    if(in_counter){
+        // Will be 0 or 16
+        if(bits_left_in_port == 16){
+            *p_mii_rxd :> last_byte;
+            last_byte <<= 48;
+            taillen = 3;
+        } else {
+            last_byte = 0;
+            taillen = 2;
+        }
+        combined = ((uint64_t)word_last << 32) | (uint64_t)last_byte;
+    } else {
+        if(bits_left_in_port == 16){
+            *p_mii_rxd :> last_byte;
+            combined = ((uint64_t)last_byte << 16);
+            taillen = 1;
+        } else {
+            taillen = 0;
+        }
+    }
+    num_rx_bytes += taillen;
+
+    // Now turn the last bit pattern into a word
+    unsigned upper, lower;
+    {upper, lower} = unzip(combined, 1);
+    if(rx_port_4b_pins == USE_LOWER_2B){
+        word = lower;
+    } else {
+        word = upper;
+    }
+
+    printstr("taillen: ");printintln(taillen);
+    printintln(num_rx_bytes);
+
+    // Extract CRC
+    unsigned received_crc = 0;
+    char *byte_ptr_buff = (char *)&buf->data[0];
+    memcpy(&received_crc, &byte_ptr_buff[num_rx_bytes], taillen);
+    printstr("tail: ");printhexln(received_crc);
+    printstr("word: ");printhexln(word);
+
+    received_crc |= word;
+
+     // = word | byte_ptr_buff[num_rx_bytes] | (byte_ptr_buff[num_rx_bytes + 1] << 8);
+
     unsigned tail;
 
-    if(rx_port_4b_pins == USE_LOWER_2B){
-        tail = word1;
-    } else {
-        tail = word2;
-    }
-    taillen >>= 1; // Because we have half as many data bits as port bits 
 
-    MASTER_RX_CHUNK_TAIL
+    printbytes((char *)&buf->data[0], num_rx_bytes + 4);
+    printhexln(received_crc);
+
 }
 
-
+}
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
                                   in buffered port:32 p_mii_rxd_1){
  
@@ -552,6 +607,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     }
     crc32(crc, ~0, poly);
     tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
+    printhexln(crc);
 
     return time;
 }
