@@ -270,6 +270,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
+    clearbuf(*p_mii_rxd); // TODO WORK OUT WHY THIS GETS FILLED BEFORE
+
     // TODO - do we need this pinseq for preable given it is always 8 bytes?
     // *p_mii_rxd when pinseq(0xD) :> sfd_preamble;
 
@@ -329,7 +331,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
      * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
     
     // TODO what happens if tail is more than 2 bytes? I think we need to handle 1, 2, 3 bytes which is 1, 1 or 2 ins...
-    unsigned taillen = endin(*p_mii_rxd); 
+    unsigned taillen = endin(*p_mii_rxd);
+    // printintln(taillen);
 
     // Can't use rx_4b_word here because might only be one in... Hmmm
     unsigned word1, word2;

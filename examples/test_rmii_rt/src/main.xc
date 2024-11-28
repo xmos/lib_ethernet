@@ -22,7 +22,7 @@ clock eth_txclk = XS1_CLKBLK_2;
 clock eth_clk_harness = XS1_CLKBLK_3;
 port p_eth_clk_harness = XS1_PORT_1I;
 
-#define PACKET_BYTES 100
+#define PACKET_BYTES 80
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
 
 #define VLAN_TAGGED 1
@@ -36,6 +36,7 @@ static int calc_idle_slope(int bps)
 
   return (int) slope;
 }
+
 
 void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, streaming chanend c_tx_hp)
 {
@@ -64,14 +65,22 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   ((char*)data)[j++] = (length - header_bytes) >> 8;
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
 
-  printf("TX pre\n");
-  ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
-  printf("HP packet sent: %d bytes\n", length);
-
-
-  // Give time for the packet to start to be sent in the case of the RT MAC
   timer t;
   int time;
+  t :> time;
+  t when timerafter(time + 3000) :> time; // Delay sending to allow Rx to be setup
+
+  printf("TX pre\n");
+  // ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
+  // printf("HP packet sent: %d bytes\n", length);
+  tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
+  printf("LP packet sent: %d bytes\n", length);
+  t :> time;
+  t when timerafter(time + 3000) :> time;
+  tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
+  printf("LP packet sent: %d bytes\n", length);
+
+  // Give time for the packet to start to be sent in the case of the RT MAC
   t :> time;
   t when timerafter(time + 5000) :> time;
 }
@@ -90,8 +99,6 @@ void rx_app(client ethernet_cfg_if i_cfg,
     }
     i_cfg.add_macaddr_filter(index, 1, macaddr_filter);
 
-    printf("RX pre\n");
-
     while (1) {
         uint8_t rxbuf[ETHERNET_MAX_PACKET_SIZE];
         ethernet_packet_info_t packet_info;
@@ -99,6 +106,12 @@ void rx_app(client ethernet_cfg_if i_cfg,
         select {
             case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
                 printf("HP packet received: %d bytes\n", packet_info.len);
+                break;
+
+            case i_rx.packet_ready():
+                unsigned n;
+                i_rx.get_packet(packet_info, rxbuf, n);
+                printf("LP packet received: %d bytes\n", n);
                 break;
         }
     }
@@ -114,7 +127,7 @@ int main()
     
 
     // Setup 50M clock
-    unsigned divider = 2;
+    unsigned divider = 10;
     configure_clock_ref(eth_clk_harness, divider / 2); // 100 / 2 = 50;
     set_port_clock(p_eth_clk_harness, eth_clk_harness);
     set_port_mode_clock(p_eth_clk_harness);
