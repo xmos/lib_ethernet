@@ -337,31 +337,31 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         }
     } while (!end_of_frame);
 
-    /* Note: we don't store the last word since it contains the CRC and
-     * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
+    // Note: we don't store the last word since it contains the CRC and
+    // we don't need it from this point on. Endin returns the number of bits of data remaining.
+    // Due to the nature of whole bytes taking 16b of the register, this number will be 0 or 16
     unsigned bits_left_in_port = endin(*p_mii_rxd);
-    unsigned port_end;
-    uint64_t combined;
-    unsigned taillen;
+    uint64_t combined; // Bit pattern that we will reconstruct from tail pre-unzip
+    unsigned taillen; // Number of bytes in tail
 
-    // in_counter will be set if 2 data bytes or more remaining
+    // in_counter will be set if 2 data bytes or more remaining in tail
     // This logic works out which bit patterns from which port inputs need to be
-    // recombined to extract the tail
+    // recombined to extract the tail using the unzip
     if(in_counter){
-        // Will be 0 or 16, so future optimisation is > 0
-        if(bits_left_in_port == 16) {
-            *p_mii_rxd :> port_end;
-            combined = ((uint64_t)port_this << 16) | ((uint64_t)port_end << 32);
+        if(bits_left_in_port) {
+            unsigned port_residual;
+            *p_mii_rxd :> port_residual;
+            combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
             taillen = 3;
         } else {
-            port_end = 0;
-            combined = ((uint64_t)port_this << 32) | (uint64_t)port_end;
+            combined = ((uint64_t)port_this << 32);
             taillen = 2;
         }
     } else {
-        if(bits_left_in_port == 16) {
-            *p_mii_rxd :> port_end;
-            combined = ((uint64_t)port_end << 32);
+        if(bits_left_in_port) {
+            unsigned port_residual;
+            *p_mii_rxd :> port_residual;
+            combined = ((uint64_t)port_residual << 32);
             taillen = 1;
         } else {
             combined = 0;
@@ -370,7 +370,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     }
     num_rx_bytes += taillen;
 
-    // Now turn the last bit pattern into a word
+    // Now turn the last constructed bit pattern into a word
     unsigned upper, lower;
     {upper, lower} = unzip(combined, 1);
     if(rx_port_4b_pins == USE_LOWER_2B) {
