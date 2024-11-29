@@ -210,14 +210,12 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 
 #define MASTER_RX_CHUNK_TAIL \
                               \
-        if (taillen & ~0x7) {  \
-            num_rx_bytes += (taillen>>3); \
-                                            \
+        if (taillen & ~0x3) {  \
             /* Ensure that the mask is byte-aligned */ \
-            unsigned mask = ~0U >> (taillen & ~0x7); \
+            unsigned mask = ~0U >> (taillen & ~0x3); \
                                                      \
             /* Correct for non byte-aligned frames */ \
-            tail <<= taillen & 0x7; \
+            tail <<= taillen & 0x3; \
                                     \
             /* Mask out junk bits in last input */ \
             tail &= ~mask; \
@@ -301,7 +299,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     buf->timestamp = time;
 
     unsigned end_of_frame = 0;
-    unsigned word, word_last;
+    unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
+    unsigned word; // The converted data word
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
 
@@ -312,9 +311,9 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                 end_of_frame = 1;
                 break;
 
-            case *p_mii_rxd :> word:
+            case *p_mii_rxd :> port_this:
                 if(in_counter) {
-                    uint64_t combined = (uint64_t)word_last | ((uint64_t)word << 32);
+                    uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
                     unsigned upper, lower;
                     {upper, lower} = unzip(combined, 1);
                     if(rx_port_4b_pins == USE_LOWER_2B){
@@ -334,8 +333,11 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                             dptr = (unsigned * unsafe) *dptr;
                     }
                     num_rx_bytes += 4;
-                }
-                word_last = word; 
+                } else {
+                    port_last = port_this;
+                } 
+
+                // This is here just in case we need to monitor rxdv due to timing... Keep for now. TODO remove
                 // unsigned dv_level = peek(p_mii_rxdv);
                 // if(dv_level){
                 //     *p_mii_rxd :> word2;
@@ -353,7 +355,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     /* Note: we don't store the last word since it contains the CRC and
      * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
     unsigned bits_left_in_port = endin(*p_mii_rxd);
-    unsigned last_byte;
+    unsigned port_end;
     uint64_t combined;
     unsigned taillen;
 
@@ -361,21 +363,23 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     if(in_counter){
         // Will be 0 or 16
         if(bits_left_in_port == 16){
-            *p_mii_rxd :> last_byte;
-            last_byte <<= 48;
+            *p_mii_rxd :> port_end;
             taillen = 3;
+            combined = ((uint64_t)port_this << 16) | ((uint64_t)port_end << 32);
         } else {
-            last_byte = 0;
+            port_end = 0;
             taillen = 2;
+            combined = ((uint64_t)port_this << 32) | (uint64_t)port_end;
         }
-        combined = ((uint64_t)word_last << 32) | (uint64_t)last_byte;
     } else {
         if(bits_left_in_port == 16){
-            *p_mii_rxd :> last_byte;
-            combined = ((uint64_t)last_byte << 16);
+            *p_mii_rxd :> port_end;
+            combined = ((uint64_t)port_end << 32);
             taillen = 1;
+
         } else {
             taillen = 0;
+            combined = 0;
         }
     }
     num_rx_bytes += taillen;
@@ -389,27 +393,19 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         word = upper;
     }
 
-    printstr("taillen: ");printintln(taillen);
-    printintln(num_rx_bytes);
-
-    // Extract CRC
+    // Extract CRC from packet
     unsigned received_crc = 0;
     char *byte_ptr_buff = (char *)&buf->data[0];
-    memcpy(&received_crc, &byte_ptr_buff[num_rx_bytes], taillen);
-    printstr("tail: ");printhexln(received_crc);
-    printstr("word: ");printhexln(word);
-
+    memcpy(&received_crc, &byte_ptr_buff[num_rx_bytes], 4 - taillen);
     received_crc |= word;
 
-     // = word | byte_ptr_buff[num_rx_bytes] | (byte_ptr_buff[num_rx_bytes + 1] << 8);
-
-    unsigned tail;
+    unsigned tail = word;
 
 
-    printbytes((char *)&buf->data[0], num_rx_bytes + 4);
-    printhexln(received_crc);
+    // printbytes((char *)&buf->data[0], num_rx_bytes);
+    // printhexln(received_crc);
 
-}
+    MASTER_RX_CHUNK_TAIL
 
 }
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
