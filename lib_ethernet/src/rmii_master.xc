@@ -210,21 +210,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 
 #define MASTER_RX_CHUNK_TAIL \
                               \
-        if (taillen & ~0x3) {  \
-            /* Ensure that the mask is byte-aligned */ \
-            unsigned mask = ~0U >> (taillen & ~0x3); \
-                                                     \
-            /* Correct for non byte-aligned frames */ \
-            tail <<= taillen & 0x3; \
-                                    \
-            /* Mask out junk bits in last input */ \
-            tail &= ~mask; \
-                            \
-            /* Incorporate tailbits of input data, see https://github.com/xcore/doc_tips_and_tricks for details. */ \
-            { tail, crc } = mac(crc, mask, tail, crc); \
-            crc32(crc, tail, poly); \
-        } \
-            \
         buf->length = num_rx_bytes; \
         buf->crc = crc; \
                          \
@@ -300,7 +285,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     unsigned end_of_frame = 0;
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
-    unsigned word; // The converted data word
+    unsigned word; // The converted data word, 4 data bytes
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
 
@@ -352,33 +337,32 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         }
     } while (!end_of_frame);
 
-    /* Note: we don't store the last word since it contains the CRC and
-     * we don't need it from this point on. Endin returns the number of bits of data remaining.*/
+    // Note: we don't store the last word since it contains the CRC and
+    // we don't need it from this point on. Endin returns the number of bits of data remaining.
+    // Due to the nature of whole bytes taking 16b of the register, this number will be 0 or 16
     unsigned bits_left_in_port = endin(*p_mii_rxd);
-    unsigned port_end;
-    uint64_t combined;
-    unsigned taillen;
+    uint64_t combined; // Bit pattern that we will reconstruct from tail pre-unzip
+    unsigned taillen; // Number of bytes in tail
 
-    // in_counter will be set if 2 data bytes or more remaining
+    // in_counter will be set if 2 data bytes or more remaining in tail
     // This logic works out which bit patterns from which port inputs need to be
-    // recombined to extract the tail
+    // recombined to extract the tail using the unzip
     if(in_counter){
-        // Will be 0 or 16
-        if(bits_left_in_port == 16){
-            *p_mii_rxd :> port_end;
-            combined = ((uint64_t)port_this << 16) | ((uint64_t)port_end << 32);
+        if(bits_left_in_port) {
+            unsigned port_residual;
+            *p_mii_rxd :> port_residual;
+            combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
             taillen = 3;
         } else {
-            port_end = 0;
-            combined = ((uint64_t)port_this << 32) | (uint64_t)port_end;
+            combined = ((uint64_t)port_this << 32);
             taillen = 2;
         }
     } else {
-        if(bits_left_in_port == 16){
-            *p_mii_rxd :> port_end;
-            combined = ((uint64_t)port_end << 32);
+        if(bits_left_in_port) {
+            unsigned port_residual;
+            *p_mii_rxd :> port_residual;
+            combined = ((uint64_t)port_residual << 32);
             taillen = 1;
-
         } else {
             combined = 0;
             taillen = 0;
@@ -386,67 +370,26 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     }
     num_rx_bytes += taillen;
 
-    // Now turn the last bit pattern into a word
+    // Now turn the last constructed bit pattern into a word
     unsigned upper, lower;
     {upper, lower} = unzip(combined, 1);
-    if(rx_port_4b_pins == USE_LOWER_2B){
+    if(rx_port_4b_pins == USE_LOWER_2B) {
         word = lower;
     } else {
         word = upper;
     }
 
-    // Extract CRC from packet
-    unsigned received_crc = 0;
-    char *byte_ptr_buff = (char *)&buf->data[0];
-    memcpy(&received_crc, &byte_ptr_buff[num_rx_bytes], 4 - taillen);
-    received_crc |= word;
 
-    unsigned tail = 0;
-    memcpy(&tail, &byte_ptr_buff[num_rx_bytes - taillen], taillen);
-    // printhexln(tail);
-
-   
+    // Now apply remaining received CRC bytes
+    // CRC should be 0xffffffff to pass packet receive
     if(taillen > 0){
-        /* Ensure that the mask is byte-aligned */
-        unsigned mask = ~0U >> (taillen * 8);
-
-        /* Correct for non byte-aligned frames */
-        // tail <<= (4 - taillen) * 8;
-        // printhexln(tail);
-
-        /* Incorporate tailbits of input data,
-        * see https://github.com/xcore/doc_tips_and_tricks for details. */
-        // { tail, crc } = mac(crc, mask, tail, crc);
-        crc32(crc, tail, poly);
+        // Make it right aligned as CRC operates on LSb first        
+        unsigned tail = word >> ((4 - taillen) * 8);
+        // printstr("tail: ");printhexln(tail);
+        crcn(crc, tail, poly, taillen * 8);
     }
 
-    buf->length = num_rx_bytes;
-    buf->crc = crc;
-
-    // So CRC should be 0xffffffff to pass...
-    //DROP if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc) || (length > ETHERNET_MAX_PACKET_SIZE))
-
-    // printhexln(received_crc);
-    // printhexln(crc);
-    // printintln(num_rx_bytes);
-    // printintln(taillen);
-    // printbytes((char *)&buf->data[0], num_rx_bytes);
-
-    if (dptr != end_ptr) {
-      /* Update where the write pointer is in memory */
-      mii_commit(rx_mem, dptr);
-
-      /* Record the fact that there is a valid packet ready for filtering
-       *  - the assumption is that the filtering is running fast enough
-       *    to keep up and process the packets so that the incoming_packet
-       *    pointers never fill up
-       */
-      mii_add_packet(incoming_packets, buf);
-    }
-  }
-
-  return;
-
+   MASTER_RX_CHUNK_TAIL
 }
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
@@ -644,7 +587,6 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     }
     crc32(crc, ~0, poly);
     tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
-    printhexln(crc);
 
     return time;
 }
