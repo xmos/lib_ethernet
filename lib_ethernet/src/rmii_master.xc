@@ -360,16 +360,18 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     unsigned taillen;
 
     // in_counter will be set if 2 data bytes or more remaining
+    // This logic works out which bit patterns from which port inputs need to be
+    // recombined to extract the tail
     if(in_counter){
         // Will be 0 or 16
         if(bits_left_in_port == 16){
             *p_mii_rxd :> port_end;
-            taillen = 3;
             combined = ((uint64_t)port_this << 16) | ((uint64_t)port_end << 32);
+            taillen = 3;
         } else {
             port_end = 0;
-            taillen = 2;
             combined = ((uint64_t)port_this << 32) | (uint64_t)port_end;
+            taillen = 2;
         }
     } else {
         if(bits_left_in_port == 16){
@@ -378,8 +380,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             taillen = 1;
 
         } else {
-            taillen = 0;
             combined = 0;
+            taillen = 0;
         }
     }
     num_rx_bytes += taillen;
@@ -399,15 +401,54 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     memcpy(&received_crc, &byte_ptr_buff[num_rx_bytes], 4 - taillen);
     received_crc |= word;
 
-    unsigned tail = word;
+    unsigned tail = 0;
+    memcpy(&tail, &byte_ptr_buff[num_rx_bytes - taillen], taillen);
+    // printhexln(tail);
 
+   
+    if(taillen > 0){
+        /* Ensure that the mask is byte-aligned */
+        unsigned mask = ~0U >> (taillen * 8);
 
-    // printbytes((char *)&buf->data[0], num_rx_bytes);
+        /* Correct for non byte-aligned frames */
+        // tail <<= (4 - taillen) * 8;
+        // printhexln(tail);
+
+        /* Incorporate tailbits of input data,
+        * see https://github.com/xcore/doc_tips_and_tricks for details. */
+        // { tail, crc } = mac(crc, mask, tail, crc);
+        crc32(crc, tail, poly);
+    }
+
+    buf->length = num_rx_bytes;
+    buf->crc = crc;
+
+    // So CRC should be 0xffffffff to pass...
+    //DROP if (length < 60 || (ETHERNET_RX_CRC_ERROR_CHECK && ~crc) || (length > ETHERNET_MAX_PACKET_SIZE))
+
     // printhexln(received_crc);
+    // printhexln(crc);
+    // printintln(num_rx_bytes);
+    // printintln(taillen);
+    // printbytes((char *)&buf->data[0], num_rx_bytes);
 
-    MASTER_RX_CHUNK_TAIL
+    if (dptr != end_ptr) {
+      /* Update where the write pointer is in memory */
+      mii_commit(rx_mem, dptr);
+
+      /* Record the fact that there is a valid packet ready for filtering
+       *  - the assumption is that the filtering is running fast enough
+       *    to keep up and process the packets so that the incoming_packet
+       *    pointers never fill up
+       */
+      mii_add_packet(incoming_packets, buf);
+    }
+  }
+
+  return;
 
 }
+
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
                                   in buffered port:32 p_mii_rxd_1){
  

@@ -23,7 +23,7 @@ clock eth_txclk = XS1_CLKBLK_2;
 clock eth_clk_harness = XS1_CLKBLK_3;
 port p_eth_clk_harness = XS1_PORT_1I;
 
-#define PACKET_BYTES 53
+#define PACKET_BYTES 60
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
 
 #define VLAN_TAGGED 1
