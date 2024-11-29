@@ -23,7 +23,7 @@ clock eth_txclk = XS1_CLKBLK_2;
 clock eth_clk_harness = XS1_CLKBLK_3;
 port p_eth_clk_harness = XS1_PORT_1I;
 
-#define PACKET_BYTES 60
+#define PACKET_BYTES 63
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
 
 #define VLAN_TAGGED 1
@@ -116,12 +116,14 @@ void rx_app(client ethernet_cfg_if i_cfg,
         select {
             case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
                 printf("HP packet received: %d bytes\n", packet_info.len);
+                printbytes(rxbuf, packet_info.len);
                 break;
 
             case i_rx.packet_ready():
                 unsigned n;
                 i_rx.get_packet(packet_info, rxbuf, n);
                 printf("LP packet received: %d bytes\n", n);
+                printbytes(rxbuf, packet_info.len);
                 break;
         }
     }
