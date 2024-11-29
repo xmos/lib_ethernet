@@ -7,7 +7,7 @@ import zlib
 class Clock(px.SimThread):
 
     # Use the values that need to be presented in the RGMII data pins when DV inactive
-    (CLK_125MHz, CLK_25MHz, CLK_2_5MHz) = (0x4, 0x2, 0x0)
+    (CLK_125MHz, CLK_25MHz, CLK_2_5MHz, CLK_50MHz, CLK_10MHz) = (0x4, 0x2, 0x0, 0x1, 0x3)
 
     # ifg = inter frame gap
     # bit_time = time per physical layer bit in femtoseconds
@@ -31,6 +31,16 @@ class Clock(px.SimThread):
             self._name = '2.5Mhz'
             # 4 bits per clock at 2.5MHz = 10Mbps. bit time = 1e-7 (or 100ns) seconds per bit
             self._bit_time = sim_clock_rate / 1e7 # xsim ticks per bit
+        elif clk == self.CLK_50MHz:
+            self._period = float(sim_clock_rate) / 50e6 # xsi ticks per clock cycle
+            self._name = '50MHz'
+            # 2 bits per clock at 50MHz = 100Mbps. bit time = 1e-8 (or 10ns) seconds per bit
+            self._bit_time = sim_clock_rate / 1e8 # xsim ticks per bit
+        elif clk == self.CLK_10MHz:
+            self._period = float(sim_clock_rate) / 10e6 # xsi ticks per clock cycle
+            self._name = '10MHz'
+            # 2 bits per clock at 10MHz = 20Mbps. bit time = 5*1e-8 (or 50ns) seconds per bit
+            self._bit_time = sim_clock_rate / (20*1e6) # xsim ticks per bit
         self._min_ifg = 96 * self._bit_time
         self._val = 0
         self._port = port
