@@ -139,6 +139,7 @@ class RMiiTransmitter(RMiiTxPhy):
         self.start_test()
 
         for i,packet in enumerate(self._packets):
+            print(f"Packet {i}")
             error_nibbles = packet.get_error_nibbles()
 
             self.wait_until(xsi.get_time() + packet.inter_frame_gap)
@@ -152,10 +153,14 @@ class RMiiTransmitter(RMiiTxPhy):
                     crumb = (nibble >> (j*2)) & 0x3
                     self.wait(lambda x: self._clock.is_low())
                     xsi.drive_port_pins(self._rxdv, 1)
+                    #print(f"{self._rxd_port_width}, {self._rxd_4b_port_pin_assignment}, {self._rxd[0]}")
+                    #if j == 0:
+                    #    print(f"nibble = {nibble:x}")
 
                     if self._rxd_port_width == 4:
                         if self._rxd_4b_port_pin_assignment == "lower_2b":
                             xsi.drive_port_pins(self._rxd[0], crumb)
+                            #print(f"crumb = {crumb:x}")
                         else:
                             xsi.drive_port_pins(self._rxd[0], (crumb << 2))
                     else: # 2, 1bit ports
@@ -269,6 +274,7 @@ class RMiiReceiver(RMiiRxPhy):
 
             frame_start_time = self.xsi.get_time()
             in_preamble = True
+            start = True
 
             if last_frame_end_time:
                 ifgap = frame_start_time - last_frame_end_time
@@ -281,17 +287,21 @@ class RMiiReceiver(RMiiRxPhy):
                     # Wait for a falling clock edge or enable low
                     self.wait(lambda x: self._clock.is_high() or \
                                     xsi.sample_port_pins(self._txen) == 0)
+                    if start:
+                        print(f"Frame start = {self.xsi.get_time()/1e6} ns")
+                        start = False
 
                     if xsi.sample_port_pins(self._txen) == 0:
                         last_frame_end_time = self.xsi.get_time()
-                        #assert j == 0
+                        print(f"Frame end = {last_frame_end_time/1e6} ns")
+                        assert j == 0
                         done = 1
                         break
 
                     if self._txd_port_width == 4:
                         if self._txd_4b_port_pin_assignment == "lower_2b":
                             crumb = xsi.sample_port_pins(self._txd[0]) & 0x3
-                            print(f"crumb = {crumb}")
+                            #print(f"crumb = {crumb}")
                         else:
                             crumb = (xsi.sample_port_pins(self._txd[0]) >> 2) & 0x3
                     else: # 2, 1bit ports
@@ -301,7 +311,7 @@ class RMiiReceiver(RMiiRxPhy):
                     nibble = nibble | (crumb << (j*2))
 
                     if j == 1:
-                        print(f"nibble = {nibble:x}")
+                        #print(f"nibble = {nibble:x}")
                         if in_preamble:
                             if nibble == 0xd:
                                 packet.set_sfd_nibble(nibble)

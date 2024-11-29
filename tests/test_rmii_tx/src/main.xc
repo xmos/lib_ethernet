@@ -3,6 +3,7 @@
 #include <xs1.h>
 #include <platform.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "ethernet.h"
 
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
@@ -70,6 +71,11 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   ((char*)data)[j++] = (length - header_bytes) >> 8;
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
 
+  for(;j<PACKET_BYTES; j++)
+  {
+    ((char*)data)[j] = j;
+  }
+
   timer t;
   int time;
   t :> time;
@@ -81,7 +87,7 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
   //printf("LP packet sent: %d bytes\n", length);
   t :> time;
-  t when timerafter(time + 3000) :> time;
+  //t when timerafter(time + 3000) :> time;
   //tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
   //printf("LP packet sent: %d bytes\n", length);
 
@@ -97,6 +103,8 @@ void rx_app(client ethernet_cfg_if i_cfg,
             client ethernet_rx_if i_rx,
             streaming chanend c_rx_hp)
 {
+  timer t;
+  int time;
     printf("rx_app\n");
 
     ethernet_macaddr_filter_t macaddr_filter;
@@ -113,6 +121,14 @@ void rx_app(client ethernet_cfg_if i_cfg,
         select {
             case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
                 printf("HP packet received: %d bytes\n", packet_info.len);
+                /*for(int i=0; i<packet_info.len+4; i++)
+                {
+                  printf("%d, 0x%x\n", i, rxbuf[i]);
+                }*/
+
+                t :> time;
+                t when timerafter(time + 5000) :> time;
+                return;
                 break;
 
             case i_rx.packet_ready():
@@ -151,8 +167,11 @@ int main()
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);}
 
-        rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp);
-        hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp);
+        {
+          rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp);
+          exit(0);
+        }
+        //hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp);
     }
 
     return 0;
