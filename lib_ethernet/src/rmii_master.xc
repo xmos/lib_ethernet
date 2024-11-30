@@ -275,7 +275,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
-        printstrln("incorrect preamble");
+        printstr("incorrect rx preamble: ");printhexln(sfd_preamble);
     }
 
     /* Timestamp the start of packet and record it in the packet structure */
@@ -338,11 +338,11 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     } while (!end_of_frame);
 
     // Note: we don't store the last word since it contains the CRC and
-    // we don't need it from this point on. Endin returns the number of bits of data remaining.
-    // Due to the nature of whole bytes taking 16b of the register, this number will be 0 or 16
+    // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
+    // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16
     unsigned bits_left_in_port = endin(*p_mii_rxd);
-    uint64_t combined; // Bit pattern that we will reconstruct from tail pre-unzip
-    unsigned taillen; // Number of bytes in tail
+    uint64_t combined;          // Bit pattern that we will reconstruct from tail pre-unzip
+    unsigned taillen_bytes;     // Number of data bytes in tail 0..3
 
     // in_counter will be set if 2 data bytes or more remaining in tail
     // This logic works out which bit patterns from which port inputs need to be
@@ -352,23 +352,23 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             unsigned port_residual;
             *p_mii_rxd :> port_residual;
             combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
-            taillen = 3;
+            taillen_bytes = 3;
         } else {
-            combined = ((uint64_t)port_this << 32);
-            taillen = 2;
+            combined = (uint64_t)port_this << 32;
+            taillen_bytes = 2;
         }
     } else {
         if(bits_left_in_port) {
             unsigned port_residual;
             *p_mii_rxd :> port_residual;
             combined = ((uint64_t)port_residual << 32);
-            taillen = 1;
+            taillen_bytes = 1;
         } else {
             combined = 0;
-            taillen = 0;
+            taillen_bytes = 0;
         }
     }
-    num_rx_bytes += taillen;
+    num_rx_bytes += taillen_bytes;
 
     // Now turn the last constructed bit pattern into a word
     unsigned upper, lower;
@@ -379,14 +379,14 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         word = upper;
     }
 
-
+    // printintln(taillen_bytes);
     // Now apply remaining received CRC bytes
     // CRC should be 0xffffffff to pass packet receive
-    if(taillen > 0){
+    if(taillen_bytes > 0){
         // Make it right aligned as CRC operates on LSb first        
-        unsigned tail = word >> ((4 - taillen) * 8);
+        unsigned tail = word >> ((4 - taillen_bytes) << 3);
         // printstr("tail: ");printhexln(tail);
-        crcn(crc, tail, poly, taillen * 8);
+        crcn(crc, tail, poly, taillen_bytes << 3);
     }
 
    MASTER_RX_CHUNK_TAIL
