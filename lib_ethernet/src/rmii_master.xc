@@ -265,10 +265,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins){
     printstr("rmii_master_rx_pins_4b\n");
-    printstr("RX Using 4b port. Pins: ");
     printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
-    printhexln((unsigned)*p_mii_rxd);
-
+ 
     MASTER_RX_CHUNK_HEAD
 
     // TODO - do we need this pinseq for preable given it is always 8 bytes?
@@ -403,14 +401,26 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     MASTER_RX_CHUNK_TAIL
 }
 
+#define SET_PORT_SHIFT_COUNT(p, sc) asm volatile("setpsc res[%0], %1" : : "r" (p), "r" (sc));
+#define PORT_IN(p, ret) asm volatile("in %0, res[%1]" : "=r" (ret)  : "r" (p));
+#define PORT_PART_IN_16(p, ret) asm volatile("inpw %0, res[%1], 16" : "=r"(ret) : "r" (p));
+
+
+
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
                                   in buffered port:32 p_mii_rxd_1){
  
     unsigned word, word2;
-    set_port_shift_count(p_mii_rxd_1, 16);
+    // set_port_shift_count(p_mii_rxd_1, 16);
+    SET_PORT_SHIFT_COUNT(p_mii_rxd_1, 16);
     word = partin(p_mii_rxd_0, 16);
-    p_mii_rxd_1 :> word2;
 
+    PORT_IN(p_mii_rxd_1, word2);
+ 
+    // asm volatile("setc res[%0], %1" :: "r" (p_mii_rxd_0), "r" (0x0001));
+    // PORT_PART_IN_16(p_mii_rxd_0, word);
+
+    // p_mii_rxd_1 :> word2;
     // printhexln(word);
     // printhexln(word2);
 
@@ -429,8 +439,6 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd_0,
                                     in buffered port:32 * unsafe p_mii_rxd_1){
     printstrln("RX Using 1b ports.");
-    printhexln((unsigned)*p_mii_rxd_0);
-    printhexln((unsigned)*p_mii_rxd_1);
 
     MASTER_RX_CHUNK_HEAD
 
@@ -453,19 +461,21 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     unsigned end_of_frame = 0;
     unsigned word;
 
-    // while(1){
-    //     word = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-    //     printhexln(word);
-    // }
+    while(1){
+        word = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
+        printhexln(word);
+    }
+
     // This clears after each IN so setup again
+    // set_port_shift_count(*p_mii_rxd_0, 16);
     set_port_shift_count(*p_mii_rxd_0, 16);
-    set_port_shift_count(*p_mii_rxd_1, 16);
 
     do {
         select {
            case *p_mii_rxd_0 :> word:
                 unsigned word2;
-                *p_mii_rxd_1 :> word2;
+                // *p_mii_rxd_1 :> word2;
+                word2 = partin(*p_mii_rxd_1, 16);
                 uint64_t combined = zip(word2 >> 16, word, 0);
                 word = (uint32_t)combined;
 
@@ -485,7 +495,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                 num_rx_bytes += 4;
 
                 set_port_shift_count(*p_mii_rxd_0, 16);
-                set_port_shift_count(*p_mii_rxd_1, 16);
+                // set_port_shift_count(*p_mii_rxd_1, 16);
                 break;
 
            case p_mii_rxdv when pinseq(0) :> int:
@@ -630,7 +640,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     }
     crc32(crc, ~0, poly);
     tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
-    // printhexln(crc);
+    printstr("txcs: ");printhexln(crc);
 
     return time;
 }
@@ -760,14 +770,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     const unsigned use_4b = (tx_port_width == 4);
 
     if(use_4b){
-        printstr("rmii_master_tx_pins_4b\n");
         printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
-        printhexln((unsigned)*p_mii_txd_0);
     } else {
-        printstr("rmii_master_tx_pins_1b\n");
         printstrln("TX Using 1b ports.");
-        printhexln((unsigned)*p_mii_txd_0);
-        printhexln((unsigned)*p_mii_txd_1);
     }
 
     int credit = 0;
