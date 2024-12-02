@@ -100,7 +100,7 @@ unsafe void rmii_master_init_rx_1b(in port p_clk,
     set_port_strobed(*rx_data_0);       // Strobed slave (only accept data when valid asserted)
     set_port_slave(*rx_data_0);
 
-    set_port_clock(*rx_data_1, rxclk);
+    set_port_clock(*rx_data_1, rxclk);  // Same for second data port
     set_port_strobed(*rx_data_1);
     set_port_slave(*rx_data_1);
 
@@ -251,6 +251,13 @@ void printbytes(char *b, int n){
     printstr("\n");
 }
 
+void printwords(unsigned * unsafe b, int n){
+    for(int i=0; i<n;i++){
+        unsafe{printstr(", 0x"); printhex(b[i]);}
+    }
+    printstr("\n");
+}
+
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
                                     unsigned * unsafe rdptr,
@@ -378,6 +385,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     } else {
         word = upper;
     }
+    // printintln(num_rx_bytes);
 
     // printintln(taillen_bytes);
     // Now apply remaining received CRC bytes
@@ -389,7 +397,10 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         crcn(crc, tail, poly, taillen_bytes << 3);
     }
 
-   MASTER_RX_CHUNK_TAIL
+    // TODO this is needed to prevent the next preamble read take in junk. Why??
+    clearbuf(*p_mii_rxd);
+
+    MASTER_RX_CHUNK_TAIL
 }
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
@@ -399,6 +410,9 @@ static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
     set_port_shift_count(p_mii_rxd_1, 16);
     word = partin(p_mii_rxd_0, 16);
     p_mii_rxd_1 :> word2;
+
+    // printhexln(word);
+    // printhexln(word2);
 
     uint64_t combined = zip(word2 >> 16, word, 0);
     // resuse word
@@ -421,10 +435,14 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     MASTER_RX_CHUNK_HEAD
 
     sfd_preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
+    sfd_preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
 
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
+        printstr("incorrect rx preamble: ");printhexln(sfd_preamble);
+    } else {
+        // printstr("pa\n");
     }
 
     /* Timestamp the start of packet and record it in the packet structure */
@@ -435,7 +453,11 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     unsigned end_of_frame = 0;
     unsigned word;
 
-    // This clears after each in so setup again
+    // while(1){
+    //     word = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
+    //     printhexln(word);
+    // }
+    // This clears after each IN so setup again
     set_port_shift_count(*p_mii_rxd_0, 16);
     set_port_shift_count(*p_mii_rxd_1, 16);
 
@@ -458,6 +480,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                     if (dptr == wrap_ptr)
                         dptr = (unsigned * unsafe) *dptr;
                 }
+                // printhexln(word);
 
                 num_rx_bytes += 4;
 
@@ -471,17 +494,37 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         }
     } while (!end_of_frame);
 
+    unsigned num_words = num_rx_bytes / 4;
+    unsigned * unsafe ptr = (&buf->data[0]);
+    // printbytes((char *)ptr, num_rx_bytes);
+    // printwords(ptr, num_words + 1);
+ 
+
     /* Note: we don't store the last word since it contains the CRC and
      * we don't need it from this point on. */
     unsigned taillen = endin(*p_mii_rxd_0);
+    endin(*p_mii_rxd_1);
 
-    unsigned word2;
-    *p_mii_rxd_0 :> unsigned word;
-    *p_mii_rxd_1 :> unsigned word2;
-    uint64_t combined = zip(word2 >> 16, word, 0);
-    unsigned tail = (uint32_t)combined;
+    if(taillen > 0){
+        unsigned word2;
+        *p_mii_rxd_0 :> unsigned word;
+        *p_mii_rxd_1 :> unsigned word2;
+        uint64_t combined = zip(word2 >> 16, word, 0);
+        word = (uint32_t)combined;
 
-    taillen <<= 1; // Because we have twice as many total port input bits as data bits 
+        unsigned taillen_bytes = taillen >> 2; // Divide by 4 because we get 4b on each port for a data byte
+
+        // unsigned tail = word >> ((4 - taillen_bytes) << 3);
+        unsigned tail = word;
+        printstr("tail: ");printhexln(tail);
+        crcn(crc, tail, poly, taillen_bytes << 3);
+
+        num_rx_bytes += taillen_bytes;
+    }
+
+    printintln(taillen);
+    printwords(ptr, num_words + 1);
+
 
     MASTER_RX_CHUNK_TAIL
 }
@@ -587,6 +630,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     }
     crc32(crc, ~0, poly);
     tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
+    // printhexln(crc);
 
     return time;
 }
@@ -694,6 +738,7 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     crc32(crc, ~0, poly);
 
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, crc);
+    printhexln(crc);
     return time;
 }
 
