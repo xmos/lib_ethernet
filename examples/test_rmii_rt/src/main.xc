@@ -3,15 +3,27 @@
 #include <xs1.h>
 #include <platform.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <print.h>
 #include "ethernet.h"
 
 port p_eth_clk = XS1_PORT_1J;
-// rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
-rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
 
-// rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
+#if TX_WIDTH == 4
 rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
+#elif TX_WIDTH == 1
+rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
+#else
+#error invalid TX_WIDTH
+#endif
+
+#if RX_WIDTH == 4
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
+#elif RX_WIDTH == 1
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
+#else
+#error invalid RX_WIDTH
+#endif
 
 port p_eth_rxdv = XS1_PORT_1K;
 port p_eth_txen = XS1_PORT_1L;
@@ -43,6 +55,14 @@ static void printbytes(char *b, int n){
     }
     printstr("\n");
 }
+
+static void printwords(unsigned *b, int n){
+    for(int i=0; i<n;i++){
+        printstr(", 0x"); printhex(b[i]);
+    }
+    printstr("\n");
+}
+
 
 void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, streaming chanend c_tx_hp)
 {
@@ -78,13 +98,18 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
 
   printf("TX pre\n");
 
-  for(int length = 64; length < 68; length++){
+  for(int length = 67; length < 68; length++){
       // printbytes((char*)data, length);
+      printwords(data, length/4);
       tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
       printf("LP packet sent: %d bytes\n", length);
       t :> time;
-      t when timerafter(time + 5000) :> time;
+      t when timerafter(time + 8000) :> time;
   }
+
+  t :> time;
+  t when timerafter(time + 1000) :> time; 
+  exit(0);
 }
 
 
@@ -131,8 +156,8 @@ int main()
     
 
     // Setup 50M clock
-    unsigned divider = 4;
-    configure_clock_ref(eth_clk_harness, divider / 2); // 100 / 2 = 50;
+    unsigned divider = 20; // 100 / 2 = 50;
+    configure_clock_ref(eth_clk_harness, divider / 2); 
     set_port_clock(p_eth_clk_harness, eth_clk_harness);
     set_port_mode_clock(p_eth_clk_harness);
     start_clock(eth_clk_harness);
