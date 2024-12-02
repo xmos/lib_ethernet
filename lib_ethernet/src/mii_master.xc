@@ -12,6 +12,7 @@
 #include "default_ethernet_conf.h"
 #include "mii_common_lld.h"
 #include "string.h"
+#include "check_ifg_wait.h"
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -362,7 +363,6 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
 #pragma xta command "set required - 80 ns"
 #endif
 
-
 #undef crc32
 #define crc32(a, b, c) {__builtin_crc32(a, b, c);}
 
@@ -373,7 +373,10 @@ unsafe void mii_master_rx_pins(mii_mempool_t rx_mem,
 unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
-                                    hwtimer_t ifg_tmr, unsigned &ifg_time)
+                                    hwtimer_t ifg_tmr,
+                                    unsigned &ifg_time,
+                                    unsigned last_frame_end_time
+                                    )
 {
   unsigned time;
   register const unsigned poly = 0xEDB88320;
@@ -387,10 +390,15 @@ unsafe unsigned mii_transmit_packet(mii_mempool_t tx_mem,
   wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
   // Check that we are out of the inter-frame gap
+  unsigned now;
+  ifg_tmr :> now;
+
+  unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
 #pragma xta endpoint "mii_tx_start"
-  asm volatile ("in %0, res[%1]"
-                  : "=r" (ifg_time)
-                  : "r" (ifg_tmr));
+  if(wait)
+  {
+    ifg_tmr when timerafter(ifg_time) :> ifg_time;
+  }
 
 #pragma xta endpoint "mii_tx_sof"
   p_mii_txd <: 0x55555555;
@@ -469,7 +477,8 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
   timer credit_tmr;
   // And a second timer to be enforcing the IFG gap
   hwtimer_t ifg_tmr;
-  unsigned ifg_time;
+  unsigned ifg_time = 0;
+  unsigned eof_time = 0;
   unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
   if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER)
@@ -519,17 +528,12 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       continue;
     }
 
-    unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, ifg_tmr, ifg_time);
+    unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, ifg_tmr, ifg_time, eof_time);
 
+    eof_time = ifg_time;
     // Setup the hardware timer to enforce the IFG
     ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += (buf->length & 0x3) * 8;
-    asm volatile ("setd res[%0], %1"
-                    : // No dests
-                    : "r" (ifg_tmr), "r" (ifg_time));
-    asm volatile ("setc res[%0], " QUOTE(XS1_SETC_COND_AFTER)
-                    : // No dests
-                    : "r" (ifg_tmr));
 
     const int packet_is_high_priority = (p_ts_queue == null);
     if (enable_shaper && packet_is_high_priority) {
