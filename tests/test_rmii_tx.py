@@ -45,7 +45,7 @@ def do_test(capfd, mac, arch, clk, rx_phy):
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    simargs = get_sim_args(testname, mac, clk, rx_phy)
+    simargs = get_sim_args(testname, mac, clk, rx_phy, arch=arch)
     result = px.run_on_simulator_(  binary,
                                     simthreads=[clk, rx_phy],
                                     simargs=simargs,
@@ -59,7 +59,7 @@ def test_rmii_tx(capfd, params):
     verbose = True
     test_ctrl='tile[0]:XS1_PORT_1C'
 
-    clk = get_rmii_clk(Clock.CLK_10MHz)
+    clk = get_rmii_clk(Clock.CLK_50MHz)
     rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
                                   "lower_2b",
                                   packet_fn=packet_checker,

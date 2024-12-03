@@ -22,68 +22,72 @@ clock eth_txclk = XS1_CLKBLK_2;
 
 
 
-#define PACKET_BYTES 80
+#define PACKET_BYTES 63
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
 
 #define VLAN_TAGGED 1
 
 #define MII_CREDIT_FRACTIONAL_BITS 16
 
+struct test_packet { int len; int step; int tagged; }
+test_packets[] =
+{
+    { 64, 1, 0 },
+    { 65, 5, 1 },
+    { 66, 1, 0 },
+    { 67, 5, 1 },
+};
 
 void test_tx(client ethernet_tx_if tx_lp, streaming chanend ? c_tx_hp)
 {
-    p_test_ctrl <: 0; // Signal test start
-
-    unsigned data[PACKET_WORDS];
-    for (size_t i = 0; i < PACKET_WORDS; i++)
-    {
-        data[i] = i;
-    }
+  p_test_ctrl <: 0;
+  for (int i = 0; i < sizeof(test_packets)/sizeof(test_packets[0]); i++)
+  {
+    char data[ETHERNET_MAX_PACKET_SIZE];
 
     // src/dst MAC addresses
     size_t j = 0;
     for (; j < 12; j++)
-    {
-        ((char*)data)[j] = j;
+      data[j] = j;
+
+    int len = test_packets[i].len - 14;
+
+    if (test_packets[i].tagged) {
+      data[j++] = 0x81;
+      data[j++] = 0x00;
+      data[j++] = 0x00;
+      data[j++] = 0x00;
+
+      // There will be 4 less data bytes with the VLAN/Priority tag
+      len -= 4;
     }
 
-    if (VLAN_TAGGED)
-    {
-        ((char*)data)[j++] = 0x81;
-        ((char*)data)[j++] = 0x00;
-        ((char*)data)[j++] = 0x00;
-        ((char*)data)[j++] = 0x00;
+    data[j++] = len >> 8;
+    data[j++] = len & 0xff;
+
+    int x = 0;
+    for (; j < test_packets[i].len; j++) {
+      x += test_packets[i].step;
+      data[j] = x;
     }
 
-    const int length = PACKET_BYTES;
-    const int header_bytes = VLAN_TAGGED ? 18 : 14;
-    ((char*)data)[j++] = (length - header_bytes) >> 8;
-    ((char*)data)[j++] = (length - header_bytes) & 0xff;
-
-    for(;j<PACKET_BYTES; j++)
-    {
-        ((char*)data)[j] = j;
+    if (isnull(c_tx_hp)) {
+      tx_lp.send_packet(data, test_packets[i].len, ETHERNET_ALL_INTERFACES);
     }
-
-    timer t;
-    int time;
-    t :> time;
-    t when timerafter(time + 3000) :> time; // Delay sending to allow Rx to be setup
-    if(isnull(c_tx_hp))
-    {
-        tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
+    else {
+      ethernet_send_hp_packet(c_tx_hp, data, test_packets[i].len, ETHERNET_ALL_INTERFACES);
     }
-    else
-    {
-        ethernet_send_hp_packet(c_tx_hp, (char*)data, length, ETHERNET_ALL_INTERFACES);
-    }
-    // Give time for the packet to start to be sent in the case of the RT MAC
-    t :> time;
-    t when timerafter(time + 5000) :> time;
+  }
 
-    p_test_ctrl <: 1;
+  // Give time for the packet to start to be sent in the case of the RT MAC
+  timer t;
+  int time;
+  t :> time;
+  t when timerafter(time + 5000) :> time;
+
+  // Signal that all packets have been sent
+  p_test_ctrl <: 1;
 }
-
 
 int main()
 {

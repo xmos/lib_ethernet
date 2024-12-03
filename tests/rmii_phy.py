@@ -268,7 +268,7 @@ class RMiiReceiver(RMiiRxPhy):
                       xsi.sample_port_pins(self._test_ctrl) == 1):
                     xsi.terminate()
 
-            print("START")
+            #print("START")
             # Start with a blank packet to ensure they are filled in by the receiver
             packet = MiiPacket(rand, blank=True)
 
@@ -280,6 +280,8 @@ class RMiiReceiver(RMiiRxPhy):
                 ifgap = frame_start_time - last_frame_end_time
                 packet.inter_frame_gap = ifgap
 
+            self.wait(lambda x: self._clock.is_low()) # Wait for clock to go low so we can start sampling at the next rising edge
+
             while True:
                 done = 0
                 nibble = 0
@@ -288,12 +290,12 @@ class RMiiReceiver(RMiiRxPhy):
                     self.wait(lambda x: self._clock.is_high() or \
                                     xsi.sample_port_pins(self._txen) == 0)
                     if start:
-                        print(f"Frame start = {self.xsi.get_time()/1e6} ns")
+                        #print(f"Frame start = {self.xsi.get_time()/1e6} ns")
                         start = False
 
                     if xsi.sample_port_pins(self._txen) == 0:
                         last_frame_end_time = self.xsi.get_time()
-                        print(f"Frame end = {last_frame_end_time/1e6} ns")
+                        #print(f"Frame end = {last_frame_end_time/1e6} ns")
                         assert j == 0
                         done = 1
                         break
@@ -325,7 +327,7 @@ class RMiiReceiver(RMiiRxPhy):
                 if done:
                     break
 
-            print("DONE")
+            #print("DONE")
             packet.complete()
 
             if self._print_packets:
