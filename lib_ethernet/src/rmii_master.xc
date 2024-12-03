@@ -52,6 +52,12 @@
 // out of the pre-amble
 #define MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
 
+// Helpers to save a few cycles
+#define SET_PORT_SHIFT_COUNT(p, sc) asm volatile("setpsc res[%0], %1" : : "r" (p), "r" (sc));
+#define PORT_IN(p, ret) asm volatile("in %0, res[%1]" : "=r" (ret)  : "r" (p));
+#define PORT_PART_IN_16(p, ret) asm volatile("inpw %0, res[%1], 16" : "=r"(ret) : "r" (p));
+
+
 
 //////////////////// RMII PORT SETUP ////////////////////////
 
@@ -244,29 +250,13 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 
-void printbytes(char *b, int n){
-    for(int i=0; i<n;i++){
-        printstr(", 0x"); printhex(b[i]);
-    }
-    printstr("\n");
-}
-
-void printwords(unsigned * unsafe b, int n){
-    for(int i=0; i<n;i++){
-        unsafe{printstr(", 0x"); printhex(b[i]);}
-    }
-    printstr("\n");
-}
-
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins){
-    printstr("rmii_master_rx_pins_4b\n");
-    printstrln(rx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
- 
+
     MASTER_RX_CHUNK_HEAD
 
     // TODO - do we need this pinseq for preable given it is always 8 bytes?
@@ -280,7 +270,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
-        printstr("incorrect rx preamble: ");printhexln(sfd_preamble);
     }
 
     /* Timestamp the start of packet and record it in the packet structure */
@@ -290,9 +279,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     unsigned end_of_frame = 0;
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
-    unsigned word; // The converted data word, 4 data bytes
+    unsigned word; // The converted data word, 4 data bytes and also used as temp
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
-
 
     // Consume frame one long word at a time
     do {
@@ -327,16 +315,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                     port_last = port_this;
                 } 
 
-                // This is here just in case we need to monitor rxdv due to timing... Keep for now. TODO remove
-                // unsigned dv_level = peek(p_mii_rxdv);
-                // if(dv_level){
-                //     *p_mii_rxd :> word2;
-                // } else {
-                //     printstrln("DV gone low");
-                //     word2 = 0;
-                // }
-
-
                 in_counter ^= 1; // Efficient (++in_counter % 2)
                 break;
         }
@@ -355,7 +333,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     if(in_counter){
         if(bits_left_in_port) {
             unsigned port_residual;
-            *p_mii_rxd :> port_residual;
+            PORT_IN(*p_mii_rxd, port_residual);
             combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
             taillen_bytes = 3;
         } else {
@@ -365,7 +343,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     } else {
         if(bits_left_in_port) {
             unsigned port_residual;
-            *p_mii_rxd :> port_residual;
+            PORT_IN(*p_mii_rxd, port_residual);
             combined = ((uint64_t)port_residual << 32);
             taillen_bytes = 1;
         } else {
@@ -383,17 +361,14 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     } else {
         word = upper;
     }
-    // printintln(num_rx_bytes);
-
-    // printintln(taillen_bytes);
-    // Now apply remaining received CRC bytes
-    // CRC should be 0xffffffff to pass packet receive
+    // Now CRC remaining received bytes
     if(taillen_bytes > 0){
         // Make it right aligned as CRC operates on LSb first        
         unsigned tail = word >> ((4 - taillen_bytes) << 3);
-        // printstr("tail: ");printhexln(tail);
         crcn(crc, tail, poly, taillen_bytes << 3);
     }
+
+    // CRC should be 0xffffffff to pass packet receive after applying frame CRC
 
     // TODO this is needed to prevent the next preamble read take in junk. Why??
     clearbuf(*p_mii_rxd);
@@ -401,32 +376,23 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     MASTER_RX_CHUNK_TAIL
 }
 
-#define SET_PORT_SHIFT_COUNT(p, sc) asm volatile("setpsc res[%0], %1" : : "r" (p), "r" (sc));
-#define PORT_IN(p, ret) asm volatile("in %0, res[%1]" : "=r" (ret)  : "r" (p));
-#define PORT_PART_IN_16(p, ret) asm volatile("inpw %0, res[%1], 16" : "=r"(ret) : "r" (p));
-
-
-
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
                                   in buffered port:32 p_mii_rxd_1){
  
     unsigned word, word2;
-    // set_port_shift_count(p_mii_rxd_1, 16);
-    SET_PORT_SHIFT_COUNT(p_mii_rxd_1, 16);
-    word = partin(p_mii_rxd_0, 16);
 
-    PORT_IN(p_mii_rxd_1, word2);
+    // We need to set this so it puts the shift reg in the transfer reg after 16.
+    set_port_shift_count(p_mii_rxd_0, 16);
+    set_port_shift_count(p_mii_rxd_1, 16);
  
-    // asm volatile("setc res[%0], %1" :: "r" (p_mii_rxd_0), "r" (0x0001));
-    // PORT_PART_IN_16(p_mii_rxd_0, word);
+    // Use full XC IN which also does SETC 0x0001. We have plenty of time at preamble.
+    p_mii_rxd_0 :> word;
+    p_mii_rxd_1 :> word2;
 
-    // p_mii_rxd_1 :> word2;
-    // printhexln(word);
-    // printhexln(word2);
-
-    uint64_t combined = zip(word2 >> 16, word, 0);
+    // Zip together. Note we care about the upper 16b of the port only (newest data).
+    uint64_t combined = zip(word2, word, 0);
     // resuse word
-    word = (uint32_t) combined;
+    word = (uint32_t) (combined >> 32); // Discard lower word - two port upper 16b combine to upper 32b zipped.
 
     return word;
 }
@@ -438,7 +404,6 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd_0,
                                     in buffered port:32 * unsafe p_mii_rxd_1){
-    printstrln("RX Using 1b ports.");
 
     MASTER_RX_CHUNK_HEAD
 
@@ -448,9 +413,6 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
-        printstr("incorrect rx preamble: ");printhexln(sfd_preamble);
-    } else {
-        // printstr("pa\n");
     }
 
     /* Timestamp the start of packet and record it in the packet structure */
@@ -461,23 +423,17 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     unsigned end_of_frame = 0;
     unsigned word;
 
-    while(1){
-        word = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-        printhexln(word);
-    }
-
     // This clears after each IN so setup again
-    // set_port_shift_count(*p_mii_rxd_0, 16);
     set_port_shift_count(*p_mii_rxd_0, 16);
+    set_port_shift_count(*p_mii_rxd_1, 16);
 
     do {
         select {
            case *p_mii_rxd_0 :> word:
                 unsigned word2;
-                // *p_mii_rxd_1 :> word2;
-                word2 = partin(*p_mii_rxd_1, 16);
-                uint64_t combined = zip(word2 >> 16, word, 0);
-                word = (uint32_t)combined;
+                PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction.
+                uint64_t combined = zip(word2, word, 0);
+                word = (uint32_t)(combined >> 32);
 
                 crc32(crc, word, poly);
 
@@ -490,12 +446,12 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                     if (dptr == wrap_ptr)
                         dptr = (unsigned * unsafe) *dptr;
                 }
-                // printhexln(word);
 
                 num_rx_bytes += 4;
 
+                // Reset shift count since it gets cleared after each IN
                 set_port_shift_count(*p_mii_rxd_0, 16);
-                // set_port_shift_count(*p_mii_rxd_1, 16);
+                set_port_shift_count(*p_mii_rxd_1, 16);
                 break;
 
            case p_mii_rxdv when pinseq(0) :> int:
@@ -504,36 +460,32 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         }
     } while (!end_of_frame);
 
-    unsigned num_words = num_rx_bytes / 4;
-    unsigned * unsafe ptr = (&buf->data[0]);
-    // printbytes((char *)ptr, num_rx_bytes);
-    // printwords(ptr, num_words + 1);
- 
-
-    /* Note: we don't store the last word since it contains the CRC and
-     * we don't need it from this point on. */
-    unsigned taillen = endin(*p_mii_rxd_0);
+    // This tells us how many bits left in the port shift register and moves the shift register contents
+    // to the trafsnfer register. The number of bits will both will be the same so discard one.
+    // Bits will either be 4, 8 or 12 (x2 as two ports) representing a tail of 1, 2 or 3 bytes
+    unsigned remaining_bits_in_port = endin(*p_mii_rxd_0);
     endin(*p_mii_rxd_1);
 
-    if(taillen > 0){
+    if(remaining_bits_in_port > 0){
         unsigned word2;
-        *p_mii_rxd_0 :> unsigned word;
-        *p_mii_rxd_1 :> unsigned word2;
-        uint64_t combined = zip(word2 >> 16, word, 0);
-        word = (uint32_t)combined;
+        // Grab the transfer registers
+        PORT_IN(*p_mii_rxd_0, word); // Saves one instruction.
+        PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction.
 
-        unsigned taillen_bytes = taillen >> 2; // Divide by 4 because we get 4b on each port for a data byte
+        uint64_t combined = zip(word2, word, 0);
+        word = (uint32_t)(combined >> 32);
 
-        // unsigned tail = word >> ((4 - taillen_bytes) << 3);
-        unsigned tail = word;
-        printstr("tail: ");printhexln(tail);
-        crcn(crc, tail, poly, taillen_bytes << 3);
+        // Shift away unwanted part of word
+        unsigned tail = word >> (32 - (remaining_bits_in_port << 1));
+        crcn(crc, tail, poly, remaining_bits_in_port << 1);
 
+        unsigned taillen_bytes = remaining_bits_in_port >> 2; // Divide by 4 because we get 4b on each port for a data byte
         num_rx_bytes += taillen_bytes;
     }
 
-    printintln(taillen);
-    printwords(ptr, num_words + 1);
+    // TODO this is needed to prevent the next preamble read take in junk. Why??
+    clearbuf(*p_mii_rxd_0);
+    clearbuf(*p_mii_rxd_1);
 
 
     MASTER_RX_CHUNK_TAIL
@@ -640,7 +592,6 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     }
     crc32(crc, ~0, poly);
     tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
-    printstr("txcs: ");printhexln(crc);
 
     return time;
 }
@@ -748,7 +699,7 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     crc32(crc, ~0, poly);
 
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, crc);
-    printhexln(crc);
+
     return time;
 }
 
@@ -768,12 +719,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
-
-    if(use_4b){
-        printstr("TX Using 4b port. Pins: ");printstrln(tx_port_4b_pins == USE_LOWER_2B ? "USE_LOWER_2B" : "USE_UPPER_2B");
-    } else {
-        printstrln("TX Using 1b ports.");
-    }
 
     int credit = 0;
     int credit_time;
