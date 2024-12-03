@@ -158,7 +158,7 @@ int main()
     
 
     // Setup 50M clock
-    unsigned divider = 4; // 100 / 2 = 50;
+    unsigned divider = 2; // 100 / 2 = 50;
     configure_clock_ref(eth_clk_harness, divider / 2); 
     set_port_clock(p_eth_clk_harness, eth_clk_harness);
     set_port_mode_clock(p_eth_clk_harness);
