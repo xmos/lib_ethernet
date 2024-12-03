@@ -1,4 +1,4 @@
-// Copyright 2015-2021 XMOS LIMITED.
+// Copyright 2015-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <xclib.h>
@@ -11,6 +11,7 @@
 #include "mii_common_lld.h"
 #include "mii_buffering.h"
 #include "ntoh.h"
+#include "check_ifg_wait.h"
 
 #ifndef ETHERNET_ENABLE_FULL_TIMINGS
 #define ETHERNET_ENABLE_FULL_TIMINGS (1)
@@ -236,6 +237,7 @@ unsafe void rgmii_10_100_master_tx_pins(streaming chanend c,
   unsigned tmp1, tmp2;
   timer tmr;
   unsigned ifg_time;
+  unsigned int eof_time = 0;
   tmr :> ifg_time;
 
   while (1)
@@ -250,7 +252,6 @@ unsafe void rgmii_10_100_master_tx_pins(streaming chanend c,
         break;
     }
 
-    unsigned int eof_time;
     int tail_byte_count;
 
     mii_packet_t * unsafe buf = (mii_packet_t * unsafe)buffer;
@@ -265,8 +266,17 @@ unsafe void rgmii_10_100_master_tx_pins(streaming chanend c,
       int word_count = byte_count >> 2;
       tail_byte_count = byte_count & 3;
 
-      // Ensure that the interframe gap is respected
-      tmr when timerafter(ifg_time) :> ifg_time;
+      // Ensure that the interframe gap is respected. Also handle timer wraparound to ensure large waits don't happen
+      unsigned now;
+      tmr :> now;
+      // eof_time: Last frame end time
+      // ifg_time: Next frame start time
+      // now: Current time
+      unsigned wait = check_if_ifg_wait_required(eof_time, ifg_time, now);
+      if(wait)
+      {
+        tmr when timerafter(ifg_time) :> ifg_time;
+      }
 
       // Send the preamble
       {tmp1, tmp2} = zip2(0x55555555, 0x55555555);
