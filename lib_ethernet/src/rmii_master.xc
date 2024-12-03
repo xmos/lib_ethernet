@@ -292,25 +292,24 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             case *p_mii_rxd :> port_this:
                 if(in_counter) {
                     uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
-                    unsigned upper, lower;
-                    {upper, lower} = unzip(combined, 1);
+                    {port_this, port_last} = unzip(combined, 1); // Reuse existing vars
                     if(rx_port_4b_pins == USE_LOWER_2B){
-                        word = lower;
+                        word = port_last;
                     } else {
-                        word = upper;
+                        word = port_this;
                     }
                     crc32(crc, word, poly);
 
                     /* Prevent the overwriting of packets in the buffer. If the end_ptr is reached
                     * then this packet will be dropped as there is not enough room in the buffer. */
-                    if (dptr != end_ptr) {
+                    // if (dptr != end_ptr) {
                         *dptr = word;
                         dptr++;
                         /* The wrap pointer contains the address of the start of the buffer */
-                        if (dptr == wrap_ptr)
-                            dptr = (unsigned * unsafe) *dptr;
-                    }
-                    num_rx_bytes += 4;
+                        // if (dptr == wrap_ptr)
+                            // dptr = (unsigned * unsafe) *dptr;
+                    // }
+                    // num_rx_bytes += 4;
                 } else {
                     port_last = port_this;
                 } 
@@ -351,7 +350,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             taillen_bytes = 0;
         }
     }
-    num_rx_bytes += taillen_bytes;
+    
+    num_rx_bytes += (unsigned)dptr - (unsigned)&buf->data[0] + taillen_bytes;
 
     // Now turn the last constructed bit pattern into a word
     unsigned upper, lower;
