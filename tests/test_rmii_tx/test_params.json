@@ -1,5 +1,6 @@
 {
     "PROFILES": [
-        {"phy":"rmii", "clk":"10MHz", "mac":"rt", "arch":["xs3"]}
+        {"phy":"rmii", "clk":"10MHz", "mac":"rt", "arch":["xs3"]},
+        {"phy":"rmii", "clk":"10MHz", "mac":"rt_hp", "arch":["xs3"]}
         ]
 }

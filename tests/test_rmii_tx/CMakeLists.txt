@@ -54,7 +54,7 @@ foreach(PROFILE ${profile_list})
             if(position GREATER -1)
                 list(APPEND APP_COMPILER_FLAGS_${config} -DETHERNET_SUPPORT_HP_QUEUES=1)
             else()
-                list(APPEND APP_COMPILER_FLAGS_${config} -DETHERNET_SUPPORT_HP_QUEUES=1)
+                list(APPEND APP_COMPILER_FLAGS_${config} -DETHERNET_SUPPORT_HP_QUEUES=0)
             endif()
 
             if(${phy} MATCHES "rmii")
