@@ -7,9 +7,10 @@ import pytest
 
 import Pyxsim as px
 from mii_clock import Clock
-from rmii_phy import RMiiReceiver
 from helpers import generate_tests
 from helpers import get_sim_args
+from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy
+from rmii_phy import RMiiReceiver
 
 def packet_checker(packet, phy):
     print("Packet received:")
@@ -34,30 +35,37 @@ def packet_checker(packet, phy):
             # Only print one error per packet
             break
 
+def do_test(capfd, mac, arch, clk, rx_phy):
+    testname = "test_rmii_tx"
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch at {clk.get_name()}")
+    capfd.readouterr() # clear capfd buffer
+
+    profile = f'{mac}_{rx_phy.get_name()}_{arch}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
+
+    simargs = get_sim_args(testname, mac, clk, rx_phy)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[clk, rx_phy],
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    )
+    assert result is True, f"{result}"
+
 test_params_file = Path(__file__).parent / "test_rmii_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rmii_tx(capfd, params):
     verbose = True
     test_ctrl='tile[0]:XS1_PORT_1C'
 
-    clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_10MHz)
-    phy = RMiiReceiver('tile[0]:XS1_PORT_4B',
-                       'tile[0]:XS1_PORT_1L',
-                       clk, packet_fn=packet_checker,
-                      verbose=verbose, test_ctrl=test_ctrl, txd_4b_port_pin_assignment="lower_2b")
+    clk = get_rmii_clk(Clock.CLK_10MHz)
+    rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                  "lower_2b",
+                                  packet_fn=packet_checker,
+                                  verbose=verbose,
+                                  test_ctrl=test_ctrl
+                                  )
 
-    testname = "test_rmii_tx"
-    print(f"Running {testname}: {phy.get_name()} phy, at {clk.get_name()}")
-
-    binary = f'{testname}/bin/{testname}.xe'
-    assert os.path.isfile(binary)
-
-    simargs = get_sim_args(testname, "rmii", clk, phy)
-    print(f"simargs = {simargs}")
-
-    result = px.run_on_simulator_(  binary,
-                                    simthreads=[clk, phy],
-                                    simargs=simargs,
-                                    do_xe_prebuild=False,
-                                    )
+    do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy)
 

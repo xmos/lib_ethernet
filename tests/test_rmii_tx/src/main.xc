@@ -99,47 +99,6 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
 }
 
 
-void rx_app(client ethernet_cfg_if i_cfg,
-            client ethernet_rx_if i_rx,
-            streaming chanend c_rx_hp)
-{
-  timer t;
-  int time;
-    printf("rx_app\n");
-
-    ethernet_macaddr_filter_t macaddr_filter;
-    size_t index = i_rx.get_index();
-    for (int i = 0; i < MACADDR_NUM_BYTES; i++) {
-        macaddr_filter.addr[i] = i;
-    }
-    i_cfg.add_macaddr_filter(index, 1, macaddr_filter);
-
-    while (1) {
-        uint8_t rxbuf[ETHERNET_MAX_PACKET_SIZE];
-        ethernet_packet_info_t packet_info;
-
-        select {
-            case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
-                printf("HP packet received: %d bytes\n", packet_info.len);
-                /*for(int i=0; i<packet_info.len+4; i++)
-                {
-                  printf("%d, 0x%x\n", i, rxbuf[i]);
-                }*/
-
-                t :> time;
-                t when timerafter(time + 5000) :> time;
-                return;
-                break;
-
-            case i_rx.packet_ready():
-                unsigned n;
-                i_rx.get_packet(packet_info, rxbuf, n);
-                printf("LP packet received: %d bytes\n", n);
-                break;
-        }
-    }
-}
-
 int main()
 {
     ethernet_cfg_if i_cfg[2];
@@ -167,11 +126,7 @@ int main()
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);}
 
-        {
-          rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp);
-          exit(0);
-        }
-        //hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp);
+        hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp);
     }
 
     return 0;

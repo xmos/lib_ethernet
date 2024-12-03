@@ -127,7 +127,7 @@ class RMiiTransmitter(RMiiTxPhy):
                  initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
                  dut_exit_time=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
-        super(RMiiTransmitter, self).__init__('mii', rxd, rxdv, rxer, clock,
+        super(RMiiTransmitter, self).__init__('rmii', rxd, rxdv, rxer, clock,
                                              rxd_4b_port_pin_assignment,
                                              initial_delay, verbose, test_ctrl,
                                              do_timeout, complete_fn, expect_loopback,
@@ -242,7 +242,7 @@ class RMiiReceiver(RMiiRxPhy):
                  txd_4b_port_pin_assignment="lower_2b",
                  print_packets=False,
                  packet_fn=None, verbose=False, test_ctrl=None):
-        super(RMiiReceiver, self).__init__('mii', txd, txen, clock, txd_4b_port_pin_assignment,
+        super(RMiiReceiver, self).__init__('rmii', txd, txen, clock, txd_4b_port_pin_assignment,
                                           print_packets,
                                           packet_fn, verbose, test_ctrl)
 

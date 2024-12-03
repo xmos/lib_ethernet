@@ -32,7 +32,7 @@ def test_rmii_rx(params):
     testname = "test_rmii_rx"
     print(f"Running {testname}: {phy.get_name()} phy, at {clk.get_name()}")
 
-    binary = f'test_rmii_tx/bin/test_rmii_tx.xe'
+    binary = f'{testname}/bin/{testname}.xe'
     assert os.path.isfile(binary)
 
     seed = 0
@@ -45,7 +45,7 @@ def test_rmii_rx(params):
     for mac_address in [dut_mac_address]:
         packets.append(MiiPacket(rand,
             dst_mac_addr=mac_address,
-            create_data_args=['step', (1, 47)]
+            create_data_args=['step', (1, 87)]
           ))
 
     phy.set_packets(packets)

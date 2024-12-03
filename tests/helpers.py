@@ -13,6 +13,7 @@ import copy
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
+from rmii_phy import RMiiTransmitter, RMiiReceiver
 
 args = SimpleNamespace( trace=False, # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
                         num_packets=100, # Number of packets in the test
@@ -262,3 +263,62 @@ def generate_tests(test_params_json):
                 test_config_ids.append(id)
                 test_config_list.append(test_profile)
     return test_config_list, test_config_ids
+
+### RMII functions
+
+def get_rmii_clk(clk_rate):
+    clk = Clock('tile[0]:XS1_PORT_1J', clk_rate)
+    return clk
+
+def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, verbose=False, test_ctrl=None,
+                          do_timeout=True, complete_fn=None, expect_loopback=True,
+                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+    phy = RMiiTransmitter('tile[0]:XS1_PORT_4A', # 4b rxd port
+                          'tile[0]:XS1_PORT_1K', # 1b rxdv
+                          'tile[0]:XS1_PORT_1I', # 1b rxerr
+                          clk,
+                          verbose=verbose,
+                          rxd_4b_port_pin_assignment=rxd_4b_port_pin_assignment,
+                          test_ctrl=test_ctrl,
+                          do_timeout=do_timeout, complete_fn=complete_fn,
+                          expect_loopback=expect_loopback,
+                          dut_exit_time=dut_exit_time, initial_delay=initial_delay
+                        )
+    return phy
+
+def get_rmii_1b_port_tx_phy(clk, verbose=False, test_ctrl=None,
+                          do_timeout=True, complete_fn=None, expect_loopback=True,
+                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+    phy = RMiiTransmitter(['tile[0]:XS1_PORT_1A', 'tile[0]:XS1_PORT_1B'], # 2, 1b rxd ports
+                          'tile[0]:XS1_PORT_1K', # 1b rxdv
+                          'tile[0]:XS1_PORT_1I', # 1b rxerr
+                          clk,
+                          verbose=verbose,
+                          test_ctrl=test_ctrl,
+                          do_timeout=do_timeout, complete_fn=complete_fn,
+                          expect_loopback=expect_loopback,
+                          dut_exit_time=dut_exit_time, initial_delay=initial_delay
+                        )
+    return phy
+
+def get_rmii_4b_port_rx_phy(clk, txd_4b_port_pin_assignment, packet_fn=None, verbose=False, test_ctrl=None):
+    phy = RMiiReceiver('tile[0]:XS1_PORT_4B',
+                        'tile[0]:XS1_PORT_1L',
+                        clk,
+                        packet_fn=packet_fn,
+                        verbose=verbose,
+                        test_ctrl=test_ctrl,
+                        txd_4b_port_pin_assignment=txd_4b_port_pin_assignment
+                        )
+    return phy
+
+def get_rmii_1b_port_rx_phy(clk, packet_fn=None, verbose=False, test_ctrl=None):
+    phy = RMiiReceiver(['tile[0]:XS1_PORT_1C', 'tile[0]:XS1_PORT_1D'],
+                        'tile[0]:XS1_PORT_1L',
+                        clk,
+                        packet_fn=packet_fn,
+                        verbose=verbose,
+                        test_ctrl=test_ctrl
+                        )
+    return phy
+
