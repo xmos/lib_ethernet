@@ -58,7 +58,11 @@ static void printbytes(char *b, int n){
 
 static void printwords(unsigned *b, int n){
     for(int i=0; i<n;i++){
-        printstr(", 0x"); printhex(b[i]);
+        // printstr(", 0x"); printhex(b[i]);
+        uint64_t combined = (uint64_t)b[i];
+        uint32_t p0_val, p1_val;
+        {p1_val, p0_val} = unzip(combined, 0);
+        printhex(b[i]); printstr(", 0x");printhex(p0_val); printstr(", 0x");printhexln(p1_val);
     }
     printstr("\n");
 }
@@ -96,19 +100,19 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   t :> time;
   t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
 
-  printf("TX pre\n");
 
-  for(int length = 67; length < 68; length++){
+  for(int length = 64; length < 68; length++){
+      printf("TX pre: %d\n", length);
       // printbytes((char*)data, length);
-      printwords(data, length/4);
+      // printwords(data, length/4);
       tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
-      printf("LP packet sent: %d bytes\n", length);
+      // printf("LP packet sent: %d bytes\n", length);
       t :> time;
       t when timerafter(time + 8000) :> time;
   }
 
-  t :> time;
-  t when timerafter(time + 1000) :> time; 
+  // t :> time;
+  // t when timerafter(time + 10000) :> time; 
   exit(0);
 }
 
@@ -117,8 +121,6 @@ void rx_app(client ethernet_cfg_if i_cfg,
             client ethernet_rx_if i_rx,
             streaming chanend c_rx_hp)
 {
-    printf("rx_app\n");
-
     ethernet_macaddr_filter_t macaddr_filter;
     size_t index = i_rx.get_index();
     for (int i = 0; i < MACADDR_NUM_BYTES; i++) {
@@ -156,7 +158,7 @@ int main()
     
 
     // Setup 50M clock
-    unsigned divider = 20; // 100 / 2 = 50;
+    unsigned divider = 4; // 100 / 2 = 50;
     configure_clock_ref(eth_clk_harness, divider / 2); 
     set_port_clock(p_eth_clk_harness, eth_clk_harness);
     set_port_mode_clock(p_eth_clk_harness);
