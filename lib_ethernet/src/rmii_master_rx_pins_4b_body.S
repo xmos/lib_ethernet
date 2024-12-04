@@ -69,10 +69,14 @@ master_4x_pins_4b_body_asm:
     std r4, r5, sp[0]   // Save r4 and r5
     std r6, r7, sp[1]
 
-    // receive preamble first half
+    // receive preamble second half (32b data = 64b port bit)
     in TMP1, res[RXD]
-    ldw CRC, cp[initial_crc] // Make use of time here
+    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 instuctions
+    ldw CRC, cp[initial_crc] 
     ldc IN_COUNTER, 0
+    clre // clear all events ahead of select
+
+    // Grab the second 32b port of the preamble second half
     in TMP2, res[RXD]
     unzip TMP2, TMP1, 0x1
 
@@ -82,7 +86,7 @@ master_4x_pins_4b_body_asm:
 use_lower:
     // Load in expected second half of preamble
     ldw TMP1, cp[Dall_fives]
-    eq TMP1, TMP1, TMP2
+    eq TMP1, TMP1, TMP2 // Check OK?
     bt TMP1, preamble_ok
     // Corrupt CRC if not OK
     not CRC, CRC
@@ -92,12 +96,10 @@ preamble_ok:
     ldw TMP1, sp[STACK_WORDS + 1]
     stw TMP2, TMP1[0]
 
-    // Start select
-    clre // clear all events
+//////// Start select //////
     // Init for RXDV
     eeu res[RXDV]
-    ldc TMP1, 0
-    setd res[RXDV], TMP1 // no condition
+    setd res[RXDV], IN_COUNTER // no condition. Note in counter happens to be 0 at this point so re-use
     setc res[RXDV], 0x11 // WHAT IS THIS? MAYBE pinseq 0?
     ldap TMP1, data_valid_deasserted
     setv res[RXDV], TMP1
@@ -112,7 +114,7 @@ preamble_ok:
 
 data_valid_deasserted:
     in TMP1, res[RXDV]
-    // returns {dptr, in_counter, port_this, crc}
+    // returns {dptr, in_counter, port_this, crc} so setup registers
     // DPTR already in R0
     move(r1, IN_COUNTER)
     move(r2, PORT_LAST)
@@ -156,5 +158,4 @@ rx_done:
 
     retsp  STACK_WORDS
 
-    .align 4
 .cc_bottom master_4x_pins_4b_body_asm.func
