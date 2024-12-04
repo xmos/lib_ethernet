@@ -67,43 +67,40 @@ master_4x_pins_4b_body_asm:
     DUALENTSP_lu6 STACK_WORDS
 
     std r4, r5, sp[0]   // Save r4 and r5
-    std r6, r7, sp[1]
+    std r6, r7, sp[1]   // Save r4 and r5
 
     // receive preamble second half (32b data = 64b port bit)
-    in TMP1, res[RXD]
+    {in PORT_LAST, res[RXD];    ldw CRC, cp[initial_crc]}
+    
     // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 instuctions
-    ldw CRC, cp[initial_crc] 
-    ldc IN_COUNTER, 0
-    clre // clear all events ahead of select
+    {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
+    ldw TMP1, cp[Dall_fives]            // Load expected second half of preamble
 
     // Grab the second 32b port of the preamble second half
     in TMP2, res[RXD]
-    unzip TMP2, TMP1, 0x1
+    unzip TMP2, PORT_LAST, 0x1
 
     // swap results if use_lower
     bt PINS, use_lower
-    move(TMP2, TMP1)
+    move(TMP2, PORT_LAST)
+
 use_lower:
-    // Load in expected second half of preamble
-    ldw TMP1, cp[Dall_fives]
     eq TMP1, TMP1, TMP2 // Check OK?
     bt TMP1, preamble_ok
     // Corrupt CRC if not OK
     not CRC, CRC
+
 preamble_ok:
     // Grab timestamp and store
-    gettime TMP2
-    ldw TMP1, sp[STACK_WORDS + 1]
+    {gettime TMP2 ; ldw TMP1, sp[STACK_WORDS + 1]}
     stw TMP2, TMP1[0]
 
 //////// Start select //////
-    // Init for RXDV
+    // Init port resources
     {eeu res[RXDV]; ldap TMP1, data_valid_deasserted}
     setv res[RXDV], TMP1
     setd res[RXDV], IN_COUNTER // no condition. IN_COUNTER happens to be 0 at this point so re-use
     {setc res[RXDV], 0x11; ldap TMP1, rx_data_received}                // WHAT IS THIS? MAYBE pinseq 0?
-    
-    // Init for RXD
     eeu res[RXD];
     setv res[RXD], TMP1
 

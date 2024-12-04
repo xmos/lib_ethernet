@@ -325,20 +325,14 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
-    set_core_fast_mode_off();
+    // Receive first half of preamble
     sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
-    set_core_fast_mode_on();
-
 
     unsigned in_counter;
     unsigned port_this;
+
     // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
     {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp);
-    printhexln((unsigned)dptr);
-    printhexln((unsigned)in_counter);
-    printhexln((unsigned)port_this);
-    printhexln((unsigned)crc);
-    printhexln((unsigned)buf->timestamp);
 
     // Note: we don't store the last word since it contains the CRC and
     // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
