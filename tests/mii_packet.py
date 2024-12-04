@@ -253,7 +253,7 @@ class MiiPacket(object):
 
         # UNH-IOL MAC Test 4.2.2 (only check if it is non-zero as otherwise it is simply the first packet)
         if self.inter_frame_gap and (self.inter_frame_gap < clock.get_min_ifg()):
-            print(f"ERROR: Invalid interframe gap of {self.inter_frame_gap} ns")
+            print(f"ERROR: Invalid interframe gap of {self.inter_frame_gap}. Less than min ifg {clock.get_min_ifg()}")
 
         # UNH-IOL MAC Test 4.2.1
         if self.num_preamble_nibbles != 15:
