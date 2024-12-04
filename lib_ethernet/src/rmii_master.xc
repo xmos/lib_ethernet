@@ -249,6 +249,12 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     }
 }
 
+ {unsigned* unsafe, unsigned, unsigned, unsigned} extern master_4x_pins_4b_body_asm(unsigned * unsafe dptr,
+                                                                                in port p_mii_rxdv,
+                                                                                in buffered port:32 p_mii_rxd,
+                                                                                rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                                                unsigned * unsafe timestamp);
+
 
 {unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
@@ -326,7 +332,13 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     unsigned in_counter;
     unsigned port_this;
-    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
+    // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
+    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp);
+    printhexln((unsigned)dptr);
+    printhexln((unsigned)in_counter);
+    printhexln((unsigned)port_this);
+    printhexln((unsigned)crc);
+    printhexln((unsigned)buf->timestamp);
 
     // Note: we don't store the last word since it contains the CRC and
     // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
