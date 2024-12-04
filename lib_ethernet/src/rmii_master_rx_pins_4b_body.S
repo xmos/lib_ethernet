@@ -69,9 +69,9 @@ master_4x_pins_4b_body_asm:
     std r4, r5, sp[0]   // Save r4 and r5
     std r6, r7, sp[1]
 
-    // receive preamble
+    // receive preamble first half
     in TMP1, res[RXD]
-    ldw CRC, cp[initial_crc]
+    ldw CRC, cp[initial_crc] // Make use of time here
     ldc IN_COUNTER, 0
     in TMP2, res[RXD]
     unzip TMP2, TMP1, 0x1
@@ -87,7 +87,7 @@ use_lower:
     // Corrupt CRC if not OK
     not CRC, CRC
 preamble_ok:
-    // Grab timestamp
+    // Grab timestamp and store
     gettime TMP2
     ldw TMP1, sp[STACK_WORDS + 1]
     stw TMP2, TMP1[0]
@@ -113,7 +113,7 @@ preamble_ok:
 data_valid_deasserted:
     in TMP1, res[RXDV]
     // returns {dptr, in_counter, port_this, crc}
-    //DPTR already in R0
+    // DPTR already in R0
     move(r1, IN_COUNTER)
     move(r2, PORT_LAST)
     move(r3, CRC)
@@ -141,8 +141,8 @@ lower_main:
     waiteu
 
 first_short_word:
-    in PORT_LAST, res[RXD]
-    
+    // Store for next time around
+    move(PORT_LAST, TMP2)    
     // toggle IN_COUTER
     ldc TMP1, 0x1
     xor IN_COUNTER, IN_COUNTER, TMP1
@@ -150,13 +150,7 @@ first_short_word:
     waiteu
 
 rx_done:
-
-
-
-    // clre // clear all events
-
-
-
+    // Restore previous regs
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
 
