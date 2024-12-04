@@ -75,6 +75,8 @@ master_4x_pins_4b_body_asm:
     // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 instuctions
     {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
     ldw TMP1, cp[Dall_fives]            // Load expected second half of preamble
+    eeu res[RXDV]                       // Start setup for select  
+    eeu res[RXD]
 
     // Grab the second 32b port of the preamble second half
     in TMP2, res[RXD]
@@ -85,10 +87,10 @@ master_4x_pins_4b_body_asm:
     move(TMP2, PORT_LAST)
 
 use_lower:
+    // Check received preamable against expected
     eq TMP1, TMP1, TMP2 // Check OK?
     bt TMP1, preamble_ok
-    // Corrupt CRC if not OK
-    not CRC, CRC
+    not CRC, CRC     // Corrupt CRC if not OK
 
 preamble_ok:
     // Grab timestamp and store
@@ -97,19 +99,17 @@ preamble_ok:
 
 //////// Start select //////
     // Init port resources
-    {eeu res[RXDV]; ldap TMP1, data_valid_deasserted}
+    {setd res[RXDV], IN_COUNTER; ldap TMP1, data_valid_deasserted} // no condition. IN_COUNTER happens to be 0 at this point so re-use
     setv res[RXDV], TMP1
-    setd res[RXDV], IN_COUNTER // no condition. IN_COUNTER happens to be 0 at this point so re-use
-    {setc res[RXDV], 0x11; ldap TMP1, rx_data_received}                // WHAT IS THIS? MAYBE pinseq 0?
-    eeu res[RXD];
+    {setc res[RXDV], 0x11; ldap TMP1, rx_data_received}            // Set pinseq0 event and load vector addr
     setv res[RXD], TMP1
 
     waiteu
 
 
 data_valid_deasserted:
-    {in TMP1, res[RXDV];    move(r1, IN_COUNTER)}
-    // returns {dptr, in_counter, port_this, crc} so setup registers
+    {in TMP1, res[RXDV];    move(r1, IN_COUNTER)} // Complete the IN and start setting up returns
+    // returns {dptr, in_counter, port_this, crc} so setup registers for this
     // DPTR already in R0
     {move(r2, PORT_LAST);   move(r3, CRC)}
 
@@ -120,16 +120,15 @@ data_valid_deasserted:
     retsp  STACK_WORDS
 
 rx_data_received:
-    {in TMP2, res[RXD];     bf IN_COUNTER, first_short_word}
+    {in TMP2, res[RXD];     bf IN_COUNTER, first_short_word} // Grab the value and branch to the correct phase
     unzip TMP2, PORT_LAST, 1
     bt PINS, lower_main
     move(TMP2, PORT_LAST)
 lower_main:
-    // Store and inc
+    // Just store and set the counter
     {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}
-    // CRC
-    {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // toggle IN_COUTER
-    crc32 CRC, TMP2, TMP1
+    {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // First load polynomial and toggle IN_COUTER
+    crc32 CRC, TMP2, TMP1                               // Do CRC. 
 
     waiteu
 
