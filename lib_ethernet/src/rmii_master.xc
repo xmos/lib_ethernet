@@ -250,16 +250,30 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 
-{unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(  unsigned * unsafe dptr,
+{unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
-                                                                        rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+                                                                        rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                                        unsigned * unsafe timestamp){
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
-    unsigned word; // The converted data word, 4 data bytes and also used as temp
+    // unsigned word; // The converted data word, 4 data bytes and also used as temp
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
     unsigned crc = 0x9226F562;
     const unsigned poly = 0xEDB88320;
+
+    unsigned sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
+
+    const unsigned expected_preamble = 0xD5555555;
+    if (sfd_preamble != expected_preamble) {
+        /* Corrupt the CRC so that the packet is discarded */
+        crc = ~crc;
+    }
+
+    /* Timestamp the start of packet and record it in the packet structure */
+    timer tmr;
+    unsafe{ tmr :> *timestamp; }
+
 
     // Consume frame one long word at a time
     while(1) {
@@ -272,19 +286,17 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
             case p_mii_rxd :> port_this:
                 if(in_counter) {
                     uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
-                    {port_this, port_last} = unzip(combined, 1); // Reuse existing vars upper, lower
-                    if(rx_port_4b_pins == USE_LOWER_2B){
-                        word = port_last; // lower
-                    } else {
-                        word = port_this; // upper
+                    {port_this, port_last} = unzip(combined, 1); // Reuse existing vars port_this, port_last  as upper, lower
+                    if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
+                        *dptr = port_last; // lower
+                        crc32(crc, port_last, poly);
+                    } else unsafe {
+                        *dptr = port_this; // upper
+                        crc32(crc, port_this, poly);
                     }
-                    crc32(crc, word, poly);
-
                     // Store word - note no wrap checking so assume linear buffer large enough
-                    unsafe{
-                        *dptr = word;
-                        dptr++;
-                    }
+                    dptr++;
+
                 } else {
                     // Just store for next time around or tail >= 2B
                     port_last = port_this;
@@ -307,31 +319,14 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
-    // TODO - do we need this pinseq for preable given it is always 8 bytes?
-    // *p_mii_rxd when pinseq(0xD) :> sfd_preamble;
-
-    // Read twice for 8 byte preamble. Discard first word.
+    set_core_fast_mode_off();
     sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
-    sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
-
-    // This could be simplified by loading full 0xD5555555 without shifts?
-    if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
-        /* Corrupt the CRC so that the packet is discarded */
-        crc = ~crc;
-    }
-
-    /* Timestamp the start of packet and record it in the packet structure */
-    unsigned time;
-    tmr :> time;
-    buf->timestamp = time;
+    set_core_fast_mode_on();
 
 
     unsigned in_counter;
     unsigned port_this;
-    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins);
-    // printintln(in_counter);
-    // printhexln(port_this);
-    // printhexln((unsigned)dptr - (unsigned)&buf->data[0]);
+    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
 
     // Note: we don't store the last word since it contains the CRC and
     // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
