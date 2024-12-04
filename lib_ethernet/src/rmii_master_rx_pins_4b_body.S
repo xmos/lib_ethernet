@@ -113,7 +113,7 @@ data_valid_deasserted:
     // DPTR already in R0
     {move(r2, PORT_LAST);   move(r3, CRC)}
 
-    // Restore previous regs
+    // Restore previous regs before return
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
 
