@@ -250,6 +250,54 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 
+{unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(  unsigned * unsafe dptr,
+                                                                        in port p_mii_rxdv,
+                                                                        in buffered port:32 p_mii_rxd,
+                                                                        rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+    unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
+    unsigned word; // The converted data word, 4 data bytes and also used as temp
+    unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
+
+    unsigned crc = 0x9226F562;
+    const unsigned poly = 0xEDB88320;
+
+    // Consume frame one long word at a time
+    while(1) {
+        select {
+            case p_mii_rxdv when pinseq(0) :> int:
+                // printchar('+');
+                return {dptr, in_counter, port_this, crc};
+                break;
+
+            case p_mii_rxd :> port_this:
+                if(in_counter) {
+                    uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
+                    {port_this, port_last} = unzip(combined, 1); // Reuse existing vars upper, lower
+                    if(rx_port_4b_pins == USE_LOWER_2B){
+                        word = port_last; // lower
+                    } else {
+                        word = port_this; // upper
+                    }
+                    crc32(crc, word, poly);
+
+                    // Store word - note no wrap checking so assume linear buffer large enough
+                    unsafe{
+                        *dptr = word;
+                        dptr++;
+                    }
+                } else {
+                    // Just store for next time around or tail >= 2B
+                    port_last = port_this;
+                } 
+
+                in_counter ^= 1; // Efficient (++in_counter % 2)
+                // printchar('.');
+                break;
+        } // select
+    } // While(1)
+    return {NULL, 0, 0, 0};
+}
+
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
                                     unsigned * unsafe rdptr,
@@ -277,41 +325,13 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     tmr :> time;
     buf->timestamp = time;
 
-    unsigned end_of_frame = 0;
-    unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
-    unsigned word; // The converted data word, 4 data bytes and also used as temp
-    unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
-    // Consume frame one long word at a time
-    do {
-        select {
-            case p_mii_rxdv when pinseq(0) :> int:
-                end_of_frame = 1;
-                break;
-
-            case *p_mii_rxd :> port_this:
-                if(in_counter) {
-                    uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
-                    {port_this, port_last} = unzip(combined, 1); // Reuse existing vars upper, lower
-                    if(rx_port_4b_pins == USE_LOWER_2B){
-                        word = port_last; // lower
-                    } else {
-                        word = port_this; // upper
-                    }
-                    crc32(crc, word, poly);
-
-                    // Store word - note no wrap checking so assume linear buffer large enough
-                    *dptr = word;
-                    dptr++;
-                } else {
-                    // Just store for next time around or tail >= 2B
-                    port_last = port_this;
-                } 
-
-                in_counter ^= 1; // Efficient (++in_counter % 2)
-                break;
-        }
-    } while (!end_of_frame);
+    unsigned in_counter;
+    unsigned port_this;
+    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins);
+    // printintln(in_counter);
+    // printhexln(port_this);
+    // printhexln((unsigned)dptr - (unsigned)&buf->data[0]);
 
     // Note: we don't store the last word since it contains the CRC and
     // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
@@ -350,15 +370,16 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     // Now turn the last constructed bit pattern into a word
     unsigned upper, lower;
     {upper, lower} = unzip(combined, 1);
-    if(rx_port_4b_pins == USE_LOWER_2B) {
-        word = lower;
-    } else {
-        word = upper;
-    }
+
     // Now CRC remaining received bytes
     if(taillen_bytes > 0){
-        // Make it right aligned as CRC operates on LSb first        
-        unsigned tail = word >> ((4 - taillen_bytes) << 3);
+        // Make it right aligned as CRC operates on LSb first  
+        unsigned tail; 
+        if(rx_port_4b_pins == USE_LOWER_2B) {
+            tail = lower >> ((4 - taillen_bytes) << 3);
+        } else {
+            tail = upper >> ((4 - taillen_bytes) << 3);
+        }
         crcn(crc, tail, poly, taillen_bytes << 3);
     }
 
