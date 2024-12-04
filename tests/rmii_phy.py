@@ -309,7 +309,7 @@ class RMiiReceiver(RMiiRxPhy):
                     else: # 2, 1bit ports
                         cr0 = xsi.sample_port_pins(self._txd[0]) & 0x1
                         cr1 = xsi.sample_port_pins(self._txd[1]) & 0x1
-                        crumb = (cr1 << 1) & cr0
+                        crumb = (cr1 << 1) | cr0
                     nibble = nibble | (crumb << (j*2))
 
                     if j == 1:

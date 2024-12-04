@@ -253,15 +253,19 @@ def generate_tests(test_params_json):
         test_config_list = []
         test_config_ids = []
         for profile in params['PROFILES']:
-            base_profile = {key: value for key,value in profile.items() if key != 'arch'} # copy everything but 'arch'
+            base_profile = {key: value for key,value in profile.items() if (key != 'arch' and key != 'tx_width')} # copy everything but 'arch'
             if isinstance(profile['arch'], str):
                 profile['arch'] = [profile['arch']]
+            if isinstance(profile['tx_width'], str):
+                profile['tx_width'] = [profile['tx_width']]
             for a in profile['arch']: # Add a test case per architecture
-                test_profile = copy.deepcopy(base_profile)
-                test_profile['arch'] = a
-                id = '-'.join([v for v in test_profile.values()])
-                test_config_ids.append(id)
-                test_config_list.append(test_profile)
+                for tw in profile['tx_width']:
+                    test_profile = copy.deepcopy(base_profile)
+                    test_profile['arch'] = a
+                    test_profile['tx_width'] = tw
+                    id = '-'.join([v for v in test_profile.values()])
+                    test_config_ids.append(id)
+                    test_config_list.append(test_profile)
     return test_config_list, test_config_ids
 
 ### RMII functions

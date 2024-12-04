@@ -52,8 +52,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           enum ethernet_enable_shaper_t enable_shaper)
 {
   // Establish types of data ports presented
-  printstrln("rmii_ethernet_rt_mac");
-
   unsafe{
     // Setup buffering
     unsigned int rx_data[rx_bufsize_words];
