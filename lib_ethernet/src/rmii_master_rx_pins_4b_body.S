@@ -98,64 +98,48 @@ preamble_ok:
 
 //////// Start select //////
     // Init for RXDV
-    eeu res[RXDV]
-    setd res[RXDV], IN_COUNTER // no condition. Note in counter happens to be 0 at this point so re-use
-    setc res[RXDV], 0x11 // WHAT IS THIS? MAYBE pinseq 0?
-    ldap TMP1, data_valid_deasserted
+    {eeu res[RXDV]; ldap TMP1, data_valid_deasserted}
     setv res[RXDV], TMP1
-
+    setd res[RXDV], IN_COUNTER // no condition. IN_COUNTER happens to be 0 at this point so re-use
+    {setc res[RXDV], 0x11; ldap TMP1, rx_data_received}                // WHAT IS THIS? MAYBE pinseq 0?
+    
     // Init for RXD
-    eeu res[RXD]
-    ldap TMP1, rx_data_received
+    eeu res[RXD];
     setv res[RXD], TMP1
 
     waiteu
 
 
 data_valid_deasserted:
-    in TMP1, res[RXDV]
+    {in TMP1, res[RXDV];    move(r1, IN_COUNTER)}
     // returns {dptr, in_counter, port_this, crc} so setup registers
     // DPTR already in R0
-    move(r1, IN_COUNTER)
-    move(r2, PORT_LAST)
-    move(r3, CRC)
+    {move(r2, PORT_LAST);   move(r3, CRC)}
 
-    bu rx_done
-
-rx_data_received:
-    in TMP2, res[RXD]
-    bf IN_COUNTER, first_short_word
-    unzip TMP2, PORT_LAST, 1
-    bt PINS, lower_main
-    move(TMP2, PORT_LAST)
-lower_main:
-    // Store and inc
-    stw TMP2, DPTR[0]
-    add DPTR, DPTR, 0x4
-    // CRC
-    ldw TMP1, cp[polynomial]
-    crc32 CRC, TMP2, TMP1
-
-    // toggle IN_COUTER
-    ldc TMP1, 0x1
-    xor IN_COUNTER, IN_COUNTER, TMP1
-
-    waiteu
-
-first_short_word:
-    // Store for next time around
-    move(PORT_LAST, TMP2)    
-    // toggle IN_COUTER
-    ldc TMP1, 0x1
-    xor IN_COUNTER, IN_COUNTER, TMP1
-
-    waiteu
-
-rx_done:
     // Restore previous regs
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
 
     retsp  STACK_WORDS
+
+rx_data_received:
+    {in TMP2, res[RXD];     bf IN_COUNTER, first_short_word}
+    unzip TMP2, PORT_LAST, 1
+    bt PINS, lower_main
+    move(TMP2, PORT_LAST)
+lower_main:
+    // Store and inc
+    {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}
+    // CRC
+    {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // toggle IN_COUTER
+    crc32 CRC, TMP2, TMP1
+
+    waiteu
+
+first_short_word:
+    // Store for next time around
+    {move(PORT_LAST, TMP2) ;ldc IN_COUNTER, 0x1}
+
+    waiteu
 
 .cc_bottom master_4x_pins_4b_body_asm.func
