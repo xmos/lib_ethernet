@@ -11,6 +11,7 @@ port p_eth_clk = XS1_PORT_1J;
 
 #if TX_WIDTH == 4
 rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
+// rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
 #elif TX_WIDTH == 1
 rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 #else
@@ -19,6 +20,7 @@ rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 
 #if RX_WIDTH == 4
 rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
+// rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
 #elif RX_WIDTH == 1
 rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
 #else
@@ -56,7 +58,7 @@ static void printbytes(char *b, int n){
     printstr("\n");
 }
 
-static void printwords(unsigned *b, int n){
+static void printwords_1b(unsigned *b, int n){
     for(int i=0; i<n;i++){
         // printstr(", 0x"); printhex(b[i]);
         uint64_t combined = (uint64_t)b[i];
@@ -66,6 +68,18 @@ static void printwords(unsigned *b, int n){
     }
     printstr("\n");
 }
+
+
+static void printwords_4b(unsigned *b, int n){
+    for(int i=0; i<n;i++){
+        uint64_t zipped = zip(0, b[i], 1); // lower
+        uint32_t p0_val = zipped & 0xffffffff;
+        uint32_t p1_val = zipped >> 32;
+        printhex(b[i]); printstr(", 0x");printhex(p0_val); printstr(", 0x");printhexln(p1_val);
+    }
+    printstr("\n");
+}
+
 
 
 void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, streaming chanend c_tx_hp)
@@ -104,15 +118,15 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   for(int length = 64; length < 68; length++){
       printf("TX pre: %d\n", length);
       // printbytes((char*)data, length);
-      // printwords(data, length/4);
+      printwords_4b(data, (length + 3)/4);
       tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
       // printf("LP packet sent: %d bytes\n", length);
       t :> time;
-      t when timerafter(time + 8000) :> time;
+      t when timerafter(time + 4000) :> time;
   }
 
-  // t :> time;
-  // t when timerafter(time + 10000) :> time; 
+  t :> time;
+  t when timerafter(time + 2000) :> time; 
   exit(0);
 }
 
