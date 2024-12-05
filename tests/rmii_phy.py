@@ -139,7 +139,7 @@ class RMiiTransmitter(RMiiTxPhy):
         self.start_test()
 
         for i,packet in enumerate(self._packets):
-            print(f"Packet {i}")
+            #print(f"Packet {i}")
             error_nibbles = packet.get_error_nibbles()
 
             self.wait_until(xsi.get_time() + packet.inter_frame_gap)

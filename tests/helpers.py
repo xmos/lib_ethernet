@@ -116,7 +116,7 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
 
 
 def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
-               extra_tasks=[], override_dut_dir=False):
+               extra_tasks=[], override_dut_dir=False, rx_width=None):
 
     """ Shared test code for all RX tests using the test_rx application.
     """
@@ -126,7 +126,10 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
         print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if rx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_{rx_width}_{arch}'
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     dut_dir = override_dut_dir if override_dut_dir else testname
     binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
     assert os.path.isfile(binary), f"Missing .xe {binary}"
@@ -144,12 +147,17 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
     # with capfd.disabled():
     #     print(f"simargs {simargs}\n bin: {binary}")
+    if rx_clk == None: # RMII has only one clock
+        st = [tx_clk, rx_phy, tx_phy]
+    else:
+        st = [rx_clk, rx_phy, tx_clk, tx_phy]
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
+                                    simthreads=st + extra_tasks,
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    capfd=capfd)
+                                    capfd=capfd
+                                    )
 
     assert result is True, f"{result}"
 
@@ -177,7 +185,7 @@ def get_sim_args(testname, mac, clk, phy, arch='xs2'):
 
         vcd_args  = '-o {0}.vcd'.format(filename)
         vcd_args += (' -tile tile[0] -ports -ports-detailed -instructions'
-                     ' -functions -cycles -clock-blocks')
+                     ' -functions -cycles -clock-blocks -pads')
 
         # The RGMII pins are on tile[1]
         if phy.get_name() == 'rgmii':
@@ -253,12 +261,15 @@ def generate_tests(test_params_json):
         test_config_list = []
         test_config_ids = []
         for profile in params['PROFILES']:
-            base_profile = {key: value for key,value in profile.items() if (key != 'arch' and key != 'tx_width')} # copy everything but 'arch'
+            base_profile = {key: value for key,value in profile.items() if (key != 'arch' and key != 'tx_width'  and key != 'rx_width')} # copy everything but 'arch'
             if isinstance(profile['arch'], str):
                 profile['arch'] = [profile['arch']]
             if 'tx_width' in profile:
                 if isinstance(profile['tx_width'], str):
                     profile['tx_width'] = [profile['tx_width']]
+            if 'rx_width' in profile:
+                if isinstance(profile['rx_width'], str):
+                    profile['rx_width'] = [profile['rx_width']]
 
 
             for a in profile['arch']: # Add a test case per architecture
@@ -270,12 +281,20 @@ def generate_tests(test_params_json):
                         id = '-'.join([v for v in test_profile.values()])
                         test_config_ids.append(id)
                         test_config_list.append(test_profile)
-            else:
-                test_profile = copy.deepcopy(base_profile)
-                test_profile['arch'] = a
-                id = '-'.join([v for v in test_profile.values()])
-                test_config_ids.append(id)
-                test_config_list.append(test_profile)
+                elif 'rx_width' in profile:
+                    for tw in profile['rx_width']:
+                        test_profile = copy.deepcopy(base_profile)
+                        test_profile['arch'] = a
+                        test_profile['rx_width'] = tw
+                        id = '-'.join([v for v in test_profile.values()])
+                        test_config_ids.append(id)
+                        test_config_list.append(test_profile)
+                else:
+                    test_profile = copy.deepcopy(base_profile)
+                    test_profile['arch'] = a
+                    id = '-'.join([v for v in test_profile.values()])
+                    test_config_ids.append(id)
+                    test_config_list.append(test_profile)
 
     return test_config_list, test_config_ids
 
