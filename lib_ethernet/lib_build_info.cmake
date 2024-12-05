@@ -24,6 +24,7 @@ set(LIB_COMPILER_FLAGS_rgmii_buffering.xc       ${LIB_COMPILER_FLAGS} -Wno-unusu
 set(LIB_COMPILER_FLAGS_rgmii_ethernet_mac.xc    ${LIB_COMPILER_FLAGS} -Wno-unusual-code)
 set(LIB_COMPILER_FLAGS_ethernet.xc              ${LIB_COMPILER_FLAGS} -Wno-cast-align)
 set(LIB_COMPILER_FLAGS_rmii_ethernet_rt_mac.xc  ${LIB_COMPILER_FLAGS} -Wno-unusual-code)
+set(LIB_COMPILER_FLAGS_rmii_master.xc           -g -O3 -mdual_issue)
 
 
 XMOS_REGISTER_MODULE()
