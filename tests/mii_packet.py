@@ -60,6 +60,7 @@ class MiiPacket(object):
             self.sfd_nibble = 0
             self.num_data_bytes = 0
             self.inter_frame_gap = 0.0
+            self.inter_frame_gap_clock_cycles = 0.0
             self.dst_mac_addr = []
             self.src_mac_addr = []
             self.vlan_prio_tag = []
@@ -70,7 +71,7 @@ class MiiPacket(object):
             self.sfd_nibble = 0xd
             self.num_data_bytes = 46
             self.inter_frame_gap = 960 * 1e6 # Min as per ethernet spec
-
+            self.inter_frame_gap_clock_cycles = 0 # Interframe gap measured in clock cycles
             self.dst_mac_addr = None
             self.src_mac_addr = None
             self.vlan_prio_tag = None
@@ -130,6 +131,7 @@ class MiiPacket(object):
 
     def get_ifg(self):
         return self.inter_frame_gap
+
 
     def set_ifg(self, inter_frame_gap):
         self.inter_frame_gap = inter_frame_gap

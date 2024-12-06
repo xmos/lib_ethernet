@@ -59,7 +59,7 @@ def do_test(capfd, mac, arch, tx_width, clk, rx_phy):
 test_params_file = Path(__file__).parent / "test_rmii_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rmii_tx(capfd, params):
-    verbose = True
+    verbose = False
     test_ctrl='tile[0]:XS1_PORT_1M'
 
     clk = get_rmii_clk(Clock.CLK_50MHz)

@@ -208,6 +208,16 @@ def packet_processing_time(phy, data_bytes, mac):
     else:
         return 2000 * phy.get_clock().get_bit_time()
 
+def packet_processing_time_clock_cycles(phy, data_bytes, mac):
+    """ Returns the time it takes the DUT to process a given frame
+    """
+    if mac == 'standard':
+        return 4000 / phy.get_clock().get_clock_cycle_to_bit_time_ratio()
+    elif phy.get_name() == 'rgmii' and mac == 'rt':
+        return 6000 / phy.get_clock().get_clock_cycle_to_bit_time_ratio()
+    else:
+        return 2000 / phy.get_clock().get_clock_cycle_to_bit_time_ratio()
+
 def get_dut_mac_address():
     """ Returns the MAC address of the DUT
     """

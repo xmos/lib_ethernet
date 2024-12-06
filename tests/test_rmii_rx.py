@@ -7,7 +7,7 @@ import os
 
 from mii_packet import MiiPacket
 from mii_clock import Clock
-from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
+from helpers import do_rx_test, packet_processing_time, get_dut_mac_address, packet_processing_time_clock_cycles
 from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
 from helpers import generate_tests
 from mii_clock import Clock
@@ -30,9 +30,27 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width):
     for mac_address in [dut_mac_address]:
         packets.append(MiiPacket(rand,
             dst_mac_addr=mac_address,
-            create_data_args=['step', (1, 46)]
+            create_data_args=['step', (1, 72)]
+          ))
+        packets.append(MiiPacket(rand,
+            dst_mac_addr=mac_address,
+            create_data_args=['step', (1, 73)],
+            inter_frame_gap=packet_processing_time(tx_phy, 72, mac),
+            inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 72, mac)
           ))
 
+        packets.append(MiiPacket(rand,
+            dst_mac_addr=mac_address,
+            create_data_args=['step', (1, 74)],
+            inter_frame_gap=packet_processing_time(tx_phy, 73, mac),
+            inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 73, mac)
+          ))
+        packets.append(MiiPacket(rand,
+            dst_mac_addr=mac_address,
+            create_data_args=['step', (1, 75)],
+            inter_frame_gap=packet_processing_time(tx_phy, 74, mac),
+            inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 74, mac)
+          ))
 
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width)
 
@@ -47,10 +65,9 @@ def test_rx(capfd, seed, params):
         seed = random.randint(0, sys.maxsize)
     seed = 1
 
-    test_ctrl='tile[0]:XS1_PORT_1M'
     verbose = False
 
-    clk = get_rmii_clk(Clock.CLK_25MHz)
+    clk = get_rmii_clk(Clock.CLK_50MHz)
 
     if params['rx_width'] == "4b_lower":
         tx_rmii_phy = get_rmii_4b_port_tx_phy(

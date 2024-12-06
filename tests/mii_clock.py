@@ -21,27 +21,34 @@ class Clock(px.SimThread):
             self._name = '125Mhz'
             # 8 bits per clock period at 125MHz = 1000 Mbps. bit time = 1/1000Mbps = 1e-9 (or 1ns) seconds per bit
             self._bit_time = sim_clock_rate / 1e9 # xsim ticks per bit
+            self._clock_cycle_to_bit_time_ratio = 8 # 1 clock cycle is 8 times a bit time
         elif clk == self.CLK_25MHz:
             self._period = float(sim_clock_rate) / 25e6
             self._name = '25Mhz'
             # 4 bits per clock at 25MHz = 100Mbps. bit time = 1e-8 (or 10ns) seconds per bit
             self._bit_time = sim_clock_rate / 1e8 # xsim ticks per bit
+            self._clock_cycle_to_bit_time_ratio = 4 # 1 clock cycle is 4 times a bit time
         elif clk == self.CLK_2_5MHz:
             self._period = float(sim_clock_rate) / 2.5e6
             self._name = '2.5Mhz'
             # 4 bits per clock at 2.5MHz = 10Mbps. bit time = 1e-7 (or 100ns) seconds per bit
             self._bit_time = sim_clock_rate / 1e7 # xsim ticks per bit
+            self._clock_cycle_to_bit_time_ratio = 4 # 1 clock cycle is 4 times a bit time
         elif clk == self.CLK_50MHz:
             self._period = float(sim_clock_rate) / 50e6 # xsi ticks per clock cycle
             self._name = '50MHz'
             # 2 bits per clock at 50MHz = 100Mbps. bit time = 1e-8 (or 10ns) seconds per bit
             self._bit_time = sim_clock_rate / 1e8 # xsim ticks per bit
+            self._clock_cycle_to_bit_time_ratio = 2 # 1 clock cycle is 2 times a bit time
         elif clk == self.CLK_10MHz:
             self._period = float(sim_clock_rate) / 10e6 # xsi ticks per clock cycle
             self._name = '10MHz'
             # 2 bits per clock at 10MHz = 20Mbps. bit time = 5*1e-8 (or 50ns) seconds per bit
             self._bit_time = sim_clock_rate / (20*1e6) # xsim ticks per bit
+            self._clock_cycle_to_bit_time_ratio = 2 # 1 clock cycle is 2 times a bit time
         self._min_ifg = 96 * self._bit_time
+        self._min_ifg_clock_cycles = 96 / self._clock_cycle_to_bit_time_ratio
+
         self._val = 0
         self._port = port
 
@@ -52,6 +59,9 @@ class Clock(px.SimThread):
 
             if self._running:
                 self.xsi.drive_port_pins(self._port, self._val)
+
+    def val(self):
+        return self._val
 
     def is_high(self):
         return (self._val == 1)
@@ -70,6 +80,12 @@ class Clock(px.SimThread):
 
     def get_bit_time(self):
         return self._bit_time
+
+    def get_clock_cycle_to_bit_time_ratio(self):
+        return self._clock_cycle_to_bit_time_ratio
+
+    def get_min_ifg_clock_cycles(self):
+        return self._min_ifg_clock_cycles
 
     def stop(self):
         self._running = False
