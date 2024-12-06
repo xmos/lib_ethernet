@@ -1,6 +1,6 @@
 {
     "PROFILES": [
-        {"phy":"rmii", "clk":"50MHz", "mac":"rt", "arch":["xs3"], "tx_width":["4b_lower", "4b_upper", "1b"]},
-        {"phy":"rmii", "clk":"50MHz", "mac":"rt_hp", "arch":["xs3"], "tx_width":["4b_lower", "4b_upper", "1b"]}
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "tx_width":["4b_lower", "4b_upper", "1b"]},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "tx_width":["4b_lower", "4b_upper", "1b"]}
         ]
 }

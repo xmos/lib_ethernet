@@ -121,12 +121,14 @@ class RMiiTxPhy(px.SimThread):
         self.xsi.drive_port_pins(self._rxer, value)
 
 class PacketManager():
-    def __init__(self, packets, data_type):
+    def __init__(self, packets, data_type, verbose=False):
         assert data_type in ['crumb', 'nibble']
         self._data_type = data_type # 'nibble' or 'crumb'
         self._pkts = packets
+        assert len(self._pkts) > 0
         self._num_pkts = len(self._pkts)
         self._pkt_ended = False # Flag indicating if the current packet has ended
+        self._verbose = verbose
 
         # Set up to do the first packet
         self._current_pkt_index = 0
@@ -153,9 +155,13 @@ class PacketManager():
             error = False
 
         if self._data_type == 'nibble':
+            if self._verbose and self._nibble_index == 0:
+                print(f"Sending packet {self._current_pkt_index}: {self._pkt}")
             dataval = self._nibbles[self._nibble_index]
             self._nibble_index = self._nibble_index + 1
         else: # crumb
+            if self._verbose and self._nibble_index == 0 and self._crumb_index == 0:
+                print(f"Sending packet {self._current_pkt_index}: {self._pkt}")
             dataval = (self._nibbles[self._nibble_index] >> (self._crumb_index*2)) & 0x3
             self._crumb_index = self._crumb_index ^ 1
             if self._crumb_index == 0:
@@ -163,6 +169,8 @@ class PacketManager():
 
         if self._nibble_index == len(self._nibbles): # End of current packet. Set up for the next packet
             self._pkt_ended = True
+            if self._verbose:
+                print(f"Sent packet {self._current_pkt_index}")
             self._current_pkt_index = self._current_pkt_index + 1
             if self._current_pkt_index < self._num_pkts:
                 self._pkt = self._pkts[self._current_pkt_index]
@@ -171,6 +179,7 @@ class PacketManager():
                 self._nibble_index = 0
                 self._crumb_index = 0
                 self._ifg_wait_cycles = 0
+
 
         return dataval, error, False
 
@@ -195,7 +204,7 @@ class RMiiTransmitter(RMiiTxPhy):
 
     def run(self):
         xsi = self.xsi
-        pkt_manager = PacketManager(self._packets, "crumb") # read packet data at crumb granularity
+        pkt_manager = PacketManager(self._packets, "crumb", verbose=self._verbose) # read packet data at crumb granularity
         self.start_test()
 
         while True:

@@ -86,7 +86,7 @@ def test_rx(capfd, seed, params):
                                     clk,
                                     verbose=verbose,
                                     )
-    # Hardcode rx_phy to receive on 4B lower_2b port
+    # Hardcode rx_phy to receive on 4B lower_2b port. TODO
     rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
                                     "lower_2b",
                                     packet_fn=check_received_packet,
