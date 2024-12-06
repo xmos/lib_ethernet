@@ -53,7 +53,8 @@
 // that reads the timer is the next instruction after the out at the
 // end of the packet and the timer wait is an instruction before the
 // out of the pre-amble
-#define MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT  (96 + 96 - 9)
+#define RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_1b  (96 + 82) // TODO Why??
+#define RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_4b  (96 + 54) // TODO Why??
 
 // Helpers to save a few cycles
 #define SET_PORT_SHIFT_COUNT(p, sc) asm volatile("setpsc res[%0], %1" : : "r" (p), "r" (sc));
@@ -74,7 +75,7 @@ static void rmii_master_init_rx_common(in port p_clk,
     set_clock_on(rxclk);
     set_clock_src(rxclk, p_clk);        // Use ext clock
 
-    // Connect to data valid and configure 
+    // Connect to data valid and configure
     set_port_clock(p_rxdv, rxclk);      // Connect to clock block
     set_clock_ready_src(rxclk, p_rxdv); // Enable data valid
 
@@ -130,10 +131,10 @@ static void rmii_master_init_tx_common( in port p_clk,
     set_clock_on(txclk);
     set_clock_src(txclk, p_clk);
 
-    // Connect txen and configure as ready (valid) signal 
+    // Connect txen and configure as ready (valid) signal
     set_port_mode_ready(p_txen);
     set_port_clock(p_txen, txclk);
-    
+
     set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
     set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
 }
@@ -171,7 +172,7 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 
     // Configure so that just tx_data_0 controls the read signal strobe
     // When we transmit we will ensure both port buffers are launched
-    // at the same time so aligned 
+    // at the same time so aligned
     set_port_strobed(*tx_data_0);
     set_port_master(*tx_data_0);
     set_port_ready_src(p_txen, *tx_data_0);
@@ -233,7 +234,7 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
             mii_add_packet(incoming_packets, buf); \
         } \
     } \
-return; 
+return;
 // END OF MASTER_RX_CHUNK_TAIL
 
 
@@ -307,7 +308,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 } else {
                     // Just store for next time around or tail >= 2B
                     port_last = port_this;
-                } 
+                }
 
                 in_counter ^= 1; // Efficient (++in_counter % 2)
                 break;
@@ -380,8 +381,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     // Now CRC remaining received bytes
     if(taillen_bytes > 0){
-        // Make it right aligned as CRC operates on LSb first  
-        unsigned tail; 
+        // Make it right aligned as CRC operates on LSb first
+        unsigned tail;
         if(rx_port_4b_pins == USE_LOWER_2B) {
             tail = lower >> ((4 - taillen_bytes) << 3);
         } else {
@@ -400,13 +401,13 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
                                   in buffered port:32 p_mii_rxd_1){
- 
+
     unsigned word, word2;
 
     // We need to set this so it puts the shift reg in the transfer reg after 16.
     set_port_shift_count(p_mii_rxd_0, 16);
     set_port_shift_count(p_mii_rxd_1, 16);
- 
+
     // Use full XC IN which also does SETC 0x0001. We have plenty of time at preamble.
     p_mii_rxd_0 :> word;
     p_mii_rxd_1 :> word2;
@@ -559,9 +560,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
     // Check that we are out of the inter-frame gap
-    asm volatile ("in %0, res[%1]"
-                  : "=r" (ifg_time)
-                  : "r" (ifg_tmr));
+    ifg_tmr when timerafter(ifg_time) :> ifg_time;
 
     tx_4b_word(p_mii_txd, 0x55555555, tx_port_4b_pins);
     tx_4b_word(p_mii_txd, 0xD5555555, tx_port_4b_pins);
@@ -662,9 +661,8 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
     // Check that we are out of the inter-frame gap
-    asm volatile ("in %0, res[%1]"
-                  : "=r" (ifg_time)
-                  : "r" (ifg_tmr));
+    ifg_tmr when timerafter(ifg_time) :> ifg_time;
+
 
     // Ensure first Tx is synchronised so they launch at the same time. We will continue filling the buffer until the end of packet.
     stop_clock(txclk);
@@ -738,7 +736,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state){
-    
+
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
 
@@ -801,19 +799,15 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         unsigned time;
         if(use_4b) {
             time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time);
+            ifg_time += RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_4b;
         } else {
             time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time);
+            ifg_time += RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_1b;
         }
 
         // Setup the hardware timer to enforce the IFG
-        ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
+
         ifg_time += (buf->length & 0x3) * 8;
-        asm volatile ("setd res[%0], %1"
-                        : // No dests
-                        : "r" (ifg_tmr), "r" (ifg_time));
-        asm volatile ("setc res[%0], " QUOTE(XS1_SETC_COND_AFTER)
-                        : // No dests
-                        : "r" (ifg_tmr));
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {
