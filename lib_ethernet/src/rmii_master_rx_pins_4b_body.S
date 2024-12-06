@@ -21,7 +21,7 @@ Dall_fives:
 
 .cc_top master_4x_pins_4b_body_asm.func, master_4x_pins_4b_body_asm
 
-#define STACK_WORDS                 8
+#define STACK_WORDS                 4
 
 #define EEBLE XS1_SR_EEBLE_MASK
 
@@ -69,24 +69,24 @@ master_4x_pins_4b_body_asm:
     std r4, r5, sp[0]   // Save r4 and r5
     std r6, r7, sp[1]   // Save r6 and r7
 
-    // receive preamble second half (32b data = 64b port bit)
+    // receive preamble second half (32b data = 64b port bits)
     {in PORT_LAST, res[RXD];    ldw CRC, cp[initial_crc]}
     
-    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 instuctions
+    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 instuctions at 75MHz
     {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
     ldw TMP1, cp[Dall_fives]            // Load expected second half of preamble
-    eeu res[RXDV]                       // Start setup for select  
+    eeu res[RXDV]                       // Start setup for select early
     eeu res[RXD]
 
     // Grab the second 32b port of the preamble second half
     in TMP2, res[RXD]
     unzip TMP2, PORT_LAST, 0x1
 
-    // swap results if use_lower set to zero
-    bt PINS, use_lower
-    move(TMP2, PORT_LAST)
+    // swap results if PINS set to zero (USE_LOWER)
+    bt PINS, use_upper
+    move(TMP2, PORT_LAST) // Swap upper/lower
 
-use_lower:
+use_upper:
     // Check received preamable against expected
     eq TMP1, TMP1, TMP2 // Check OK?
     bt TMP1, preamble_ok
@@ -106,7 +106,7 @@ preamble_ok:
 
     waiteu
 
-
+//// Select case /////
 data_valid_deasserted:
     {in TMP1, res[RXDV];    move(r1, IN_COUNTER)} // Complete the IN and start setting up returns
     // returns {dptr, in_counter, port_this, crc} so setup registers for this
@@ -119,12 +119,15 @@ data_valid_deasserted:
 
     retsp  STACK_WORDS
 
+//// Select case /////
 rx_data_received:
+    // We need to receive two 32b port buffers for each 32b data. So there are two phases to this select case 
     {in TMP2, res[RXD];     bf IN_COUNTER, first_short_word} // Grab the value and branch to the correct phase
     unzip TMP2, PORT_LAST, 1
-    bt PINS, lower_main
-    move(TMP2, PORT_LAST)
-lower_main:
+    bt PINS, upper_bit_main
+    move(TMP2, PORT_LAST) // Swap upper/lower
+
+upper_bit_main:
     // Just store and set the counter
     {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}
     {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // First load polynomial and toggle IN_COUTER
