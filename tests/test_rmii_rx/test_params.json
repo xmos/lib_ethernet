@@ -1,7 +1,26 @@
 
 {
     "PROFILES": [
-        {"phy":"rmii", "clk":"50MHz", "mac":"rt", "arch":["xs3"], "rx_width":["4b_lower", "4b_upper", "1b"]},
-        {"phy":"rmii", "clk":"50MHz", "mac":"rt_hp", "arch":["xs3"], "rx_width":["4b_lower", "4b_upper", "1b"]}
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"4b_lower"},
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_upper", "tx_width":"4b_lower"},
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"1b", "tx_width":"4b_lower"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"4b_lower"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"4b_upper", "tx_width":"4b_lower"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"1b", "tx_width":"4b_lower"},
+
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"4b_upper"},
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_upper", "tx_width":"4b_upper"},
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"1b", "tx_width":"4b_upper"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"4b_upper"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"4b_upper", "tx_width":"4b_upper"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"1b", "tx_width":"4b_upper"},
+
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"1b"},
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_upper", "tx_width":"1b"},
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"1b", "tx_width":"1b"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"1b"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"4b_upper", "tx_width":"1b"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "rx_width":"1b", "tx_width":"1b"}
+
         ]
 }

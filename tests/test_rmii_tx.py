@@ -40,7 +40,7 @@ def do_test(capfd, mac, arch, tx_width, clk, rx_phy):
         print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch {tx_width} tx_width at {clk.get_name()}")
     capfd.readouterr() # clear capfd buffer
 
-    profile = f'{mac}_{rx_phy.get_name()}_{tx_width}_{arch}'
+    profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
