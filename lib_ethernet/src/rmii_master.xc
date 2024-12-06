@@ -326,7 +326,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     MASTER_RX_CHUNK_HEAD
 
     // Ensure we have sufficiently sized buffer
-    assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a suffiently large Rx buffer");
+    assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
 
     // Receive first half of preamble
     sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
