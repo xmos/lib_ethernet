@@ -8,6 +8,7 @@
 #include <xclib.h>
 #include <hwtimer.h>
 #include "string.h"
+#include "xassert.h"
 #include "mii_buffering.h"
 #include "debug_print.h"
 #include "default_ethernet_conf.h"
@@ -28,6 +29,8 @@
 #ifndef MII_TX_TIMESTAMP_END_OF_PACKET
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
+
+#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue version of 4b Rx
 
 
 // Timing tuning constants
@@ -249,20 +252,20 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     }
 }
 
- {unsigned* unsafe, unsigned, unsigned, unsigned} extern master_4x_pins_4b_body_asm(unsigned * unsafe dptr,
-                                                                                in port p_mii_rxdv,
-                                                                                in buffered port:32 p_mii_rxd,
-                                                                                rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-                                                                                unsigned * unsafe timestamp);
+// Prototype for ASM version of this main body
+{unsigned* unsafe, unsigned, unsigned, unsigned} extern master_4x_pins_4b_body_asm( unsigned * unsafe dptr,
+                                                                                    in port p_mii_rxdv,
+                                                                                    in buffered port:32 p_mii_rxd,
+                                                                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                                                    unsigned * unsafe timestamp);
 
-
+// XC version of main body. Kept for readibility and reference for ASM version
 {unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
                                                                         rmii_data_4b_pin_assignment_t rx_port_4b_pins,
                                                                         unsigned * unsafe timestamp){
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
-    // unsigned word; // The converted data word, 4 data bytes and also used as temp
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
     unsigned crc = 0x9226F562;
@@ -280,12 +283,10 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     timer tmr;
     unsafe{ tmr :> *timestamp; }
 
-
     // Consume frame one long word at a time
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                // printchar('+');
                 return {dptr, in_counter, port_this, crc};
                 break;
 
@@ -309,7 +310,6 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 } 
 
                 in_counter ^= 1; // Efficient (++in_counter % 2)
-                // printchar('.');
                 break;
         } // select
     } // While(1)
@@ -325,15 +325,21 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     MASTER_RX_CHUNK_HEAD
 
+    // Ensure we have sufficiently sized buffer
+    assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a suffiently large Rx buffer");
+
     // Receive first half of preamble
     sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
 
     unsigned in_counter;
     unsigned port_this;
 
-    // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
+#if ETH_RX_4B_USE_ASM
     {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp);
-
+    (unsigned)tmr;          // These are here just to avoid compiler warnings when using ASM version
+#else
+    // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
+#endif
     // Note: we don't store the last word since it contains the CRC and
     // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
     // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16

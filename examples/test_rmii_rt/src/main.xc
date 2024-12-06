@@ -118,7 +118,7 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   for(int length = 64; length < 68; length++){
       printf("TX pre: %d\n", length);
       // printbytes((char*)data, length);
-      printwords_4b(data, (length + 3)/4);
+      // printwords_4b(data, (length + 3)/4);
       tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
       // printf("LP packet sent: %d bytes\n", length);
       t :> time;
