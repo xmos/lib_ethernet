@@ -15,7 +15,7 @@ from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from rmii_phy import RMiiTransmitter, RMiiReceiver
 
-args = SimpleNamespace( trace=True, # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
+args = SimpleNamespace( trace=False, # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
                         num_packets=100, # Number of packets in the test
                         weight_hp=50, # Weight of high priority traffic
                         weight_lp=25, # Weight of low priority traffic

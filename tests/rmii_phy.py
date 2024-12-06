@@ -6,7 +6,6 @@ import sys
 import zlib
 from mii_packet import MiiPacket
 import re
-from rmii_phy_new import PacketManager
 
 def get_port_width_from_name(port_name):
     """
@@ -121,6 +120,66 @@ class RMiiTxPhy(px.SimThread):
     def drive_error(self, value):
         self.xsi.drive_port_pins(self._rxer, value)
 
+class PacketManager():
+    def __init__(self, packets, data_type):
+        assert data_type in ['crumb', 'nibble']
+        self._data_type = data_type # 'nibble' or 'crumb'
+        self._pkts = packets
+        self._num_pkts = len(self._pkts)
+        self._pkt_ended = False # Flag indicating if the current packet has ended
+
+        # Set up to do the first packet
+        self._current_pkt_index = 0
+        self._pkt = self._pkts[self._current_pkt_index]
+        self._nibbles = self._pkt.get_nibbles() # list of nibbles in the current packet
+        self._error_nibbles = self._pkt.get_error_nibbles()
+        self._nibble_index = 0 # nibble we're indexing in the current packet
+        self._crumb_index = 0 # alternates between 0 and 1
+        self._ifg_wait_cycles = 0
+
+
+    def get_data(self):
+        if(self._current_pkt_index == self._num_pkts): # Finished all the packets
+            return None, False, False
+
+        if self._ifg_wait_cycles < self._pkt.inter_frame_gap_clock_cycles:
+            self._ifg_wait_cycles += 1
+            return None, False, True
+
+        self._pkt_ended = False
+        if self._nibble_index in self._error_nibbles:
+            error = True
+        else:
+            error = False
+
+        if self._data_type == 'nibble':
+            dataval = self._nibbles[self._nibble_index]
+            self._nibble_index = self._nibble_index + 1
+        else: # crumb
+            dataval = (self._nibbles[self._nibble_index] >> (self._crumb_index*2)) & 0x3
+            self._crumb_index = self._crumb_index ^ 1
+            if self._crumb_index == 0:
+                self._nibble_index = self._nibble_index + 1
+
+        if self._nibble_index == len(self._nibbles): # End of current packet. Set up for the next packet
+            self._pkt_ended = True
+            self._current_pkt_index = self._current_pkt_index + 1
+            if self._current_pkt_index < self._num_pkts:
+                self._pkt = self._pkts[self._current_pkt_index]
+                self._nibbles = self._pkt.get_nibbles()
+                self._error_nibbles = self._pkt.get_error_nibbles()
+                self._nibble_index = 0
+                self._crumb_index = 0
+                self._ifg_wait_cycles = 0
+
+        return dataval, error, False
+
+    def pkt_ended(self): # Return True if current packet has ended
+        return self._pkt_ended
+
+    def get_current_pkt_ifg(self):
+        return self._pkt.inter_frame_gap
+
 class RMiiTransmitter(RMiiTxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
@@ -133,79 +192,18 @@ class RMiiTransmitter(RMiiTxPhy):
                                              initial_delay, verbose, test_ctrl,
                                              do_timeout, complete_fn, expect_loopback,
                                              dut_exit_time)
-    """
+
     def run(self):
         xsi = self.xsi
-
-        self.start_test()
-
-        for i,packet in enumerate(self._packets):
-            #print(f"Packet {i}")
-            error_nibbles = packet.get_error_nibbles()
-
-            self.wait_until(xsi.get_time() + packet.inter_frame_gap)
-
-            if self._verbose:
-                print(f"Sending packet {i}: {packet}")
-                sys.stdout.write(packet.dump())
-
-            for (i, nibble) in enumerate(packet.get_nibbles()):
-                for j in range(2): # Drive 2 bits every high -> low clock edge. We have a nibble so run this loop twice
-                    crumb = (nibble >> (j*2)) & 0x3
-                    self.wait(lambda x: self._clock.is_low())
-                    xsi.drive_port_pins(self._rxdv, 1)
-                    #print(f"{self._rxd_port_width}, {self._rxd_4b_port_pin_assignment}, {self._rxd[0]}")
-                    #if j == 0:
-                    #    print(f"nibble = {nibble:x}")
-
-                    if self._rxd_port_width == 4:
-                        if self._rxd_4b_port_pin_assignment == "lower_2b":
-                            xsi.drive_port_pins(self._rxd[0], crumb)
-                            #print(f"crumb = {crumb:x}")
-                        else:
-                            xsi.drive_port_pins(self._rxd[0], (crumb << 2))
-                    else: # 2, 1bit ports
-                        xsi.drive_port_pins(self._rxd[0], crumb & 0x1)
-                        xsi.drive_port_pins(self._rxd[1], (crumb >> 1) & 0x1)
-
-                    # Signal an error if required
-                    if i in error_nibbles:
-                        xsi.drive_port_pins(self._rxer, 1)
-                    else:
-                        xsi.drive_port_pins(self._rxer, 0)
-
-                    self.wait(lambda x: self._clock.is_high())
-
-            self.wait(lambda x: self._clock.is_low())
-            xsi.drive_port_pins(self._rxdv, 0)
-            xsi.drive_port_pins(self._rxer, 0)
-
-            if self._verbose:
-                print("Sent")
-
-        self.end_test()
-
-
-    """
-    def run(self):
-        xsi = self.xsi
-        start_new_pkt = True
         pkt_manager = PacketManager(self._packets, "crumb") # read packet data at crumb granularity
         self.start_test()
 
         while True:
-            #if start_new_pkt:
-            #    ifg = pkt_manager.get_current_pkt_ifg()
-            #    self.wait_until(xsi.get_time() + ifg)
-            #    start_new_pkt = False
-
-
             self.wait(lambda x: self._clock.is_high())
 
             if pkt_manager.pkt_ended():
                 xsi.drive_port_pins(self._rxdv, 0)
                 xsi.drive_port_pins(self._rxer, 0)
-                start_new_pkt = True
 
 
             data, drive_error, ifg_wait = pkt_manager.get_data()
@@ -290,110 +288,7 @@ class RMiiRxPhy(px.SimThread):
         else:
             self.num_expected_packets = len(self.expected_packets)
 
-"""
-class RMiiReceiver(RMiiRxPhy):
 
-    def __init__(self, txd, txen, clock,
-                 txd_4b_port_pin_assignment="lower_2b",
-                 print_packets=False,
-                 packet_fn=None, verbose=False, test_ctrl=None):
-        super(RMiiReceiver, self).__init__('rmii', txd, txen, clock, txd_4b_port_pin_assignment,
-                                          print_packets,
-                                          packet_fn, verbose, test_ctrl)
-
-    def run(self):
-        xsi = self.xsi
-        self.wait(lambda x: xsi.sample_port_pins(self._txen) == 0)
-
-        # Need a random number generator for the MiiPacket constructor but it shouldn't
-        # have any affect as only blank packets are being created
-        rand = random.Random()
-
-        packet_count = 0
-        last_frame_end_time = None
-        while True:
-            # Wait for TXEN to go high
-            if self._test_ctrl is None:
-                self.wait(lambda x: xsi.sample_port_pins(self._txen) == 1)
-            else:
-                self.wait(lambda x: xsi.sample_port_pins(self._txen) == 1 or \
-                                    xsi.sample_port_pins(self._test_ctrl) == 1)
-
-                if (xsi.sample_port_pins(self._txen) == 0 and
-                      xsi.sample_port_pins(self._test_ctrl) == 1):
-                    xsi.terminate()
-
-            #print("START")
-            # Start with a blank packet to ensure they are filled in by the receiver
-            packet = MiiPacket(rand, blank=True)
-
-            frame_start_time = self.xsi.get_time()
-            in_preamble = True
-            start = True
-
-            if last_frame_end_time:
-                ifgap = frame_start_time - last_frame_end_time
-                packet.inter_frame_gap = ifgap
-
-            self.wait(lambda x: self._clock.is_low()) # Wait for clock to go low so we can start sampling at the next rising edge
-
-            while True:
-                done = 0
-                nibble = 0
-                for j in range(2):
-                    # Wait for a falling clock edge or enable low
-                    self.wait(lambda x: self._clock.is_high() or \
-                                    xsi.sample_port_pins(self._txen) == 0)
-                    if start:
-                        #print(f"Frame start = {self.xsi.get_time()/1e6} ns")
-                        start = False
-
-                    if xsi.sample_port_pins(self._txen) == 0:
-                        last_frame_end_time = self.xsi.get_time()
-                        #print(f"Frame end = {last_frame_end_time/1e6} ns")
-                        assert j == 0
-                        done = 1
-                        break
-
-                    if self._txd_port_width == 4:
-                        if self._txd_4b_port_pin_assignment == "lower_2b":
-                            crumb = xsi.sample_port_pins(self._txd[0]) & 0x3
-                            #print(f"crumb = {crumb}")
-                        else:
-                            crumb = (xsi.sample_port_pins(self._txd[0]) >> 2) & 0x3
-                    else: # 2, 1bit ports
-                        cr0 = xsi.sample_port_pins(self._txd[0]) & 0x1
-                        cr1 = xsi.sample_port_pins(self._txd[1]) & 0x1
-                        crumb = (cr1 << 1) | cr0
-                    nibble = nibble | (crumb << (j*2))
-
-                    if j == 1:
-                        #print(f"nibble = {nibble:x}")
-                        if in_preamble:
-                            if nibble == 0xd:
-                                packet.set_sfd_nibble(nibble)
-                                in_preamble = False
-                            else:
-                                packet.append_preamble_nibble(nibble)
-                        else:
-                            packet.append_data_nibble(nibble)
-
-                    self.wait(lambda x: self._clock.is_low())
-                if done:
-                    break
-
-            #print("DONE")
-            packet.complete()
-
-            if self._print_packets:
-                sys.stdout.write(packet.dump())
-
-            if self._packet_fn:
-                self._packet_fn(packet, self)
-
-            # Perform packet checks
-            packet.check(self._clock)
-"""
 class RMiiReceiver(RMiiRxPhy):
 
     def __init__(self, txd, txen, clock,
