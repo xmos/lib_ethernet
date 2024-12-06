@@ -10,7 +10,7 @@
 
 
 #define ETHERNET_ALL_INTERFACES  (-1)
-#define ETHERNET_MAX_PACKET_SIZE (1518)
+#define ETHERNET_MAX_PACKET_SIZE (1518) /**< MAX packet size in bytes */
 
 #define MACADDR_NUM_BYTES 6
 
