@@ -13,11 +13,12 @@ from helpers import generate_tests
 from mii_clock import Clock
 from rmii_phy import RMiiTransmitter
 from helpers import get_sim_args
-from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_4b_port_rx_phy, get_rmii_1b_port_tx_phy
+from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
+from helpers import get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
 from helpers import check_received_packet
 
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width, tx_width):
     rand = random.Random()
     rand.seed(seed)
 
@@ -52,7 +53,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width):
             inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 74, mac)
           ))
 
-    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width)
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width, tx_width=tx_width)
 
 
 test_params_file = Path(__file__).parent / "test_rmii_rx/test_params.json"
@@ -87,12 +88,25 @@ def test_rx(capfd, seed, params):
                                     verbose=verbose,
                                     )
     # Hardcode rx_phy to receive on 4B lower_2b port. TODO
-    rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                    "lower_2b",
-                                    packet_fn=check_received_packet,
-                                    verbose=verbose,
-                                    )
 
-    do_test(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, params['rx_width'])
+    if params['tx_width'] == "4b_lower":
+        rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                        "lower_2b",
+                                        packet_fn=check_received_packet,
+                                        verbose=verbose,
+                                        )
+    elif params['tx_width'] == "4b_upper":
+        rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                        "upper_2b",
+                                        packet_fn=check_received_packet,
+                                        verbose=verbose,
+                                        )
+    elif params['tx_width'] == "1b":
+        rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                        packet_fn=check_received_packet,
+                                        verbose=verbose,
+                                        )
+
+    do_test(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, params['rx_width'], params['tx_width'])
 
 

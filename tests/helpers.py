@@ -116,7 +116,7 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
 
 
 def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
-               extra_tasks=[], override_dut_dir=False, rx_width=None):
+               extra_tasks=[], override_dut_dir=False, rx_width=None, tx_width=None):
 
     """ Shared test code for all RX tests using the test_rx application.
     """
@@ -126,10 +126,13 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
         print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
+    profile = f'{mac}_{tx_phy.get_name()}'
     if rx_width:
-        profile = f'{mac}_{tx_phy.get_name()}_{rx_width}_{arch}'
-    else:
-        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        profile = profile + f"_rx{rx_width}"
+    if tx_width:
+        profile = profile + f"_tx{tx_width}"
+    profile = profile + f"_{arch}"
+
     dut_dir = override_dut_dir if override_dut_dir else testname
     binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
     assert os.path.isfile(binary), f"Missing .xe {binary}"
@@ -271,40 +274,22 @@ def generate_tests(test_params_json):
         test_config_list = []
         test_config_ids = []
         for profile in params['PROFILES']:
-            base_profile = {key: value for key,value in profile.items() if (key != 'arch' and key != 'tx_width'  and key != 'rx_width')} # copy everything but 'arch'
+            base_profile = {key: value for key,value in profile.items() if key != 'arch'} # copy everything but 'arch'
             if isinstance(profile['arch'], str):
                 profile['arch'] = [profile['arch']]
-            if 'tx_width' in profile:
-                if isinstance(profile['tx_width'], str):
-                    profile['tx_width'] = [profile['tx_width']]
-            if 'rx_width' in profile:
-                if isinstance(profile['rx_width'], str):
-                    profile['rx_width'] = [profile['rx_width']]
-
 
             for a in profile['arch']: # Add a test case per architecture
-                if 'tx_width' in profile:
-                    for tw in profile['tx_width']:
-                        test_profile = copy.deepcopy(base_profile)
-                        test_profile['arch'] = a
-                        test_profile['tx_width'] = tw
-                        id = '-'.join([v for v in test_profile.values()])
-                        test_config_ids.append(id)
-                        test_config_list.append(test_profile)
-                elif 'rx_width' in profile:
-                    for tw in profile['rx_width']:
-                        test_profile = copy.deepcopy(base_profile)
-                        test_profile['arch'] = a
-                        test_profile['rx_width'] = tw
-                        id = '-'.join([v for v in test_profile.values()])
-                        test_config_ids.append(id)
-                        test_config_list.append(test_profile)
-                else:
-                    test_profile = copy.deepcopy(base_profile)
-                    test_profile['arch'] = a
-                    id = '-'.join([v for v in test_profile.values()])
-                    test_config_ids.append(id)
-                    test_config_list.append(test_profile)
+                test_profile = copy.deepcopy(base_profile)
+                test_profile['arch'] = a
+                test_profile_id = copy.deepcopy(test_profile)
+                # For id, append tx and rx to the relevant widths so its easier to know which is which if both are present
+                if 'tx_width' in test_profile_id:
+                    test_profile_id['tx_width'] = f"tx{test_profile_id['tx_width']}"
+                if 'rx_width' in test_profile_id:
+                    test_profile_id['rx_width'] = f"rx{test_profile_id['rx_width']}"
+                id = '-'.join([v for v in test_profile_id.values()])
+                test_config_ids.append(id)
+                test_config_list.append(test_profile)
 
     return test_config_list, test_config_ids
 
