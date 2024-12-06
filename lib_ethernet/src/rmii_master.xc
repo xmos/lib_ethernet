@@ -14,6 +14,7 @@
 #include "default_ethernet_conf.h"
 #include "mii_common_lld.h"
 #include "string.h"
+#include "check_ifg_wait.h"
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -546,7 +547,9 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
                                     rmii_data_4b_pin_assignment_t tx_port_4b_pins,
-                                    hwtimer_t ifg_tmr, unsigned &ifg_time)
+                                    hwtimer_t ifg_tmr,
+                                    unsigned &ifg_time,
+                                    unsigned last_frame_end_time)
 {
     unsigned time;
     register const unsigned poly = 0xEDB88320;
@@ -560,7 +563,13 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
     // Check that we are out of the inter-frame gap
-    ifg_tmr when timerafter(ifg_time) :> ifg_time;
+    unsigned now;
+    ifg_tmr :> now;
+    unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
+    if(wait)
+    {
+        ifg_tmr when timerafter(ifg_time) :> ifg_time;
+    }
 
     tx_4b_word(p_mii_txd, 0x55555555, tx_port_4b_pins);
     tx_4b_word(p_mii_txd, 0xD5555555, tx_port_4b_pins);
@@ -647,7 +656,9 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
                                     out buffered port:32 p_mii_txd_0,
                                     out buffered port:32 p_mii_txd_1,
                                     clock txclk,
-                                    hwtimer_t ifg_tmr, unsigned &ifg_time)
+                                    hwtimer_t ifg_tmr,
+                                    unsigned &ifg_time,
+                                    unsigned last_frame_end_time)
 {
     unsigned time;
     register const unsigned poly = 0xEDB88320;
@@ -661,8 +672,13 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     wrap_ptr = mii_get_wrap_ptr(tx_mem);
 
     // Check that we are out of the inter-frame gap
-    ifg_tmr when timerafter(ifg_time) :> ifg_time;
-
+    unsigned now;
+    ifg_tmr :> now;
+    unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
+    if(wait)
+    {
+        ifg_tmr when timerafter(ifg_time) :> ifg_time;
+    }
 
     // Ensure first Tx is synchronised so they launch at the same time. We will continue filling the buffer until the end of packet.
     stop_clock(txclk);
@@ -746,7 +762,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     timer credit_tmr;
     // And a second timer to be enforcing the IFG gap
     hwtimer_t ifg_tmr;
-    unsigned ifg_time;
+    unsigned ifg_time = 0;
+    unsigned eof_time = 0;
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
@@ -798,10 +815,12 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
         unsigned time;
         if(use_4b) {
-            time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time);
+            time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time, eof_time);
+            eof_time = ifg_time;
             ifg_time += RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_4b;
         } else {
-            time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time);
+            time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
+            eof_time = ifg_time;
             ifg_time += RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_1b;
         }
 
