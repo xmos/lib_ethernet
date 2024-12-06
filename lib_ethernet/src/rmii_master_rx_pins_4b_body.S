@@ -129,14 +129,14 @@ rx_data_received:
 
 upper_bit_main:
     // Just store and set the counter
-    {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}
+    {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}            // The increment will happen after the store
     {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // First load polynomial and toggle IN_COUTER
     crc32 CRC, TMP2, TMP1                               // Do CRC. 
 
     waiteu
 
 first_short_word:
-    // Store for next time around
+    // Store for next time around when we will re-construct the data word
     {move(PORT_LAST, TMP2) ;ldc IN_COUNTER, 0x1}
 
     waiteu
