@@ -20,14 +20,103 @@
 
 #include <stdio.h>
 
+#if ETHERNET_SUPPORT_HP_QUEUES
+
+typedef interface loopback_if {
+  [[notification]] slave void packet_ready();
+  [[clears_notification]] void get_packet(unsigned &len, uintptr_t &buf);
+} loopback_if;
+
+void test_rx_loopback(streaming chanend c_tx_hp,
+                      client loopback_if i_loopback)
+{
+  set_core_fast_mode_on();
+
+  unsafe {
+    while (1) {
+      unsigned len;
+      uintptr_t buf;
+
+      select {
+      case i_loopback.packet_ready():
+        i_loopback.get_packet(len, buf);
+        break;
+      }
+      ethernet_send_hp_packet(c_tx_hp, (char *)buf, len, ETHERNET_ALL_INTERFACES);
+    }
+  }
+}
+
+#define NUM_BUF 8
+
+void test_rx(client ethernet_cfg_if cfg,
+             streaming chanend c_rx_hp,
+             server loopback_if i_loopback,
+             client control_if ctrl)
+{
+  set_core_fast_mode_on();
+
+  ethernet_macaddr_filter_t macaddr_filter;
+
+  macaddr_filter.appdata = 0;
+  for (int i = 0; i < 6; i++)
+    macaddr_filter.addr[i] = i;
+  cfg.add_macaddr_filter(0, 1, macaddr_filter);
+
+  // Add the broadcast MAC address
+  memset(macaddr_filter.addr, 0xff, 6);
+  cfg.add_macaddr_filter(0, 1, macaddr_filter);
+
+  unsigned char rxbuf[NUM_BUF][ETHERNET_MAX_PACKET_SIZE];
+  unsigned rxlen[NUM_BUF];
+  unsigned wr_index = 0;
+  unsigned rd_index = 0;
+
+  int done = 0;
+  while (!done) {
+    ethernet_packet_info_t packet_info;
+
+    #pragma ordered
+    select {
+    case ethernet_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info):
+      rxlen[wr_index] = packet_info.len;
+      wr_index = (wr_index + 1) % NUM_BUF;
+      if (wr_index == rd_index) {
+        debug_printf("test_rx ran out of buffers\n");
+        _exit(1);
+      }
+      i_loopback.packet_ready();
+      break;
+
+    case i_loopback.get_packet(unsigned &len, uintptr_t &buf): {
+      len = rxlen[rd_index];
+      buf = (uintptr_t)&rxbuf[rd_index];
+      rd_index = (rd_index + 1) % NUM_BUF;
+
+      if (rd_index != wr_index)
+        i_loopback.packet_ready();
+      break;
+    }
+
+    case ctrl.status_changed():
+      status_t status;
+      ctrl.get_status(status);
+      if (status == STATUS_DONE)
+        done = 1;
+      break;
+    }
+  }
+  ctrl.set_done();
+}
+
+#else
+
 void test_rx(client ethernet_cfg_if cfg,
              client ethernet_rx_if rx,
              client ethernet_tx_if tx,
              client control_if ctrl)
 {
   set_core_fast_mode_on();
-  timer t;
-  int time;
 
   ethernet_macaddr_filter_t macaddr_filter;
 
@@ -64,6 +153,8 @@ void test_rx(client ethernet_cfg_if cfg,
   ctrl.set_done();
 }
 
+#endif
+
 int main()
 {
     ethernet_cfg_if i_cfg[NUM_CFG_IF];
@@ -72,6 +163,7 @@ int main()
     control_if i_ctrl[NUM_CFG_IF];
 
 #if ETHERNET_SUPPORT_HP_QUEUES
+    loopback_if i_loopback;
     streaming chan c_rx_hp;
     streaming chan c_tx_hp;
 #else
@@ -91,8 +183,13 @@ int main()
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);}
 
+        filler(0x1111);
+#if ETHERNET_SUPPORT_HP_QUEUES
+        test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
+        test_rx_loopback(c_tx_hp, i_loopback);
+#else
         test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
-
+#endif
         control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
     }
 

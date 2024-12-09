@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "ethernet.h"
 #include "ports_rmii.h"
+#include "helpers.xc"
 
 struct test_packet { int len; int step; int tagged; }
 test_packets[] =
@@ -91,6 +92,9 @@ int main()
                                     p_eth_txen, &p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    filler(0x1111);
+    filler(0x2222);
+    filler(0x3333);
 #if ETHERNET_SUPPORT_HP_QUEUES
       test_tx(i_tx_lp[0], c_tx_hp);
 #else
