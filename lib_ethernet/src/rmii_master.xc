@@ -407,17 +407,20 @@ static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
 
 
 // Brining this out to an inline while(1) select improves performance as compiler can hoist select setup
-{unsigned* unsafe, unsigned}  master_rx_pins_1b_body(   unsigned * unsafe dptr,
-                                                        in port p_mii_rxdv,
-                                                        in buffered port:32 p_mii_rxd_0,
-                                                        in buffered port:32 p_mii_rxd_1,
-                                                        unsigned * unsafe timestamp,
-                                                        unsigned * unsafe wrap_ptr,
-                                                        unsigned * unsafe end_ptr
-                                                        ){
+{unsigned* unsafe, unsigned, unsigned}  master_rx_pins_1b_body( unsigned * unsafe dptr,
+                                                                in port p_mii_rxdv,
+                                                                in buffered port:32 p_mii_rxd_0,
+                                                                in buffered port:32 p_mii_rxd_1,
+                                                                unsigned * unsafe timestamp,
+                                                                unsigned * unsafe wrap_ptr,
+                                                                unsigned * unsafe end_ptr
+                                                                ){
 unsafe{
     unsigned crc = 0x9226F562;
     const unsigned poly = 0xEDB88320;
+    /* Discount the CRC word */
+    int num_rx_bytes = -4;
+
 
     unsigned sfd_preamble;
 
@@ -443,7 +446,7 @@ unsafe{
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                 return {dptr, crc};
+                 return {dptr, crc, num_rx_bytes};
                  break;
 
             case p_mii_rxd_0 :> word:
@@ -459,6 +462,7 @@ unsafe{
                 if (dptr != end_ptr) {
                     *dptr = word;
                     dptr++;
+                    num_rx_bytes += 4;
                     /* The wrap pointer contains the address of the start of the buffer */
                     if (dptr == wrap_ptr)
                         dptr = (unsigned * unsafe) *dptr;
@@ -471,7 +475,7 @@ unsafe{
         }
     }
     // Unreachable but keep compiler happy
-    return {NULL, 0};
+    return {NULL, 0, 0};
 }
 } // unsafe
 
@@ -495,8 +499,6 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     p_mii_rxdv when pinseq(0) :> int lo;
 
     while (1) {
-        /* Discount the CRC word */
-        int num_rx_bytes = -4;
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
@@ -511,9 +513,8 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         // Receive first half of preamble and discard
         rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
 
-        {dptr, crc} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
-
-        num_rx_bytes += (unsigned)dptr - (unsigned)&buf->data[0];
+        int num_rx_bytes;
+        {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
 
         // This tells us how many bits left in the port shift register and moves the shift register contents
         // to the trafsnfer register. The number of bits will both will be the same so discard one.
