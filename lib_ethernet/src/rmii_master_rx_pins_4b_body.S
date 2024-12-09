@@ -19,7 +19,7 @@ Dall_fives:
 
 
 
-.cc_top master_4x_pins_4b_body_asm.func, master_4x_pins_4b_body_asm
+.cc_top master_rx_pins_4b_body_asm.func, master_rx_pins_4b_body_asm
 
 #define STACK_WORDS                 4
 
@@ -45,25 +45,25 @@ Dall_fives:
 //                                                                      rmii_data_4b_pin_assignment_t rx_port_4b_pins,
 //                                                                      unsigned * unsafe timestamp){
 
-.globl master_4x_pins_4b_body_asm.nstackwords
-.globl master_4x_pins_4b_body_asm.maxthreads
-.globl master_4x_pins_4b_body_asm.maxtimers
-.globl master_4x_pins_4b_body_asm.maxchanends
-.globl master_4x_pins_4b_body_asm.maxsync
-.type  master_4x_pins_4b_body_asm, @function
-.linkset master_4x_pins_4b_body_asm.locnoside, 0
-.linkset master_4x_pins_4b_body_asm.nstackwords, STACK_WORDS
-.linkset master_4x_pins_4b_body_asm.maxchanends, 0
-.linkset master_4x_pins_4b_body_asm.maxtimers, 0
-.linkset master_4x_pins_4b_body_asm.maxthreads, 0
-.linkset master_4x_pins_4b_body_asm.maxsync, 0
+.globl master_rx_pins_4b_body_asm.nstackwords
+.globl master_rx_pins_4b_body_asm.maxthreads
+.globl master_rx_pins_4b_body_asm.maxtimers
+.globl master_rx_pins_4b_body_asm.maxchanends
+.globl master_rx_pins_4b_body_asm.maxsync
+.type  master_rx_pins_4b_body_asm, @function
+.linkset master_rx_pins_4b_body_asm.locnoside, 0
+.linkset master_rx_pins_4b_body_asm.nstackwords, STACK_WORDS
+.linkset master_rx_pins_4b_body_asm.maxchanends, 0
+.linkset master_rx_pins_4b_body_asm.maxtimers, 0
+.linkset master_rx_pins_4b_body_asm.maxthreads, 0
+.linkset master_rx_pins_4b_body_asm.maxsync, 0
 
-.globl master_4x_pins_4b_body_asm
+.globl master_rx_pins_4b_body_asm
 
 
     .align 8
     .issue_mode dual
-master_4x_pins_4b_body_asm:
+master_rx_pins_4b_body_asm:
     DUALENTSP_lu6 STACK_WORDS
 
     std r4, r5, sp[0]   // Save r4 and r5
@@ -141,4 +141,4 @@ first_short_word:
 
     waiteu
 
-.cc_bottom master_4x_pins_4b_body_asm.func
+.cc_bottom master_rx_pins_4b_body_asm.func
