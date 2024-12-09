@@ -418,21 +418,18 @@ static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
 unsafe{
     unsigned crc = 0x9226F562;
     const unsigned poly = 0xEDB88320;
-    /* Discount the CRC word */
+    // Discount the CRC word
     int num_rx_bytes = -4;
 
-
-    unsigned sfd_preamble;
-
     // Receive second half of preamble and check
-    sfd_preamble = rx_1b_word(p_mii_rxd_0, p_mii_rxd_1);
-
-    if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
-        /* Corrupt the CRC so that the packet is discarded */
+    unsigned sfd_preamble = rx_1b_word(p_mii_rxd_0, p_mii_rxd_1);
+    const unsigned expected_preamble = 0xD5555555;
+    if (sfd_preamble != expected_preamble) {
+        // Corrupt the CRC so that the packet is discarded
         crc = ~crc;
     }
 
-    /* Timestamp the start of packet and record it in the packet structure */
+    // Timestamp the start of packet and record it in the packet structure
     timer tmr;
     tmr :> *timestamp;
 
@@ -513,11 +510,12 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         // Receive first half of preamble and discard
         rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
 
+        // Receive body of frame. This is in a separate function to allow more efficient select.
         int num_rx_bytes;
         {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
 
         // This tells us how many bits left in the port shift register and moves the shift register contents
-        // to the trafsnfer register. The number of bits will both will be the same so discard one.
+        // to the trafsnfer register. The number of bits will both be the same (ports are synched) so discard one.
         // Bits will either be 4, 8 or 12 (x2 as two ports) representing a tail of 1, 2 or 3 bytes
         unsigned remaining_bits_in_port = endin(*p_mii_rxd_0);
         endin(*p_mii_rxd_1);
@@ -525,8 +523,8 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         if(remaining_bits_in_port > 0){
             unsigned word, word2;
             // Grab the transfer registers
-            PORT_IN(*p_mii_rxd_0, word); // Saves one instruction.
-            PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction.
+            PORT_IN(*p_mii_rxd_0, word); // Saves one instruction over :>
+            PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction over :>
 
             uint64_t combined = zip(word2, word, 0);
             word = (uint32_t)(combined >> 32);
@@ -542,7 +540,6 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         // TODO this is needed to prevent the next preamble read take in junk. Why??
         clearbuf(*p_mii_rxd_0);
         clearbuf(*p_mii_rxd_1);
-
 
         buf->length = num_rx_bytes;
         buf->crc = crc;
