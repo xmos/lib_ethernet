@@ -43,7 +43,8 @@ Dall_fives:
 //                                                                      in port p_mii_rxdv,
 //                                                                      in buffered port:32 p_mii_rxd,
 //                                                                      rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-//                                                                      unsigned * unsafe timestamp){
+//                                                                      unsigned * unsafe timestamp,
+//                                                                      unsigned * unsafe wrap_ptr){
 
 .globl master_4x_pins_4b_body_asm.nstackwords
 .globl master_4x_pins_4b_body_asm.maxthreads
@@ -131,13 +132,21 @@ upper_bit_main:
     // Just store and set the counter
     {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}            // The increment will happen after the store
     {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // First load polynomial and toggle IN_COUTER
-    crc32 CRC, TMP2, TMP1                               // Do CRC. 
+    crc32 CRC, TMP2, TMP1                               // Do CRC.
+    nop
+    nop
 
     waiteu
 
 first_short_word:
     // Store for next time around when we will re-construct the data word
     {move(PORT_LAST, TMP2) ;ldc IN_COUNTER, 0x1}
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
 
     waiteu
 

@@ -31,7 +31,7 @@
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue version of 4b Rx
+#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
 
 
 // Timing tuning constants
@@ -259,14 +259,16 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                                                                                     in port p_mii_rxdv,
                                                                                     in buffered port:32 p_mii_rxd,
                                                                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-                                                                                    unsigned * unsafe timestamp);
+                                                                                    unsigned * unsafe timestamp,
+                                                                                    unsigned * unsafe wrap_ptr);
 
 // XC version of main body. Kept for readibility and reference for ASM version
 {unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
                                                                         rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-                                                                        unsigned * unsafe timestamp){
+                                                                        unsigned * unsafe timestamp,
+                                                                        unsigned * unsafe wrap_ptr){
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
@@ -325,6 +327,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins){
 
+
     MASTER_RX_CHUNK_HEAD
 
     // Ensure we have sufficiently sized buffer
@@ -337,10 +340,10 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     unsigned port_this;
 
 #if ETH_RX_4B_USE_ASM
-    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp);
+    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp, wrap_ptr);
     (unsigned)tmr;          // These are here just to avoid compiler warnings when using ASM version
 #else
-    // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
+    // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp, wrap_ptr);
 #endif
     // Note: we don't store the last word since it contains the CRC and
     // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
