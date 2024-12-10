@@ -110,7 +110,44 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
 
         else:
             assert 0, f"Invalid params: {params}"
+    elif params["phy"] == "rmii":
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        if params['rx_width'] == "4b_lower":
+            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                        clk,
+                                        "lower_2b",
+                                        verbose=verbose,
+                                        )
+        elif params['rx_width'] == "4b_upper":
+            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                        clk,
+                                        "upper_2b",
+                                        verbose=verbose,
+                                        )
+        elif params['rx_width'] == "1b":
+            tx_rmii_phy = get_rmii_1b_port_tx_phy(
+                                        clk,
+                                        verbose=verbose,
+                                        )
 
+        if params['tx_width'] == "4b_lower":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                            "lower_2b",
+                                            packet_fn=check_received_packet,
+                                            verbose=verbose,
+                                            )
+        elif params['tx_width'] == "4b_upper":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                            "upper_2b",
+                                            packet_fn=check_received_packet,
+                                            verbose=verbose,
+                                            )
+        elif params['tx_width'] == "1b":
+            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                            packet_fn=check_received_packet,
+                                            verbose=verbose,
+                                            )
+        test_fn(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, params['rx_width'], params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"
 

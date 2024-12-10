@@ -89,7 +89,6 @@ def test_rx(capfd, seed, params):
                                     clk,
                                     verbose=verbose,
                                     )
-    # Hardcode rx_phy to receive on 4B lower_2b port. TODO
 
     if params['tx_width'] == "4b_lower":
         rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
