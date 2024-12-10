@@ -5,7 +5,11 @@
 #include "ethernet.h"
 #include "helpers.xc"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+#endif
 
 #define NUM_PACKET_LENGTHS 64
 
@@ -113,7 +117,7 @@ int main()
     on tile[0]: test_tx(i_tx_lp[0], null);
     #endif
 
-    #else // RGMII
+    #elif MII // RGMII
 
     #if RT
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
@@ -152,6 +156,27 @@ int main()
     on tile[0]: test_tx(i_tx_lp[0], null);
 
     #endif // RT
+
+    #elif RMII
+    unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
+                            i_rx_lp, 1,
+                            i_tx_lp, 1,
+                            c_rx_hp, c_tx_hp,
+                            p_eth_clk,
+                            &p_eth_rxd, p_eth_rxdv,
+                            p_eth_txen, &p_eth_txd,
+                            eth_rxclk, eth_txclk,
+                            4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    filler(0x1111);
+    filler(0x2222);
+    filler(0x3333);
+
+    #if ETHERNET_SUPPORT_HP_QUEUES
+    test_tx(i_tx_lp[0], c_tx_hp);
+    #else
+    test_tx(i_tx_lp[0], null);
+    #endif
+
     #endif // RGMII
 
   }

@@ -38,22 +38,35 @@ def packet_checker(packet, phy):
             # Only print one error per packet
             break
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
     testname = 'test_tx'
 
-    with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
-    capfd.readouterr() # clear capfd buffer
+    if tx_width:
+        profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {tx_width} tx_width, {arch} arch at {rx_clk.get_name()}")
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch at {rx_clk.get_name()}")
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
+
+    capfd.readouterr() # clear capfd buffer
 
     tester = px.testers.ComparisonTester(open(f'{testname}.expect'))
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
+
+    simthreads = [rx_clk, rx_phy]
+    if tx_clk != None:
+        simthreads.append(tx_clk)
+    if tx_phy != None:
+        simthreads.append(tx_phy)
+
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
+                                    simthreads=simthreads,
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
@@ -61,27 +74,6 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     assert result is True, f"{result}"
 
-def do_test_rmii(capfd, mac, arch, tx_width, clk, rx_phy):
-    testname = "test_tx"
-    with capfd.disabled():
-        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch {tx_width} tx_width at {clk.get_name()}")
-    capfd.readouterr() # clear capfd buffer
-
-    profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
-    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
-    assert os.path.isfile(binary)
-
-    tester = px.testers.ComparisonTester(open(f'{testname}.expect'))
-
-    simargs = get_sim_args(testname, mac, clk, rx_phy, arch=arch)
-    result = px.run_on_simulator_(  binary,
-                                    simthreads=[clk, rx_phy],
-                                    tester=tester,
-                                    simargs=simargs,
-                                    do_xe_prebuild=False,
-                                    capfd=capfd
-                                    )
-    assert result is True, f"{result}"
 
 test_params_file = Path(__file__).parent / "test_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
@@ -132,6 +124,6 @@ def test_tx(capfd, params):
                                                 test_ctrl=test_ctrl)
         else:
             assert False, f"Invalid tx_width {params['tx_width']}"
-        do_test_rmii(capfd, params["mac"], params["arch"], params['tx_width'], clk, rx_rmii_phy)
+        do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"

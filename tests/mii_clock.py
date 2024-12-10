@@ -17,7 +17,7 @@ class Clock(px.SimThread):
         self._clk = clk
         sim_clock_rate = px.Xsi.get_xsi_tick_freq_hz() # xsim uses femotseconds
         if clk == self.CLK_125MHz:
-            self._period = float(sim_clock_rate) / 125e6
+            self._period = float(sim_clock_rate) / 125e6 # xsi ticks per clock cycle
             self._name = '125Mhz'
             # 8 bits per clock period at 125MHz = 1000 Mbps. bit time = 1/1000Mbps = 1e-9 (or 1ns) seconds per bit
             self._clock_cycle_to_bit_time_ratio = 8 # 1 clock cycle is 8 times a bit time

@@ -11,6 +11,7 @@ from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
 from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_mii_tx_clk_phy, get_rgmii_rx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
 from helpers import generate_tests
 
 
@@ -38,7 +39,7 @@ def packet_checker(packet, phy):
     phy.num_bytes += num_packet_bytes
 
     time_delta = time_now - phy.start_time
-    mega_bits_per_second = (phy.num_bytes * 8.0) / time_delta * 1000
+    mega_bits_per_second = ((phy.num_bytes * 8.0) * px.Xsi.get_xsi_tick_freq_hz()) / (time_delta * 1e6)
 
     if phy.num_packets > 1:
         efficiency = ((((phy.num_bytes * 8) + ((phy.num_packets - 1) * 96)) * bit_time) / time_delta) * 100
@@ -52,36 +53,48 @@ def packet_checker(packet, phy):
         phy.xsi.terminate()
 
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
     start_test(rx_phy)
 
     testname = 'test_time_tx'
+    expect_folder = create_if_needed("expect_temp")
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if tx_width:
+        profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {tx_width} tx_width at {rx_clk.get_name()} for {arch} arch")
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{rx_phy.get_name()}_{tx_width}_{rx_clk.get_name()}_{arch}.expect'
+    else:
+        profile = f'{mac}_{rx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()} for {arch} arch")
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{rx_phy.get_name()}_{rx_clk.get_name()}_{arch}.expect'
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    with capfd.disabled():
-        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()} for {arch} arch")
-
-    expect_folder = create_if_needed("expect_temp")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{rx_phy.get_name()}_{rx_clk.get_name()}_{arch}.expect'
     create_expect(expect_filename)
-
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
-
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
 
+    simthreads = [rx_clk, rx_phy]
+    if tx_clk != None:
+        simthreads.append(tx_clk)
+    if tx_phy != None:
+        simthreads.append(tx_phy)
+
+    capfd.readouterr() # clear capfd buffer
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
-                                    # tester=mytester(packets),
+                                    simthreads=simthreads,
                                     tester=tester,
                                     simargs=simargs,
                                     capfd=capfd,
                                     do_xe_prebuild=False)
 
     assert result is True, f"{result}"
+
+
 
 
 def create_expect(filename):
@@ -116,5 +129,27 @@ def test_time_tx(capfd, params):
         else:
             assert 0, f"Invalid params: {params}"
 
+    elif params["phy"] == "rmii":
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        if params['tx_width'] == "4b_lower":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                        "lower_2b",
+                                        packet_fn=packet_checker,
+                                        verbose=verbose
+                                        )
+        elif params['tx_width'] == "4b_upper":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                "upper_2b",
+                                packet_fn=packet_checker,
+                                verbose=verbose
+                                )
+        elif params['tx_width'] == "1b":
+            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                                packet_fn=packet_checker,
+                                                verbose=verbose)
+        else:
+            assert False, f"Invalid tx_width {params['tx_width']}"
+
+        do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"

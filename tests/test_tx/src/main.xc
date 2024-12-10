@@ -121,7 +121,7 @@ int main()
       #endif
     }
 
-    #elif defined MII
+    #elif MII
 
     #if RT
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
@@ -160,7 +160,7 @@ int main()
     on tile[0]: test_tx(i_tx_lp[0], null);
 
     #endif // RT
-    #elif defined RMII
+    #elif RMII
     unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
                             i_rx_lp, 1,
                             i_tx_lp, 1,
