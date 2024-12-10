@@ -31,7 +31,7 @@
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
+#define ETH_RX_4B_USE_ASM    0 // Use fast dual-issue ASM version of 4b Rx
 
 
 // Timing tuning constants
@@ -203,20 +203,24 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 // Prototype for ASM version of this main body
-{unsigned* unsafe, unsigned, unsigned, unsigned} extern master_rx_pins_4b_body_asm( unsigned * unsafe dptr,
-                                                                                    in port p_mii_rxdv,
-                                                                                    in buffered port:32 p_mii_rxd,
-                                                                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-                                                                                    unsigned * unsafe timestamp,
-                                                                                    unsigned * unsafe wrap_ptr);
-
-// XC version of main body. Kept for readibility and reference for ASM version
-{unsigned* unsafe, unsigned, unsigned, unsigned} master_rx_pins_4b_body(unsigned * unsafe dptr,
+{int, unsigned, unsigned, unsigned} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
                                                                         rmii_data_4b_pin_assignment_t rx_port_4b_pins,
                                                                         unsigned * unsafe timestamp,
-                                                                        unsigned * unsafe wrap_ptr){
+                                                                        unsigned * unsafe wrap_ptr,
+                                                                        unsigned * unsafe write_end_ptr);
+
+// XC version of main body. Kept for readibility and reference for ASM version
+// num_rx_bytes, in_counter, port_this, crc
+{int, unsigned, unsigned, unsigned} master_rx_pins_4b_body( unsigned * unsafe dptr,
+                                                            in port p_mii_rxdv,
+                                                            in buffered port:32 p_mii_rxd,
+                                                            rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                            unsigned * unsafe timestamp,
+                                                            unsigned * unsafe wrap_ptr,
+                                                            unsigned * unsafe write_end_ptr){
+
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
@@ -235,26 +239,39 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     timer tmr;
     unsafe{ tmr :> *timestamp; }
 
+    int num_rx_bytes = -4; // Subtract the CRC bytes
+
     // Consume frame one long word at a time
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                return {dptr, in_counter, port_this, crc};
+                return {num_rx_bytes, in_counter, port_this, crc};
                 break;
 
             case p_mii_rxd :> port_this:
                 if(in_counter) {
                     uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
                     {port_this, port_last} = unzip(combined, 1); // Reuse existing vars port_this, port_last  as upper, lower
-                    if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
-                        *dptr = port_last; // lower
-                        crc32(crc, port_last, poly);
-                    } else unsafe {
-                        *dptr = port_this; // upper
-                        crc32(crc, port_this, poly);
+
+                    // Only write to buffer if it hasn't hit the end of the writable space
+                    if (dptr != write_end_ptr) {
+                        if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
+                            *dptr = port_last; // lower
+                            crc32(crc, port_last, poly);
+                        } else unsafe {
+                            *dptr = port_this; // upper
+                            crc32(crc, port_this, poly);
+                        }
+
+
+                        dptr++;
+                        num_rx_bytes += 4;
+
+                        /* The wrap pointer contains the address of the start of the buffer */
+                        if (dptr == wrap_ptr) unsafe{
+                            dptr = (unsigned * unsafe) *dptr;
+                        }
                     }
-                    // Store word - note no wrap checking so assume linear buffer large enough
-                    dptr++;
 
                 } else {
                     // Just store for next time around or tail >= 2B
@@ -265,7 +282,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 break;
         } // select
     } // While(1)
-    return {NULL, 0, 0, 0};
+    return {0, 0, 0, 0};
 }
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
@@ -285,8 +302,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     p_mii_rxdv when pinseq(0) :> int lo;
 
     while (1) {
-        /* Discount the CRC word */
-        int num_rx_bytes = -4;
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
@@ -307,13 +322,27 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         // Receive first half of preamble
         sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
 
+        // For return values from next function
         unsigned in_counter;
         unsigned port_this;
+        int num_rx_bytes;
 
 #if ETH_RX_4B_USE_ASM
-        {dptr, in_counter, port_this, crc} = master_rx_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp);
+        {num_rx_bytes, in_counter, port_this, crc} = master_rx_pins_4b_body_asm(dptr,
+                                                                                p_mii_rxdv,
+                                                                                *p_mii_rxd,
+                                                                                rx_port_4b_pins,
+                                                                                (unsigned*)&buf->timestamp,
+                                                                                wrap_ptr,
+                                                                                end_ptr);
 #else
-        // {dptr, in_counter, port_this, crc} = master_rx_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
+        {num_rx_bytes, in_counter, port_this, crc} = master_rx_pins_4b_body(dptr,
+                                                                            p_mii_rxdv,
+                                                                            *p_mii_rxd,
+                                                                            rx_port_4b_pins,
+                                                                            (unsigned*)&buf->timestamp,
+                                                                            wrap_ptr,
+                                                                            end_ptr);
 #endif
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
@@ -347,7 +376,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             }
         }
 
-        num_rx_bytes += (unsigned)dptr - (unsigned)&buf->data[0] + taillen_bytes;
+        num_rx_bytes += taillen_bytes;
 
         // Now turn the last constructed bit pattern into a word
         unsigned upper, lower;
