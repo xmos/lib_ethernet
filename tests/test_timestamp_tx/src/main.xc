@@ -6,8 +6,12 @@
 #include "debug_print.h"
 #include "helpers.xc"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
 struct test_packet { int len; int step; int tagged; }
 test_packets[] =
@@ -88,8 +92,9 @@ int main()
                                    rgmii_ports,
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
+    on tile[0]: test_tx(i_tx_lp[0]);
 
-    #else // RGMII
+    #elif MII
 
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
@@ -102,10 +107,25 @@ int main()
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
+    on tile[0]: test_tx(i_tx_lp[0]);
+
+    #elif RMII
+
+    unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
+                            i_rx_lp, 1,
+                            i_tx_lp, 1,
+                            null, null,
+                            p_eth_clk,
+                            &p_eth_rxd, p_eth_rxdv,
+                            p_eth_txen, &p_eth_txd,
+                            eth_rxclk, eth_txclk,
+                            4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    filler(0x1111);
+    filler(0x2222);
+    filler(0x3333);
+    test_tx(i_tx_lp[0]);
 
     #endif // RGMII
-
-    on tile[0]: test_tx(i_tx_lp[0]);
 
   }
   return 0;

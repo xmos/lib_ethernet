@@ -46,7 +46,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
         with capfd.disabled():
             print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {tx_width} tx_width, {arch} arch at {rx_clk.get_name()}")
     else:
-        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        profile = f'{mac}_{rx_phy.get_name()}_{arch}'
         with capfd.disabled():
             print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch at {rx_clk.get_name()}")
 
