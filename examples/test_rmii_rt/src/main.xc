@@ -4,6 +4,7 @@
 #include <platform.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <print.h>
 #include "ethernet.h"
 
@@ -37,7 +38,7 @@ clock eth_txclk = XS1_CLKBLK_2;
 clock eth_clk_harness = XS1_CLKBLK_3;
 port p_eth_clk_harness = XS1_PORT_1I;
 
-#define MAX_PACKET_WORDS (ETHERNET_MAX_PACKET_SIZE / 4)
+#define MAX_PACKET_WORDS ((ETHERNET_MAX_PACKET_SIZE + 3) / 4)
 
 #define VLAN_TAGGED 1
 
@@ -82,7 +83,10 @@ static void printwords_4b(unsigned *b, int n){
 
 
 
-void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, streaming chanend c_tx_hp)
+void hp_traffic_tx( client ethernet_cfg_if i_cfg,
+                    client ethernet_tx_if tx_lp,
+                    streaming chanend c_tx_hp,
+                    chanend test_info)
 {
   // Request 5Mbits/sec
   i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
@@ -115,8 +119,11 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
   t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
 
 
-  for(int length = 64; length < 68; length++){
+  int start_length = 830;
+
+  for(int length = start_length; length < start_length + 4; length++){
       printf("TX pre: %d\n", length);
+      test_info <: length;
       // printbytes((char*)data, length);
       // printwords_4b(data, (length + 3)/4);
       tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
@@ -133,7 +140,8 @@ void hp_traffic_tx(client ethernet_cfg_if i_cfg, client ethernet_tx_if tx_lp, st
 
 void rx_app(client ethernet_cfg_if i_cfg,
             client ethernet_rx_if i_rx,
-            streaming chanend c_rx_hp)
+            streaming chanend c_rx_hp,
+            chanend test_info)
 {
     ethernet_macaddr_filter_t macaddr_filter;
     size_t index = i_rx.get_index();
@@ -141,6 +149,19 @@ void rx_app(client ethernet_cfg_if i_cfg,
         macaddr_filter.addr[i] = i;
     }
     i_cfg.add_macaddr_filter(index, 1, macaddr_filter);
+
+    int test_packet_lengths[128] = {0};
+    int num_test_packets_sent = 0;
+    int num_test_packets_received = 0;
+
+
+    timer tmr;
+    int timeout_trig;
+    tmr :> timeout_trig;
+    const int timeout = 3000; // Bit time is same as ref clock, 100MHz
+    timeout_trig += timeout;
+
+    int test_pass = 1;
 
     while (1) {
         uint8_t rxbuf[ETHERNET_MAX_PACKET_SIZE];
@@ -150,6 +171,13 @@ void rx_app(client ethernet_cfg_if i_cfg,
             case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
                 printf("HP packet received: %d bytes\n", packet_info.len);
                 // printbytes(rxbuf, packet_info.len);
+                if(packet_info.len != test_packet_lengths[num_test_packets_received]){
+                    printf("Wrong length. Expected %d got %d\n", packet_info.len, test_packet_lengths[num_test_packets_received]);
+                    test_pass = 0;
+                }
+                num_test_packets_received++;
+                tmr :> timeout_trig;
+                timeout_trig += timeout;
                 break;
 
             case i_rx.packet_ready():
@@ -157,6 +185,21 @@ void rx_app(client ethernet_cfg_if i_cfg,
                 i_rx.get_packet(packet_info, rxbuf, n);
                 printf("LP packet received: %d bytes\n", n);
                 // printbytes(rxbuf, packet_info.len);
+                break;
+
+            case test_info :> int length:
+                test_packet_lengths[num_test_packets_sent] = length;
+                num_test_packets_sent++;
+                tmr :> timeout_trig;
+                timeout_trig += timeout;
+                break;
+
+            case tmr when timerafter(timeout_trig) :> int _:
+                printf("Timed out after %d bit times\n", timeout);
+                if(num_test_packets_received != num_test_packets_sent){
+                    test_pass = 0;
+                }
+                exit(test_pass);
                 break;
         }
     }
@@ -169,6 +212,7 @@ int main()
     ethernet_tx_if i_tx_lp[1];
     streaming chan c_rx_hp;
     streaming chan c_tx_hp;
+    chan test_info;
     
 
     // Setup 50M clock
@@ -189,8 +233,8 @@ int main()
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_ENABLE_SHAPER);}
     
-        rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp);
-        hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp);
+        rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp, test_info);
+        hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp, test_info);
     }
 
     return 0;

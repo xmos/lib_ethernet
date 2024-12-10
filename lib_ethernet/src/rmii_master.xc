@@ -186,58 +186,6 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 }
 
 //////////////////////////////////////// RX ////////////////////////////////////
-// Common code for 1b and 4b versions. Use a macro to avoid repetition.
-
-#define MASTER_RX_CHUNK_HEAD \
-    timer tmr; \
-                \
-    /* Pointers to data that needs the latest value being read */ \
-    volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr; \
-                                                                            \
-    /* Set up the wrap markers for the two memory buffers. These are the points at which we must wrap data back to the beginning of the buffer */ \
-    unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem); \
-                                                            \
-    /* Make sure we do not start in the middle of a packet */ \
-    p_mii_rxdv when pinseq(0) :> int lo; \
-                                        \
-    while (1) { \
-        /* Discount the CRC word */ \
-        int num_rx_bytes = -4; \
-        /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */ \
-        unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr; \
-                                                                \
-        /* Grab buffers to read the packet into. mii_reserve always returns a buffer we can use (though it may be a dummy buffer that gets thrown away later if we are out of buffer space). */ \
-        unsigned * unsafe end_ptr; \
-        mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr); \
-                                                                           \
-        unsigned crc = 0x9226F562; \
-        unsigned poly = 0xEDB88320; \
-        unsigned * unsafe dptr = &buf->data[0]; \
-                                                 \
-        /* Wait for the start of the packet and timestamp it */ \
-        unsigned sfd_preamble;
-// END OF MASTER_RX_CHUNK_HEAD
-
-
-#define MASTER_RX_CHUNK_TAIL \
-                              \
-        buf->length = num_rx_bytes; \
-        buf->crc = crc; \
-                         \
-        if (dptr != end_ptr) { \
-            /* Update where the write pointer is in memory */ \
-            mii_commit(rx_mem, dptr); \
-                                        \
-            /* Record the fact that there is a valid packet ready for filtering */ \
-            /*  - the assumption is that the filtering is running fast enough */ \
-            /*    to keep up and process the packets so that the incoming_packet */ \
-            /*    pointers never fill up */ \
-            mii_add_packet(incoming_packets, buf); \
-        } \
-    } \
-return;
-// END OF MASTER_RX_CHUNK_TAIL
-
 
 static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                                   rmii_data_4b_pin_assignment_t rx_port_4b_pins){
@@ -255,7 +203,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 // Prototype for ASM version of this main body
-{unsigned* unsafe, unsigned, unsigned, unsigned} extern master_4x_pins_4b_body_asm( unsigned * unsafe dptr,
+{unsigned* unsafe, unsigned, unsigned, unsigned} extern master_rx_pins_4b_body_asm( unsigned * unsafe dptr,
                                                                                     in port p_mii_rxdv,
                                                                                     in buffered port:32 p_mii_rxd,
                                                                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -263,7 +211,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                                                                                     unsigned * unsafe wrap_ptr);
 
 // XC version of main body. Kept for readibility and reference for ASM version
-{unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
+{unsigned* unsafe, unsigned, unsigned, unsigned} master_rx_pins_4b_body(unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
                                                                         rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -327,80 +275,115 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins){
 
+    /* Pointers to data that needs the latest value being read */
+    volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
 
-    MASTER_RX_CHUNK_HEAD
+    /* Set up the wrap markers for the two memory buffers. These are the points at which we must wrap data back to the beginning of the buffer */
+    unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
 
-    // Ensure we have sufficiently sized buffer
-    assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
+    /* Make sure we do not start in the middle of a packet */
+    p_mii_rxdv when pinseq(0) :> int lo;
 
-    // Receive first half of preamble
-    sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
+    while (1) {
+        /* Discount the CRC word */
+        int num_rx_bytes = -4;
+        /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
+        unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
-    unsigned in_counter;
-    unsigned port_this;
+        /* Grab buffers to read the packet into. mii_reserve always returns a buffer we can use (though it may be a dummy buffer that gets thrown away later if we are out of buffer space). */
+        unsigned * unsafe end_ptr;
+        mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr);
+
+        unsigned crc = 0x9226F562;
+        unsigned poly = 0xEDB88320;
+        unsigned * unsafe dptr = &buf->data[0];
+
+        /* Wait for the start of the packet and timestamp it */
+        unsigned sfd_preamble;
+
+        // Ensure we have sufficiently sized buffer
+        assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
+
+        // Receive first half of preamble
+        sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
+
+        unsigned in_counter;
+        unsigned port_this;
 
 #if ETH_RX_4B_USE_ASM
-    {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp, wrap_ptr);
-    (unsigned)tmr;          // These are here just to avoid compiler warnings when using ASM version
+        {dptr, in_counter, port_this, crc} = master_rx_pins_4b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, (unsigned*)&buf->timestamp);
 #else
-    // {dptr, in_counter, port_this, crc} = master_4x_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp, wrap_ptr);
+        // {dptr, in_counter, port_this, crc} = master_rx_pins_4b_body(dptr, p_mii_rxdv, *p_mii_rxd, rx_port_4b_pins, &buf->timestamp);
 #endif
-    // Note: we don't store the last word since it contains the CRC and
-    // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
-    // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16
-    unsigned bits_left_in_port = endin(*p_mii_rxd);
-    uint64_t combined;          // Bit pattern that we will reconstruct from tail pre-unzip
-    unsigned taillen_bytes;     // Number of data bytes in tail 0..3
+        // Note: we don't store the last word since it contains the CRC and
+        // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
+        // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16
+        unsigned bits_left_in_port = endin(*p_mii_rxd);
+        uint64_t combined;          // Bit pattern that we will reconstruct from tail pre-unzip
+        unsigned taillen_bytes;     // Number of data bytes in tail 0..3
 
-    // in_counter will be set if 2 data bytes or more remaining in tail
-    // This logic works out which bit patterns from which port inputs need to be
-    // recombined to extract the tail using the unzip
-    if(in_counter){
-        if(bits_left_in_port) {
-            unsigned port_residual;
-            PORT_IN(*p_mii_rxd, port_residual);
-            combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
-            taillen_bytes = 3;
+        // in_counter will be set if 2 data bytes or more remaining in tail
+        // This logic works out which bit patterns from which port inputs need to be
+        // recombined to extract the tail using the unzip
+        if(in_counter){
+            if(bits_left_in_port) {
+                unsigned port_residual;
+                PORT_IN(*p_mii_rxd, port_residual);
+                combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
+                taillen_bytes = 3;
+            } else {
+                combined = (uint64_t)port_this << 32;
+                taillen_bytes = 2;
+            }
         } else {
-            combined = (uint64_t)port_this << 32;
-            taillen_bytes = 2;
+            if(bits_left_in_port) {
+                unsigned port_residual;
+                PORT_IN(*p_mii_rxd, port_residual);
+                combined = ((uint64_t)port_residual << 32);
+                taillen_bytes = 1;
+            } else {
+                combined = 0;
+                taillen_bytes = 0;
+            }
         }
-    } else {
-        if(bits_left_in_port) {
-            unsigned port_residual;
-            PORT_IN(*p_mii_rxd, port_residual);
-            combined = ((uint64_t)port_residual << 32);
-            taillen_bytes = 1;
-        } else {
-            combined = 0;
-            taillen_bytes = 0;
+
+        num_rx_bytes += (unsigned)dptr - (unsigned)&buf->data[0] + taillen_bytes;
+
+        // Now turn the last constructed bit pattern into a word
+        unsigned upper, lower;
+        {upper, lower} = unzip(combined, 1);
+
+        // Now CRC remaining received bytes
+        if(taillen_bytes > 0){
+            // Make it right aligned as CRC operates on LSb first
+            unsigned tail;
+            if(rx_port_4b_pins == USE_LOWER_2B) {
+                tail = lower >> ((4 - taillen_bytes) << 3);
+            } else {
+                tail = upper >> ((4 - taillen_bytes) << 3);
+            }
+            crcn(crc, tail, poly, taillen_bytes << 3);
+        }
+
+        // CRC should be 0xffffffff to pass packet receive after applying frame CRC
+
+        // This is needed to prevent the next preamble read take in residual junk
+        clearbuf(*p_mii_rxd);
+
+        buf->length = num_rx_bytes;
+        buf->crc = crc;
+
+        if (dptr != end_ptr) {
+            /* Update where the write pointer is in memory */
+            mii_commit(rx_mem, dptr);
+
+            /* Record the fact that there is a valid packet ready for filtering */
+            /*  - the assumption is that the filtering is running fast enough */
+            /*    to keep up and process the packets so that the incoming_packet */
+            /*    pointers never fill up */
+            mii_add_packet(incoming_packets, buf);
         }
     }
-
-    num_rx_bytes += (unsigned)dptr - (unsigned)&buf->data[0] + taillen_bytes;
-
-    // Now turn the last constructed bit pattern into a word
-    unsigned upper, lower;
-    {upper, lower} = unzip(combined, 1);
-
-    // Now CRC remaining received bytes
-    if(taillen_bytes > 0){
-        // Make it right aligned as CRC operates on LSb first
-        unsigned tail;
-        if(rx_port_4b_pins == USE_LOWER_2B) {
-            tail = lower >> ((4 - taillen_bytes) << 3);
-        } else {
-            tail = upper >> ((4 - taillen_bytes) << 3);
-        }
-        crcn(crc, tail, poly, taillen_bytes << 3);
-    }
-
-    // CRC should be 0xffffffff to pass packet receive after applying frame CRC
-
-    // TODO this is needed to prevent the next preamble read take in junk. Why??
-    clearbuf(*p_mii_rxd);
-
-    MASTER_RX_CHUNK_TAIL
 }
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
@@ -425,40 +408,49 @@ static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
 }
 
 
-unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
-                                    mii_packet_queue_t incoming_packets,
-                                    unsigned * unsafe rdptr,
-                                    in port p_mii_rxdv,
-                                    in buffered port:32 * unsafe p_mii_rxd_0,
-                                    in buffered port:32 * unsafe p_mii_rxd_1){
+// Brining this out to an inline while(1) select improves performance as compiler can hoist select setup
+{unsigned* unsafe, unsigned, unsigned}  master_rx_pins_1b_body( unsigned * unsafe dptr,
+                                                                in port p_mii_rxdv,
+                                                                in buffered port:32 p_mii_rxd_0,
+                                                                in buffered port:32 p_mii_rxd_1,
+                                                                unsigned * unsafe timestamp,
+                                                                unsigned * unsafe wrap_ptr,
+                                                                unsigned * unsafe end_ptr
+                                                                ){
+unsafe{
+    unsigned crc = 0x9226F562;
+    const unsigned poly = 0xEDB88320;
+    // Discount the CRC word
+    int num_rx_bytes = -4;
 
-    MASTER_RX_CHUNK_HEAD
-
-    sfd_preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-    sfd_preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-
-    if (((sfd_preamble >> 24) & 0xFF) != 0xD5) {
-        /* Corrupt the CRC so that the packet is discarded */
+    // Receive second half of preamble and check
+    unsigned sfd_preamble = rx_1b_word(p_mii_rxd_0, p_mii_rxd_1);
+    const unsigned expected_preamble = 0xD5555555;
+    if (sfd_preamble != expected_preamble) {
+        // Corrupt the CRC so that the packet is discarded
         crc = ~crc;
     }
 
-    /* Timestamp the start of packet and record it in the packet structure */
-    unsigned time;
-    tmr :> time;
-    buf->timestamp = time;
+    // Timestamp the start of packet and record it in the packet structure
+    timer tmr;
+    tmr :> *timestamp;
 
-    unsigned end_of_frame = 0;
     unsigned word;
 
     // This clears after each IN so setup again
-    set_port_shift_count(*p_mii_rxd_0, 16);
-    set_port_shift_count(*p_mii_rxd_1, 16);
+    set_port_shift_count(p_mii_rxd_0, 16);
+    set_port_shift_count(p_mii_rxd_1, 16);
 
-    do {
+
+    while(1) {
         select {
-           case *p_mii_rxd_0 :> word:
+            case p_mii_rxdv when pinseq(0) :> int:
+                 return {dptr, crc, num_rx_bytes};
+                 break;
+
+            case p_mii_rxd_0 :> word:
                 unsigned word2;
-                PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction.
+                PORT_IN(p_mii_rxd_1, word2); // Saves one instruction.
                 uint64_t combined = zip(word2, word, 0);
                 word = (uint32_t)(combined >> 32);
 
@@ -469,53 +461,102 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                 if (dptr != end_ptr) {
                     *dptr = word;
                     dptr++;
+                    num_rx_bytes += 4;
                     /* The wrap pointer contains the address of the start of the buffer */
                     if (dptr == wrap_ptr)
                         dptr = (unsigned * unsafe) *dptr;
                 }
 
-                num_rx_bytes += 4;
-
                 // Reset shift count since it gets cleared after each IN
-                set_port_shift_count(*p_mii_rxd_0, 16);
-                set_port_shift_count(*p_mii_rxd_1, 16);
-                break;
-
-           case p_mii_rxdv when pinseq(0) :> int:
-                end_of_frame = 1;
+                set_port_shift_count(p_mii_rxd_0, 16);
+                set_port_shift_count(p_mii_rxd_1, 16);
                 break;
         }
-    } while (!end_of_frame);
-
-    // This tells us how many bits left in the port shift register and moves the shift register contents
-    // to the trafsnfer register. The number of bits will both will be the same so discard one.
-    // Bits will either be 4, 8 or 12 (x2 as two ports) representing a tail of 1, 2 or 3 bytes
-    unsigned remaining_bits_in_port = endin(*p_mii_rxd_0);
-    endin(*p_mii_rxd_1);
-
-    if(remaining_bits_in_port > 0){
-        unsigned word2;
-        // Grab the transfer registers
-        PORT_IN(*p_mii_rxd_0, word); // Saves one instruction.
-        PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction.
-
-        uint64_t combined = zip(word2, word, 0);
-        word = (uint32_t)(combined >> 32);
-
-        // Shift away unwanted part of word
-        unsigned tail = word >> (32 - (remaining_bits_in_port << 1));
-        crcn(crc, tail, poly, remaining_bits_in_port << 1);
-
-        unsigned taillen_bytes = remaining_bits_in_port >> 2; // Divide by 4 because we get 4b on each port for a data byte
-        num_rx_bytes += taillen_bytes;
     }
+    // Unreachable but keep compiler happy
+    return {NULL, 0, 0};
+}
+} // unsafe
 
-    // TODO this is needed to prevent the next preamble read take in junk. Why??
-    clearbuf(*p_mii_rxd_0);
-    clearbuf(*p_mii_rxd_1);
 
 
-    MASTER_RX_CHUNK_TAIL
+
+unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
+                                    mii_packet_queue_t incoming_packets,
+                                    unsigned * unsafe rdptr,
+                                    in port p_mii_rxdv,
+                                    in buffered port:32 * unsafe p_mii_rxd_0,
+                                    in buffered port:32 * unsafe p_mii_rxd_1){
+
+    /* Pointers to data that needs the latest value being read */
+    volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
+
+    /* Set up the wrap markers for the two memory buffers. These are the points at which we must wrap data back to the beginning of the buffer */
+    unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
+
+    /* Make sure we do not start in the middle of a packet */
+    p_mii_rxdv when pinseq(0) :> int lo;
+
+    while (1) {
+        /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
+        unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
+
+        /* Grab buffers to read the packet into. mii_reserve always returns a buffer we can use (though it may be a dummy buffer that gets thrown away later if we are out of buffer space). */
+        unsigned * unsafe end_ptr;
+        mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr);
+
+        unsigned crc = 0x9226F562;
+        unsigned poly = 0xEDB88320;
+        unsigned * unsafe dptr = &buf->data[0];
+
+        // Receive first half of preamble and discard
+        rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
+
+        // Receive body of frame. This is in a separate function to allow more efficient select.
+        int num_rx_bytes;
+        {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
+
+        // This tells us how many bits left in the port shift register and moves the shift register contents
+        // to the trafsnfer register. The number of bits will both be the same (ports are synched) so discard one.
+        // Bits will either be 4, 8 or 12 (x2 as two ports) representing a tail of 1, 2 or 3 bytes
+        unsigned remaining_bits_in_port = endin(*p_mii_rxd_0);
+        endin(*p_mii_rxd_1);
+
+        if(remaining_bits_in_port > 0){
+            unsigned word, word2;
+            // Grab the transfer registers
+            PORT_IN(*p_mii_rxd_0, word); // Saves one instruction over :>
+            PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction over :>
+
+            uint64_t combined = zip(word2, word, 0);
+            word = (uint32_t)(combined >> 32);
+
+            // Shift away unwanted part of word
+            unsigned tail = word >> (32 - (remaining_bits_in_port << 1));
+            crcn(crc, tail, poly, remaining_bits_in_port << 1);
+
+            unsigned taillen_bytes = remaining_bits_in_port >> 2; // Divide by 4 because we get 4b on each port for a data byte
+            num_rx_bytes += taillen_bytes;
+        }
+
+        // This is needed to prevent the next preamble read take in residual junk
+        clearbuf(*p_mii_rxd_0);
+        clearbuf(*p_mii_rxd_1);
+
+        buf->length = num_rx_bytes;
+        buf->crc = crc;
+
+        if (dptr != end_ptr) {
+            /* Update where the write pointer is in memory */
+            mii_commit(rx_mem, dptr);
+
+            /* Record the fact that there is a valid packet ready for filtering */
+            /*  - the assumption is that the filtering is running fast enough */
+            /*    to keep up and process the packets so that the incoming_packet */
+            /*    pointers never fill up */
+            mii_add_packet(incoming_packets, buf);
+        }
+    }
 }
 
 ///////////////////////////////////// TX /////////////////////////////////////////

@@ -13,6 +13,7 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
 from helpers import generate_tests
 
 def packet_checker(packet, phy):
@@ -60,6 +61,28 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     assert result is True, f"{result}"
 
+def do_test_rmii(capfd, mac, arch, tx_width, clk, rx_phy):
+    testname = "test_tx"
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch {tx_width} tx_width at {clk.get_name()}")
+    capfd.readouterr() # clear capfd buffer
+
+    profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
+
+    tester = px.testers.ComparisonTester(open(f'{testname}.expect'))
+
+    simargs = get_sim_args(testname, mac, clk, rx_phy, arch=arch)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[clk, rx_phy],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd
+                                    )
+    assert result is True, f"{result}"
+
 test_params_file = Path(__file__).parent / "test_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_tx(capfd, params):
@@ -83,6 +106,32 @@ def test_tx(capfd, params):
             do_test(capfd, params["mac"], params['arch'], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
         else:
             assert 0, f"Invalid params: {params}"
+    elif params["phy"] == "rmii":
+        test_ctrl='tile[0]:XS1_PORT_1M'
+        verbose = False
 
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        if params['tx_width'] == "4b_lower":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                        "lower_2b",
+                                        packet_fn=packet_checker,
+                                        verbose=verbose,
+                                        test_ctrl=test_ctrl
+                                        )
+        elif params['tx_width'] == "4b_upper":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                "upper_2b",
+                                packet_fn=packet_checker,
+                                verbose=verbose,
+                                test_ctrl=test_ctrl
+                                )
+        elif params['tx_width'] == "1b":
+            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                                packet_fn=packet_checker,
+                                                verbose=verbose,
+                                                test_ctrl=test_ctrl)
+        else:
+            assert False, f"Invalid tx_width {params['tx_width']}"
+        do_test_rmii(capfd, params["mac"], params["arch"], params['tx_width'], clk, rx_rmii_phy)
     else:
         assert 0, f"Invalid params: {params}"
