@@ -365,7 +365,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
         // CRC should be 0xffffffff to pass packet receive after applying frame CRC
 
-        // TODO this is needed to prevent the next preamble read take in junk. Why??
+        // This is needed to prevent the next preamble read take in residual junk
         clearbuf(*p_mii_rxd);
 
         buf->length = num_rx_bytes;
@@ -537,7 +537,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
             num_rx_bytes += taillen_bytes;
         }
 
-        // TODO this is needed to prevent the next preamble read take in junk. Why??
+        // This is needed to prevent the next preamble read take in residual junk
         clearbuf(*p_mii_rxd_0);
         clearbuf(*p_mii_rxd_1);
 
