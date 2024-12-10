@@ -119,7 +119,7 @@ void hp_traffic_tx( client ethernet_cfg_if i_cfg,
   t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
 
 
-  int start_length = 830;
+  int start_length = 80;
 
   for(int length = start_length; length < start_length + 4; length++){
       printf("TX pre: %d\n", length);
@@ -158,7 +158,7 @@ void rx_app(client ethernet_cfg_if i_cfg,
     timer tmr;
     int timeout_trig;
     tmr :> timeout_trig;
-    const int timeout = 3000; // Bit time is same as ref clock, 100MHz
+    int timeout = 15000; // Bit time is same as ref clock, 100MHz. Set to initial large value for startup
     timeout_trig += timeout;
 
     int test_pass = 1;
@@ -188,10 +188,12 @@ void rx_app(client ethernet_cfg_if i_cfg,
                 break;
 
             case test_info :> int length:
+                timeout = 1.5 * (32 * MAX_PACKET_WORDS);
                 test_packet_lengths[num_test_packets_sent] = length;
                 num_test_packets_sent++;
                 tmr :> timeout_trig;
                 timeout_trig += timeout;
+                printf("+");
                 break;
 
             case tmr when timerafter(timeout_trig) :> int _:
@@ -231,7 +233,7 @@ int main()
                                     &p_eth_rxd, p_eth_rxdv,
                                     p_eth_txen, &p_eth_txd,
                                     eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_ENABLE_SHAPER);}
+                                    10000, 10000, ETHERNET_ENABLE_SHAPER);}
     
         rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp, test_info);
         hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp, test_info);
