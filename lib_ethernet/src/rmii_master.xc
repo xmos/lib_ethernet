@@ -31,7 +31,7 @@
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-#define ETH_RX_4B_USE_ASM    0 // Use fast dual-issue ASM version of 4b Rx
+#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
 
 
 // Timing tuning constants

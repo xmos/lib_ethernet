@@ -10,9 +10,16 @@
 
 port p_eth_clk = XS1_PORT_1J;
 
+#ifndef USE_LOWER
+#define USE_LOWER 1
+#endif
+
 #if TX_WIDTH == 4
+#if USE_LOWER
 rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
-// rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
+#else
+rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
+#endif 
 #elif TX_WIDTH == 1
 rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 #else
@@ -20,8 +27,11 @@ rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 #endif
 
 #if RX_WIDTH == 4
+#if USE_LOWER
 rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
-// rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
+#else
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
+#endif
 #elif RX_WIDTH == 1
 rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
 #else
@@ -158,7 +168,7 @@ void rx_app(client ethernet_cfg_if i_cfg,
     timer tmr;
     int timeout_trig;
     tmr :> timeout_trig;
-    int timeout = 15000; // Bit time is same as ref clock, 100MHz. Set to initial large value for startup
+    int timeout = 20000; // Bit time is same as ref clock, 100MHz. Set to initial large value for startup
     timeout_trig += timeout;
 
     int test_pass = 1;
@@ -202,6 +212,10 @@ void rx_app(client ethernet_cfg_if i_cfg,
                     test_pass = 0;
                 }
                 exit(test_pass);
+                // Avoid warnings
+                printbytes(rxbuf, packet_info.len);
+                printwords_1b((unsigned*)rxbuf, packet_info.len);
+                printwords_4b((unsigned*)rxbuf, packet_info.len);
                 break;
         }
     }

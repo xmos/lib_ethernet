@@ -29,17 +29,17 @@ Minus_four:
 
 #define move(dst, src) add dst, src, 0x0 
 
-#define NUM_BYTES   r0
-#define RXDV        r1
-#define RXD         r2
-#define PINS        r3
+#define NUM_BYTES   r0  // Keeps track of size of frame
+#define RXDV        r1  // Port resource ID
+#define RXD         r2  // Port resource ID
+#define PINS_USED   r3  // Upper 2b = 1, Lower 2b = 0
 #define TMP1        r11
 #define TMP2        r4
-#define CRC         r5
-#define IN_COUNTER  r6
-#define PORT_LAST   r7
-#define DPTR        r8
-#define TMP3        r9
+#define CRC         r5  // Calculated CRC
+#define IN_COUNTER  r6  // Flag used to track data Rx phase
+#define PORT_LAST   r7  // The last port value read (used in phase 1)
+#define DPTR        r8  // The pointer to write next word to
+#define WRENDPTR    r9  // End of writable buffer space
 
 #define TIME_STAMP  sp[STACK_WORDS + 1]  
 #define WRAP_PTR    sp[STACK_WORDS + 2]
@@ -88,14 +88,15 @@ master_rx_pins_4b_body_asm:
     ldw TMP1, cp[Dall_fives]            // Load expected second half of preamble
     eeu res[RXDV]                       // Start setup for select early
     eeu res[RXD]
-    ldw NUM_BYTES, cp[Minus_four]
+    ldw NUM_BYTES, cp[Minus_four]       // Start count at -4 (CRC not included)
+    ldw WRENDPTR, WR_END_PTR            // Keep write end value in register
 
     // Grab the second 32b port of the preamble second half
     in TMP2, res[RXD]
     unzip TMP2, PORT_LAST, 0x1
 
-    // swap results if PINS set to zero (USE_LOWER)
-    bt PINS, use_upper
+    // swap results if PINS_USED set to zero (USE_LOWER)
+    bt PINS_USED, use_upper
     move(TMP2, PORT_LAST) // Swap upper/lower
 
 use_upper:
@@ -120,6 +121,7 @@ preamble_ok:
 
 //// Select case /////
 data_valid_deasserted:
+    // We can now cleanup and return
     {in TMP1, res[RXDV];    move(r1, IN_COUNTER)} // Complete the IN and start setting up returns
     // returns {num_bytes, in_counter, port_this, crc} so setup registers for this
     // NUM_BYTES already in r0
@@ -137,52 +139,33 @@ rx_data_received:
     // We need to receive two 32b port buffers for each 32b data. So there are two phases to this select case 
     {in TMP2, res[RXD];     bf IN_COUNTER, first_short_word} // Grab the value and branch to the correct phase
     unzip TMP2, PORT_LAST, 1
-    bt PINS, upper_bit_main
+    bt PINS_USED, upper_bits_main
     move(TMP2, PORT_LAST) // Swap upper/lower
 
-upper_bit_main:
+upper_bits_main:
     {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // First load polynomial and toggle IN_COUTER
     crc32 CRC, TMP2, TMP1                               // Do CRC.
     
-    ldw TMP3, WR_END_PTR
-    eq TMP3, TMP3, DPTR
-    {bt TMP3, rx_data_end; add NUM_BYTES, NUM_BYTES, 0x4}
+    // See if we have hit the write end pointer
+    eq TMP1, WRENDPTR, DPTR
+    {bt TMP1, rx_data_end; add NUM_BYTES, NUM_BYTES, 0x4}
+    // If not, store the word and increment DPTR
     {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}            // The increment will happen after the store
 
-/*
-    // Only write to buffer if it hasn't hit the end of the writable space
-    if (dptr != write_end_ptr) {
-        if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
-            *dptr = port_last; // lower
-            crc32(crc, port_last, poly);
-        } else unsafe {
-            *dptr = port_this; // upper
-            crc32(crc, port_this, poly);
-        }
-
-
-        dptr++;
-        num_rx_bytes += 4;
-
-        // The wrap pointer contains the address of the start of the buffer
-        if (dptr == wrap_ptr) unsafe{
-            dptr = (unsigned * unsafe) *dptr;
-        }
-    }
-*/
 rx_data_end:
     waiteu
 
 first_short_word:
-    // Store for next time around when we will re-construct the data word
-    {move(PORT_LAST, TMP2) ;ldc IN_COUNTER, 0x1}
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
+    // Store PORT_LAST for next time around when we will re-construct the data word and load WRAP_PTR
+    {ldw TMP1, WRAP_PTR ; move(PORT_LAST, TMP2)}
+    // Toggle IN_COUNTER and compare to see if we have hit END_PTR
+    {ldc IN_COUNTER, 0x1; eq TMP1, TMP1, DPTR}
+    bf TMP1, first_short_word_end // If not, branch to the end
 
+    // Dereference the DPTR and load it into DPTR. We have wrapped..
+    ldw DPTR, DPTR[0]
+  
+first_short_word_end:
     waiteu
 
 .cc_bottom master_rx_pins_4b_body_asm.func
