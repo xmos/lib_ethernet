@@ -217,6 +217,7 @@ int main()
     on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
     on tile[0]: test_rx_loopback(c_tx_hp, i_loopback);
     #else
+    on tile[0]: filler(0x2222);
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
     #endif
 
@@ -243,7 +244,7 @@ int main()
 
     #elif defined RMII
 
-        unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+        on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                         i_rx_lp, NUM_RX_LP_IF,
                                         i_tx_lp, NUM_TX_LP_IF,
                                         c_rx_hp, c_tx_hp,
@@ -253,14 +254,15 @@ int main()
                                         eth_rxclk, eth_txclk,
                                         4000, 4000, ETHERNET_DISABLE_SHAPER);}
 
-        filler(0x1111);
+        on tile[0]: filler(0x1111);
 #if ETHERNET_SUPPORT_HP_QUEUES
-        test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
-        test_rx_loopback(c_tx_hp, i_loopback);
+        on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_loopback, i_ctrl[0]);
+        on tile[0]: test_rx_loopback(c_tx_hp, i_loopback);
 #else
-        test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
+        on tile[0]: filler(0x2222);
+        on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_tx_lp[0], i_ctrl[0]);
 #endif
-        control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+        on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
 
     #endif // RGMII
 

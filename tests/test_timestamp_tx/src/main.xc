@@ -92,7 +92,6 @@ int main()
                                    rgmii_ports,
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
-    on tile[0]: test_tx(i_tx_lp[0]);
 
     #elif MII
 
@@ -107,11 +106,10 @@ int main()
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
-    on tile[0]: test_tx(i_tx_lp[0]);
 
     #elif RMII
 
-    unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
+    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
                             i_rx_lp, 1,
                             i_tx_lp, 1,
                             null, null,
@@ -120,12 +118,13 @@ int main()
                             p_eth_txen, &p_eth_txd,
                             eth_rxclk, eth_txclk,
                             4000, 4000, ETHERNET_DISABLE_SHAPER);}
-    filler(0x1111);
-    filler(0x2222);
-    filler(0x3333);
-    test_tx(i_tx_lp[0]);
+    on tile[0]: filler(0x1111);
+    on tile[0]: filler(0x2222);
+    on tile[0]: filler(0x3333);
 
     #endif // RGMII
+
+    on tile[0]: test_tx(i_tx_lp[0]);
 
   }
   return 0;
