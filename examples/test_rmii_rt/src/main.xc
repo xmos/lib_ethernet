@@ -10,9 +10,16 @@
 
 port p_eth_clk = XS1_PORT_1J;
 
+#ifndef USE_LOWER
+#define USE_LOWER 1
+#endif
+
 #if TX_WIDTH == 4
+#if USE_LOWER
 rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
-// rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
+#else
+rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
+#endif 
 #elif TX_WIDTH == 1
 rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 #else
@@ -20,8 +27,11 @@ rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 #endif
 
 #if RX_WIDTH == 4
+#if USE_LOWER
 rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
-// rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
+#else
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
+#endif
 #elif RX_WIDTH == 1
 rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
 #else
@@ -119,10 +129,10 @@ void hp_traffic_tx( client ethernet_cfg_if i_cfg,
   t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
 
 
-  int start_length = 830;
+  int start_length = 1515;
 
   for(int length = start_length; length < start_length + 4; length++){
-      printf("TX pre: %d\n", length);
+      printf("TX sending: %d\n", length);
       test_info <: length;
       // printbytes((char*)data, length);
       // printwords_4b(data, (length + 3)/4);
@@ -131,10 +141,6 @@ void hp_traffic_tx( client ethernet_cfg_if i_cfg,
       t :> time;
       t when timerafter(time + 4000) :> time;
   }
-
-  t :> time;
-  t when timerafter(time + 2000) :> time; 
-  exit(0);
 }
 
 
@@ -158,7 +164,7 @@ void rx_app(client ethernet_cfg_if i_cfg,
     timer tmr;
     int timeout_trig;
     tmr :> timeout_trig;
-    const int timeout = 3000; // Bit time is same as ref clock, 100MHz
+    int timeout = 20000; // Bit time is same as ref clock, 100MHz. Set to initial large value for startup
     timeout_trig += timeout;
 
     int test_pass = 1;
@@ -176,6 +182,11 @@ void rx_app(client ethernet_cfg_if i_cfg,
                     test_pass = 0;
                 }
                 num_test_packets_received++;
+                if(num_test_packets_received == num_test_packets_sent){
+                    printf("TEST %s\n", test_pass ? "PASS" : "FAIL");
+                    exit(test_pass);
+                }
+
                 tmr :> timeout_trig;
                 timeout_trig += timeout;
                 break;
@@ -188,17 +199,21 @@ void rx_app(client ethernet_cfg_if i_cfg,
                 break;
 
             case test_info :> int length:
+                timeout = 1.5 * (32 * MAX_PACKET_WORDS);
                 test_packet_lengths[num_test_packets_sent] = length;
                 num_test_packets_sent++;
                 tmr :> timeout_trig;
                 timeout_trig += timeout;
+                printf("+");
                 break;
 
             case tmr when timerafter(timeout_trig) :> int _:
-                printf("Timed out after %d bit times\n", timeout);
                 if(num_test_packets_received != num_test_packets_sent){
                     test_pass = 0;
+                    printf("Timed out after %d bit times\n", timeout);
                 }
+
+                printf("TEST %s\n", test_pass ? "PASS" : "FAIL");
                 exit(test_pass);
                 break;
         }
@@ -231,7 +246,7 @@ int main()
                                     &p_eth_rxd, p_eth_rxdv,
                                     p_eth_txen, &p_eth_txd,
                                     eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_ENABLE_SHAPER);}
+                                    500, 500, ETHERNET_ENABLE_SHAPER);}
     
         rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp, test_info);
         hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp, test_info);
