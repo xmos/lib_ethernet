@@ -93,7 +93,4 @@ def test_rx(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
-    if (params["phy"] == "rmii") and (params["rx_width"] != "1b"):
-        pytest.skip("Skip till wraparound is implemented in 4b receive")
-
     run_parametrised_test_rx(capfd, do_test, params, seed=seed)
