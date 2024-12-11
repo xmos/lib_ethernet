@@ -11,9 +11,7 @@
 
 initial_crc:
     .word 0x9226F562
-all_fives:
-    .word 0x55555555
-Dall_fives:
+preamble_second:
     .word 0xD5555555
 Minus_four:
     .word 0xFFFFFFFC
@@ -83,9 +81,9 @@ master_rx_pins_4b_body_asm:
     // receive preamble second half (32b data = 64b port bits)
     {in PORT_LAST, res[RXD];    ldw CRC, cp[initial_crc]}
     
-    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 instuctions at 75MHz
+    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 slots at 75MHz
     {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
-    ldw TMP1, cp[Dall_fives]            // Load expected second half of preamble
+    ldw TMP1, cp[preamble_second]       // Load expected second half of preamble
     eeu res[RXDV]                       // Start setup for select early
     eeu res[RXD]
     ldw NUM_BYTES, cp[Minus_four]       // Start count at -4 (CRC not included)
@@ -107,7 +105,7 @@ use_upper:
 
 preamble_ok:
     // Grab timestamp and store
-    {gettime TMP2 ; ldw TMP1, TIME_STAMP}
+    {gettime TMP2; ldw TMP1, TIME_STAMP}
     stw TMP2, TMP1[0]
 
 ////////////////// Start select /////////////////////
@@ -161,7 +159,6 @@ first_short_word:
     // Toggle IN_COUNTER and compare to see if we have hit END_PTR
     {ldc IN_COUNTER, 0x1; eq TMP1, TMP1, DPTR}
     bf TMP1, first_short_word_end // If not, branch to the end
-
     // Dereference the DPTR and load it into DPTR. We have wrapped..
     ldw DPTR, DPTR[0]
   

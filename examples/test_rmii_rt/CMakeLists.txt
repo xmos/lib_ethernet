@@ -12,6 +12,7 @@ set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE=1
                             -DETHERNET_SUPPORT_HP_QUEUES=1
+                            -Wno-unused-function
                             )
 
 
