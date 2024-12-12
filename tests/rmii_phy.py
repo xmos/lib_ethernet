@@ -157,11 +157,13 @@ class PacketManager():
         if self._data_type == 'nibble':
             if self._verbose and self._nibble_index == 0:
                 print(f"Sending packet {self._current_pkt_index}: {self._pkt}")
+                sys.stdout.write(self._pkt.dump())
             dataval = self._nibbles[self._nibble_index]
             self._nibble_index = self._nibble_index + 1
         else: # crumb
             if self._verbose and self._nibble_index == 0 and self._crumb_index == 0:
                 print(f"Sending packet {self._current_pkt_index}: {self._pkt}")
+                sys.stdout.write(self._pkt.dump())
             dataval = (self._nibbles[self._nibble_index] >> (self._crumb_index*2)) & 0x3
             self._crumb_index = self._crumb_index ^ 1
             if self._crumb_index == 0:
@@ -170,7 +172,7 @@ class PacketManager():
         if self._nibble_index == len(self._nibbles): # End of current packet. Set up for the next packet
             self._pkt_ended = True
             if self._verbose:
-                print(f"Sent packet {self._current_pkt_index}")
+                print(f"Sent")
             self._current_pkt_index = self._current_pkt_index + 1
             if self._current_pkt_index < self._num_pkts:
                 self._pkt = self._pkts[self._current_pkt_index]

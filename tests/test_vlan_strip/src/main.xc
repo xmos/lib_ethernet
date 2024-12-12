@@ -8,9 +8,13 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1A;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1A;
 #include "control.xc"
 
 #include "helpers.xc"
@@ -91,7 +95,7 @@ int main()
     on tile[0]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
     on tile[0]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
 
-    #else // RGMII
+    #elif MII
 
     #if RT
 
@@ -121,12 +125,26 @@ int main()
     on tile[RT]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
     on tile[RT]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
 
+    #elif RMII
+    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        null, null,
+                                        p_eth_clk,
+                                        &p_eth_rxd, p_eth_rxdv,
+                                        p_eth_txen, &p_eth_txd,
+                                        eth_rxclk, eth_txclk,
+                                        4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    on tile[0]: filler(0x77);
+    on tile[1]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
+    on tile[1]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
+
     #endif // RGMII
 
     on tile[0]: test_task(i_cfg[0], i_rx_lp[0], 0x1111, 1, i_ctrl[0]);
     on tile[0]: test_task(i_cfg[1], i_rx_lp[1], 0x2222, 1, i_ctrl[1]);
-    
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }
