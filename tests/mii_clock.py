@@ -71,14 +71,14 @@ class Clock(px.SimThread):
     def get_min_ifg(self):
         return self._min_ifg
 
+    def get_min_ifg_clock_cycles(self):
+        return self._min_ifg_clock_cycles
+
     def get_bit_time(self):
         return self._bit_time
 
     def get_clock_cycle_to_bit_time_ratio(self):
         return self._clock_cycle_to_bit_time_ratio
-
-    def get_min_ifg_clock_cycles(self):
-        return self._min_ifg_clock_cycles
 
     def stop(self):
         self._running = False

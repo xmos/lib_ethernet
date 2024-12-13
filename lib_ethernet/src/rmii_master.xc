@@ -213,7 +213,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 
 // XC version of main body. Kept for readibility and reference for ASM version
 // num_rx_bytes, in_counter, port_this, crc
-{int, unsigned, unsigned, unsigned} master_rx_pins_4b_body( unsigned * unsafe dptr,
+{int, unsigned, unsigned, unsigned, unsigned} master_rx_pins_4b_body( unsigned * unsafe dptr,
                                                             in port p_mii_rxdv,
                                                             in buffered port:32 p_mii_rxd,
                                                             rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -245,7 +245,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                return {num_rx_bytes, in_counter, port_this, crc};
+                return {num_rx_bytes, in_counter, port_this, crc, (unsigned)dptr};
                 break;
 
             case p_mii_rxd :> port_this:
@@ -282,7 +282,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 break;
         } // select
     } // While(1)
-    return {0, 0, 0, 0};
+    return {0, 0, 0, 0, 0};
 }
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
@@ -317,7 +317,12 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         unsigned sfd_preamble;
 
         // Ensure we have sufficiently sized buffer
-        assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
+        //assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
+        /*if((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE)
+        {
+            printintln(8888);
+            assert(0);
+        }*/
 
         // Receive first half of preamble
         sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
@@ -335,14 +340,17 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                                                                 (unsigned*)&buf->timestamp,
                                                                                 wrap_ptr,
                                                                                 end_ptr);
+        asm volatile ("ldw %0, sp[1]" : "=r"(dptr)); // read updated dptr that is returned on stack
 #else
-        {num_rx_bytes, in_counter, port_this, crc} = master_rx_pins_4b_body(dptr,
+        unsigned dptr_new;
+        {num_rx_bytes, in_counter, port_this, crc, dptr_new} = master_rx_pins_4b_body(dptr,
                                                                             p_mii_rxdv,
                                                                             *p_mii_rxd,
                                                                             rx_port_4b_pins,
                                                                             (unsigned*)&buf->timestamp,
                                                                             wrap_ptr,
                                                                             end_ptr);
+        dptr = (unsigned * unsafe)dptr_new;
 #endif
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.

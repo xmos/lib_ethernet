@@ -127,10 +127,13 @@ data_valid_deasserted:
     // NUM_BYTES already in r0
     {move(r2, PORT_LAST);   move(r3, CRC)}
 
+    // Return the latest dptr by writing it to the caller's stack
+    stw DPTR, sp[STACK_WORDS + 1]
     // Restore previous regs before return
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
     ldd r8, r9, sp[2]
+
 
     retsp  STACK_WORDS
 
