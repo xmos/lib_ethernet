@@ -604,7 +604,7 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 /** ENUM to determine which two bits of a four bit port are to be used as data lines 
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
- *  port cannot be used. For Tx, the unused pins are driven low. */
+ *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
     USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port */
     USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port */
@@ -619,7 +619,7 @@ typedef struct rmii_data_4b_t
                                                  Tx pins are driven low. */
 } rmii_data_4b_t;
 
-/** Structure type representing a pair one bit ports used for RMII data transmission or reception. */
+/** Structure type representing a pair of one bit ports used for RMII data transmission or reception. */
 typedef struct rmii_data_1b_t
 {
     port data_0;                            /**< One bit data port for lower data line. */

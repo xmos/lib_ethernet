@@ -67,6 +67,12 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 2
    - ~23 k
    - 4
+ * - 10/100 Mb/s Real-Time MII
+   - 7
+   - 3 (1-bit), 2 (4-bit) or 4 (1-bit)
+   - 2
+   - ~TBD k
+   - 4
  * - 10/100/1000Mb/s RGMII
    - 12
    - 8 (1-bit), 2 (4-bit), 2 (8-bit)
@@ -163,6 +169,64 @@ A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). Table 1 below des
    - Receive data bit 0
 
 Any unused 1-bit and 4-bit xCORE ports can be used for MII providing that they are on the same Tile and there is enough
+resource to instantiate the relevant Ethernet MAC component on that Tile.
+
+.. _rmii_signals_section:
+
+RMII: Reduced Media Independent Interface
+=========================================
+
+RMII is an interface standardized by IEEE 802.3 that connects different types of PHYs to the same Ethernet Media Access Control (MAC).
+The MAC can interact with any PHY using the same hardware interface, independent of the media the PHYs are connected to. It offers
+similar functionality to MII however offers a reduced pin-count.
+
+The RMII transfers data using 2 bit words (half-nibbles) in each direction, clocked at 50 MHz to achieve 100 Mb/s data rate.
+
+An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
+A common clock signal clocks nibbles (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
+The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
+A common clock signal clocks the received nibbles (RXD[2:0]).
+
+Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This 
+provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
+have their port type set independently and can be mixed.
+
+.. note::
+    By default most RMII PHYs supply a CRS_DV signal (carrier sense) instead of an RX_DV data valid strobe. This library requires
+    the PHY to be configured so that the receive data strobe is set to RX_DV mode. Please check your chosen PHY supports this.
+
+
+Table 1 below describes the RMII signals:
+
+.. list-table:: RMII signals
+ :header-rows: 1
+
+ * - Port Requirement
+   - Signal Name
+   - Description
+ * - 4-bit port [Bit 1 or 3] or 1-bit port
+   - TXD1
+   - Transmit data bit 1
+ * - 4-bit port [Bit 0 or 2] or 1-bit port
+   - TXD0
+   - Transmit data bit 0
+ * - 1-bit port
+   - PHY_CLK
+   - PHY clock (50 MHz)
+ * - 1-bit port
+   - TXEN
+   - Transmit data valid
+ * - 1-bit port
+   - RXDV
+   - Receive data valid
+ * - 4-bit port [Bit 1 or 3] or 1-bit port
+   - RX1
+   - Receive data bit 1
+ * - 4-bit port [Bit 0 or 2] or 1-bit port
+   - RX0
+   - Receive data bit 0
+
+Any unused 1-bit and 4-bit xCORE ports can be used for RMII providing that they are on the same Tile and there is enough
 resource to instantiate the relevant Ethernet MAC component on that Tile.
 
 .. _rgmii_signals_section:
@@ -347,6 +411,9 @@ The real-time 10/100 Mb/s Ethernet MAC supports additional features required to 
 an AVB Talker and/or Listener endpoint, but has additional xCORE resource requirements compared to the
 non-real-time MAC.
 
+The real-time MAC may support the RMII interface described in :ref:`rmii_signals_section`.
+
+
 It is instantiated similarly to the non-real-time Ethernet MAC, with additional streaming channels for sending and
 receiving high-priority Ethernet traffic:
 
@@ -383,6 +450,37 @@ interfaces and connects to it::
      application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
     }
   }
+
+
+
+Similarly the RMII real-time MAC may be instantiated::
+
+    port p_eth_clk = XS1_PORT_1J;
+    rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
+    rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
+    port p_eth_rxdv = XS1_PORT_1K;
+    port p_eth_txen = XS1_PORT_1L;
+    clock eth_rxclk = XS1_CLKBLK_1;
+    clock eth_txclk = XS1_CLKBLK_2;
+   
+    int main()
+    {
+      ethernet_cfg_if i_cfg[1];
+      ethernet_rx_if i_rx_lp[1];
+      ethernet_tx_if i_tx_lp[1];
+      streaming chan c_rx_hp;
+      streaming chan c_tx_hp;
+      par {
+        rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
+                            c_rx_hp, c_tx_hp,
+                            p_eth_clk,
+                            &p_eth_rxd, p_eth_rxdv,
+                            p_eth_txen, &p_eth_txd,
+                            eth_rxclk, eth_txclk,
+                            4000, 4000, ETHERNET_ENABLE_SHAPER);
+       application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
+      }
+    }
 
 
 The application can use the other end of the streaming channels to send and receive high-priority traffic e.g.::
@@ -523,11 +621,17 @@ Creating a 10/100 Mb/s real-time Ethernet MAC instance
 ======================================================
 
 .. doxygenfunction:: mii_ethernet_rt_mac
+.. doxygenfunction:: rmii_ethernet_rt_mac
 
-Real-time supporting typedefs
-=============================
+Real-time Ethernet MAC supporting typedefs
+------------------------------------------
 
 .. doxygenenum:: ethernet_enable_shaper_t
+.. doxygenunion:: rmii_data_port_t
+.. doxygenstruct:: rmii_data_1b_t
+.. doxygenstruct:: rmii_data_4b_t
+.. doxygenenum:: rmii_data_4b_pin_assignment_t
+
 
 |newpage|
 
@@ -643,6 +747,15 @@ SMI PHY configuration helper functions
 .. doxygenfunction:: smi_phy_is_powered_down
 
 .. doxygenfunction:: smi_get_link_state
+
+|newpage|
+
+PHY Support Drivers
+===================
+
+
+.. doxygengroup:: phy_drivers_if
+
 
 
 |newpage|
