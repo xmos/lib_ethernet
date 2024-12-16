@@ -6,6 +6,7 @@
 #include "ethernet.h"
 #include "icmp.h"
 #include "smi.h"
+#include "phy_drivers.h"
 #include "debug_print.h"
 
 // These ports are for accessing the OTP memory
@@ -33,41 +34,7 @@ enum cfg_clients {
   NUM_CFG_CLIENTS
 };
 
-[[combinable]]
-void ar8035_phy_driver(client interface smi_if smi,
-                client interface ethernet_cfg_if eth) {
-  ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
-  ethernet_speed_t link_speed = LINK_1000_MBPS_FULL_DUPLEX;
-  const int phy_reset_delay_ms = 1;
-  const int link_poll_period_ms = 1000;
-  const int phy_address = 0x4;
-  timer tmr;
-  int t;
-  tmr :> t;
-  p_eth_reset <: 0;
-  delay_milliseconds(phy_reset_delay_ms);
-  p_eth_reset <: 1;
 
-  while (smi_phy_is_powered_down(smi, phy_address));
-  smi_configure(smi, phy_address, LINK_1000_MBPS_FULL_DUPLEX, SMI_ENABLE_AUTONEG);
-
-  while (1) {
-    select {
-    case tmr when timerafter(t) :> t:
-      ethernet_link_state_t new_state = smi_get_link_state(smi, phy_address);
-      // Read AR8035 status register bits 15:14 to get the current link speed
-      if (new_state == ETHERNET_LINK_UP) {
-        link_speed = (ethernet_speed_t)(smi.read_reg(phy_address, 0x11) >> 14) & 3;
-      }
-      if (new_state != link_state) {
-        link_state = new_state;
-        eth.set_link_state(0, new_state, link_speed);
-      }
-      t += link_poll_period_ms * XS1_TIMER_KHZ;
-      break;
-    }
-  }
-}
 
 int main()
 {
@@ -85,7 +52,7 @@ int main()
                                    rgmii_ports, 
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1].core[0]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_CLIENTS, c_rgmii_cfg);
-    on tile[1].core[0]: ar8035_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER]);
+    on tile[1].core[0]: ar8035_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], p_eth_reset);
   
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
