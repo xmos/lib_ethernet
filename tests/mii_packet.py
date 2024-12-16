@@ -60,7 +60,7 @@ class MiiPacket(object):
             self.sfd_nibble = 0
             self.num_data_bytes = 0
             self.inter_frame_gap = 0.0
-            self.inter_frame_gap_clock_cycles = 0.0
+            self.inter_frame_gap_clock_cycles = 0
             self.dst_mac_addr = []
             self.src_mac_addr = []
             self.vlan_prio_tag = []

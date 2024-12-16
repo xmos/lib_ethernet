@@ -14,6 +14,7 @@ from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 from helpers import generate_tests
+from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
 
 debug_fill = 0 # print extra debug information
 
@@ -170,22 +171,33 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
             num_windows=10, num_avb_streams=12, num_avb_data_bytes=400,
             weight_none=50, weight_lp=50, weight_other=50,
             data_len_min=46, data_len_max=500,
-            weight_tagged=50, weight_untagged=50):
+            weight_tagged=50, weight_untagged=50,
+            rx_width=None):
 
     rand = random.Random()
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, int(sys.maxsize)))
+    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1E', bit_time, 0, True, rand.randint(0, int(sys.maxsize)))
 
     testname = 'test_avb_traffic'
+    expect_folder = create_if_needed("expect_temp")
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if rx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_rx{rx_width}_{arch}'
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_rx{rx_width}_{tx_clk.get_name()}_{arch}.expect'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy, rx_width {rx_width} at {tx_clk.get_name()} (seed {seed})")
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
+
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    with capfd.disabled():
-        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed})")
 
     stream_mac_addresses = {}
     stream_seq_id = {}
@@ -243,8 +255,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
 
     tx_phy.set_packets(packets)
 
-    expect_folder = create_if_needed("expect_temp")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+
     create_expect(packets, expect_filename, num_windows, num_avb_streams, num_avb_data_bytes)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
 
@@ -254,7 +265,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    capfd=capfd)
+                                    capfd=capfd
+                                    )
 
     assert result is True, f"{result}"
 
@@ -276,7 +288,7 @@ def test_avb_traffic(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
-    seed = 1 # https://github.com/xmos/lib_ethernet/issues/68
+
     if args.data_len_max < args.data_len_min:
         print("ERROR: Invalid arguments, data_len_max ({max}) cannot be less than data_len_min ({min})").format(
         min=args.data_len_min, max=args.data_len_max)
@@ -287,7 +299,35 @@ def test_avb_traffic(capfd, seed, params):
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6, test_ctrl='tile[0]:XS1_PORT_1C')
         do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=2, num_avb_data_bytes=200)
 
+    elif params["phy"] == "rmii":
+        rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
+        if params['rx_width'] == "4b_lower":
+            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                        rmii_clk,
+                                        "lower_2b",
+                                        expect_loopback=False,
+                                        dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
+                                        test_ctrl="tile[0]:XS1_PORT_1M"
+                                        )
+        elif params['rx_width'] == "4b_upper":
+            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                        rmii_clk,
+                                        "upper_2b",
+                                        expect_loopback=False,
+                                        dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
+                                        test_ctrl="tile[0]:XS1_PORT_1M"
+                                        )
+        elif params['rx_width'] == "1b":
+            tx_rmii_phy = get_rmii_1b_port_tx_phy(
+                                        rmii_clk,
+                                        expect_loopback=False,
+                                        dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
+                                        test_ctrl="tile[0]:XS1_PORT_1M"
+                                        )
+        do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, num_avb_streams=2, num_avb_data_bytes=200, rx_width=params['rx_width'])
+
     elif params["phy"] == "rgmii":
+        seed = 1 # https://github.com/xmos/lib_ethernet/issues/68
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)

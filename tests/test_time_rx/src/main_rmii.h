@@ -30,8 +30,8 @@ int main()
                                         p_eth_txen, &p_eth_txd,
                                         eth_rxclk, eth_txclk,
                                         4000, 4000, ETHERNET_DISABLE_SHAPER);}
-    //on tile[0]: filler(0x222);
-    //on tile[0]: filler(0x333);
+    on tile[0]: filler(0x222);
+    on tile[0]: filler(0x333);
 
     #if ETHERNET_SUPPORT_HP_QUEUES
     on tile[0]: test_rx(i_cfg[0], c_rx_hp, i_ctrl[0]);

@@ -11,7 +11,7 @@ from helpers import generate_tests
 
 
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None):
     rand = random.Random()
     rand.seed(seed)
 
@@ -47,7 +47,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     for packet in packets:
         packet.dst_mac_addr = dut_mac_address
 
-    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx")
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx", rx_width=rx_width, tx_width=tx_width)
 
 test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])

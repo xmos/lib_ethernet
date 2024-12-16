@@ -121,30 +121,33 @@ class RMiiTxPhy(px.SimThread):
         self.xsi.drive_port_pins(self._rxer, value)
 
 class PacketManager():
-    def __init__(self, packets, data_type, verbose=False):
+    def __init__(self, packets, clock, data_type, verbose=False):
         assert data_type in ['crumb', 'nibble']
         self._data_type = data_type # 'nibble' or 'crumb'
         self._pkts = packets
-        assert len(self._pkts) > 0
         self._num_pkts = len(self._pkts)
         self._pkt_ended = False # Flag indicating if the current packet has ended
         self._verbose = verbose
+        self._clock = clock
 
         # Set up to do the first packet
         self._current_pkt_index = 0
-        self._pkt = self._pkts[self._current_pkt_index]
-        self._nibbles = self._pkt.get_nibbles() # list of nibbles in the current packet
-        self._error_nibbles = self._pkt.get_error_nibbles()
-        self._nibble_index = 0 # nibble we're indexing in the current packet
-        self._crumb_index = 0 # alternates between 0 and 1
-        self._ifg_wait_cycles = 0
-
+        if len(self._pkts):
+            self._pkt = self._pkts[self._current_pkt_index]
+            self._nibbles = self._pkt.get_nibbles() # list of nibbles in the current packet
+            self._error_nibbles = self._pkt.get_error_nibbles()
+            self._nibble_index = 0 # nibble we're indexing in the current packet
+            self._crumb_index = 0 # alternates between 0 and 1
+            self._ifg_wait_cycles = 0
 
     def get_data(self):
         if(self._current_pkt_index == self._num_pkts): # Finished all the packets
             return None, False, False
 
-        if self._ifg_wait_cycles < self._pkt.inter_frame_gap_clock_cycles:
+        # From IFG in xsi ticks, derive IFG in clock cycles. IFG_xsi_ticks/xsi_ticks_per_bit = IFG_in_no_of_bits
+        # IFG_in_no_of_bits/bits_per_clock_cycle = ifg_in_clock_cycles
+        ifg_clock_cycles = self._pkt.inter_frame_gap/(self._clock._bit_time * self._clock.get_clock_cycle_to_bit_time_ratio())
+        if self._ifg_wait_cycles < ifg_clock_cycles: # ifg in clock cycles
             self._ifg_wait_cycles += 1
             return None, False, True
 
@@ -206,7 +209,7 @@ class RMiiTransmitter(RMiiTxPhy):
 
     def run(self):
         xsi = self.xsi
-        pkt_manager = PacketManager(self._packets, "crumb", verbose=self._verbose) # read packet data at crumb granularity
+        pkt_manager = PacketManager(self._packets, self._clock, "crumb", verbose=self._verbose) # read packet data at crumb granularity
         self.start_test()
 
         while True:

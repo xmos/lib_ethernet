@@ -147,7 +147,7 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
                                             packet_fn=check_received_packet,
                                             verbose=verbose,
                                             )
-        test_fn(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, params['rx_width'], params['tx_width'])
+        test_fn(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, rx_width=params['rx_width'], tx_width=params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"
 
@@ -160,7 +160,7 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()} (seed = {seed})")
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch}, rx_width {rx_width} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
     profile = f'{mac}_{tx_phy.get_name()}'
@@ -178,7 +178,10 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     rx_phy.set_expected_packets(packets)
 
     expect_folder = create_if_needed("expect_temp")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+    if rx_width:
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{rx_width}_{tx_width}_{tx_clk.get_name()}_{arch}.expect'
+    else:
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
 
     create_expect(packets, expect_filename)
 
@@ -191,6 +194,7 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
         st = [tx_clk, rx_phy, tx_phy]
     else:
         st = [rx_clk, rx_phy, tx_clk, tx_phy]
+
     result = px.run_on_simulator_(  binary,
                                     simthreads=st + extra_tasks,
                                     tester=tester,

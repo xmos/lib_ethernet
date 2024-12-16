@@ -139,8 +139,6 @@ def test_time_rx(capfd, seed, params):
     elif params["phy"] == "rmii":
         clk = get_rmii_clk(Clock.CLK_50MHz)
         if params['rx_width'] == "4b_lower":
-            with capfd.disabled():
-                print("4b_lower")
             tx_rmii_phy = get_rmii_4b_port_tx_phy(
                                         clk,
                                         "lower_2b",
@@ -148,8 +146,6 @@ def test_time_rx(capfd, seed, params):
                                         test_ctrl="tile[0]:XS1_PORT_1M"
                                         )
         elif params['rx_width'] == "4b_upper":
-            with capfd.disabled():
-                print("4b_upper")
             tx_rmii_phy = get_rmii_4b_port_tx_phy(
                                         clk,
                                         "upper_2b",
@@ -157,8 +153,6 @@ def test_time_rx(capfd, seed, params):
                                         test_ctrl="tile[0]:XS1_PORT_1M"
                                         )
         elif params['rx_width'] == "1b":
-            with capfd.disabled():
-                print("1b")
             tx_rmii_phy = get_rmii_1b_port_tx_phy(
                                         clk,
                                         verbose=verbose,
