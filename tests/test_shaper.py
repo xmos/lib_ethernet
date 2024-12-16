@@ -14,6 +14,7 @@ from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 from helpers import generate_tests
+from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
 
 
 high_priority_mac_addr = [0, 1, 2, 3, 4, 5]
@@ -81,20 +82,30 @@ class TimeoutMonitor(px.SimThread):
                 xsi.terminate()
 
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
+def do_test(capfd, mac, clkname, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
     testname = 'test_shaper'
-    mii_clk_name = "125MHz" if "125" in tx_clk.get_name() else "25MHz" # Fix issue with lower case h
-    profile = f'{mac}_{tx_phy.get_name()}_{mii_clk_name}_{arch}'
+
+    expect_folder = create_if_needed("expect_temp")
+
+    if tx_width:
+        profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{clkname}_{arch}'
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{rx_phy.get_name()}_tx{tx_width}_{rx_clk.get_name()}_{arch}.expect'
+        with capfd.disabled():
+            print(f"Running {testname}: {rx_phy.get_name()} phy, {tx_width} tx_width, at {rx_clk.get_name()}")
+    else:
+        profile = f'{mac}_{rx_phy.get_name()}_{clkname}_{arch}'
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{rx_phy.get_name()}_{rx_clk.get_name()}_{arch}.expect'
+        with capfd.disabled():
+            print(f"Running {testname}: {rx_phy.get_name()} phy at {rx_clk.get_name()}")
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    with capfd.disabled():
-        print(f"Running {testname}: {rx_phy.get_name()} phy at {tx_clk.get_name()} binary: {binary}")
 
     # MAC request 5Mb/s
     slope = 5 * 1024 * 1024
 
-    bit_time = tx_phy.get_clock().get_bit_time() # bit_time is in xsi_ticks/bit
+    bit_time = rx_phy.get_clock().get_bit_time() # bit_time is in xsi_ticks/bit
     bit_rate = px.Xsi.get_xsi_tick_freq_hz() / bit_time
     data_bytes = 100
     ifg_bytes = 96/8
@@ -116,8 +127,11 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
     rx_phy.n_hp_packets = 0
     rx_phy.n_lp_packets = 0
 
-    expect_folder = create_if_needed("expect_temp")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+    if tx_clk and tx_phy:
+        simthreads = [rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor]
+    else:
+        simthreads = [rx_clk, rx_phy, timeout_monitor]
+
 
     create_expect(expect_filename, num_expected_packets)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True)
@@ -126,7 +140,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
 
     if rx_phy.get_name() == 'rgmii' and rx_clk.get_name() == '125Mhz':
         result = px.run_on_simulator_(  binary,
-                                        simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
+                                        simthreads=simthreads,
                                         tester=tester,
                                         simargs=simargs,
                                         do_xe_prebuild=False,
@@ -134,7 +148,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
                                         timeout=1200)
     else:
         result = px.run_on_simulator_(  binary,
-                                        simthreads=[rx_clk, rx_phy, tx_clk, tx_phy, timeout_monitor],
+                                        simthreads=simthreads,
                                         tester=tester,
                                         simargs=simargs,
                                         capfd=capfd,
@@ -163,21 +177,44 @@ def test_rx_err(capfd, params):
     if params["phy"] == "mii":
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, verbose=verbose)
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False)
-        do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+        do_test(capfd, params["mac"], params["clk"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, verbose=verbose)
             (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False)
-            do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
+            do_test(capfd, params["mac"], params["clk"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, verbose=verbose)
             (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False)
-            do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
+            do_test(capfd, params["mac"], params["clk"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
         else:
             assert 0, f"Invalid params: {params}"
+
+    elif params["phy"] == "rmii":
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        if params['tx_width'] == "4b_lower":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                        "lower_2b",
+                                        packet_fn=packet_checker,
+                                        verbose=verbose,
+                                        )
+        elif params['tx_width'] == "4b_upper":
+            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                "upper_2b",
+                                packet_fn=packet_checker,
+                                verbose=verbose,
+                                )
+        elif params['tx_width'] == "1b":
+            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                                packet_fn=packet_checker,
+                                                verbose=verbose)
+        else:
+            assert False, f"Invalid tx_width {params['tx_width']}"
+        do_test(capfd, params["mac"], params["clk"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
+
 
     else:
         assert 0, f"Invalid params: {params}"

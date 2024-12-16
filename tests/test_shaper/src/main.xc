@@ -6,8 +6,12 @@
 #include "helpers.xc"
 #include <print.h>
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
 #define PACKET_BYTES 100
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
@@ -184,8 +188,9 @@ int main()
       }
     }
 
-    #else // RGMII
+    #else
 
+  #if MII
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
@@ -194,6 +199,17 @@ int main()
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_ENABLE_SHAPER);
+  #elif RMII
+    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                            i_rx_lp, NUM_RX_LP_IF,
+                            i_tx_lp, NUM_TX_LP_IF,
+                            null, c_tx_hp,
+                            p_eth_clk,
+                            &p_eth_rxd, p_eth_rxdv,
+                            p_eth_txen, &p_eth_txd,
+                            eth_rxclk, eth_txclk,
+                            4000, 4000, ETHERNET_ENABLE_SHAPER);}
+  #endif
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x3333);
 
