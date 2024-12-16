@@ -71,7 +71,7 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 7
    - 3 (1-bit), 2 (4-bit) or 4 (1-bit)
    - 2
-   - ~TBD k
+   - ~15 k
    - 4
  * - 10/100/1000Mb/s RGMII
    - 12

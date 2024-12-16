@@ -35,7 +35,7 @@ void lan8710a_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
  */
 [[combinable]]
 void ar8035_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
-                       CLIENT_INTERFACE(ethernet_cfg_if i_eth),
+                       CLIENT_INTERFACE(ethernet_cfg_if, i_eth),
                        out_port_t p_eth_reset);
 
 
@@ -46,8 +46,8 @@ void ar8035_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
  *  \param i_eth    Client MAC configuration interface
  */
 [[combinable]]
-void dp83826e_phy_driver(CLIENT_INTERFACE(smi_if i_smi),
-                         CLIENT_INTERFACE(ethernet_cfg_if i_eth));
+void dp83826e_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
+                         CLIENT_INTERFACE(ethernet_cfg_if, i_eth));
 
 
 /**@}*/ // END: addtogroup phy_drivers_if
