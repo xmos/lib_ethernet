@@ -283,7 +283,7 @@ class RMiiRxPhy(px.SimThread):
         self.expected_packets = None
         self.expect_packet_index = 0
         self.num_expected_packets = 0
-        print(f"self._txd = {self._txd}, self._txd_port_width = {self._txd_port_width}, self._txd_4b_port_pin_assignment = {self._txd_4b_port_pin_assignment}")
+        #print(f"self._txd = {self._txd}, self._txd_port_width = {self._txd_port_width}, self._txd_4b_port_pin_assignment = {self._txd_4b_port_pin_assignment}")
 
     def get_name(self):
         return self._name
@@ -345,7 +345,10 @@ class RMiiReceiver(RMiiRxPhy):
                         sys.stdout.write(packet.dump())
 
                     if self._packet_fn:
-                        self._packet_fn(packet, self)
+                        if self._test_ctrl:
+                            self._packet_fn(packet, self, self._test_ctrl)
+                        else:
+                            self._packet_fn(packet, self)
 
                     # Perform packet checks
                     packet.check(self._clock)

@@ -8,9 +8,13 @@
 #include "syscall.h"
 #include "seed.inc"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1C;
 #include "control.xc"
 
 #include "helpers.xc"

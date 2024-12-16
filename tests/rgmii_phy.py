@@ -192,7 +192,10 @@ class RgmiiReceiver(RxPhy):
                 sys.stdout.write(packet.dump())
 
             if self._packet_fn:
-                self._packet_fn(packet, self)
+                if self._test_ctrl:
+                    self._packet_fn(packet, self, self._test_ctrl)
+                else:
+                    self._packet_fn(packet, self)
 
             # Perform packet checks
             packet.check(self._clock)

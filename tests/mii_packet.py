@@ -254,7 +254,8 @@ class MiiPacket(object):
         """
 
         # UNH-IOL MAC Test 4.2.2 (only check if it is non-zero as otherwise it is simply the first packet)
-        if self.inter_frame_gap and (self.inter_frame_gap < clock.get_min_ifg()):
+        # extra check (clock.get_min_ifg() - self.inter_frame_gap > 0.0001) to account for floating point precision errors
+        if self.inter_frame_gap and (self.inter_frame_gap < clock.get_min_ifg()) and (clock.get_min_ifg() - self.inter_frame_gap > 0.0001):
             print(f"ERROR: Invalid interframe gap of {self.inter_frame_gap}. Less than min ifg {clock.get_min_ifg()}")
 
         # UNH-IOL MAC Test 4.2.1
