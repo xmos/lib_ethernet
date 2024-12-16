@@ -5,8 +5,8 @@
 
 
 [[combinable]]
-void lan8710a_phy_driver(client interface smi_if smi,
-                         client interface ethernet_cfg_if eth) {
+void lan8710a_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
+                         CLIENT_INTERFACE(ethernet_cfg_if i_eth)) {
   ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
   ethernet_speed_t link_speed = LINK_100_MBPS_FULL_DUPLEX;
   const int link_poll_period_ms = 1000;
@@ -43,8 +43,8 @@ void lan8710a_phy_driver(client interface smi_if smi,
 
 
 [[combinable]]
-void ar8035_phy_driver(client interface smi_if smi,
-                       client interface ethernet_cfg_if eth,
+void ar8035_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
+                       CLIENT_INTERFACE(ethernet_cfg_if i_eth),
                        out_port_t p_eth_reset) {
   ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
   ethernet_speed_t link_speed = LINK_1000_MBPS_FULL_DUPLEX;
