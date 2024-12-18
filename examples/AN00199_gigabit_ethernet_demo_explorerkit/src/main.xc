@@ -6,7 +6,7 @@
 #include "ethernet.h"
 #include "icmp.h"
 #include "smi.h"
-#include "phy_drivers.h"
+#include "xk_evk_xe216/board.h"
 #include "debug_print.h"
 
 // These ports are for accessing the OTP memory
@@ -16,7 +16,6 @@ rgmii_ports_t rgmii_ports = on tile[1]: RGMII_PORTS_INITIALIZER;
 
 port p_smi_mdio   = on tile[1]: XS1_PORT_1C;
 port p_smi_mdc    = on tile[1]: XS1_PORT_1D;
-port p_eth_reset  = on tile[1]: XS1_PORT_1N;
 
 static unsigned char ip_address[4] = {192, 168, 1, 178};
 
@@ -52,7 +51,7 @@ int main()
                                    rgmii_ports, 
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1].core[0]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_CLIENTS, c_rgmii_cfg);
-    on tile[1].core[0]: ar8035_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], p_eth_reset);
+    on tile[1].core[0]: ar8035_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER]);
   
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
