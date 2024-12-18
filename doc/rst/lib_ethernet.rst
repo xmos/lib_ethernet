@@ -33,7 +33,7 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
    - Supported
  * - XS3 (xcore.ai)
    - Supported
-   - Contact XMOS
+   - Supported
    - Contact XMOS
    - N/A
 
@@ -747,16 +747,6 @@ SMI PHY configuration helper functions
 .. doxygenfunction:: smi_phy_is_powered_down
 
 .. doxygenfunction:: smi_get_link_state
-
-|newpage|
-
-PHY Support Drivers
-===================
-
-
-.. doxygengroup:: phy_drivers_if
-
-
 
 |newpage|
 
