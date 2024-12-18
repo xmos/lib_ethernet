@@ -16,7 +16,7 @@ from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
 from helpers import generate_tests
 
-def packet_checker(packet, phy):
+def packet_checker(packet, phy, test_ctrl):
     print("Packet received:")
     sys.stdout.write(packet.dump(show_ifg=False))
 
@@ -70,7 +70,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    capfd=capfd)
+                                    capfd=capfd
+                                    )
 
     assert result is True, f"{result}"
 

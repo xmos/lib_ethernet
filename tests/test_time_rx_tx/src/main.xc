@@ -24,7 +24,7 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
   #include "main_rgmii.h"
 #else
   #if RT
-    #include "main_mii_rt.h"
+    #include "main_mii_rt.h" // for both MII and RMII
   #else
     #include "main_mii_standard.h"
   #endif

@@ -368,6 +368,7 @@ def test_rx_queues(capfd, seed, params):
                         max_hp_mbps=600)
 
             if params["test_id"] == "mixed":
+                seed = 1 # https://github.com/xmos/lib_ethernet/issues/69
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
                         weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,

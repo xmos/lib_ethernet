@@ -39,6 +39,6 @@ test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_4_2_4(params, capfd):
     if params["phy"] == "rmii":
-        pytest.skip("Failing for rmii")
+        pytest.skip("Failing for rmii. https://github.com/xmos/lib_ethernet/issues/72")
     random.seed(24)
     run_parametrised_test_rx(capfd, do_test, params)

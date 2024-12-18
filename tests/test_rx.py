@@ -42,7 +42,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     # The inter-frame gap is to give the DUT time to print its output
     packets = []
 
-    for mac_address in [dut_mac_address]:
+    for mac_address in [dut_mac_address, broadcast_mac_address]:
         packets.append(MiiPacket(rand,
             dst_mac_addr=mac_address,
             create_data_args=['step', (1, 72)]

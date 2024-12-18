@@ -13,7 +13,7 @@
 #include "ports_rmii.h"
 #else
 #include "ports.h"
-port p_ctrl = on tile[0]: XS1_PORT_1C;
+port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 #endif
 
 #include "control.xc"
@@ -115,13 +115,10 @@ void test_rx(client ethernet_cfg_if cfg,
 
 #if RGMII
   #include "main_rgmii.h"
-#elif MII
+#else
   #if RT
-    #include "main_mii_rt.h"
+    #include "main_mii_rt.h" // for both MII and RMII
   #else
     #include "main_mii_standard.h"
   #endif
-#elif RMII
-  #include "main_rmii.h"
 #endif
-
