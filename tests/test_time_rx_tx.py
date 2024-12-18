@@ -170,7 +170,6 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
-    ifg_clock_cycles = tx_clk.get_min_ifg_clock_cycles()
 
     packets = []
     done = False
@@ -191,7 +190,6 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
             packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address,
                 inter_frame_gap=ifg,
-                inter_frame_gap_clock_cycles = ifg_clock_cycles,
                 num_data_bytes=length
               ))
 

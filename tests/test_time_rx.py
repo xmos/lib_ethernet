@@ -38,7 +38,6 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
-    ifg_clock_cycles = tx_clk.get_min_ifg_clock_cycles()
 
     packets = []
     done = False
@@ -61,7 +60,6 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
             packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address,
                 inter_frame_gap=ifg,
-                inter_frame_gap_clock_cycles = ifg_clock_cycles,
                 create_data_args=['same', (seq_id, length)],
               ))
             seq_id = (seq_id + 1) & 0xff
@@ -139,8 +137,6 @@ def test_time_rx(capfd, seed, params):
     elif params["phy"] == "rmii":
         clk = get_rmii_clk(Clock.CLK_50MHz)
         if params['rx_width'] == "4b_lower":
-            with capfd.disabled():
-                print("4b_lower")
             tx_rmii_phy = get_rmii_4b_port_tx_phy(
                                         clk,
                                         "lower_2b",
@@ -148,8 +144,6 @@ def test_time_rx(capfd, seed, params):
                                         test_ctrl="tile[0]:XS1_PORT_1M"
                                         )
         elif params['rx_width'] == "4b_upper":
-            with capfd.disabled():
-                print("4b_upper")
             tx_rmii_phy = get_rmii_4b_port_tx_phy(
                                         clk,
                                         "upper_2b",
@@ -157,8 +151,6 @@ def test_time_rx(capfd, seed, params):
                                         test_ctrl="tile[0]:XS1_PORT_1M"
                                         )
         elif params['rx_width'] == "1b":
-            with capfd.disabled():
-                print("1b")
             tx_rmii_phy = get_rmii_1b_port_tx_phy(
                                         clk,
                                         verbose=verbose,

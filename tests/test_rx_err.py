@@ -90,6 +90,9 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx_err(capfd, seed, params):
+    if params["phy"] == "rmii":
+      pytest.skip("RX_ER not supported on RMII")
+
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 

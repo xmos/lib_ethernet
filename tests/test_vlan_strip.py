@@ -43,25 +43,21 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x11, 0x11],
                   inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
-                  inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 64, mac)*2,
                   vlan_prio_tag=[0x81, 0x00, 0x00, 0x00], data_bytes=[1,2,3,4] + [0 for x in range(60)]),
 
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x22, 0x22],
                   inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
-                  inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 64, mac)*2,
                   data_bytes=[5,6,7,8] + [0 for x in range(60)]),
 
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x33, 0x33], vlan_prio_tag=[0x81, 0x00, 0x00, 0x00],
                   inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
-                  inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 64, mac)*2,
                   data_bytes=[4,3,2,1] + [0 for x in range(60)]),
 
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x44, 0x44],
                   inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
-                  inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 64, mac)*2,
                   data_bytes=[8,7,6,5] + [0 for x in range(60)])
       ]
 

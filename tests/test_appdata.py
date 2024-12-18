@@ -15,17 +15,25 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, packet_processing_time
 from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 from helpers import generate_tests
+from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
 
 
-def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
     testname = 'test_appdata'
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if rx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_rx{rx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy, rx_width {rx_width} at {tx_clk.get_name()}, (seed {seed})")
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}, (seed {seed})")
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    with capfd.disabled():
-        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}, (seed {seed})")
+
 
     rand = random.Random()
     rand.seed(seed)
@@ -51,7 +59,10 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
 
     tx_phy.set_packets(packets)
 
-    tester = px.testers.ComparisonTester(open('test_appdata_{phy}_{mac}.expect'.format(phy=tx_phy.get_name(), mac=mac)), ordered=False)
+    expect_file = f'test_appdata_{tx_phy.get_name()}_{mac}.expect'
+    if tx_phy.get_name() == "rmii": # for rmii use the same expect file as mii rt_hp
+        expect_file = 'test_appdata_mii_rt_hp.expect'
+    tester = px.testers.ComparisonTester(open(expect_file), ordered=False)
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
 
     result = px.run_on_simulator_(  binary,
@@ -59,7 +70,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    capfd=capfd)
+                                    capfd=capfd
+                                )
 
     assert result is True, f"{result}"
 
@@ -69,19 +81,43 @@ def test_appdata(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
+    verbose = True
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=verbose, test_ctrl="tile[0]:XS1_PORT_1A")
         do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed)
+    elif params["phy"] == "rmii":
+        rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
+        if params['rx_width'] == "4b_lower":
+            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                        rmii_clk,
+                                        "lower_2b",
+                                        verbose=verbose,
+                                        test_ctrl="tile[0]:XS1_PORT_1M"
+                                        )
+        elif params['rx_width'] == "4b_upper":
+            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                        rmii_clk,
+                                        "upper_2b",
+                                        verbose=verbose,
+                                        test_ctrl="tile[0]:XS1_PORT_1M"
+                                        )
+        elif params['rx_width'] == "1b":
+            tx_rmii_phy = get_rmii_1b_port_tx_phy(
+                                        rmii_clk,
+                                        verbose=verbose,
+                                        test_ctrl="tile[0]:XS1_PORT_1M"
+                                        )
+        do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, rx_width=params["rx_width"])
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=verbose, test_ctrl="tile[0]:XS1_PORT_1A")
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
-            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=verbose, test_ctrl="tile[0]:XS1_PORT_1A")
             do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed)
         else:
             assert 0, f"Invalid params: {params}"

@@ -33,7 +33,13 @@ foreach(PROFILE ${profile_list})
         string(JSON clk GET ${PROFILE} clk)
         string(JSON mac GET ${PROFILE} mac)
 
-        set(config "${mac}_${phy}_${clk}_${arch}")
+        set(config "${mac}_${phy}")
+        string(FIND ${PROFILE} "tx_width" tx_width_found)
+        if(tx_width_found GREATER -1)
+            string(JSON tx_width GET ${PROFILE} tx_width)
+            set(config "${config}_tx${tx_width}")
+        endif()
+        set(config "${config}_${clk}_${arch}")
 
         list (FIND done_configs ${config} _index)
 
@@ -44,6 +50,8 @@ foreach(PROFILE ${profile_list})
             set_app_hw_target(arch)
 
             set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
+
+            set_app_tx_width(tx_width)
 
             string(FIND "${PROFILE}" "rt" position)
             if(position GREATER -1)
@@ -61,8 +69,10 @@ foreach(PROFILE ${profile_list})
 
             if(${phy} MATCHES "rgmii")
                 list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=1)
-            else()
-                list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=0)
+            elseif(${phy} MATCHES "rmii")
+                list(APPEND APP_COMPILER_FLAGS_${config} -DRMII=1)
+            elseif(${phy} MATCHES "mii")
+                list(APPEND APP_COMPILER_FLAGS_${config} -DMII=1)
             endif()
 
             string(FIND "${PROFILE}" "125MHz" position)

@@ -1,4 +1,4 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #define NUM_CFG_IF 1
@@ -21,6 +21,7 @@ int main()
   #endif
 
   par {
+  #if MII
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
@@ -29,6 +30,17 @@ int main()
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);
+  #elif RMII
+    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        c_rx_hp, c_tx_hp,
+                                        p_eth_clk,
+                                        &p_eth_rxd, p_eth_rxdv,
+                                        p_eth_txen, &p_eth_txd,
+                                        eth_rxclk, eth_txclk,
+                                        4000, 4000, ETHERNET_DISABLE_SHAPER);}
+  #endif
     on tile[0]: filler(0x222);
     on tile[0]: filler(0x333);
 
@@ -38,7 +50,7 @@ int main()
     on tile[0]: test_rx(i_cfg[0], i_rx_lp[0], i_ctrl[0]);
     #endif
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

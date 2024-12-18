@@ -42,7 +42,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     # The inter-frame gap is to give the DUT time to print its output
     packets = []
 
-    for mac_address in [dut_mac_address]:
+    for mac_address in [dut_mac_address, broadcast_mac_address]:
         packets.append(MiiPacket(rand,
             dst_mac_addr=mac_address,
             create_data_args=['step', (1, 72)]
@@ -52,14 +52,12 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
             dst_mac_addr=mac_address,
             create_data_args=['step', (5, 52)],
             inter_frame_gap=packet_processing_time(tx_phy, 72, mac),
-            inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 72, mac)
           ))
 
         packets.append(MiiPacket(rand,
             dst_mac_addr=mac_address,
             create_data_args=['step', (7, 1500)],
             inter_frame_gap=packet_processing_time(tx_phy, 52, mac),
-            inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 52, mac)
           ))
 
 
@@ -70,7 +68,6 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (i, 1500)],
             inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
-            inter_frame_gap_clock_cycles = packet_processing_time_clock_cycles(tx_phy, 1500, mac)
         ))
 
 

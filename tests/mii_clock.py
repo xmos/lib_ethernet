@@ -40,7 +40,6 @@ class Clock(px.SimThread):
 
         self._bit_time = self._period / self._clock_cycle_to_bit_time_ratio # xsim ticks per bit
         self._min_ifg = 96 * self._bit_time
-        self._min_ifg_clock_cycles = 96 / self._clock_cycle_to_bit_time_ratio # Counting IFG time in no. of ethernet clock cycles
 
         self._val = 0
         self._port = port
@@ -70,9 +69,6 @@ class Clock(px.SimThread):
 
     def get_min_ifg(self):
         return self._min_ifg
-
-    def get_min_ifg_clock_cycles(self):
-        return self._min_ifg_clock_cycles
 
     def get_bit_time(self):
         return self._bit_time
