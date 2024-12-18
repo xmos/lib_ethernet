@@ -144,7 +144,8 @@ class PacketManager():
         if(self._current_pkt_index == self._num_pkts): # Finished all the packets
             return None, False, False
 
-        # From IFG in xsi ticks, derive IFG in clock cycles. IFG_xsi_ticks/xsi_ticks_per_bit = IFG_in_no_of_bits
+        # From IFG in xsi ticks, derive IFG in clock cycles.
+        # IFG_xsi_ticks/xsi_ticks_per_bit = IFG_in_no_of_bits
         # IFG_in_no_of_bits/bits_per_clock_cycle = ifg_in_clock_cycles
         ifg_clock_cycles = self._pkt.inter_frame_gap/(self._clock._bit_time * self._clock.get_clock_cycle_to_bit_time_ratio())
         if self._ifg_wait_cycles < ifg_clock_cycles: # ifg in clock cycles
