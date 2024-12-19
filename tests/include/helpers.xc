@@ -6,7 +6,7 @@
 #include "random_init.c"
 
 #ifndef RANDOM_FAST_MODE
-#define RANDOM_FAST_MODE (1)
+#define RANDOM_FAST_MODE (0)
 #endif
 
 void filler(int seed)
