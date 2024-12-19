@@ -223,7 +223,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
 test_params_file = Path(__file__).parent / "test_time_rx_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_time_rx_tx(capfd, seed, params):
+def test_time_rx_tx(capfd, seed, level, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
