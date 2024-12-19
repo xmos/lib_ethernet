@@ -10,6 +10,7 @@ from helpers import choose_small_frame_size, check_received_packet, run_parametr
 import pytest
 from pathlib import Path
 from helpers import generate_tests
+import warnings
 
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None):
@@ -26,8 +27,15 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     if tx_clk.get_rate == Clock.CLK_125MHz:
         max_fragment_len = 142
 
+    if tx_phy.get_name() == "rmii":
+      min_fragment_length = 16 # https://github.com/xmos/lib_ethernet/issues/73
+      warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
+    else:
+       min_fragment_length = 2
+
+
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(2, max_fragment_len, 1))
-    for m in [2, max_fragment_len/3, max_fragment_len/2, max_fragment_len]:
+    for m in [min_fragment_length, max_fragment_len/3, max_fragment_len/2, max_fragment_len]:
       error_packets.append(MiiPacket(rand,
           num_preamble_nibbles=int(m), num_data_bytes=0,
           sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[], ether_len_type=[],
@@ -53,12 +61,21 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     # Part B
 
     # Test Frame 5 - send a 7-octect preamble
-    error_packets.append(MiiPacket(rand,
-        num_preamble_nibbles=15, num_data_bytes=0,
+    if tx_phy.get_name() == "rmii":
+       warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
+       error_packets.append(MiiPacket(rand,
+        num_preamble_nibbles=min_fragment_length, num_data_bytes=0,
         sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
         ether_len_type=[], send_crc_word=False,
         dropped=True
       ))
+    else:
+      error_packets.append(MiiPacket(rand,
+          num_preamble_nibbles=15, num_data_bytes=0,
+          sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
+          ether_len_type=[], send_crc_word=False,
+          dropped=True
+        ))
 
     # Test Frame 6 - send a 7-octect preamble with SFD
     error_packets.append(MiiPacket(rand,
@@ -124,7 +141,5 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_4_1_2(params, capfd):
-    if params["phy"] == "rmii":
-        pytest.skip("Failing for rmii")
     random.seed(12)
     run_parametrised_test_rx(capfd, do_test, params)

@@ -185,11 +185,11 @@ The RMII transfers data using 2 bit words (half-nibbles) in each direction, cloc
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
 A common clock signal clocks nibbles (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A common clock signal clocks the received nibbles (RXD[2:0]).
+A common clock signal clocks the received nibbles (RXD[1:0]).
 
 Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This 
 provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
-have their port type set independently and can be mixed.
+have their port type set independently and can be mixed. Unused pins on a 4-bit port are ignored for Rx and driven low for Tx.
 
 .. note::
     By default most RMII PHYs supply a CRS_DV signal (carrier sense) instead of an RX_DV data valid strobe. This library requires
