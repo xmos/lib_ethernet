@@ -9,7 +9,7 @@ import sys
 
 from mii_packet import MiiPacket
 from mii_clock import Clock
-from helpers import do_rx_test, packet_processing_time, get_dut_mac_address, packet_processing_time_clock_cycles
+from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
 from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
 from helpers import generate_tests
 

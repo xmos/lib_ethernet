@@ -353,14 +353,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         /* Wait for the start of the packet and timestamp it */
         unsigned sfd_preamble;
 
-        // Ensure we have sufficiently sized buffer
-        //assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
-        /*if((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE)
-        {
-            printintln(8888);
-            assert(0);
-        }*/
-
         // Receive first half of preamble
         sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
 
