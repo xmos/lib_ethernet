@@ -14,7 +14,7 @@ from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 from helpers import generate_tests
-from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy
 
 debug_fill = 0 # print extra debug information
 
@@ -296,45 +296,28 @@ def test_avb_traffic(capfd, seed, params):
 
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6, test_ctrl='tile[0]:XS1_PORT_1C')
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(expect_loopback=False, dut_exit_time_us=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6, test_ctrl='tile[0]:XS1_PORT_1C')
         do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed, num_avb_streams=2, num_avb_data_bytes=200)
 
     elif params["phy"] == "rmii":
         rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['rx_width'] == "4b_lower":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "lower_2b",
-                                        expect_loopback=False,
-                                        dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
-        elif params['rx_width'] == "4b_upper":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "upper_2b",
-                                        expect_loopback=False,
-                                        dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
-        elif params['rx_width'] == "1b":
-            tx_rmii_phy = get_rmii_1b_port_tx_phy(
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
                                         rmii_clk,
                                         expect_loopback=False,
-                                        dut_exit_time=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
+                                        dut_exit_time_us=(100 * px.Xsi.get_xsi_tick_freq_hz())/1e6,
                                         test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
+                                    )
         do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, num_avb_streams=2, num_avb_data_bytes=200, rx_width=params['rx_width'])
 
     elif params["phy"] == "rgmii":
         seed = 1 # https://github.com/xmos/lib_ethernet/issues/68
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed, num_avb_streams=12)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
-            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, test_ctrl='tile[0]:XS1_PORT_1C', expect_loopback=False, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, num_avb_streams=12)
         else:
             assert 0, f"Invalid params: {params}"

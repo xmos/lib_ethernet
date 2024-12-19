@@ -14,7 +14,7 @@ from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 from helpers import generate_tests
-from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
+from helpers import get_rmii_clk, get_rmii_rx_phy
 
 
 high_priority_mac_addr = [0, 1, 2, 3, 4, 5]
@@ -37,9 +37,9 @@ def packet_checker(packet, phy):
 
 class TimeoutMonitor(px.SimThread):
 
-    def __init__(self, initial_delay, packet_period, expect_count, verbose):
+    def __init__(self, initial_delay_us, packet_period, expect_count, verbose):
         self._seen_packets = 0
-        self._initial_delay = initial_delay
+        self._initial_delay = initial_delay_us
         self._packet_period = packet_period
         self._expect_count = expect_count
         self._packet_count = 0
@@ -195,24 +195,12 @@ def test_rx_err(capfd, params):
 
     elif params["phy"] == "rmii":
         clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['tx_width'] == "4b_lower":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                        "lower_2b",
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                        clk,
                                         packet_fn=packet_checker,
                                         verbose=verbose,
-                                        )
-        elif params['tx_width'] == "4b_upper":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                "upper_2b",
-                                packet_fn=packet_checker,
-                                verbose=verbose,
-                                )
-        elif params['tx_width'] == "1b":
-            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
-                                                packet_fn=packet_checker,
-                                                verbose=verbose)
-        else:
-            assert False, f"Invalid tx_width {params['tx_width']}"
+                                    )
+
         do_test(capfd, params["mac"], params["clk"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
 
 

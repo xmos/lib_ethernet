@@ -12,9 +12,9 @@ from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
-from helpers import do_rx_test, get_dut_mac_address, check_received_packet, packet_processing_time, packet_processing_time_clock_cycles
+from helpers import do_rx_test, get_dut_mac_address, check_received_packet, packet_processing_time
 from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
-from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy
 from helpers import generate_tests
 
 
@@ -109,32 +109,11 @@ def test_vlan_strip(capfd, seed, params):
             assert 0, f"Invalid params: {params}"
     elif params["phy"] == "rmii":
         clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['rx_width'] == "4b_lower":
-            with capfd.disabled():
-                print("4b_lower")
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        clk,
-                                        "lower_2b",
-                                        verbose=True,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
-        elif params['rx_width'] == "4b_upper":
-            with capfd.disabled():
-                print("4b_upper")
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        clk,
-                                        "upper_2b",
-                                        verbose=True,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
-        elif params['rx_width'] == "1b":
-            with capfd.disabled():
-                print("1b")
-            tx_rmii_phy = get_rmii_1b_port_tx_phy(
-                                        clk,
-                                        verbose=True,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      clk,
+                                      verbose=True,
+                                      test_ctrl="tile[0]:XS1_PORT_1M"
+                                    )
         do_test(capfd, params["mac"], params["arch"], clk, tx_rmii_phy, seed, rx_width=params["rx_width"])
 
     else:

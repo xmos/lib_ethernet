@@ -27,7 +27,7 @@ from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 from helpers import generate_tests
-from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy
 
 
 def choose_data_size(rand, data_len_min, data_len_max):
@@ -293,29 +293,12 @@ def test_rx_queues(capfd, seed, params):
 
     elif params["phy"] == "rmii":
         rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['rx_width'] == "4b_lower":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "lower_2b",
-                                        verbose=verbose,
-                                        test_ctrl="tile[0]:XS1_PORT_1M",
-                                        expect_loopback=False
-                                        )
-        elif params['rx_width'] == "4b_upper":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "upper_2b",
-                                        verbose=verbose,
-                                        test_ctrl="tile[0]:XS1_PORT_1M",
-                                        expect_loopback=False
-                                        )
-        elif params['rx_width'] == "1b":
-            tx_rmii_phy = get_rmii_1b_port_tx_phy(
-                                        rmii_clk,
-                                        verbose=verbose,
-                                        test_ctrl="tile[0]:XS1_PORT_1M",
-                                        expect_loopback=False
-                                        )
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      rmii_clk,
+                                      verbose=verbose,
+                                      test_ctrl="tile[0]:XS1_PORT_1M",
+                                      expect_loopback=False
+                                      )
 
         # Test having every packet going to both LP receivers
         if params["test_id"] == "hp_min_sz":

@@ -11,8 +11,8 @@ class TxPhy(px.SimThread):
     # Time in fs from the last packet being sent until the end of test is signalled to the DUT
     END_OF_TEST_TIME = (10 * px.Xsi.get_xsi_tick_freq_hz())/1e6 # 10us
 
-    def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay, verbose,
-                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time):
+    def __init__(self, name, rxd, rxdv, rxer, clock, initial_delay_us, verbose,
+                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time_us):
         self._name = name
         self._test_ctrl = test_ctrl
         self._rxd = rxd
@@ -20,12 +20,12 @@ class TxPhy(px.SimThread):
         self._rxer = rxer
         self._packets = []
         self._clock = clock
-        self._initial_delay = initial_delay
+        self._initial_delay = initial_delay_us
         self._verbose = verbose
         self._do_timeout = do_timeout
         self._complete_fn = complete_fn
         self._expect_loopback = expect_loopback
-        self._dut_exit_time = dut_exit_time
+        self._dut_exit_time = dut_exit_time_us
 
     def get_name(self):
         return self._name
@@ -92,13 +92,13 @@ class TxPhy(px.SimThread):
 class MiiTransmitter(TxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
-                 initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
+                 initial_delay_us=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+                 dut_exit_time_us=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
         super(MiiTransmitter, self).__init__('mii', rxd, rxdv, rxer, clock,
-                                             initial_delay, verbose, test_ctrl,
+                                             initial_delay_us, verbose, test_ctrl,
                                              do_timeout, complete_fn, expect_loopback,
-                                             dut_exit_time)
+                                             dut_exit_time_us)
 
     def run(self):
         xsi = self.xsi
