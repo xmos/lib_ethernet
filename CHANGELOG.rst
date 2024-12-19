@@ -10,6 +10,8 @@ lib_ethernet change log
   * REMOVED: Support for XS1 devices
   * RESOLVED: Build warnings even when compile successful
   * ADDED: Support for running MII sim tests for XS3 architecture
+  * ADDED: RMII Ethernet MAC support for XCORE-AI
+  * ADDED: Extended sim tests for testing RMII applications
 
   * Changes to dependencies:
 
