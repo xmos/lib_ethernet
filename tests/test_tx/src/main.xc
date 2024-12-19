@@ -135,15 +135,15 @@ int main()
                                         eth_rxclk, eth_txclk,
                                         4000, 4000, ETHERNET_DISABLE_SHAPER);
     #elif RMII
-        on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
-                            i_rx_lp, 1,
-                            i_tx_lp, 1,
-                            c_rx_hp, c_tx_hp,
-                            p_eth_clk,
-                            &p_eth_rxd, p_eth_rxdv,
-                            p_eth_txen, &p_eth_txd,
-                            eth_rxclk, eth_txclk,
-                            4000, 4000, ETHERNET_DISABLE_SHAPER);}
+        on tile[0]: rmii_ethernet_rt_mac(i_cfg, 1,
+                                        i_rx_lp, 1,
+                                        i_tx_lp, 1,
+                                        c_rx_hp, c_tx_hp,
+                                        p_eth_clk,
+                                        p_eth_rxd, p_eth_rxdv,
+                                        p_eth_txen, p_eth_txd,
+                                        eth_rxclk, eth_txclk,
+                                        4000, 4000, ETHERNET_DISABLE_SHAPER);
     #endif
 
     on tile[0]: filler(0x1111);

@@ -188,15 +188,15 @@ int main()
                                       eth_rxclk, eth_txclk,
                                       4000, 4000, ETHERNET_DISABLE_SHAPER);
     #elif RMII
-      on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                              i_rx_lp, NUM_RX_LP_IF,
-                              i_tx_lp, NUM_TX_LP_IF,
-                              c_rx_hp, null,
-                              p_eth_clk,
-                              &p_eth_rxd, p_eth_rxdv,
-                              p_eth_txen, &p_eth_txd,
-                              eth_rxclk, eth_txclk,
-                              4000, 4000, ETHERNET_DISABLE_SHAPER);}
+      on tile[0]: rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      c_rx_hp, null,
+                                      p_eth_clk,
+                                      p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
     #endif
 
     #endif // RGMII

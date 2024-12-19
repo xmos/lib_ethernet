@@ -27,13 +27,13 @@
 #endif
 
 #if RX_USE_LOWER_2B
-rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_4A, USE_LOWER_2B}};
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
 #elif RX_USE_UPPER_2B
-rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_4A, USE_UPPER_2B}};
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
 #endif
 
 #elif RX_WIDTH == 1
-rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_1A, XS1_PORT_1B}};
+rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
 #else
 #error invalid RX_WIDTH
 #endif
@@ -49,13 +49,13 @@ rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_1A, XS1_PORT_1B}};
 #endif
 
 #if TX_USE_LOWER_2B
-  rmii_data_port_t p_eth_txd = {{on tile[0]:XS1_PORT_4B, USE_LOWER_2B}};
+  rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
 #elif TX_USE_UPPER_2B
-  rmii_data_port_t p_eth_txd = {{on tile[0]:XS1_PORT_4B, USE_UPPER_2B}};
+  rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
 #endif
 
 #elif TX_WIDTH == 1
-rmii_data_port_t p_eth_txd = {{on tile[0]:XS1_PORT_1C, XS1_PORT_1D}};
+rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
 #else
 #error invalid TX_WIDTH
 #endif

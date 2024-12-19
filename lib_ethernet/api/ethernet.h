@@ -613,7 +613,7 @@ typedef enum rmii_data_4b_pin_assignment_t{
 /** Structure representing a four bit port used for RMII data transmission or reception */
 typedef struct rmii_data_4b_t
 {
-    port data;                              /**< Four bit data port */
+    unsigned data;                          /**< Four bit data port */
     rmii_data_4b_pin_assignment_t pins_used;/**< Which two bits of the data port to use.
                                                  Unused Rx pins are ignored and unused
                                                  Tx pins are driven low. */
@@ -622,8 +622,8 @@ typedef struct rmii_data_4b_t
 /** Structure type representing a pair of one bit ports used for RMII data transmission or reception. */
 typedef struct rmii_data_1b_t
 {
-    port data_0;                            /**< One bit data port for lower data line. */
-    port data_1;                            /**< One bit data port for upper data line. */
+    unsigned data_0;                        /**< One bit data port for lower data line. */
+    unsigned data_1;                        /**< One bit data port for upper data line. */
 } rmii_data_1b_t;
 
 
@@ -677,8 +677,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
                           nullable_streaming_chanend_t c_rx_hp,
                           nullable_streaming_chanend_t c_tx_hp,
-                          in_port_t p_clk, rmii_data_port_t * unsafe p_rxd, in_port_t p_rxdv,
-                          out_port_t p_txen, rmii_data_port_t * unsafe p_txd,
+                          in_port_t p_clk, rmii_data_port_t p_rxd, in_port_t p_rxdv,
+                          out_port_t p_txen, rmii_data_port_t p_txd,
                           clock rxclk,
                           clock txclk,
                           static_const_unsigned_t rx_bufsize_words,

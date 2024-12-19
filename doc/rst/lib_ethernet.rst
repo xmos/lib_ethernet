@@ -474,8 +474,8 @@ Similarly the RMII real-time MAC may be instantiated::
         rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
                             c_rx_hp, c_tx_hp,
                             p_eth_clk,
-                            &p_eth_rxd, p_eth_rxdv,
-                            p_eth_txen, &p_eth_txd,
+                            p_eth_rxd, p_eth_rxdv,
+                            p_eth_txen, p_eth_txd,
                             eth_rxclk, eth_txclk,
                             4000, 4000, ETHERNET_ENABLE_SHAPER);
        application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
