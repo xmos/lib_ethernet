@@ -5,6 +5,13 @@
         {"phy":"rgmii", "clk":"25MHz", "mac":"hp", "arch":"xs2", "test_id":"hp_min_sz"},
         {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"hp_min_sz"},
         {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"hp_max_sz"},
-        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"mixed"}
+        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2", "test_id":"mixed"},
+
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "test_id":"hp_min_sz", "rx_width":"4b_lower"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "test_id":"hp_max_sz", "rx_width": "4b_lower"},
+
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "test_id":"hp_min_sz", "rx_width":"4b_upper"},
+        {"phy":"rmii", "mac":"rt_hp", "arch":["xs3"], "test_id":"hp_max_sz", "rx_width": "1b"}
+
         ]
 }

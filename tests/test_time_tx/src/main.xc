@@ -1,11 +1,15 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
 #include "ethernet.h"
 #include "helpers.xc"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+#endif
 
 #define NUM_PACKET_LENGTHS 64
 
@@ -116,14 +120,27 @@ int main()
     #else // RGMII
 
     #if RT
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                    i_rx_lp, NUM_RX_LP_IF,
-                                    i_tx_lp, NUM_TX_LP_IF,
-                                    c_rx_hp, c_tx_hp,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      c_rx_hp, c_tx_hp,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+      on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
+                        i_rx_lp, 1,
+                        i_tx_lp, 1,
+                        c_rx_hp, c_tx_hp,
+                        p_eth_clk,
+                        &p_eth_rxd, p_eth_rxdv,
+                        p_eth_txen, &p_eth_txd,
+                        eth_rxclk, eth_txclk,
+                        4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    #endif
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);

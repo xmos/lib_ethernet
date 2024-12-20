@@ -27,6 +27,7 @@ from helpers import packet_processing_time, get_dut_mac_address, args
 from helpers import choose_small_frame_size, check_received_packet
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 from helpers import generate_tests
+from helpers import get_rmii_clk, get_rmii_tx_phy
 
 
 def choose_data_size(rand, data_len_min, data_len_max):
@@ -114,23 +115,34 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
             # The low-priority packets can go to either client or both
             lp_mac_addresses=[[1,2,3,4,5,6],
                               [2,3,4,5,6,7],
-                              [0xff,0xff,0xff,0xff,0xff,0xff]]):
+                              [0xff,0xff,0xff,0xff,0xff,0xff]],
+            rx_width=None):
 
     rand = random.Random()
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl1 = RxLpControl('tile[0]:XS1_PORT_1D', bit_time, 0, True, rand.randint(0, sys.maxsize))
-    rxLpControl2 = RxLpControl('tile[0]:XS1_PORT_1E', bit_time, 0, True, rand.randint(0, sys.maxsize))
+    rxLpControl1 = RxLpControl('tile[0]:XS1_PORT_1E', bit_time, 0, True, rand.randint(0, sys.maxsize))
+    rxLpControl2 = RxLpControl('tile[0]:XS1_PORT_1F', bit_time, 0, True, rand.randint(0, sys.maxsize))
 
     testname = 'test_rx_queues'
+    expect_folder = create_if_needed("expect_temp")
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if rx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_rx{rx_width}_{arch}'
+        with capfd.disabled():
+            print("Running {test}: {phy} phy, rx_width {rx_width} at {clk} (seed {seed})".format(test=testname, phy=tx_phy.get_name(), rx_width=rx_width, clk=tx_clk.get_name(), seed=seed))
+            expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_rx{rx_width}_{tx_clk.get_name()}_{arch}_{test_id}.expect'
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print("Running {test}: {phy} phy at {clk} (seed {seed})".format(test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed))
+            expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}_{test_id}.expect'
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
     with capfd.disabled():
-        print("Running {test}: {phy} phy at {clk} (seed {seed})".format(test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name(), seed=seed))
         print(f"weight_hp {weight_hp}, weight_lp {weight_lp}, weight_other {weight_other}, data_len_min {data_len_min}, data_len_max {data_len_max} weight_tagged {weight_tagged} weight_untagged {weight_untagged} max_hp_mbps {max_hp_mbps}")
 
     hp_mac_address = [0,1,2,3,4,5]
@@ -214,8 +226,6 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
         print("Sending {n} lp packets with {b} bytes hp data".format(n=lp_seq_id, b=lp_data_bytes))
         print("Sending {n} other packets with {b} bytes hp data".format(n=other_seq_id, b=other_data_bytes))
 
-    expect_folder = create_if_needed("expect_temp")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}_{test_id}.expect'
     create_expect(packets, expect_filename, hp_mac_address)
     tester = px.testers.ComparisonTester(open(expect_filename), regexp=True, ordered=False)
 
@@ -281,6 +291,35 @@ def test_rx_queues(capfd, seed, params):
                     weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
                     max_hp_mbps=100)
 
+    elif params["phy"] == "rmii":
+        rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      rmii_clk,
+                                      verbose=verbose,
+                                      test_ctrl="tile[0]:XS1_PORT_1M",
+                                      expect_loopback=False
+                                      )
+
+        # Test having every packet going to both LP receivers
+        if params["test_id"] == "hp_min_sz":
+            do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, params["test_id"],
+                    num_packets=200,
+                    weight_hp=0, weight_lp=100, weight_other=0,
+                    data_len_min=46, data_len_max=46,
+                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                    max_hp_mbps=100,
+                    lp_mac_addresses=[[0xff,0xff,0xff,0xff,0xff,0xff]],
+                    rx_width=params['rx_width'])
+
+        if params["test_id"] == "hp_max_sz":
+            do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, params["test_id"],
+                    num_packets=200,
+                    weight_hp=100, weight_lp=0, weight_other=0,
+                    data_len_min=200, data_len_max=200,
+                    weight_tagged=args.weight_tagged, weight_untagged=args.weight_untagged,
+                    max_hp_mbps=100,
+                    rx_width=params['rx_width'])
+
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
@@ -312,6 +351,7 @@ def test_rx_queues(capfd, seed, params):
                         max_hp_mbps=600)
 
             if params["test_id"] == "mixed":
+                seed = 1 # https://github.com/xmos/lib_ethernet/issues/69
                 do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed, params["test_id"],
                         num_packets=args.num_packets,
                         weight_hp=args.weight_hp, weight_lp=args.weight_lp, weight_other=args.weight_other,

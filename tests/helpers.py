@@ -13,6 +13,7 @@ import copy
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
+from rmii_phy import RMiiTransmitter, RMiiReceiver
 
 args = SimpleNamespace( trace=False, # Set to True to enable VCD and instruction tracing for debug. Warning - it's about 5x slower with trace on and creates up to ~1GB of log files in tests/logs
                         num_packets=100, # Number of packets in the test
@@ -46,7 +47,7 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
 
 def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                        complete_fn=None, expect_loopback=True,
-                       dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 85us
+                       dut_exit_time_us=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay_us=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 85us
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
@@ -55,7 +56,7 @@ def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                          verbose=verbose, test_ctrl=test_ctrl,
                          do_timeout=do_timeout, complete_fn=complete_fn,
                          expect_loopback=expect_loopback,
-                         dut_exit_time=dut_exit_time, initial_delay=initial_delay)
+                         dut_exit_time_us=dut_exit_time_us, initial_delay_us=initial_delay_us)
     return (clk, phy)
 
 def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None):
@@ -68,7 +69,7 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
 
 def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                           do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 135us
+                          dut_exit_time_us=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay_us=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 135us
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_4E',
@@ -80,7 +81,7 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                            verbose=verbose, test_ctrl=test_ctrl,
                            do_timeout=do_timeout, complete_fn=complete_fn,
                            expect_loopback=expect_loopback,
-                           dut_exit_time=dut_exit_time, initial_delay=initial_delay)
+                           dut_exit_time_us=dut_exit_time_us, initial_delay_us=initial_delay_us)
     return (clk, phy)
 
 
@@ -109,23 +110,41 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
 
         else:
             assert 0, f"Invalid params: {params}"
+    elif params["phy"] == "rmii":
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      clk,
+                                      verbose=verbose
+                                      )
 
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                      clk,
+                                      packet_fn=check_received_packet,
+                                      verbose=verbose
+                                      )
+        test_fn(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, rx_width=params['rx_width'], tx_width=params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"
 
 
 def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
-               extra_tasks=[], override_dut_dir=False):
+               extra_tasks=[], override_dut_dir=False, rx_width=None, tx_width=None):
 
     """ Shared test code for all RX tests using the test_rx application.
     """
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()} (seed = {seed})")
+        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch}, rx_width {rx_width} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    profile = f'{mac}_{tx_phy.get_name()}'
+    if rx_width:
+        profile = profile + f"_rx{rx_width}"
+    if tx_width:
+        profile = profile + f"_tx{tx_width}"
+    profile = profile + f"_{arch}"
+
     dut_dir = override_dut_dir if override_dut_dir else testname
     binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
     assert os.path.isfile(binary), f"Missing .xe {binary}"
@@ -134,7 +153,10 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     rx_phy.set_expected_packets(packets)
 
     expect_folder = create_if_needed("expect_temp")
-    expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+    if rx_width:
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{rx_width}_{tx_width}_{tx_clk.get_name()}_{arch}.expect'
+    else:
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
 
     create_expect(packets, expect_filename)
 
@@ -143,12 +165,18 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
     # with capfd.disabled():
     #     print(f"simargs {simargs}\n bin: {binary}")
+    if rx_clk == None: # RMII has only one clock
+        st = [tx_clk, rx_phy, tx_phy]
+    else:
+        st = [rx_clk, rx_phy, tx_clk, tx_phy]
+
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy] + extra_tasks,
+                                    simthreads=st + extra_tasks,
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    capfd=capfd)
+                                    capfd=capfd
+                                    )
 
     assert result is True, f"{result}"
 
@@ -176,7 +204,7 @@ def get_sim_args(testname, mac, clk, phy, arch='xs2'):
 
         vcd_args  = '-o {0}.vcd'.format(filename)
         vcd_args += (' -tile tile[0] -ports -ports-detailed -instructions'
-                     ' -functions -cycles -clock-blocks')
+                     ' -functions -cycles -clock-blocks -pads')
 
         # The RGMII pins are on tile[1]
         if phy.get_name() == 'rgmii':
@@ -192,6 +220,8 @@ def get_sim_args(testname, mac, clk, phy, arch='xs2'):
 def packet_processing_time(phy, data_bytes, mac):
     """ Returns the time it takes the DUT to process a given frame
     """
+    # TODO Investigate why this function ignores the data_bytes argument and
+    # returns a fixed number for a given mac type
     if mac == 'standard':
         return 4000 * phy.get_clock().get_bit_time()
     elif phy.get_name() == 'rgmii' and mac == 'rt':
@@ -255,10 +285,103 @@ def generate_tests(test_params_json):
             base_profile = {key: value for key,value in profile.items() if key != 'arch'} # copy everything but 'arch'
             if isinstance(profile['arch'], str):
                 profile['arch'] = [profile['arch']]
+
             for a in profile['arch']: # Add a test case per architecture
                 test_profile = copy.deepcopy(base_profile)
                 test_profile['arch'] = a
-                id = '-'.join([v for v in test_profile.values()])
+                test_profile_id = copy.deepcopy(test_profile)
+                # For id, append tx and rx to the relevant widths so its easier to know which is which if both are present
+                if 'tx_width' in test_profile_id:
+                    test_profile_id['tx_width'] = f"tx{test_profile_id['tx_width']}"
+                if 'rx_width' in test_profile_id:
+                    test_profile_id['rx_width'] = f"rx{test_profile_id['rx_width']}"
+                id = '-'.join([v for v in test_profile_id.values()])
                 test_config_ids.append(id)
                 test_config_list.append(test_profile)
+
     return test_config_list, test_config_ids
+
+### RMII functions
+def get_rmii_clk(clk_rate):
+    clk = Clock('tile[0]:XS1_PORT_1J', clk_rate)
+    return clk
+
+def get_rmii_tx_phy(rx_width, clk, **kwargs):
+    if rx_width == "4b_lower":
+        tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                    clk,
+                                    "lower_2b",
+                                    **kwargs
+                                    )
+    elif rx_width == "4b_upper":
+        tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                    clk,
+                                    "upper_2b",
+                                    **kwargs
+                                    )
+    elif rx_width == "1b":
+        tx_rmii_phy = get_rmii_1b_port_tx_phy(
+                                    clk,
+                                    **kwargs
+                                    )
+    else:
+        assert False, f"get_rmii_tx_phy(): Invalid rx_width {rx_width}"
+    return tx_rmii_phy
+
+def get_rmii_rx_phy(tx_width, clk, **kwargs):
+    if tx_width == "4b_lower":
+        rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                              "lower_2b",
+                                              **kwargs
+                                              )
+    elif tx_width == "4b_upper":
+        rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                              "upper_2b",
+                                              **kwargs
+                                              )
+    elif tx_width == "1b":
+        rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                              **kwargs
+                                            )
+    else:
+        assert False, f"get_rmii_rx_phy(): Invalid tx_width {tx_width}"
+    return rx_rmii_phy
+
+
+
+def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, **kwargs):
+    phy = RMiiTransmitter('tile[0]:XS1_PORT_4A', # 4b rxd port
+                          'tile[0]:XS1_PORT_1K', # 1b rxdv
+                          'tile[0]:XS1_PORT_1I', # 1b rxerr
+                          clk,
+                          rxd_4b_port_pin_assignment=rxd_4b_port_pin_assignment,
+                          **kwargs
+                        )
+    return phy
+
+def get_rmii_1b_port_tx_phy(clk, **kwargs):
+    phy = RMiiTransmitter(['tile[0]:XS1_PORT_1A', 'tile[0]:XS1_PORT_1B'], # 2, 1b rxd ports
+                          'tile[0]:XS1_PORT_1K', # 1b rxdv
+                          'tile[0]:XS1_PORT_1I', # 1b rxerr
+                          clk,
+                          **kwargs
+                        )
+    return phy
+
+def get_rmii_4b_port_rx_phy(clk, txd_4b_port_pin_assignment, **kwargs):
+    phy = RMiiReceiver('tile[0]:XS1_PORT_4B',
+                        'tile[0]:XS1_PORT_1L',
+                        clk,
+                        txd_4b_port_pin_assignment=txd_4b_port_pin_assignment,
+                        **kwargs
+                        )
+    return phy
+
+def get_rmii_1b_port_rx_phy(clk, **kwargs):
+    phy = RMiiReceiver(['tile[0]:XS1_PORT_1C', 'tile[0]:XS1_PORT_1D'],
+                        'tile[0]:XS1_PORT_1L',
+                        clk,
+                        **kwargs
+                        )
+    return phy
+

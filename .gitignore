@@ -29,3 +29,4 @@ tests/expect
 *.lock
 tests/*.xml
 seed.inc
+trace.txt

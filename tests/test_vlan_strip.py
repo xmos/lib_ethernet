@@ -14,18 +14,26 @@ from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, packet_processing_time
 from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy
 from helpers import generate_tests
 
 
-def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
     testname = 'test_vlan_strip'
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if rx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_rx{rx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {rx_width} rx_width, {arch} arch at {tx_clk.get_name()}")
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    with capfd.disabled():
-        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}, {arch} arch (seed {seed})")
+    capfd.readouterr() # clear capfd buffer
 
     rand = random.Random()
     rand.seed(seed)
@@ -33,22 +41,37 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed):
     dut_mac_address = get_dut_mac_address()
     packets = [
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
-                  ether_len_type=[0x11, 0x11], inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
+                  ether_len_type=[0x11, 0x11],
+                  inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
                   vlan_prio_tag=[0x81, 0x00, 0x00, 0x00], data_bytes=[1,2,3,4] + [0 for x in range(60)]),
+
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
-                  ether_len_type=[0x22, 0x22], inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
+                  ether_len_type=[0x22, 0x22],
+                  inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
                   data_bytes=[5,6,7,8] + [0 for x in range(60)]),
+
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
                   ether_len_type=[0x33, 0x33], vlan_prio_tag=[0x81, 0x00, 0x00, 0x00],
-                  inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2, data_bytes=[4,3,2,1] + [0 for x in range(60)]),
+                  inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
+                  data_bytes=[4,3,2,1] + [0 for x in range(60)]),
+
         MiiPacket(rand, dst_mac_addr=dut_mac_address, src_mac_addr=[0 for x in range(6)],
-                  ether_len_type=[0x44, 0x44], inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
+                  ether_len_type=[0x44, 0x44],
+                  inter_frame_gap=packet_processing_time(tx_phy, 64, mac)*2,
                   data_bytes=[8,7,6,5] + [0 for x in range(60)])
       ]
 
     tx_phy.set_packets(packets)
 
-    tester = px.testers.ComparisonTester(open(f'test_vlan_strip_{tx_phy.get_name()}_{mac}.expect'), ordered=False)
+    if mac == "rt" and (tx_phy.get_name() == "mii" or tx_phy.get_name() == "rmii"):
+        # same expect file for rmii and mii
+        expect_file = f"test_vlan_strip_mii_{mac}.expect"
+    else:
+        expect_file = f"test_vlan_strip_{tx_phy.get_name()}_{mac}.expect"
+
+    assert os.path.isfile(expect_file)
+
+    tester = px.testers.ComparisonTester(open(expect_file), ordered=False)
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
 
@@ -68,7 +91,6 @@ def test_vlan_strip(capfd, seed, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
-    verbose = False
       # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
@@ -85,6 +107,14 @@ def test_vlan_strip(capfd, seed, params):
             do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed)
         else:
             assert 0, f"Invalid params: {params}"
+    elif params["phy"] == "rmii":
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      clk,
+                                      verbose=True,
+                                      test_ctrl="tile[0]:XS1_PORT_1M"
+                                    )
+        do_test(capfd, params["mac"], params["arch"], clk, tx_rmii_phy, seed, rx_width=params["rx_width"])
 
     else:
         assert 0, f"Invalid params: {params}"

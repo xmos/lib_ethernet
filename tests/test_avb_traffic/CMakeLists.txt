@@ -30,9 +30,20 @@ foreach(PROFILE ${profile_list})
     get_json_list(${PROFILE} arch arch_list) # Get archs to build for, for this particular profile
     foreach(arch ${arch_list})
         string(JSON phy GET ${PROFILE} phy)
-        string(JSON clk GET ${PROFILE} clk)
         string(JSON mac GET ${PROFILE} mac)
-        set(config "${mac}_${phy}_${arch}")
+
+        set(config "${mac}_${phy}")
+        string(FIND ${PROFILE} "rx_width" rx_width_found)
+        if(rx_width_found GREATER -1)
+            string(JSON rx_width GET ${PROFILE} rx_width)
+            set(config "${config}_rx${rx_width}")
+        endif()
+        string(FIND ${PROFILE} "tx_width" tx_width_found)
+        if(tx_width_found GREATER -1)
+            string(JSON tx_width GET ${PROFILE} tx_width)
+            set(config "${config}_tx${tx_width}")
+        endif()
+        set(config "${config}_${arch}")
 
         list (FIND done_configs ${config} _index)
 
@@ -43,6 +54,8 @@ foreach(PROFILE ${profile_list})
             set_app_hw_target(arch)
 
             set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
+
+            set_app_rx_width(rx_width)
 
             string(FIND "${PROFILE}" "rt" position)
             if(position GREATER -1)
@@ -60,8 +73,10 @@ foreach(PROFILE ${profile_list})
 
             if(${phy} MATCHES "rgmii")
                 list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=1)
-            else()
-                list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=0)
+            elseif(${phy} MATCHES "rmii")#
+                list(APPEND APP_COMPILER_FLAGS_${config} -DRMII=1)
+            elseif(${phy} MATCHES "mii")
+                list(APPEND APP_COMPILER_FLAGS_${config} -DMII=1)
             endif()
 
             XMOS_REGISTER_APP()

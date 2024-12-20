@@ -18,12 +18,12 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, args
 from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, get_mii_rx_clk_phy
 from helpers import get_rgmii_tx_clk_phy, get_rgmii_rx_clk_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy, get_rmii_rx_phy
 from helpers import generate_tests
 
 tx_complete = False
 rx_complete = False
 num_test_packets = 75
-test_ctrl = 'tile[0]:XS1_PORT_1C'
 
 def start_test(phy):
     global tx_complete, rx_complete
@@ -39,7 +39,7 @@ def set_tx_complete(phy):
     global tx_complete
     tx_complete = True
 
-def packet_checker(packet, phy):
+def packet_checker(packet, phy, test_ctrl):
     global rx_complete
 
     time_now = phy.xsi.get_time()
@@ -58,7 +58,7 @@ def packet_checker(packet, phy):
     phy.num_bytes += num_packet_bytes
 
     time_delta = time_now - phy.start_time
-    mega_bits_per_second = (phy.num_bytes * 8.0) / time_delta * 1000
+    mega_bits_per_second = ((phy.num_bytes * 8.0) * px.Xsi.get_xsi_tick_freq_hz()) / (time_delta * 1e6)
 
     if phy.num_packets > 1:
         efficiency = ((((phy.num_bytes * 8) + ((phy.num_packets - 1) * 96)) * bit_time) / time_delta) * 100
@@ -73,7 +73,8 @@ def packet_checker(packet, phy):
             phy.xsi._wait_until(phy.xsi.get_time() + 20000 * 1e6)
 
             # Indicate to the DUT receiver to print the byte count
-            phy.xsi.drive_port_pins(test_ctrl, 1)
+            if test_ctrl:
+                phy.xsi.drive_port_pins(test_ctrl, 1)
             if phy.end_time == 0:
                 phy.end_time = phy.xsi.get_time()
 
@@ -141,7 +142,7 @@ class mytester:
 
 
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None):
     rand = random.Random()
     rand.seed(seed)
     start_test(rx_phy) # setup globs used in checkers
@@ -152,15 +153,20 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
     testname = 'test_time_rx_tx'
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if rx_width and tx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_rx{rx_width}_tx{tx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy {rx_width} rx_width, {tx_width} tx_width, at {tx_clk.get_name()} (seed {seed}) for {arch} arch")
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed}) for {arch} arch")
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     with capfd.disabled():
         build_xccm(testname, profile)
 
     assert os.path.isfile(binary)
-
-    with capfd.disabled():
-        print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()} (seed {seed}) for {arch} arch")
 
     dut_mac_address = get_dut_mac_address()
     ifg = tx_clk.get_min_ifg()
@@ -182,7 +188,9 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
         for i in range(burst_len):
             packets.append(MiiPacket(rand,
-                dst_mac_addr=dut_mac_address, inter_frame_gap=ifg, num_data_bytes=length
+                dst_mac_addr=dut_mac_address,
+                inter_frame_gap=ifg,
+                num_data_bytes=length
               ))
 
             # Add on the overhead of the packet header
@@ -198,9 +206,13 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
         print(f"Sending {len(packets)} packets with {num_data_bytes} bytes at the DUT")
 
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
+    if rx_clk:
+        simthreads=[rx_clk, rx_phy, tx_clk, tx_phy]
+    else:
+        simthreads=[rx_phy, tx_clk, tx_phy]
 
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
+                                    simthreads=simthreads,
                                     tester=mytester(packets),
                                     simargs=simargs,
                                     capfd=capfd,
@@ -211,7 +223,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
 
 test_params_file = Path(__file__).parent / "test_time_rx_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_time_rx_tx(capfd, seed, params):
+def test_time_rx_tx(capfd, seed, level, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
@@ -219,15 +231,17 @@ def test_time_rx_tx(capfd, seed, params):
 
       # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
+        test_ctrl = 'tile[0]:XS1_PORT_1C'
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl=test_ctrl)
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
+        test_ctrl = 'tile[0]:XS1_PORT_1C'
         if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl=test_ctrl)
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
@@ -235,7 +249,23 @@ def test_time_rx_tx(capfd, seed, params):
             pytest.skip()
         else:
             assert 0, f"Invalid params: {params}"
-
+    elif params["phy"] == "rmii":
+        test_ctrl = 'tile[0]:XS1_PORT_1M'
+        rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      rmii_clk,
+                                      do_timeout=False,
+                                      complete_fn=set_tx_complete,
+                                      verbose=verbose,
+                                      dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6
+                                      )
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                        rmii_clk,
+                                        packet_fn=packet_checker,
+                                        test_ctrl=test_ctrl,
+                                    )
+        do_test(capfd, params["mac"], params["arch"], None, rx_rmii_phy, rmii_clk, tx_rmii_phy, seed,
+                rx_width=params["rx_width"], tx_width=params["tx_width"])
     else:
         assert 0, f"Invalid params: {params}"
 

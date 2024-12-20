@@ -12,9 +12,10 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import get_rmii_clk, get_rmii_rx_phy
 from helpers import generate_tests
 
-def packet_checker(packet, phy):
+def packet_checker(packet, phy, test_ctrl):
     # Ignore the CRC bytes (-4)
     data = packet.data_bytes[:-4]
 
@@ -32,22 +33,35 @@ def packet_checker(packet, phy):
             # Only print one error per packet
             break
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
     testname = 'test_timestamp_tx'
 
-    profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+    if tx_width:
+        profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {tx_width} tx_width, {arch} arch at {rx_clk.get_name()}")
+    else:
+        profile = f'{mac}_{rx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {arch} arch at {rx_clk.get_name()}")
+
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
-    with capfd.disabled():
-        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()}, {arch} arch")
+    capfd.readouterr() # clear capfd buffer
 
     tester = px.testers.ComparisonTester(open(f'{testname}.expect'), regexp=True)
 
     simargs = get_sim_args(testname, mac, rx_clk, rx_phy)
 
+    simthreads = [rx_clk, rx_phy]
+    if tx_clk != None:
+        simthreads.append(tx_clk)
+    if tx_phy != None:
+        simthreads.append(tx_phy)
+
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[rx_clk, rx_phy, tx_clk, tx_phy],
+                                    simthreads=simthreads,
                                     tester=tester,
                                     simargs=simargs,
                                     capfd=capfd,
@@ -65,22 +79,35 @@ def test_timestamp_tx(capfd, params):
     # Test 100 MBit - MII XS2
     if params["phy"] == "mii":
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, verbose=verbose, test_ctrl='tile[0]:XS1_PORT_1C')
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
 
     elif params["phy"] == "rgmii":
         # Test 100 MBit - RGMII
         if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl='tile[0]:XS1_PORT_1C')
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
             (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker, verbose=verbose, test_ctrl='tile[0]:XS1_PORT_1C')
-            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, dut_exit_time=(300 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, dut_exit_time_us=(300 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
         else:
             assert 0, f"Invalid params: {params}"
+
+    elif params["phy"] == "rmii":
+        test_ctrl='tile[0]:XS1_PORT_1M'
+        verbose = False
+
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                        clk,
+                                        packet_fn=packet_checker,
+                                        verbose=verbose,
+                                        test_ctrl=test_ctrl
+                                    )
+        do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
 
     else:
         assert 0, f"Invalid params: {params}"
