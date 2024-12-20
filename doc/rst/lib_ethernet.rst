@@ -33,7 +33,7 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
    - Supported
  * - XS3 (xcore.ai)
    - Supported
-   - Contact XMOS
+   - Supported
    - Contact XMOS
    - N/A
 
@@ -67,11 +67,11 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 2
    - ~23 k
    - 4
- * - 10/100 Mb/s Real-Time MII
+ * - 10/100 Mb/s Real-Time RMII
    - 7
    - 3 (1-bit), 2 (4-bit) or 4 (1-bit)
    - 2
-   - ~TBD k
+   - ~25 k
    - 4
  * - 10/100/1000Mb/s RGMII
    - 12
@@ -194,6 +194,9 @@ have their port type set independently and can be mixed. Unused pins on a 4-bit 
 .. note::
     By default most RMII PHYs supply a CRS_DV signal (carrier sense) instead of an RX_DV data valid strobe. This library requires
     the PHY to be configured so that the receive data strobe is set to RX_DV mode. Please check your chosen PHY supports this.
+
+
+The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardware threads to be used on a 600 MHz xcore.ai device.
 
 
 Table 1 below describes the RMII signals:
@@ -471,16 +474,22 @@ Similarly the RMII real-time MAC may be instantiated::
       streaming chan c_rx_hp;
       streaming chan c_tx_hp;
       par {
-        rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
-                            c_rx_hp, c_tx_hp,
-                            p_eth_clk,
-                            &p_eth_rxd, p_eth_rxdv,
-                            p_eth_txen, &p_eth_txd,
-                            eth_rxclk, eth_txclk,
-                            4000, 4000, ETHERNET_ENABLE_SHAPER);
+        unsafe{rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
+                                    c_rx_hp, c_tx_hp,
+                                    p_eth_clk,
+                                    &p_eth_rxd, p_eth_rxdv,
+                                    p_eth_txen, &p_eth_txd,
+                                    eth_rxclk, eth_txclk,
+                                    4000, 4000, ETHERNET_ENABLE_SHAPER);}
        application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
       }
     }
+
+
+.. note::
+    The call to rmii_ethernet_rt_mac() needs to be wrapped in  ``unsafe{}`` because the rmii_data_port_t types are sent as references which translate to unsafe (array bounds unchecked) pointers.
+
+
 
 
 The application can use the other end of the streaming channels to send and receive high-priority traffic e.g.::
