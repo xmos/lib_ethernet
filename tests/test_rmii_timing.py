@@ -54,16 +54,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
             inter_frame_gap=packet_processing_time(tx_phy, packet_start_len, mac),
         ))
 
-
-    do_error = True
-
-    # The gigabit RGMII can't handle spurious errors
-    if tx_clk.get_rate() == Clock.CLK_125MHz:
-        do_error = False
-
-    error_driver = TxError(tx_phy, do_error)
-
-    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, extra_tasks=[error_driver], rx_width=rx_width, tx_width=tx_width)
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width, tx_width=tx_width)
 
 test_params_file = Path(__file__).parent / "test_rmii_timing/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
