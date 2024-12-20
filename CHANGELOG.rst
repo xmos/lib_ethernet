@@ -12,7 +12,7 @@ lib_ethernet change log
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * REMOVED: Support for XS1 devices
-  
+
   * Changes to dependencies:
 
     - lib_gpio: Removed dependency
