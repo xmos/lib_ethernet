@@ -4,14 +4,14 @@ lib_ethernet change log
 4.0.0
 -----
 
-  * REMOVED: Slicekit based examples because hardware is obsolete
-  * REMOVED: Support for waf build system
-  * ADDED: Support for XCommon CMake build system
-  * REMOVED: Support for XS1 devices
-  * RESOLVED: Build warnings even when compile successful
   * ADDED: Support for running MII sim tests for XS3 architecture
   * ADDED: RMII Ethernet MAC support for XCORE-AI
   * ADDED: Extended sim tests for testing RMII applications
+  * ADDED: Support for XCommon CMake build system
+  * RESOLVED: Build warnings even when compile successful
+  * REMOVED: Slicekit based examples because hardware is obsolete
+  * REMOVED: Support for waf build system
+  * REMOVED: Support for XS1 devices
 
   * Changes to dependencies:
 
