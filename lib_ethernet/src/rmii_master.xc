@@ -44,18 +44,55 @@
 // After-init delay (used at the end of rmii_init)
 #define PHY_INIT_DELAY 10000000
 
-// The inter-frame gap is 96 bit times (1 clock tick at 100Mb/s). However,
-// the EOF time stamp is taken when the last but one word goes into the
-// transfer register, so that leaves 96 bits of data still to be sent
-// on the wire (shift register word, transfer register word, crc word).
-// In the case of a non word-aligned transfer compensation is made for
-// that in the code at runtime.
-// The adjustment is due to the fact that the instruction
-// that reads the timer is the next instruction after the out at the
-// end of the packet and the timer wait is an instruction before the
-// out of the pre-amble
-#define RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_1b  (96 + 82) // TODO Why??
-#define RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_4b  (96 + 54) // TODO Why??
+// The inter-frame gap is 96 bit times, which is 960 ns with one 1bit time being 10ns for RMII. 96 bit times = 960 ns = 96 reference timer ticks.
+// This is the minimum time between one frame TX end and the next frame TX start (delay between TX_EN going low for the previous frame and TX_EN going high for the next frame).
+// However, the EOF time stamp is taken when the CRC word goes into the
+// transfer register, so there's a delay before the last bit of the CRC word is output on the wire, which is when TX_EN goes low.
+// This delay is different for 4b and 1b TXD ports as described below.
+
+// For 4b TXD port, 32 bits are output on the port, 4bits per 20ns RMII clock tick, so 8 ticks to output one 32 bit word.
+// when tx_4b_word() for the CRC word returns, there's 7 ticks before the last word goes from the transfer register to shift register
+// and another 8 ticks before the shift register is shifted out on the wire. So, a total of (7+8)*20ns = 300ns = 30 reference timer ticks
+// between the tx_4b_word() for CRC word returning and the last bit shifted on the wire, which is when TX_EN goes low.
+
+// For 1b TXD port, in a tx_1b_word() call 16 bits are output on the port, 1bit per 20ns RMII clock tick, so 16 ticks to output one 16 bit word, while
+// in a tx_1b_byte() call 4 bits are output on the port, 1bit per 20ns RMII clock tick, so 4 ticks to output one byte.
+//when tx_1b_word() for the CRC word returns, there's <N> ticks before the last word goes from the transfer register to shift register
+// and another 16 ticks before the shift register is shifted out on the wire.
+// N depends on what's in the shift register for the last but one (the one before CRC) transfer. If the last but one transfer is a word (tx_1b_word)
+// which happens when there are no tail bytes in the frame, there's a delay of 15 ticks (16 - 1) before the last word moves from transfer to shift register,
+// so N = 15.
+// If the last but one transfer is a byte  (tx_1b_byte), there's a delay of 3 ticks (4 - 1) before the last word moves from transfer to shift register.
+// which makes N = 3
+// So the total delay between the tx_1b_word() for CRC word returning and the last bit shifted on the wire, which is when TX_EN goes low is
+// (N + 16)*20ns.
+// For frames with no tail this is (15+16)*20ns = 620ns = 62 reference timer ticks
+// For frames with no tail bytes this is (3+16)*20ns = 380ns = 38 reference timer ticks
+
+// So the RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 30), and
+// RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 62) for frames with no tail bytes and (96 + 38) for frames with tail bytes.
+
+// Further, there's an adjustment needed due to the fact that
+// 1. The instruction that reads the timer is in fact the next instruction adter the out of the CRC word.
+// 2. There's a delay between the timer wait for the next packet and the preamble actually showing up on the wire (TX_EN goes high when the first bit shows up)
+//    This is the overhead of zip/unzip etc. before the first word is out on the TXD port.
+// This adjustment is seen from the VCD trace as 120 ns for 1b TXD case and 80 ns for 4b TXD case, for a core frequency of 600MHz with 8 threads running.
+// Note that this will vary depending on the processor speed.
+// The defines, RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b and RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b are set to 12 and 8 reference timer ticks respectively.
+// These are overridable defines and can be overriden if the processor is running faster than what these were measured for.
+
+#ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (8) // In reference timer ticks
+#endif
+
+#ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b (12) // In reference timer ticks
+#endif
+
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b)
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES  (96 + 62 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES  (96 + 38 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
+
 
 // Helpers to save a few cycles
 #define SET_PORT_SHIFT_COUNT(p, sc) asm volatile("setpsc res[%0], %1" : : "r" (p), "r" (sc));
@@ -315,14 +352,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
         /* Wait for the start of the packet and timestamp it */
         unsigned sfd_preamble;
-
-        // Ensure we have sufficiently sized buffer
-        //assert((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE && "Please provide a sufficiently large Rx buffer");
-        /*if((unsigned)wrap_ptr > (unsigned)dptr + ETHERNET_MAX_PACKET_SIZE)
-        {
-            printintln(8888);
-            assert(0);
-        }*/
 
         // Receive first half of preamble
         sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
@@ -674,7 +703,6 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
         i++;
         crc32(crc, word, poly);
         tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
-        ifg_tmr :> ifg_time;
     } while (i < word_count);
 
     if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
@@ -703,6 +731,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     }
     crc32(crc, ~0, poly);
     tx_4b_word(p_mii_txd, crc, tx_port_4b_pins);
+    ifg_tmr :> ifg_time;
 
     return time;
 }
@@ -786,7 +815,6 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
         i++;
         crc32(crc, word, poly);
         tx_1b_word(p_mii_txd_0, p_mii_txd_1, word);
-        ifg_tmr :> ifg_time;
     } while (i < word_count);
 
     if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
@@ -816,6 +844,8 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     crc32(crc, ~0, poly);
 
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, crc);
+
+    ifg_tmr :> ifg_time;
 
     return time;
 }
@@ -898,16 +928,21 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         if(use_4b) {
             time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time, eof_time);
             eof_time = ifg_time;
-            ifg_time += RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_4b;
+            ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
         } else {
             time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
             eof_time = ifg_time;
-            ifg_time += RMII_ETHERNET_IFS_AS_REF_CLOCK_COUNT_1b;
+            if((buf->length & 0x3))
+            {
+                ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES;
+            }
+            else
+            {
+                ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES;
+            }
         }
 
-        // Setup the hardware timer to enforce the IFG
 
-        ifg_time += (buf->length & 0x3) * 8;
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {

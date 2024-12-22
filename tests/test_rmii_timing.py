@@ -31,7 +31,11 @@ class TxError(px.SimThread):
         self.wait_until(xsi.get_time() + 100*1e6)
         self._tx_phy.drive_error(0)
 
-
+"""
+This runs the device at 350MHz with 5 threads so max 70MHz per thread which gives us a little
+headroom for a typical operating rate of 600MHz with 8 threads (75MHz min)
+rx1b and rx4b are the hardest cases. CUrrently these break at 300MHz (310 OK) so we are well withing timing
+"""
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None):
     rand = random.Random()
     rand.seed(seed)
@@ -39,49 +43,20 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     dut_mac_address = get_dut_mac_address()
     broadcast_mac_address = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
 
-    # The inter-frame gap is to give the DUT time to print its output
     packets = []
 
-    for mac_address in [dut_mac_address, broadcast_mac_address]:
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            create_data_args=['step', (1, 72)]
-          ))
-
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            create_data_args=['step', (5, 52)],
-            inter_frame_gap=packet_processing_time(tx_phy, 72, mac),
-          ))
-
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            create_data_args=['step', (7, 1500)],
-            inter_frame_gap=packet_processing_time(tx_phy, 52, mac),
-          ))
-
-
-    # Send enough basic frames to ensure the buffers in the DUT have wrapped
-
-    for i in range(15):
+    # Send frames which excercise all of the tail length vals (0, 1, 2, 3 bytes)
+    packet_start_len = 100
+    for i in range(5): 
         packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
-            create_data_args=['step', (i, 1500)],
-            inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
+            create_data_args=['step', (i, packet_start_len)],
+            inter_frame_gap=packet_processing_time(tx_phy, packet_start_len, mac),
         ))
 
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width, tx_width=tx_width)
 
-    do_error = True
-
-    # The gigabit RGMII can't handle spurious errors
-    if tx_clk.get_rate() == Clock.CLK_125MHz:
-        do_error = False
-
-    error_driver = TxError(tx_phy, do_error)
-
-    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, extra_tasks=[error_driver], rx_width=rx_width, tx_width=tx_width)
-
-test_params_file = Path(__file__).parent / "test_rx/test_params.json"
+test_params_file = Path(__file__).parent / "test_rmii_timing/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_rx(capfd, seed, params):
     with capfd.disabled():

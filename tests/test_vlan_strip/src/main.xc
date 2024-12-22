@@ -95,18 +95,31 @@ int main()
     on tile[0]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
     on tile[0]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
 
-    #elif MII
+    #else
 
     #if RT
 
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      null, null,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+      on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
                                     null, null,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
+                                    p_eth_clk,
+                                    &p_eth_rxd, p_eth_rxdv,
+                                    p_eth_txen, &p_eth_txd,
                                     eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+                                    4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    #endif
+
     on tile[0]: filler(0x77);
 
     #else
@@ -124,20 +137,6 @@ int main()
     #endif // RT
     on tile[RT]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
     on tile[RT]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
-
-    #elif RMII
-    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                        i_rx_lp, NUM_RX_LP_IF,
-                                        i_tx_lp, NUM_TX_LP_IF,
-                                        null, null,
-                                        p_eth_clk,
-                                        &p_eth_rxd, p_eth_rxdv,
-                                        p_eth_txen, &p_eth_txd,
-                                        eth_rxclk, eth_txclk,
-                                        4000, 4000, ETHERNET_DISABLE_SHAPER);}
-    on tile[0]: filler(0x77);
-    on tile[1]: test_task(i_cfg[2], i_rx_lp[2], 0x3333, 0, i_ctrl[2]);
-    on tile[1]: test_task(i_cfg[3], i_rx_lp[3], 0x4444, 0, i_ctrl[3]);
 
     #endif // RGMII
 

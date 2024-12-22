@@ -1,4 +1,4 @@
-// Copyright 2015-2021 XMOS LIMITED.
+// Copyright 2015-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
@@ -8,9 +8,13 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1C;
 #include "control.xc"
 
 #define NUM_CFG_IF 3
@@ -18,7 +22,7 @@ port p_ctrl = on tile[0]: XS1_PORT_1C;
 #define NUM_TX_LP_IF 1
 #define NUM_LP_CLIENTS 2
 
-port p_rx_lp_control[NUM_LP_CLIENTS] = on tile[0]: { XS1_PORT_1D, XS1_PORT_1E };
+port p_rx_lp_control[NUM_LP_CLIENTS] = on tile[0]: { XS1_PORT_1E, XS1_PORT_1F };
 
 #include "helpers.xc"
 
@@ -174,14 +178,26 @@ int main()
 
     #else // !RGMII
 
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                    i_rx_lp, NUM_RX_LP_IF,
-                                    i_tx_lp, NUM_TX_LP_IF,
-                                    c_rx_hp, null,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      c_rx_hp, null,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+      on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                              i_rx_lp, NUM_RX_LP_IF,
+                              i_tx_lp, NUM_TX_LP_IF,
+                              c_rx_hp, null,
+                              p_eth_clk,
+                              &p_eth_rxd, p_eth_rxdv,
+                              p_eth_txen, &p_eth_txd,
+                              eth_rxclk, eth_txclk,
+                              4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    #endif
 
     #endif // RGMII
 
@@ -191,7 +207,7 @@ int main()
     on tile[0]: test_rx_lp(i_cfg[2], i_rx_lp[1], i_ctrl[2], c_shutdown[1], 2,
       p_rx_lp_control[1]);
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

@@ -24,8 +24,8 @@ class RMiiTxPhy(px.SimThread):
 
     def __init__(self, name, rxd, rxdv, rxer, clock,
                  rxd_4b_port_pin_assignment,
-                 initial_delay, verbose,
-                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time):
+                 initial_delay_us, verbose,
+                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time_us):
         self._name = name
         self._test_ctrl = test_ctrl
         # Check if rxd is a string or an array of strings
@@ -40,12 +40,12 @@ class RMiiTxPhy(px.SimThread):
         self._packets = []
         self._clock = clock
         self._rxd_4b_port_pin_assignment = rxd_4b_port_pin_assignment
-        self._initial_delay = initial_delay
+        self._initial_delay = initial_delay_us
         self._verbose = verbose
         self._do_timeout = do_timeout
         self._complete_fn = complete_fn
         self._expect_loopback = expect_loopback
-        self._dut_exit_time = dut_exit_time
+        self._dut_exit_time = dut_exit_time_us
         self._rxd_port_width = get_port_width_from_name(self._rxd[0])
         if len(self._rxd) == 2:
             assert self._rxd_port_width == 1, f"Only 1bit ports allowed when specifying 2 ports. {self._rxd}"
@@ -121,30 +121,34 @@ class RMiiTxPhy(px.SimThread):
         self.xsi.drive_port_pins(self._rxer, value)
 
 class PacketManager():
-    def __init__(self, packets, data_type, verbose=False):
+    def __init__(self, packets, clock, data_type, verbose=False):
         assert data_type in ['crumb', 'nibble']
         self._data_type = data_type # 'nibble' or 'crumb'
         self._pkts = packets
-        assert len(self._pkts) > 0
         self._num_pkts = len(self._pkts)
         self._pkt_ended = False # Flag indicating if the current packet has ended
         self._verbose = verbose
+        self._clock = clock
 
         # Set up to do the first packet
         self._current_pkt_index = 0
-        self._pkt = self._pkts[self._current_pkt_index]
-        self._nibbles = self._pkt.get_nibbles() # list of nibbles in the current packet
-        self._error_nibbles = self._pkt.get_error_nibbles()
-        self._nibble_index = 0 # nibble we're indexing in the current packet
-        self._crumb_index = 0 # alternates between 0 and 1
-        self._ifg_wait_cycles = 0
-
+        if len(self._pkts):
+            self._pkt = self._pkts[self._current_pkt_index]
+            self._nibbles = self._pkt.get_nibbles() # list of nibbles in the current packet
+            self._error_nibbles = self._pkt.get_error_nibbles()
+            self._nibble_index = 0 # nibble we're indexing in the current packet
+            self._crumb_index = 0 # alternates between 0 and 1
+            self._ifg_wait_cycles = 0
 
     def get_data(self):
         if(self._current_pkt_index == self._num_pkts): # Finished all the packets
             return None, False, False
 
-        if self._ifg_wait_cycles < self._pkt.inter_frame_gap_clock_cycles:
+        # From IFG in xsi ticks, derive IFG in clock cycles.
+        # IFG_xsi_ticks/xsi_ticks_per_bit = IFG_in_no_of_bits
+        # IFG_in_no_of_bits/bits_per_clock_cycle = ifg_in_clock_cycles
+        ifg_clock_cycles = self._pkt.inter_frame_gap/(self._clock._bit_time * self._clock.get_clock_cycle_to_bit_time_ratio())
+        if self._ifg_wait_cycles < ifg_clock_cycles: # ifg in clock cycles
             self._ifg_wait_cycles += 1
             return None, False, True
 
@@ -195,18 +199,18 @@ class RMiiTransmitter(RMiiTxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
                  rxd_4b_port_pin_assignment="lower_2b",
-                 initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
+                 initial_delay_us=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+                 dut_exit_time_us=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
         super(RMiiTransmitter, self).__init__('rmii', rxd, rxdv, rxer, clock,
                                              rxd_4b_port_pin_assignment,
-                                             initial_delay, verbose, test_ctrl,
+                                             initial_delay_us, verbose, test_ctrl,
                                              do_timeout, complete_fn, expect_loopback,
-                                             dut_exit_time)
+                                             dut_exit_time_us)
 
     def run(self):
         xsi = self.xsi
-        pkt_manager = PacketManager(self._packets, "crumb", verbose=self._verbose) # read packet data at crumb granularity
+        pkt_manager = PacketManager(self._packets, self._clock, "crumb", verbose=self._verbose) # read packet data at crumb granularity
         self.start_test()
 
         while True:

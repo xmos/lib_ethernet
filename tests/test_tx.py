@@ -13,10 +13,10 @@ from mii_packet import MiiPacket
 from helpers import get_sim_args
 from helpers import get_mii_rx_clk_phy, get_rgmii_rx_clk_phy
 from helpers import get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
-from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
+from helpers import get_rmii_clk, get_rmii_rx_phy
 from helpers import generate_tests
 
-def packet_checker(packet, phy):
+def packet_checker(packet, phy, test_ctrl):
     print("Packet received:")
     sys.stdout.write(packet.dump(show_ifg=False))
 
@@ -70,7 +70,8 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
                                     tester=tester,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    capfd=capfd)
+                                    capfd=capfd
+                                    )
 
     assert result is True, f"{result}"
 
@@ -103,27 +104,12 @@ def test_tx(capfd, params):
         verbose = False
 
         clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['tx_width'] == "4b_lower":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                        "lower_2b",
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                        clk,
                                         packet_fn=packet_checker,
                                         verbose=verbose,
                                         test_ctrl=test_ctrl
-                                        )
-        elif params['tx_width'] == "4b_upper":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                "upper_2b",
-                                packet_fn=packet_checker,
-                                verbose=verbose,
-                                test_ctrl=test_ctrl
-                                )
-        elif params['tx_width'] == "1b":
-            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
-                                                packet_fn=packet_checker,
-                                                verbose=verbose,
-                                                test_ctrl=test_ctrl)
-        else:
-            assert False, f"Invalid tx_width {params['tx_width']}"
+                                    )
         do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"

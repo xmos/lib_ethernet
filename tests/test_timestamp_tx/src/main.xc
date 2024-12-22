@@ -1,4 +1,4 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
@@ -93,23 +93,19 @@ int main()
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
 
-    #elif MII
+    #else
 
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                    i_rx_lp, NUM_RX_LP_IF,
-                                    i_tx_lp, NUM_TX_LP_IF,
-                                    null, null,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
-    on tile[0]: filler(0x1111);
-    on tile[0]: filler(0x2222);
-    on tile[0]: filler(0x3333);
-
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      null, null,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
     #elif RMII
-
-    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
+      on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, 1,
                             i_rx_lp, 1,
                             i_tx_lp, 1,
                             null, null,
@@ -118,6 +114,7 @@ int main()
                             p_eth_txen, &p_eth_txd,
                             eth_rxclk, eth_txclk,
                             4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    #endif
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
