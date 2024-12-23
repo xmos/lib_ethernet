@@ -38,13 +38,14 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
 
 
 
-{unsigned, rmii_data_4b_pin_assignment_t} init_rx_ports(in_port_t p_clk,
-                                                        in_port_t p_rxdv,
-                                                        clock rxclk,
-                                                        rmii_data_port_t * unsafe p_rxd,
-                                                        in buffered port:32 * unsafe rx_data_0,
-                                                        in buffered port:32 * unsafe rx_data_1){
+{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe } 
+    init_rx_ports(in_port_t p_clk,
+                  in_port_t p_rxdv,
+                  clock rxclk,
+                  rmii_data_port_t * unsafe p_rxd){
     unsafe {
+        in buffered port:32 * unsafe rx_data_0 = NULL;
+        in buffered port:32 * unsafe rx_data_1 = NULL;
         // Extract width and optionally which 4b pins to use
         unsigned rx_port_width = ((unsigned)(p_rxd->rmii_data_1b.data_0) >> 16) & 0xff;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_rxd->rmii_data_1b.data_1);
@@ -65,18 +66,19 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
             break;
         }
 
-        return {rx_port_width, rx_port_4b_pins};
+        return {rx_port_width, rx_port_4b_pins, rx_data_0, rx_data_1};
     }
 }
 
 
-{unsigned, rmii_data_4b_pin_assignment_t} init_tx_ports(in_port_t p_clk,
-                                                        out_port_t p_txen,
-                                                        clock txclk,
-                                                        rmii_data_port_t * unsafe p_txd,
-                                                        out buffered port:32 * unsafe tx_data_0,
-                                                        out buffered port:32 * unsafe tx_data_1){
+{unsigned, rmii_data_4b_pin_assignment_t, out buffered port:32 * unsafe, out buffered port:32 * unsafe}
+    init_tx_ports(in_port_t p_clk,
+                  out_port_t p_txen,
+                  clock txclk,
+                  rmii_data_port_t * unsafe p_txd){
     unsafe {
+        out buffered port:32 * unsafe tx_data_0;
+        out buffered port:32 * unsafe tx_data_1;
         unsigned tx_port_width = ((unsigned)(p_txd->rmii_data_1b.data_0) >> 16) & 0xff;
         rmii_data_4b_pin_assignment_t tx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_txd->rmii_data_1b.data_1);
 
@@ -95,7 +97,7 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
             break;
         }
 
-        return {tx_port_width, tx_port_4b_pins};
+        return {tx_port_width, tx_port_4b_pins, tx_data_0, tx_data_1};
 
     }
 }
@@ -165,7 +167,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     in buffered port:32 * unsafe rx_data_1 = NULL;
     unsigned rx_port_width;
     rmii_data_4b_pin_assignment_t rx_port_4b_pins;
-    {rx_port_width, rx_port_4b_pins} = init_rx_ports(p_clk, p_rxdv, rxclk, p_rxd, rx_data_0, rx_data_1); 
+    {rx_port_width, rx_port_4b_pins, rx_data_0, rx_data_1} = init_rx_ports(p_clk, p_rxdv, rxclk, p_rxd); 
 
     // Setup TX data ports
     // First declare C pointers for port resources and the initialise
@@ -173,7 +175,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     out buffered port:32 * unsafe tx_data_1 = NULL;
     unsigned tx_port_width;
     rmii_data_4b_pin_assignment_t tx_port_4b_pins;
-    {tx_port_width, tx_port_4b_pins} = init_tx_ports(p_clk, p_txen, txclk, p_txd, tx_data_0, tx_data_1);
+    {tx_port_width, tx_port_4b_pins, tx_data_0, tx_data_1} = init_tx_ports(p_clk, p_txen, txclk, p_txd);
 
     // Setup server
     ethernet_port_state_t port_state;
@@ -311,13 +313,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         in buffered port:32 * unsafe rx_data_0_1 = NULL;
         unsigned rx_port_width_0;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins_0;
-        {rx_port_width_0, rx_port_4b_pins_0} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0, rx_data_0_0, rx_data_0_1); 
+        {rx_port_width_0, rx_port_4b_pins_0, rx_data_0_0, rx_data_0_1} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0); 
         // MAC port 1
         in buffered port:32 * unsafe rx_data_1_0 = NULL;
         in buffered port:32 * unsafe rx_data_1_1 = NULL;
         unsigned rx_port_width_1 = 0;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins_1;
-        {rx_port_width_1, rx_port_4b_pins_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1, rx_data_1_0, rx_data_1_1); 
+        {rx_port_width_1, rx_port_4b_pins_1, rx_data_1_0, rx_data_1_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1); 
 
 
 
@@ -328,13 +330,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         out buffered port:32 * unsafe tx_data_0_1 = NULL;
         unsigned tx_port_width_0;
         rmii_data_4b_pin_assignment_t tx_port_4b_pins_0;
-        {tx_port_width_0, tx_port_4b_pins_0} = init_tx_ports(p_clk, p_txen_0, txclk_0, p_txd_0, tx_data_0_0, tx_data_0_1);
+        {tx_port_width_0, tx_port_4b_pins_0, tx_data_0_0, tx_data_0_1} = init_tx_ports(p_clk, p_txen_0, txclk_0, p_txd_0);
         // MAC port 1
         out buffered port:32 * unsafe tx_data_1_0 = NULL;
         out buffered port:32 * unsafe tx_data_1_1 = NULL;
         unsigned tx_port_width_1;
         rmii_data_4b_pin_assignment_t tx_port_4b_pins_1;
-        {tx_port_width_1, tx_port_4b_pins_1} = init_tx_ports(p_clk, p_txen_1, txclk_1, p_txd_1, tx_data_1_0, tx_data_1_1);
+        {tx_port_width_1, tx_port_4b_pins_1, tx_data_1_0, tx_data_1_1} = init_tx_ports(p_clk, p_txen_1, txclk_1, p_txd_1);
 
         // Setup server
         ethernet_port_state_t port_state;
