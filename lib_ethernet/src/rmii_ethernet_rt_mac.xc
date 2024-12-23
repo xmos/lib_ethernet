@@ -209,6 +209,68 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 }
 
 
+{unsigned, rmii_data_4b_pin_assignment_t} init_rx_ports(in_port_t p_clk,
+                                                        in_port_t p_rxdv,
+                                                        clock rxclk,
+                                                        rmii_data_port_t * unsafe p_rxd,
+                                                        in buffered port:32 * unsafe rx_data_0,
+                                                        in buffered port:32 * unsafe rx_data_1){
+    unsafe {
+        // Extract width and optionally which 4b pins to use
+        unsigned rx_port_width = ((unsigned)(p_rxd->rmii_data_1b.data_0) >> 16) & 0xff;
+        rmii_data_4b_pin_assignment_t rx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_rxd->rmii_data_1b.data_1);
+
+        // Extract pointers to ports with correct port qualifiers and setup data pins
+        switch(rx_port_width){
+          case 4:
+            rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd->rmii_data_1b.data_0), 32);
+            rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk);
+            break;
+          case 1:
+            rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_0, 32);
+            rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_1, 32);
+            rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk);
+            break;
+          default:
+            fail("Invald port width for RMII Rx");
+            break;
+        }
+
+        return {rx_port_width, rx_port_4b_pins};
+    }
+}
+
+{unsigned, rmii_data_4b_pin_assignment_t} init_tx_ports(in_port_t p_clk,
+                                                        out_port_t p_txen,
+                                                        clock txclk,
+                                                        rmii_data_port_t * unsafe p_txd,
+                                                        out buffered port:32 * unsafe tx_data_0,
+                                                        out buffered port:32 * unsafe tx_data_1){
+    unsafe {
+        unsigned tx_port_width = ((unsigned)(p_txd->rmii_data_1b.data_0) >> 16) & 0xff;
+        rmii_data_4b_pin_assignment_t tx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_txd->rmii_data_1b.data_1);
+
+        switch(tx_port_width){
+        case 4:
+            tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
+            rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk);
+            break;
+        case 1:
+            tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
+            tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_1, 32);
+            rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk);
+            break;
+        default:
+            fail("Invald port width for RMII Tx");
+            break;
+        }
+
+        return {tx_port_width, tx_port_4b_pins};
+
+    }
+}
+
+
 void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
                               SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
                               SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
@@ -228,158 +290,173 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               enum ethernet_enable_shaper_t enable_shaper)
 {
   // Establish types of data ports presented
-  unsafe{
-    // Setup buffering
-    unsigned int rx_data[rx_bufsize_words];
-    unsigned int tx_data[tx_bufsize_words];
-    mii_mempool_t rx_mem = mii_init_mempool(rx_data, rx_bufsize_words*4);
+    unsafe{
+        // Setup buffering
+        unsigned int rx_data[rx_bufsize_words];
+        unsigned int tx_data[tx_bufsize_words];
+        mii_mempool_t rx_mem = mii_init_mempool(rx_data, rx_bufsize_words*4);
 
-    // If the high priority traffic is connected then allocate half the buffer for high priority
-    // and half for low priority. Otherwise, allocate it all to low priority.
-    const size_t lp_buffer_bytes = !isnull(c_tx_hp) ? tx_bufsize_words * 2 : tx_bufsize_words * 4;
-    const size_t hp_buffer_bytes = tx_bufsize_words * 4 - lp_buffer_bytes;
-    mii_mempool_t tx_mem_lp = mii_init_mempool(tx_data, lp_buffer_bytes);
-    mii_mempool_t tx_mem_hp = mii_init_mempool(tx_data + (lp_buffer_bytes/4), hp_buffer_bytes);
+        // If the high priority traffic is connected then allocate half the buffer for high priority
+        // and half for low priority. Otherwise, allocate it all to low priority.
+        const size_t lp_buffer_bytes = !isnull(c_tx_hp) ? tx_bufsize_words * 2 : tx_bufsize_words * 4;
+        const size_t hp_buffer_bytes = tx_bufsize_words * 4 - lp_buffer_bytes;
+        mii_mempool_t tx_mem_lp = mii_init_mempool(tx_data, lp_buffer_bytes);
+        mii_mempool_t tx_mem_hp = mii_init_mempool(tx_data + (lp_buffer_bytes/4), hp_buffer_bytes);
 
-    packet_queue_info_t rx_packets_lp, rx_packets_hp, tx_packets_lp, tx_packets_hp, incoming_packets;
-    mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp);
-    mii_init_packet_queue((mii_packet_queue_t)&rx_packets_hp);
-    mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp);
-    mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp);
-    mii_init_packet_queue((mii_packet_queue_t)&incoming_packets);
+        packet_queue_info_t rx_packets_lp, rx_packets_hp, tx_packets_lp, tx_packets_hp, incoming_packets;
+        mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp);
+        mii_init_packet_queue((mii_packet_queue_t)&rx_packets_hp);
+        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp);
+        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp);
+        mii_init_packet_queue((mii_packet_queue_t)&incoming_packets);
 
-    // Shared read pointer to help optimize the RX code
-    unsigned rx_rdptr = 0;
-    unsigned * unsafe p_rx_rdptr = &rx_rdptr;
-
-
-    mii_init_lock();
-    mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
-    mii_ts_queue_info_t ts_queue_info;
-
-    if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE) {
-      fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in ethernet_conf.h");
-    }
-
-    if (!ETHERNET_SUPPORT_HP_QUEUES && (!isnull(c_rx_hp) || !isnull(c_tx_hp))) {
-      fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
-    }
-
-    mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
+        // Shared read pointer to help optimize the RX code
+        unsigned rx_rdptr = 0;
+        unsigned * unsafe p_rx_rdptr = &rx_rdptr;
 
 
+        mii_init_lock();
+        mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
+        mii_ts_queue_info_t ts_queue_info;
 
-    // Common initialisation
-    set_port_use_on(p_clk); // RMII 50MHz clock input port
-
-    // Setup RX data ports
-    // First declare C pointers for port resources
-    in buffered port:32 * unsafe rx_data_0 = NULL;
-    in buffered port:32 * unsafe rx_data_1 = NULL;
-
-    // Extract width and optionally which 4b pins to use
-    unsigned rx_port_width = ((unsigned)(p_rxd->rmii_data_1b.data_0) >> 16) & 0xff;
-    rmii_data_4b_pin_assignment_t rx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_rxd->rmii_data_1b.data_1);
-
-    // Extract pointers to ports with correct port qualifiers and setup data pins
-    switch(rx_port_width){
-      case 4:
-        rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd->rmii_data_1b.data_0), 32);
-        rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk);
-        break;
-      case 1:
-        rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_0, 32);
-        rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_1, 32);
-        rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk);
-        break;
-      default:
-        fail("Invald port width for RMII Rx");
-        break;
-    }
-
-    // Setup TX data ports
-    out buffered port:32 * unsafe tx_data_0 = NULL;
-    out buffered port:32 * unsafe tx_data_1 = NULL;
-
-    unsigned tx_port_width = ((unsigned)(p_txd->rmii_data_1b.data_0) >> 16) & 0xff;
-    rmii_data_4b_pin_assignment_t tx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_txd->rmii_data_1b.data_1);
-
-    switch(tx_port_width){
-      case 4:
-        tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
-        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk);
-        break;
-      case 1:
-        tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
-        tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_1, 32);
-        rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk);
-        break;
-      default:
-        fail("Invald port width for RMII Tx");
-        break;
-    }
-
-    // Setup server
-    ethernet_port_state_t port_state;
-    init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
-
-    ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
-
-    chan c_conf;
-    par {
-      // Rx task
-      {
-        if(rx_port_width == 4){
-          rmii_master_rx_pins_4b(rx_mem,
-                                 (mii_packet_queue_t)&incoming_packets,
-                                 p_rx_rdptr,
-                                 p_rxdv,
-                                 rx_data_0,
-                                 rx_port_4b_pins);
-        } else {
-          rmii_master_rx_pins_1b(rx_mem,
-                                 (mii_packet_queue_t)&incoming_packets,
-                                 p_rx_rdptr,
-                                 p_rxdv,
-                                 rx_data_0,
-                                 rx_data_1);
+        if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE) {
+            fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in ethernet_conf.h");
         }
-      }
-      // Tx task
 
-      rmii_master_tx_pins(tx_mem_lp,
-                          tx_mem_hp,
-                          (mii_packet_queue_t)&tx_packets_lp,
-                          (mii_packet_queue_t)&tx_packets_hp,
-                          ts_queue,
-                          tx_port_width,
-                          tx_data_0,
-                          tx_data_1,
-                          tx_port_4b_pins,
-                          txclk,
-                          p_port_state);
+        if (!ETHERNET_SUPPORT_HP_QUEUES && (!isnull(c_rx_hp) || !isnull(c_tx_hp))) {
+            fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
+        }
 
-      mii_ethernet_filter(c_conf,
-                          (mii_packet_queue_t)&incoming_packets,
-                          (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp);
+        mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
 
-      mii_ethernet_server(rx_mem,
-                          (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp,
-                          p_rx_rdptr,
-                          tx_mem_lp,
-                          tx_mem_hp,
-                          (mii_packet_queue_t)&tx_packets_lp,
-                          (mii_packet_queue_t)&tx_packets_hp,
-                          ts_queue,
-                          i_cfg, n_cfg,
-                          i_rx_lp, n_rx_lp,
-                          i_tx_lp, n_tx_lp,
-                          c_rx_hp,
-                          c_tx_hp,
-                          c_conf,
-                          p_port_state);
-    } // par
-  } // unsafe block
+
+
+        // Common initialisation
+        set_port_use_on(p_clk); // RMII 50MHz clock input port
+
+        // Setup RX data ports
+        // First declare C pointers for port resources and the initialise
+        // MAC port 0
+        in buffered port:32 * unsafe rx_data_0_0 = NULL;
+        in buffered port:32 * unsafe rx_data_0_1 = NULL;
+        unsigned rx_port_width_0;
+        rmii_data_4b_pin_assignment_t rx_port_4b_pins_0;
+        {rx_port_width_0, rx_port_4b_pins_0} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0, rx_data_0_0, rx_data_0_1); 
+        // MAC port 1
+        in buffered port:32 * unsafe rx_data_1_0 = NULL;
+        in buffered port:32 * unsafe rx_data_1_1 = NULL;
+        unsigned rx_port_width_1 = 0;
+        rmii_data_4b_pin_assignment_t rx_port_4b_pins_1;
+        {rx_port_width_1, rx_port_4b_pins_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1, rx_data_1_0, rx_data_1_1); 
+
+
+
+        // Setup TX data ports
+        // First declare C pointers for port resources and the initialise
+        // MAC port 0
+        out buffered port:32 * unsafe tx_data_0_0 = NULL;
+        out buffered port:32 * unsafe tx_data_0_1 = NULL;
+        unsigned tx_port_width_0;
+        rmii_data_4b_pin_assignment_t tx_port_4b_pins_0;
+        {tx_port_width_0, tx_port_4b_pins_0} = init_tx_ports(p_clk, p_txen_0, txclk_0, p_txd_0, tx_data_0_0, tx_data_0_1);
+        // MAC port 1
+        out buffered port:32 * unsafe tx_data_1_0 = NULL;
+        out buffered port:32 * unsafe tx_data_1_1 = NULL;
+        unsigned tx_port_width_1;
+        rmii_data_4b_pin_assignment_t tx_port_4b_pins_1;
+        {tx_port_width_1, tx_port_4b_pins_1} = init_tx_ports(p_clk, p_txen_1, txclk_1, p_txd_1, tx_data_1_0, tx_data_1_1);
+
+        // Setup server
+        ethernet_port_state_t port_state;
+        init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
+
+        ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
+
+        chan c_conf;
+        par
+        {
+            {
+                if(rx_port_width_0 == 4)
+                {
+                    rmii_master_rx_pins_4b(rx_mem,
+                                         (mii_packet_queue_t)&incoming_packets,
+                                         p_rx_rdptr,
+                                         p_rxdv_0,
+                                         rx_data_0_0,
+                                         rx_port_4b_pins_0);
+                } else {
+                    rmii_master_rx_pins_1b(rx_mem,
+                                         (mii_packet_queue_t)&incoming_packets,
+                                         p_rx_rdptr,
+                                         p_rxdv_0,
+                                         rx_data_0_0,
+                                         rx_data_0_1);
+                }
+            }
+            {
+                if(rx_port_width_1 == 4)
+                {
+                    rmii_master_rx_pins_4b(rx_mem,
+                                         (mii_packet_queue_t)&incoming_packets,
+                                         p_rx_rdptr,
+                                         p_rxdv_1,
+                                         rx_data_1_0,
+                                         rx_port_4b_pins_1);
+                } else {
+                    rmii_master_rx_pins_1b(rx_mem,
+                                         (mii_packet_queue_t)&incoming_packets,
+                                         p_rx_rdptr,
+                                         p_rxdv_1,
+                                         rx_data_1_0,
+                                         rx_data_1_1);
+                }
+            }
+            rmii_master_tx_pins(tx_mem_lp,
+                              tx_mem_hp,
+                              (mii_packet_queue_t)&tx_packets_lp,
+                              (mii_packet_queue_t)&tx_packets_hp,
+                              ts_queue,
+                              tx_port_width_0,
+                              tx_data_0_0,
+                              tx_data_0_1,
+                              tx_port_4b_pins_0,
+                              txclk_0,
+                              p_port_state);
+
+            rmii_master_tx_pins(tx_mem_lp,
+                              tx_mem_hp,
+                              (mii_packet_queue_t)&tx_packets_lp,
+                              (mii_packet_queue_t)&tx_packets_hp,
+                              ts_queue,
+                              tx_port_width_1,
+                              tx_data_1_0,
+                              tx_data_1_1,
+                              tx_port_4b_pins_1,
+                              txclk_1,
+                              p_port_state);
+
+
+            mii_ethernet_filter(c_conf,
+                              (mii_packet_queue_t)&incoming_packets,
+                              (mii_packet_queue_t)&rx_packets_lp,
+                              (mii_packet_queue_t)&rx_packets_hp);
+
+            mii_ethernet_server(rx_mem,
+                              (mii_packet_queue_t)&rx_packets_lp,
+                              (mii_packet_queue_t)&rx_packets_hp,
+                              p_rx_rdptr,
+                              tx_mem_lp,
+                              tx_mem_hp,
+                              (mii_packet_queue_t)&tx_packets_lp,
+                              (mii_packet_queue_t)&tx_packets_hp,
+                              ts_queue,
+                              i_cfg, n_cfg,
+                              i_rx_lp, n_rx_lp,
+                              i_tx_lp, n_tx_lp,
+                              c_rx_hp,
+                              c_tx_hp,
+                              c_conf,
+                              p_port_state);
+        } // par
+    } // unsafe block
 }

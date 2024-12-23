@@ -685,6 +685,25 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           static_const_unsigned_t tx_bufsize_words,
                           enum ethernet_enable_shaper_t shaper_enabled);
 
+
+void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                              SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                              SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                              nullable_streaming_chanend_t c_rx_hp,
+                              nullable_streaming_chanend_t c_tx_hp,
+                              in_port_t p_clk,
+                              rmii_data_port_t * unsafe p_rxd_0, in_port_t p_rxdv_0,
+                              out_port_t p_txen_0, rmii_data_port_t * unsafe p_txd_0,
+                              clock rxclk_0,
+                              clock txclk_0,
+                              rmii_data_port_t * unsafe p_rxd_1, in_port_t p_rxdv_1,
+                              out_port_t p_txen_1, rmii_data_port_t * unsafe p_txd_1,
+                              clock rxclk_1,
+                              clock txclk_1,
+                              static_const_unsigned_t rx_bufsize_words,
+                              static_const_unsigned_t tx_bufsize_words,
+                              enum ethernet_enable_shaper_t enable_shaper);
+
 #endif // __XC__ || __DOXYGEN__
 
 #endif // __ethernet__h__
