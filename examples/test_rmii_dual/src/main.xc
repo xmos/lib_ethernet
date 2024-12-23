@@ -8,7 +8,7 @@
 #include <print.h>
 #include "ethernet.h"
 
-port p_eth_clk = XS1_PORT_1J;
+port p_eth_clk = XS1_PORT_1O;
 
 #ifndef USE_LOWER
 #define USE_LOWER 1
@@ -16,37 +16,47 @@ port p_eth_clk = XS1_PORT_1J;
 
 #if TX_WIDTH == 4
 #if USE_LOWER
-rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
+rmii_data_port_t p_eth_txd_0 = {{XS1_PORT_4B, USE_LOWER_2B}};
+rmii_data_port_t p_eth_txd_1 = {{XS1_PORT_4D, USE_LOWER_2B}};
 #else
-rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_UPPER_2B}};
+rmii_data_port_t p_eth_txd_0 = {{XS1_PORT_4B, USE_UPPER_2B}};
+rmii_data_port_t p_eth_txd_1 = {{XS1_PORT_4D, USE_UPPER_2B}};
 #endif 
 #elif TX_WIDTH == 1
-rmii_data_port_t p_eth_txd = {{XS1_PORT_1C, XS1_PORT_1D}};
+rmii_data_port_t p_eth_txd_0 = {{XS1_PORT_1C, XS1_PORT_1D}};
+rmii_data_port_t p_eth_txd_1 = {{XS1_PORT_1E, XS1_PORT_1F}};
 #else
 #error invalid TX_WIDTH
 #endif
 
 #if RX_WIDTH == 4
 #if USE_LOWER
-rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
+rmii_data_port_t p_eth_rxd_0 = {{XS1_PORT_4A, USE_LOWER_2B}};
+rmii_data_port_t p_eth_rxd_1 = {{XS1_PORT_4C, USE_LOWER_2B}};
 #else
-rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_UPPER_2B}};
+rmii_data_port_t p_eth_rxd_0 = {{XS1_PORT_4A, USE_UPPER_2B}};
+rmii_data_port_t p_eth_rxd_1 = {{XS1_PORT_4C, USE_UPPER_2B}};
 #endif
 #elif RX_WIDTH == 1
-rmii_data_port_t p_eth_rxd = {{XS1_PORT_1A, XS1_PORT_1B}};
+rmii_data_port_t p_eth_rxd_0 = {{XS1_PORT_1A, XS1_PORT_1B}};
+rmii_data_port_t p_eth_rxd_1 = {{XS1_PORT_1H, XS1_PORT_1I}};
 #else
 #error invalid RX_WIDTH
 #endif
 
-port p_eth_rxdv = XS1_PORT_1K;
-port p_eth_txen = XS1_PORT_1L;
-clock eth_rxclk = XS1_CLKBLK_1;
-clock eth_txclk = XS1_CLKBLK_2;
+port p_eth_rxdv_0 = XS1_PORT_1K;
+port p_eth_rxdv_1 = XS1_PORT_1J;
+port p_eth_txen_0 = XS1_PORT_1L;
+port p_eth_txen_1 = XS1_PORT_1M;
+clock eth_rxclk_0 = XS1_CLKBLK_1;
+clock eth_txclk_0 = XS1_CLKBLK_2;
+clock eth_rxclk_1 = XS1_CLKBLK_3;
+clock eth_txclk_1 = XS1_CLKBLK_4;
 
 
 // Test harness
-clock eth_clk_harness = XS1_CLKBLK_3;
-port p_eth_clk_harness = XS1_PORT_1I;
+clock eth_clk_harness = XS1_CLKBLK_5;
+port p_eth_clk_harness = XS1_PORT_1N;
 
 #define MAX_PACKET_WORDS ((ETHERNET_MAX_PACKET_SIZE + 3) / 4)
 
@@ -93,62 +103,56 @@ static void printwords_4b(unsigned *b, int n){
 
 
 
-void hp_traffic_tx( client ethernet_cfg_if i_cfg,
-                    client ethernet_tx_if tx_lp,
-                    streaming chanend c_tx_hp,
-                    chanend test_info)
+void test_app(client ethernet_cfg_if i_cfg,
+                client ethernet_rx_if i_rx,
+                streaming chanend c_rx_hp,
+                client ethernet_tx_if tx_lp,
+                streaming chanend c_tx_hp)
 {
-  // Request 5Mbits/sec
-  i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
+    // Request 5Mbits/sec
+    i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
 
-  unsigned data[MAX_PACKET_WORDS];
-  for (size_t i = 0; i < MAX_PACKET_WORDS; i++) {
-    data[i] = i;
-  }
+    unsigned tx_data[MAX_PACKET_WORDS];
+    for (size_t i = 0; i < MAX_PACKET_WORDS; i++) {
+      tx_data[i] = i;
+    }
 
-  // src/dst MAC addresses
-  size_t j = 0;
-  for (; j < 12; j++)
-    ((char*)data)[j] = j;
+    // src/dst MAC addresses
+    size_t j = 0;
+    for (; j < 12; j++)
+      ((char*)tx_data)[j] = j;
 
-  if (VLAN_TAGGED) {
-    ((char*)data)[j++] = 0x81;
-    ((char*)data)[j++] = 0x00;
-    ((char*)data)[j++] = 0x00;
-    ((char*)data)[j++] = 0x00;
-  }
+    if (VLAN_TAGGED) {
+      ((char*)tx_data)[j++] = 0x81;
+      ((char*)tx_data)[j++] = 0x00;
+      ((char*)tx_data)[j++] = 0x00;
+      ((char*)tx_data)[j++] = 0x00;
+    }
 
-  const int length = 61;
-  const int header_bytes = VLAN_TAGGED ? 18 : 14;
-  ((char*)data)[j++] = (length - header_bytes) >> 8;
-  ((char*)data)[j++] = (length - header_bytes) & 0xff;
+    const int length = 61;
+    const int header_bytes = VLAN_TAGGED ? 18 : 14;
+    ((char*)tx_data)[j++] = (length - header_bytes) >> 8;
+    ((char*)tx_data)[j++] = (length - header_bytes) & 0xff;
 
-  timer t;
-  int time;
-  t :> time;
-  t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
-
-
-  int start_length = 1515;
-
-  for(int length = start_length; length < start_length + 4; length++){
-      printf("TX sending: %d\n", length);
-      test_info <: length;
-      // printbytes((char*)data, length);
-      // printwords_4b(data, (length + 3)/4);
-      tx_lp.send_packet((char *)data, length, ETHERNET_ALL_INTERFACES);
-      // printf("LP packet sent: %d bytes\n", length);
-      t :> time;
-      t when timerafter(time + 4000) :> time;
-  }
-}
+    timer t;
+    int time;
+    t :> time;
+    t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
 
 
-void rx_app(client ethernet_cfg_if i_cfg,
-            client ethernet_rx_if i_rx,
-            streaming chanend c_rx_hp,
-            chanend test_info)
-{
+    int start_length = 1515;
+
+    for(int length = start_length; length < start_length + 4; length++){
+        printf("TX sending: %d\n", length);
+        // printbytes((char*)data, length);
+        // printwords_4b(data, (length + 3)/4);
+        tx_lp.send_packet((char *)tx_data, length, ETHERNET_ALL_INTERFACES);
+        // printf("LP packet sent: %d bytes\n", length);
+        t :> time;
+        t when timerafter(time + 4000) :> time;
+    }
+
+
     ethernet_macaddr_filter_t macaddr_filter;
     size_t index = i_rx.get_index();
     for (int i = 0; i < MACADDR_NUM_BYTES; i++) {
@@ -197,37 +201,18 @@ void rx_app(client ethernet_cfg_if i_cfg,
                 printf("LP packet received: %d bytes\n", n);
                 // printbytes(rxbuf, packet_info.len);
                 break;
-
-            case test_info :> int length:
-                timeout = 1.5 * (32 * MAX_PACKET_WORDS);
-                test_packet_lengths[num_test_packets_sent] = length;
-                num_test_packets_sent++;
-                tmr :> timeout_trig;
-                timeout_trig += timeout;
-                printf("+");
-                break;
-
-            case tmr when timerafter(timeout_trig) :> int _:
-                if(num_test_packets_received != num_test_packets_sent){
-                    test_pass = 0;
-                    printf("Timed out after %d bit times\n", timeout);
-                }
-
-                printf("TEST %s\n", test_pass ? "PASS" : "FAIL");
-                exit(test_pass);
-                break;
         }
     }
 }
 
+
 int main()
 {
-    ethernet_cfg_if i_cfg[2];
+    ethernet_cfg_if i_cfg[1];
     ethernet_rx_if i_rx_lp[1];
     ethernet_tx_if i_tx_lp[1];
     streaming chan c_rx_hp;
     streaming chan c_tx_hp;
-    chan test_info;
     
 
     // Setup 50M clock
@@ -238,18 +223,20 @@ int main()
     start_clock(eth_clk_harness);
 
     par {
-        unsafe{rmii_ethernet_rt_mac(i_cfg, 2,
-                                    i_rx_lp, 1,
-                                    i_tx_lp, 1,
-                                    c_rx_hp, c_tx_hp,
-                                    p_eth_clk,
-                                    &p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txen, &p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    500, 500, ETHERNET_ENABLE_SHAPER);}
+        unsafe{rmii_ethernet_rt_mac_dual(i_cfg, 1,
+                                        i_rx_lp, 1,
+                                        i_tx_lp, 1,
+                                        c_rx_hp, c_tx_hp,
+                                        p_eth_clk,
+                                        &p_eth_rxd_0, p_eth_rxdv_0,
+                                        p_eth_txen_0, &p_eth_txd_0,
+                                        eth_rxclk_0, eth_txclk_0,
+                                        &p_eth_rxd_1, p_eth_rxdv_1,
+                                        p_eth_txen_1, &p_eth_txd_1,
+                                        eth_rxclk_1, eth_txclk_1,
+                                        4000, 4000, ETHERNET_ENABLE_SHAPER);}
     
-        rx_app(i_cfg[0], i_rx_lp[0], c_rx_hp, test_info);
-        hp_traffic_tx(i_cfg[1], i_tx_lp[0], c_tx_hp, test_info);
+        test_app(i_cfg[0], i_rx_lp[0], c_rx_hp, i_tx_lp[0], c_tx_hp);
     }
 
     return 0;
