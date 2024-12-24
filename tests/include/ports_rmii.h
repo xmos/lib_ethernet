@@ -28,12 +28,15 @@
 
 #if RX_USE_LOWER_2B
 rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_4A, USE_LOWER_2B}};
+rmii_data_port_t p_eth_rxd_2 = {{on tile[0]:XS1_PORT_4C, USE_LOWER_2B}};
 #elif RX_USE_UPPER_2B
 rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_4A, USE_UPPER_2B}};
+rmii_data_port_t p_eth_rxd_2 = {{on tile[0]:XS1_PORT_4C, USE_UPPER_2B}};
 #endif
 
 #elif RX_WIDTH == 1
 rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_1A, XS1_PORT_1B}};
+rmii_data_port_t p_eth_rxd_2 = {{on tile[0]:XS1_PORT_1E, XS1_PORT_1F}};
 #else
 #error invalid RX_WIDTH
 #endif
@@ -50,22 +53,28 @@ rmii_data_port_t p_eth_rxd = {{on tile[0]:XS1_PORT_1A, XS1_PORT_1B}};
 
 #if TX_USE_LOWER_2B
   rmii_data_port_t p_eth_txd = {{on tile[0]:XS1_PORT_4B, USE_LOWER_2B}};
+  rmii_data_port_t p_eth_txd_2 = {{on tile[0]:XS1_PORT_4D, USE_LOWER_2B}};
 #elif TX_USE_UPPER_2B
   rmii_data_port_t p_eth_txd = {{on tile[0]:XS1_PORT_4B, USE_UPPER_2B}};
+  rmii_data_port_t p_eth_txd_2 = {{on tile[0]:XS1_PORT_4D, USE_UPPER_2B}};
 #endif
 
 #elif TX_WIDTH == 1
 rmii_data_port_t p_eth_txd = {{on tile[0]:XS1_PORT_1C, XS1_PORT_1D}};
+rmii_data_port_t p_eth_txd_2 = {{on tile[0]:XS1_PORT_1H, XS1_PORT_1I}};
 #else
 #error invalid TX_WIDTH
 #endif
 
 port p_eth_clk = on tile[0]: XS1_PORT_1J;
 port p_eth_rxdv = on tile[0]: XS1_PORT_1K;
+port p_eth_rxdv_2 = on tile[0]: XS1_PORT_1O;
 port p_eth_txen = on tile[0]: XS1_PORT_1L;
+port p_eth_txen_2 = on tile[0]: XS1_PORT_1P;
 port p_test_ctrl = on tile[0]: XS1_PORT_1M;
 
 clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
-
+clock eth_rxclk_2 = on tile[0]: XS1_CLKBLK_3;
+clock eth_txclk_2 = on tile[0]: XS1_CLKBLK_4;
 #endif
