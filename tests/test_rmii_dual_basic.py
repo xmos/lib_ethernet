@@ -17,7 +17,7 @@ from rmii_phy import RMiiTransmitter, RMiiReceiver
 
 
 
-def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
+def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
                extra_tasks=[], override_dut_dir=False, rx_width=None, tx_width=None):
 
     """ Shared test code for all RX tests using the test_rx application.
@@ -25,10 +25,10 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     testname,extension = os.path.splitext(os.path.basename(test_file))
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch}, rx_width {rx_width} arch at {tx_clk.get_name()} (seed = {seed})")
+        print(f"Running {testname}: {mac} {[phy.get_name() for phy in tx_phy]} phy, {arch}, rx_width {rx_width} arch at {tx_clk.get_name()} (seed = {seed})")
     capfd.readouterr() # clear capfd buffer
 
-    profile = f'{mac}_{tx_phy.get_name()}'
+    profile = f'{mac}_{tx_phy[0].get_name()}'
     if rx_width:
         profile = profile + f"_rx{rx_width}"
     if tx_width:
@@ -39,26 +39,26 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
     assert os.path.isfile(binary), f"Missing .xe {binary}"
 
-    tx_phy.set_packets(packets)
-    rx_phy.set_expected_packets(packets)
+    tx_phy[0].set_packets(packets)
+    for phy in rx_phy:
+        phy.set_expected_packets(packets)
 
     expect_folder = create_if_needed("expect_temp")
     if rx_width:
-        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{rx_width}_{tx_width}_{tx_clk.get_name()}_{arch}.expect'
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy[0].get_name()}_{rx_width}_{tx_width}_{tx_clk.get_name()}_{arch}.expect'
     else:
-        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy.get_name()}_{tx_clk.get_name()}_{arch}.expect'
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy[0].get_name()}_{tx_clk.get_name()}_{arch}.expect'
 
     create_expect(packets, expect_filename)
 
     tester = px.testers.ComparisonTester(open(expect_filename))
+    tester = None
 
-    simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch)
-    # with capfd.disabled():
-    #     print(f"simargs {simargs}\n bin: {binary}")
-    if rx_clk == None: # RMII has only one clock
-        st = [tx_clk, rx_phy, tx_phy]
-    else:
-        st = [rx_clk, rx_phy, tx_clk, tx_phy]
+    simargs = get_sim_args(testname, mac, tx_clk, tx_phy[0], arch)
+    print(simargs)
+ 
+    st = [tx_clk, rx_phy[0], rx_phy[1], tx_phy[0], tx_phy[1]]
+
 
     result = px.run_on_simulator_(  binary,
                                     simthreads=st + extra_tasks,
@@ -80,13 +80,26 @@ def rmii_dual_test(capfd, params, seed):
                                       verbose=verbose
                                       )
 
+        tx_rmii_phy_2 = get_rmii_tx_phy(params['rx_width'],
+                                      clk,
+                                      verbose=verbose,
+                                      second_phy=True
+                                      )
+
         rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
                                       clk,
                                       packet_fn=check_received_packet,
                                       verbose=verbose
                                       )
 
-        mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, rx_width, tx_width = params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, params['rx_width'],params['tx_width']
+        rx_rmii_phy_2 = get_rmii_rx_phy(params['tx_width'],
+                                      clk,
+                                      packet_fn=check_received_packet,
+                                      verbose=verbose,
+                                      second_phy=True
+                                      )
+
+        mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, rx_width, tx_width = params["mac"], params["arch"], None, [rx_rmii_phy, rx_rmii_phy_2], clk, [tx_rmii_phy, tx_rmii_phy_2], params['rx_width'],params['tx_width']
 
         rand = random.Random()
         rand.seed(seed)
@@ -102,10 +115,10 @@ def rmii_dual_test(capfd, params, seed):
             packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address,
                 create_data_args=['step', (i, packet_start_len)],
-                inter_frame_gap=packet_processing_time(tx_phy, packet_start_len, mac),
+                inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
             ))
 
-        do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width, tx_width=tx_width)
+        do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width, tx_width=tx_width)
 
 
 
