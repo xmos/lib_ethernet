@@ -38,7 +38,7 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
 
 
 
-{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe } 
+{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe} 
     init_rx_ports(in_port_t p_clk,
                   in_port_t p_rxdv,
                   clock rxclk,
@@ -204,7 +204,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
         }
       }
       // Tx task
-
       rmii_master_tx_pins(tx_mem_lp,
                           tx_mem_hp,
                           (mii_packet_queue_t)&tx_packets_lp,

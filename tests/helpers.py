@@ -350,9 +350,14 @@ def get_rmii_rx_phy(tx_width, clk, **kwargs):
 
 
 def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, **kwargs):
-    phy = RMiiTransmitter('tile[0]:XS1_PORT_4A', # 4b rxd port
-                          'tile[0]:XS1_PORT_1K', # 1b rxdv
-                          'tile[0]:XS1_PORT_1I', # 1b rxerr
+    rxd = 'tile[0]:XS1_PORT_4C' if "second_phy" in kwargs else 'tile[0]:XS1_PORT_4A'
+    rxdv = 'tile[0]:XS1_PORT_1O' if "second_phy" in kwargs else 'tile[0]:XS1_PORT_1K'
+    rxderr = 'tile[0]:XS1_PORT_1I' # Currently unused so assign the same
+    if "second_phy" in kwargs: kwargs.pop("second_phy")
+
+    phy = RMiiTransmitter(rxd, # 4b rxd port
+                          rxdv, # 1b rxdv
+                          rxderr, # 1b rxerr
                           clk,
                           rxd_4b_port_pin_assignment=rxd_4b_port_pin_assignment,
                           **kwargs
@@ -360,28 +365,41 @@ def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, **kwargs):
     return phy
 
 def get_rmii_1b_port_tx_phy(clk, **kwargs):
-    phy = RMiiTransmitter(['tile[0]:XS1_PORT_1A', 'tile[0]:XS1_PORT_1B'], # 2, 1b rxd ports
-                          'tile[0]:XS1_PORT_1K', # 1b rxdv
-                          'tile[0]:XS1_PORT_1I', # 1b rxerr
+    rxd = ['tile[0]:XS1_PORT_1E', 'tile[0]:XS1_PORT_1F'] if "second_phy" in kwargs else ['tile[0]:XS1_PORT_1A', 'tile[0]:XS1_PORT_1B']
+    rxdv = 'tile[0]:XS1_PORT_1O' if "second_phy" in kwargs else 'tile[0]:XS1_PORT_1K'
+    rxderr = 'tile[0]:XS1_PORT_1I' # Currently unused so assign the same
+    if "second_phy" in kwargs: kwargs.pop("second_phy")
+
+    phy = RMiiTransmitter(rxd, # 2, 1b rxd ports
+                          rxdv, # 1b rxdv
+                          rxderr, # 1b rxerr
                           clk,
                           **kwargs
                         )
     return phy
 
 def get_rmii_4b_port_rx_phy(clk, txd_4b_port_pin_assignment, **kwargs):
-    phy = RMiiReceiver('tile[0]:XS1_PORT_4B',
-                        'tile[0]:XS1_PORT_1L',
-                        clk,
-                        txd_4b_port_pin_assignment=txd_4b_port_pin_assignment,
-                        **kwargs
-                        )
+    txd = 'tile[0]:XS1_PORT_4D' if "second_phy" in kwargs else 'tile[0]:XS1_PORT_4B'
+    txen = 'tile[0]:XS1_PORT_1P' if "second_phy" in kwargs else 'tile[0]:XS1_PORT_1L'
+    if "second_phy" in kwargs: kwargs.pop("second_phy")
+
+    phy = RMiiReceiver(txd,
+                       txen,
+                       clk,
+                       txd_4b_port_pin_assignment=txd_4b_port_pin_assignment,
+                       **kwargs
+                       )
     return phy
 
 def get_rmii_1b_port_rx_phy(clk, **kwargs):
-    phy = RMiiReceiver(['tile[0]:XS1_PORT_1C', 'tile[0]:XS1_PORT_1D'],
-                        'tile[0]:XS1_PORT_1L',
-                        clk,
-                        **kwargs
-                        )
+    txd = ['tile[0]:XS1_PORT_1H', 'tile[0]:XS1_PORT_1I'] if "second_phy" in kwargs else ['tile[0]:XS1_PORT_1C', 'tile[0]:XS1_PORT_1D']
+    txen = 'tile[0]:XS1_PORT_1P' if "second_phy" in kwargs else 'tile[0]:XS1_PORT_1L'
+    if "second_phy" in kwargs: kwargs.pop("second_phy")
+
+    phy = RMiiReceiver(txd,
+                       txen,
+                       clk,
+                       **kwargs
+                       )
     return phy
 
