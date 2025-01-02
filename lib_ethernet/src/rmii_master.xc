@@ -448,6 +448,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             /*    to keep up and process the packets so that the incoming_packet */
             /*    pointers never fill up */
             mii_add_packet(incoming_packets, buf);
+            printstr("mii_add_packet\n");
         }
     }
 }

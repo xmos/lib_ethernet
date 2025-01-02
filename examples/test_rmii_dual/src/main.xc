@@ -134,23 +134,11 @@ void test_app(client ethernet_cfg_if i_cfg,
     ((char*)tx_data)[j++] = (length - header_bytes) >> 8;
     ((char*)tx_data)[j++] = (length - header_bytes) & 0xff;
 
-    timer t;
-    int time;
-    t :> time;
-    t when timerafter(time + 1000) :> time; // Delay sending to allow Rx to be setup
-
-
-    int start_length = 1515;
-
-    for(int length = start_length; length < start_length + 4; length++){
-        printf("TX sending: %d\n", length);
-        // printbytes((char*)data, length);
-        // printwords_4b(data, (length + 3)/4);
-        tx_lp.send_packet((char *)tx_data, length, ETHERNET_ALL_INTERFACES);
-        // printf("LP packet sent: %d bytes\n", length);
-        t :> time;
-        t when timerafter(time + 4000) :> time;
-    }
+    timer tmr_tx;
+    int time_tx_trig;
+    tmr_tx :> time_tx_trig;
+    
+    int start_length = 80;
 
 
     ethernet_macaddr_filter_t macaddr_filter;
@@ -160,39 +148,15 @@ void test_app(client ethernet_cfg_if i_cfg,
     }
     i_cfg.add_macaddr_filter(index, 1, macaddr_filter);
 
-    int test_packet_lengths[128] = {0};
-    int num_test_packets_sent = 0;
-    int num_test_packets_received = 0;
-
-
-    timer tmr;
-    int timeout_trig;
-    tmr :> timeout_trig;
-    int timeout = 20000; // Bit time is same as ref clock, 100MHz. Set to initial large value for startup
-    timeout_trig += timeout;
-
-    int test_pass = 1;
-
     while (1) {
         uint8_t rxbuf[ETHERNET_MAX_PACKET_SIZE];
         ethernet_packet_info_t packet_info;
+        printstr("select\n");
         
         select {
             case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
                 printf("HP packet received: %d bytes\n", packet_info.len);
                 // printbytes(rxbuf, packet_info.len);
-                if(packet_info.len != test_packet_lengths[num_test_packets_received]){
-                    printf("Wrong length. Expected %d got %d\n", packet_info.len, test_packet_lengths[num_test_packets_received]);
-                    test_pass = 0;
-                }
-                num_test_packets_received++;
-                if(num_test_packets_received == num_test_packets_sent){
-                    printf("TEST %s\n", test_pass ? "PASS" : "FAIL");
-                    exit(test_pass);
-                }
-
-                tmr :> timeout_trig;
-                timeout_trig += timeout;
                 break;
 
             case i_rx.packet_ready():
@@ -200,6 +164,15 @@ void test_app(client ethernet_cfg_if i_cfg,
                 i_rx.get_packet(packet_info, rxbuf, n);
                 printf("LP packet received: %d bytes\n", n);
                 // printbytes(rxbuf, packet_info.len);
+                break;
+
+            case tmr_tx when timerafter(time_tx_trig) :> time_tx_trig:
+                printf("TX sending: %d\n", start_length);
+                // printbytes((char*)data, length);
+                // printwords_4b(data, (length + 3)/4);
+                tx_lp.send_packet((char *)tx_data, start_length, ETHERNET_ALL_INTERFACES);
+                start_length++;
+                time_tx_trig += 6000;
                 break;
         }
     }

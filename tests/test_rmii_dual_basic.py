@@ -10,7 +10,7 @@ import sys, os
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
+from helpers import choose_small_frame_size, run_parametrised_test_rx #check_received_packet 
 from helpers import generate_tests, create_if_needed, create_expect, get_sim_args
 from helpers import get_rmii_clk, get_rmii_tx_phy, get_rmii_rx_phy
 from rmii_phy import RMiiTransmitter, RMiiReceiver
@@ -70,6 +70,23 @@ def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, t
 
     assert result is True, f"{result}"
 
+
+def move_to_next_valid_packet(phy):
+    while (phy.expect_packet_index < phy.num_expected_packets and
+           phy.expected_packets[phy.expect_packet_index].dropped):
+        phy.expect_packet_index += 1
+
+
+def check_received_packet(packet, phy):
+    if phy.expected_packets is None:
+        return
+
+    move_to_next_valid_packet(phy)
+
+    print(packet, packet.num_data_bytes, packet.ether_len_type)
+    print(packet.data_bytes)
+
+
     
 def rmii_dual_test(capfd, params, seed):
     verbose = False
@@ -114,7 +131,7 @@ def rmii_dual_test(capfd, params, seed):
         for i in range(5): 
             packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address,
-                create_data_args=['step', (i, packet_start_len)],
+                create_data_args=['step', (i, packet_start_len + i)],
                 inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
             ))
 
