@@ -13,6 +13,8 @@ initial_crc:
     .word 0x9226F562
 preamble_second:
     .word 0xD5555555
+inverted_crc:
+    .word 0x6DD90A9D
 Minus_four:
     .word 0xFFFFFFFC
 .cc_bottom rmiiconsts.data
@@ -78,34 +80,50 @@ master_rx_pins_4b_body_asm:
     std r6, r7, sp[1]   // Save r6 and r7
     std r8, r9, sp[2]   // Save r8 and r9
 
-    // receive preamble second half (32b data = 64b port bits)
-    {in PORT_LAST, res[RXD];    ldw CRC, cp[initial_crc]}
+    // I'm using r4, r6, r7, r11 in the preamble checking code and updating r5 with the CRC we should start with
 
+    {mkmsk TMP2, 0x1;     clre } // TMP2 = r4
+    setd    res[RXDV], TMP2
+    eeu res[RXD]
+    {setc    res[RXDV], 0x11 ;     ldc TMP2, 0}
+    {in r5, res[RXDV]; ldap r11, preamble_rx_data_received}
+
+    eeu res[RXDV]
+    {setv res[RXD], r11 ;     ldw WRENDPTR, WR_END_PTR}           // Keep write end value in register}
+    {setd res[RXDV], TMP2; move(DPTR, NUM_BYTES)} // Move first argument (r0 -> NUM_BYTES) to DPTR. r0 is free now
+    {ldap r11, preamble_data_valid_deasserted; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
+    {setv res[RXDV], r11; ldc TMP2, 4}
+
+not_last_preamble_word:
+    {ldw r7, cp[preamble_second]; add r11, r6, 0} // r11: prev word, r6: current word
+    waiteu
+
+preamble_rx_data_received:
+    {in r6, res[RXD]; sub TMP2, TMP2, 1}
+    bt r4, not_last_preamble_word
+    unzip r6, r11, 0x1
+
+    bt PINS_USED, use_upper_bits
+    add r6, r11, 0 // USE_LOWER_2B: swap upper/lower
+use_upper_bits:
+    eq r7, r6, r7; ldw CRC, cp[initial_crc]
+    bt r7, after_preamble
+preamble_not_match:
+    ldw CRC, cp[inverted_crc]
+    bu after_preamble
+preamble_data_valid_deasserted:
+    in TMP2, res[RXDV]
+    ldc CRC, 0
+
+
+
+after_preamble:
     // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 slots at 75MHz
     {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
-    ldw TMP1, cp[preamble_second]       // Load expected second half of preamble
     eeu res[RXDV]                       // Start setup for select early
     eeu res[RXD]
-    move(DPTR, r0) // Move first argument (r0) to DPTR
-    ldw NUM_BYTES, cp[Minus_four]       // Start count at -4 (CRC not included)
-    ldw WRENDPTR, WR_END_PTR            // Keep write end value in register
 
 
-    // Grab the second 32b port of the preamble second half
-    in TMP2, res[RXD]
-    unzip TMP2, PORT_LAST, 0x1
-
-    // swap results if PINS_USED set to zero (USE_LOWER)
-    bt PINS_USED, use_upper
-    move(TMP2, PORT_LAST) // Swap upper/lower
-
-use_upper:
-    // Check received preamable against expected
-    eq TMP1, TMP1, TMP2 // Check OK?
-    bt TMP1, preamble_ok
-    not CRC, CRC     // Corrupt CRC if not OK
-
-preamble_ok:
     // Grab timestamp and store
     {gettime TMP2; ldw TMP1, TIME_STAMP}
     stw TMP2, TMP1[0]

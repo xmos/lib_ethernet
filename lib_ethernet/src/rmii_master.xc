@@ -31,7 +31,7 @@
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-#define ETH_RX_4B_USE_ASM    0 // Use fast dual-issue ASM version of 4b Rx
+#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
 
 
 // Timing tuning constants
@@ -223,6 +223,13 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 }
 
 //////////////////////////////////////// RX ////////////////////////////////////
+unsigned receive_full_preamble_4b_with_select_asm(in port p_mii_rxdv,
+                                              in buffered port:32 p_mii_rxd,
+                                              rmii_data_4b_pin_assignment_t rx_port_4b_pins);
+
+
+#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1)
+
 unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
                                               in buffered port:32 p_mii_rxd,
                                               rmii_data_4b_pin_assignment_t rx_port_4b_pins)
@@ -305,12 +312,11 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
     const unsigned poly = 0xEDB88320;
-    unsigned crc = 0x9226F562;
+    //unsigned crc = 0x9226F562;
     timer t;
     unsigned start, end;
-    const unsigned expected_preamble = 0xD5555555;
     t :> start;
-#if 0
+
 #if 0
     unsigned crc = 0x9226F562;
     unsigned sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
@@ -322,25 +328,31 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
         crc = ~crc;
     }
 #else
+#if RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM
+    unsigned crc = receive_full_preamble_4b_with_select_asm(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
+#else
     unsigned crc = receive_full_preamble_4b_with_select(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
 #endif
 #endif
 
-    //printhexln((unsigned)crc);
 
-    p_mii_rxdv when pinseq(1) :> int;
+    /*if(crc != 0)
+    {
+        printhexln((unsigned)crc);
+    }*/
+
     /* Timestamp the start of packet and record it in the packet structure */
     timer tmr;
     unsafe{ tmr :> *timestamp; }
 
-    int num_rx_bytes = 0; // Subtract the CRC bytes
+    int num_rx_bytes = -4; // Subtract the CRC bytes
 
     // Consume frame one long word at a time
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
                 t :> end;
-                printuintln(end - start);
+                //printuintln(end - start);
                 return {num_rx_bytes, in_counter, port_this, crc, (unsigned)dptr};
                 break;
 
@@ -349,44 +361,24 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                     uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
                     {port_this, port_last} = unzip(combined, 1); // Reuse existing vars port_this, port_last  as upper, lower
 
-                    if(num_rx_bytes == 4)
-                    {
-                        if(rx_port_4b_pins == USE_LOWER_2B)
-                        {
-                            if(port_last != expected_preamble)
-                            {
-                                crc = ~crc;
-                            }
-                        } else {
-                            if(port_this != expected_preamble)
-                            {
-                                crc = ~crc;
-                            }
+                    // Only write to buffer if it hasn't hit the end of the writable space
+                    if (dptr != write_end_ptr) {
+                        if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
+                            *dptr = port_last; // lower
+                            crc32(crc, port_last, poly);
+                        } else unsafe {
+                            *dptr = port_this; // upper
+                            crc32(crc, port_this, poly);
                         }
-                    }
-                    else if(num_rx_bytes > 4)
-                    {
-                        // Only write to buffer if it hasn't hit the end of the writable space
-                        if (dptr != write_end_ptr) {
-                            if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
-                                *dptr = port_last; // lower
-                                crc32(crc, port_last, poly);
-                            } else unsafe {
-                                *dptr = port_this; // upper
-                                crc32(crc, port_this, poly);
-                            }
 
 
-                            dptr++;
-                            /* The wrap pointer contains the address of the start of the buffer */
-                            if (dptr == wrap_ptr) unsafe{
-                                dptr = (unsigned * unsafe) *dptr;
-                            }
+                        dptr++;
+                        /* The wrap pointer contains the address of the start of the buffer */
+                        if (dptr == wrap_ptr) unsafe{
+                            dptr = (unsigned * unsafe) *dptr;
                         }
+                        num_rx_bytes += 4;
                     }
-                    num_rx_bytes += 4;
-
-
                 } else {
                     // Just store for next time around or tail >= 2B
                     port_last = port_this;
@@ -490,7 +482,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             }
         }
 
-        num_rx_bytes += (taillen_bytes-12);
+        num_rx_bytes += (taillen_bytes);
 
         // Now turn the last constructed bit pattern into a word
         unsigned upper, lower;
