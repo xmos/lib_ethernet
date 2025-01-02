@@ -248,8 +248,7 @@ unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
                     }
                     return crc;
                 } else {
-                    return word2;
-                    if(word1 != expected_preamble)
+                    if(word2 != expected_preamble)
                     {
                         crc = ~crc;
                     }
@@ -306,9 +305,12 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
     const unsigned poly = 0xEDB88320;
+    unsigned crc = 0x9226F562;
     timer t;
     unsigned start, end;
+    const unsigned expected_preamble = 0xD5555555;
     t :> start;
+#if 0
 #if 0
     unsigned crc = 0x9226F562;
     unsigned sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
@@ -322,14 +324,16 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 #else
     unsigned crc = receive_full_preamble_4b_with_select(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
 #endif
+#endif
 
     //printhexln((unsigned)crc);
 
+    p_mii_rxdv when pinseq(1) :> int;
     /* Timestamp the start of packet and record it in the packet structure */
     timer tmr;
     unsafe{ tmr :> *timestamp; }
 
-    int num_rx_bytes = -4; // Subtract the CRC bytes
+    int num_rx_bytes = 0; // Subtract the CRC bytes
 
     // Consume frame one long word at a time
     while(1) {
@@ -345,25 +349,43 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                     uint64_t combined = (uint64_t)port_last | ((uint64_t)port_this << 32);
                     {port_this, port_last} = unzip(combined, 1); // Reuse existing vars port_this, port_last  as upper, lower
 
-                    // Only write to buffer if it hasn't hit the end of the writable space
-                    if (dptr != write_end_ptr) {
-                        if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
-                            *dptr = port_last; // lower
-                            crc32(crc, port_last, poly);
-                        } else unsafe {
-                            *dptr = port_this; // upper
-                            crc32(crc, port_this, poly);
-                        }
-
-
-                        dptr++;
-                        num_rx_bytes += 4;
-
-                        /* The wrap pointer contains the address of the start of the buffer */
-                        if (dptr == wrap_ptr) unsafe{
-                            dptr = (unsigned * unsafe) *dptr;
+                    if(num_rx_bytes == 4)
+                    {
+                        if(rx_port_4b_pins == USE_LOWER_2B)
+                        {
+                            if(port_last != expected_preamble)
+                            {
+                                crc = ~crc;
+                            }
+                        } else {
+                            if(port_this != expected_preamble)
+                            {
+                                crc = ~crc;
+                            }
                         }
                     }
+                    else if(num_rx_bytes > 4)
+                    {
+                        // Only write to buffer if it hasn't hit the end of the writable space
+                        if (dptr != write_end_ptr) {
+                            if(rx_port_4b_pins == USE_LOWER_2B) unsafe{
+                                *dptr = port_last; // lower
+                                crc32(crc, port_last, poly);
+                            } else unsafe {
+                                *dptr = port_this; // upper
+                                crc32(crc, port_this, poly);
+                            }
+
+
+                            dptr++;
+                            /* The wrap pointer contains the address of the start of the buffer */
+                            if (dptr == wrap_ptr) unsafe{
+                                dptr = (unsigned * unsafe) *dptr;
+                            }
+                        }
+                    }
+                    num_rx_bytes += 4;
+
 
                 } else {
                     // Just store for next time around or tail >= 2B
@@ -468,7 +490,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             }
         }
 
-        num_rx_bytes += taillen_bytes;
+        num_rx_bytes += (taillen_bytes-12);
 
         // Now turn the last constructed bit pattern into a word
         unsigned upper, lower;
