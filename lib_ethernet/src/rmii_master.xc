@@ -488,34 +488,27 @@ unsigned receive_full_preamble_1b_with_select(in buffered port:32 p_mii_rxd_0,
     unsigned word, word2;
     int count = -1;
 
-    set_port_shift_count(p_mii_rxd_0, 16);
-    set_port_shift_count(p_mii_rxd_1, 16);
-
     p_mii_rxdv when pinseq(1) :> int;
 
     while(1) {
       select {
         case p_mii_rxd_0 :> word:
-          p_mii_rxd_1 :> word2;
+            p_mii_rxd_1 :> word2;
 
-          const unsigned expected_preamble = 0xD5555555;
-          if (count == 0)
-          {
+            const unsigned expected_preamble = 0xD5555555;
+
             uint64_t combined = zip(word2, word, 0);
             unsigned sfd_preamble = (uint32_t) (combined >> 32); // Discard lower word - two port upper 16b combine to upper 32b zipped.
             if(sfd_preamble != expected_preamble) {
-              // Corrupt the CRC so that the packet is discarded
-              crc = ~crc;
+                // Corrupt the CRC so that the packet is discarded
+                crc = ~crc;
             }
             return crc;
-          }
-          set_port_shift_count(p_mii_rxd_0, 16);
-          set_port_shift_count(p_mii_rxd_1, 16);
-          count++;
+
           break;
         case p_mii_rxdv when pinseq(0) :> int:
-          return 0;
-          break;
+            return 0;
+            break;
       }
     }
     return 0;

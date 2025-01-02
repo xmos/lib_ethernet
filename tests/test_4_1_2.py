@@ -28,7 +28,10 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
         max_fragment_len = 142
 
     if tx_phy.get_name() == "rmii":
-      min_fragment_length = 16 # https://github.com/xmos/lib_ethernet/issues/73
+      if rx_width == "1b":
+        min_fragment_length = 9 # https://github.com/xmos/lib_ethernet/issues/73
+      else:
+         min_fragment_length = 16
       warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
     else:
        min_fragment_length = 2
@@ -61,7 +64,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     # Part B
 
     # Test Frame 5 - send a 7-octect preamble
-    if tx_phy.get_name() == "rmii":
+    if tx_phy.get_name() == "rmii" and rx_width != "1b":
        warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
        error_packets.append(MiiPacket(rand,
         num_preamble_nibbles=min_fragment_length, num_data_bytes=0,
