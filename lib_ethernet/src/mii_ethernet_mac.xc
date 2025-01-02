@@ -257,6 +257,11 @@ static void mii_ethernet_aux(client mii_if i_mii,
         client_state.status_update_state = STATUS_UPDATE_IGNORING;
         break;
 
+      case i_cfg[int i].exit(void): {
+        // Do nothing - exit not supported on this MAC
+        break;
+      }
+
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                              int request_timestamp,
                                              unsigned dst_port):

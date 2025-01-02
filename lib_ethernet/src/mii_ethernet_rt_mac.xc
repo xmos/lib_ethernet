@@ -441,6 +441,11 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         tx_client_state_lp[i].requested_send_buffer_size = n;
       break;
 
+    case i_cfg[int i].exit(void): {
+      *running_flag_ptr = 0;
+      break;
+    }
+
     [[independent_guard]]
     case (unsigned i = 0; i < n_tx_lp; i++)
       (tx_client_state_lp[i].has_outgoing_timestamp_info) =>

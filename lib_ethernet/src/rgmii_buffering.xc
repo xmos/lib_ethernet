@@ -858,6 +858,10 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
           break;
         }
 
+      case i_cfg[int i].exit(void):
+        // Do nothing - exit not supported on this MAC
+        break;
+
       case c_rgmii_cfg :> unsigned tmp:
         // Server has reset
         unsafe {
