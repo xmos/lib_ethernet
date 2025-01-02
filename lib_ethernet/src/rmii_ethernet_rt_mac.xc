@@ -214,5 +214,43 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           p_port_state,
                           running_flag_ptr);
     } // par
+
+    // If exit occurred, disable used ports and resources so they are left in a good state
+    mii_deinit_lock();
+
+    stop_clock(rxclk);
+    switch(rx_port_width){
+      case 4:
+        set_port_use_off(p_rxd->rmii_data_1b.data_0);
+        break;
+      case 1:
+        set_port_use_off(p_rxd->rmii_data_1b.data_0);
+        set_port_use_off(p_rxd->rmii_data_1b.data_1);
+        break;
+      default:
+        fail("Invald port width for RMII Rx");
+        break;
+    }
+    set_port_use_off(p_rxdv);
+    set_clock_off(rxclk);
+
+    stop_clock(txclk);
+    switch(tx_port_width){
+      case 4:
+        set_port_use_off(p_txd->rmii_data_1b.data_0);
+        break;
+      case 1:
+        set_port_use_off(p_txd->rmii_data_1b.data_0);
+        set_port_use_off(p_txd->rmii_data_1b.data_1);
+        break;
+      default:
+        fail("Invald port width for RMII Tx");
+        break;
+    }
+    set_port_use_off(p_txen);
+    set_clock_off(txclk);
+
+    // All MII memory is reserved from the stack of this function so will be cleaned automatically
+
   } // unsafe block
 }

@@ -94,6 +94,7 @@ typedef unsigned * mii_packet_queue_t;
 void mii_init_packet_queue(mii_packet_queue_t queue);
 mii_mempool_t mii_init_mempool(unsigned *buffer, int size);
 void mii_init_lock();
+void mii_deinit_lock();
 
 int mii_packet_queue_full(mii_packet_queue_t queue);
 

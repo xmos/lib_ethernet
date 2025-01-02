@@ -94,6 +94,16 @@ void mii_init_lock()
   }
 }
 
+void mii_deinit_lock()
+{
+  if (ETHERNET_USE_HARDWARE_LOCKS) {
+    if (ethernet_memory_lock) {
+       hwlock_free(ethernet_memory_lock);
+    }
+  }
+}
+
+
 int mii_packet_queue_full(mii_packet_queue_t queue)
 {
   // The queue is full if the write pointer is pointing
