@@ -170,13 +170,14 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
     else:
         st = [rx_clk, rx_phy, tx_clk, tx_phy]
 
-    result = px.run_on_simulator_(  binary,
-                                    simthreads=st + extra_tasks,
-                                    tester=tester,
-                                    simargs=simargs,
-                                    do_xe_prebuild=False,
-                                    capfd=capfd
-                                    )
+    with capfd.disabled():
+        result = px.run_on_simulator_(  binary,
+                                        simthreads=st + extra_tasks,
+                                        tester=tester,
+                                        simargs=simargs,
+                                        do_xe_prebuild=False,
+                                        #capfd=capfd
+                                        )
 
     assert result is True, f"{result}"
 

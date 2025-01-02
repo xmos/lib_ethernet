@@ -31,7 +31,7 @@
 #define MII_TX_TIMESTAMP_END_OF_PACKET (0)
 #endif
 
-#define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
+#define ETH_RX_4B_USE_ASM    0 // Use fast dual-issue ASM version of 4b Rx
 
 
 // Timing tuning constants
@@ -223,7 +223,51 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 }
 
 //////////////////////////////////////// RX ////////////////////////////////////
+unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
+                                              in buffered port:32 p_mii_rxd,
+                                              rmii_data_4b_pin_assignment_t rx_port_4b_pins)
+{
+    unsigned crc = 0x9226F562;
+    unsigned word2, word1;
+    int count = 0;
+    const unsigned expected_preamble = 0xD5555555;
 
+    p_mii_rxdv when pinseq(1) :> int;
+
+    while(1) {
+      select {
+        case p_mii_rxd :> word2:
+            if(count == 3)
+            {
+                uint64_t combined = (uint64_t)word1 | ((uint64_t)word2 << 32);
+                {word2, word1} = unzip(combined, 1);
+                if(rx_port_4b_pins == USE_LOWER_2B){
+                    if(word1 != expected_preamble)
+                    {
+                        crc = ~crc;
+                    }
+                    return crc;
+                } else {
+                    return word2;
+                    if(word1 != expected_preamble)
+                    {
+                        crc = ~crc;
+                    }
+                    return crc;
+                }
+
+            }
+            word1 = word2;
+            count++;
+            break;
+        case p_mii_rxdv when pinseq(0) :> int:
+            return 0;
+            break;
+      }
+    }
+    return 0;
+
+}
 static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                                   rmii_data_4b_pin_assignment_t rx_port_4b_pins){
     unsigned word1, word2;
@@ -261,16 +305,25 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     unsigned port_this, port_last; // Most recent and previous port read (32b = 2 data bytes)
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
-    unsigned crc = 0x9226F562;
     const unsigned poly = 0xEDB88320;
-
+    timer t;
+    unsigned start, end;
+    t :> start;
+#if 0
+    unsigned crc = 0x9226F562;
     unsigned sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
+    sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
 
     const unsigned expected_preamble = 0xD5555555;
     if (sfd_preamble != expected_preamble) {
         /* Corrupt the CRC so that the packet is discarded */
         crc = ~crc;
     }
+#else
+    unsigned crc = receive_full_preamble_4b_with_select(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
+#endif
+
+    //printhexln((unsigned)crc);
 
     /* Timestamp the start of packet and record it in the packet structure */
     timer tmr;
@@ -282,6 +335,8 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
+                t :> end;
+                printuintln(end - start);
                 return {num_rx_bytes, in_counter, port_this, crc, (unsigned)dptr};
                 break;
 
@@ -351,10 +406,10 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         unsigned * unsafe dptr = &buf->data[0];
 
         /* Wait for the start of the packet and timestamp it */
-        unsigned sfd_preamble;
+        //unsigned sfd_preamble;
 
         // Receive first half of preamble
-        sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
+        //sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
 
         // For return values from next function
         unsigned in_counter;
