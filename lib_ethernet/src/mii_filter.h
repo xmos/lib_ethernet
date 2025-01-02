@@ -12,7 +12,8 @@
 unsafe void mii_ethernet_filter(chanend c_conf,
                                 mii_packet_queue_t incoming_packets,
                                 mii_packet_queue_t rx_packets_lp,
-                                mii_packet_queue_t rx_packets_hp);
+                                mii_packet_queue_t rx_packets_hp,
+                                volatile int * unsafe running_flag_ptr);
 
 #endif
 

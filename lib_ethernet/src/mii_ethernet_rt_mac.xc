@@ -218,7 +218,8 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
                                streaming chanend ? c_rx_hp,
                                streaming chanend ? c_tx_hp,
                                chanend c_macaddr_filter,
-                               volatile ethernet_port_state_t * unsafe p_port_state)
+                               volatile ethernet_port_state_t * unsafe p_port_state,
+                               volatile int * unsafe running_flag_ptr)
 {
   uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
@@ -239,7 +240,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
   volatile unsigned * unsafe p_rx_rdptr = (volatile unsigned * unsafe)rx_rdptr;
 
   int prioritize_rx = 0;
-  while (1) {
+  while (*running_flag_ptr) {
     if (prioritize_rx)
       prioritize_rx--;
 
@@ -617,6 +618,10 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
+    // Exit flag
+    int rmii_ethernet_rt_mac_running = 1;
+    int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+
     chan c_conf;
     par {
       mii_master_rx_pins(rx_mem,
@@ -634,7 +639,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
       mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp);
+                          (mii_packet_queue_t)&rx_packets_hp,
+                          running_flag_ptr);
 
       mii_ethernet_server(rx_mem,
                           (mii_packet_queue_t)&rx_packets_lp,
@@ -651,7 +657,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                           c_rx_hp,
                           c_tx_hp,
                           c_conf,
-                          p_port_state);
+                          p_port_state,
+                          running_flag_ptr);
     }
   }
 }

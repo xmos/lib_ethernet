@@ -149,6 +149,10 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
+    // Exit flag
+    int rmii_ethernet_rt_mac_running = 1;
+    int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+
     chan c_conf;
     par {
       // Rx task
@@ -159,14 +163,16 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                                  p_rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
-                                 rx_port_4b_pins);
+                                 rx_port_4b_pins,
+                                 running_flag_ptr);
         } else {
           rmii_master_rx_pins_1b(rx_mem,
                                  (mii_packet_queue_t)&incoming_packets,
                                  p_rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
-                                 rx_data_1);
+                                 rx_data_1,
+                                 running_flag_ptr);
         }
       }
       // Tx task
@@ -181,12 +187,14 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_data_1,
                           tx_port_4b_pins,
                           txclk,
-                          p_port_state);
+                          p_port_state,
+                          running_flag_ptr);
 
       mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp);
+                          (mii_packet_queue_t)&rx_packets_hp,
+                          running_flag_ptr);
 
       mii_ethernet_server(rx_mem,
                           (mii_packet_queue_t)&rx_packets_lp,
@@ -203,7 +211,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           c_rx_hp,
                           c_tx_hp,
                           c_conf,
-                          p_port_state);
+                          p_port_state,
+                          running_flag_ptr);
     } // par
   } // unsafe block
 }
