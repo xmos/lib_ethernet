@@ -232,7 +232,6 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
         break;
     }
     set_port_use_off(p_rxdv);
-    set_clock_off(rxclk);
 
     stop_clock(txclk);
     switch(tx_port_width){
@@ -248,7 +247,10 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
         break;
     }
     set_port_use_off(p_txen);
+
+    set_clock_off(rxclk);
     set_clock_off(txclk);
+    set_port_use_off(p_clk);
 
     // All MII memory is reserved from the stack of this function so will be cleaned automatically
 
