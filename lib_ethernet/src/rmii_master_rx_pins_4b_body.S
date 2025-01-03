@@ -1,4 +1,4 @@
-// Copyright 2024 XMOS LIMITED.
+// Copyright 2024-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
@@ -47,7 +47,7 @@ Minus_four:
 
 
 // {dptr, in_counter, port_this, crc}
-// call: {unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
+// call: {int, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
 //                                                                      in port p_mii_rxdv,
 //                                                                      in buffered port:32 p_mii_rxd,
 //                                                                      rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -96,8 +96,9 @@ master_rx_pins_4b_body_asm:
     eeu res[RXDV]
     {setv res[RXD], r11 ;     ldw WRENDPTR, WR_END_PTR}           // Keep write end value in register}
     {setd res[RXDV], TMP2; move(DPTR, NUM_BYTES)} // Move first argument (r0 -> NUM_BYTES) to DPTR. r0 is free now
-    {ldap r11, data_valid_deasserted; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
+    {ldap r11, data_valid_deasserted_new; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
     {setv res[RXDV], r11; ldc TMP2, 4}
+
 
 not_last_preamble_word:
     {ldw r7, cp[preamble_second]; add r11, r6, 0} // r11: prev word, r6: current word
@@ -149,8 +150,62 @@ data_valid_deasserted:
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
     ldd r8, r9, sp[2]
+    retsp  STACK_WORDS
 
+data_valid_deasserted_new:
+    // return {num_rx_bytes(r0), crc(r1), dptr_new(r2)}
+    // NUM_BYTES already in r0
+    // CRC remains in r5 and will be moved to r1 at the end
+    in r11, res[RXDV]
 
+    // r11, r4 , r9, r1 are free
+    {endin r4, res[RXD]; ldw r1, cp[polynomial]}  // r4: bits_left_in_port, r1: polynomial
+    {bf CRC, tail_0_and_the_end; in r11, res[RXD]} // r11: port_residual, r7: PORT_LAST
+    bf r4, no_bits_left_in_port
+    bf IN_COUNTER, tail_1
+tail_3:
+    {shl r7, r7, 16; add NUM_BYTES, NUM_BYTES, 3}
+    unzip r11, r7, 1
+    bt PINS_USED, tail_3_upper_bits
+    add r11, r7, 0
+tail_3_upper_bits:
+    {shr r11, r11, 8; ldc r9, 24}
+    crcn CRC, r11, r1, r9
+    {move(r1, CRC); move(r2, DPTR)} // Move into the correct registers before returning
+    ldd r4, r5, sp[0]
+    ldd r6, r7, sp[1]
+    ldd r8, r9, sp[2]
+    retsp  STACK_WORDS
+
+tail_1:
+    {ldc r7, 0; add NUM_BYTES, NUM_BYTES, 1}
+    unzip r11, r7, 1
+    bt PINS_USED, tail_1_upper_bits
+    add r11, r7, 0
+tail_1_upper_bits:
+    {shr r11, r11, 24; ldc r9, 8}
+    crcn CRC, r11, r1, r9
+    {move(r1, CRC); move(r2, DPTR)} // Move into the correct registers before returning
+    ldd r4, r5, sp[0]
+    ldd r6, r7, sp[1]
+    ldd r8, r9, sp[2]
+    retsp  STACK_WORDS
+
+no_bits_left_in_port:
+bf IN_COUNTER, tail_0_and_the_end
+tail_2:
+    {ldc r11, 0; add NUM_BYTES, NUM_BYTES, 2}
+    unzip r7, r11, 1
+    bt PINS_USED, tail_2_upper_bits
+    add r7, r11, 0
+tail_2_upper_bits:
+    {shr r7, r7, 16; ldc r9, 16}
+    crcn CRC, r7, r1, r9
+tail_0_and_the_end:
+    {move(r1, CRC); move(r2, DPTR)} // Move into the correct registers before returning
+    ldd r4, r5, sp[0]
+    ldd r6, r7, sp[1]
+    ldd r8, r9, sp[2]
     retsp  STACK_WORDS
 
 //// Select case /////

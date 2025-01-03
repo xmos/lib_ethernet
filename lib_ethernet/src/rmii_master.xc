@@ -1,4 +1,4 @@
-// Copyright 2024 XMOS LIMITED.
+// Copyright 2024-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "rmii_master.h"
 #include <xs1.h>
@@ -32,6 +32,8 @@
 #endif
 
 #define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
+#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1)
+
 
 
 // Timing tuning constants
@@ -228,8 +230,6 @@ unsigned receive_full_preamble_4b_with_select_asm(in port p_mii_rxdv,
                                               rmii_data_4b_pin_assignment_t rx_port_4b_pins);
 
 
-#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1)
-
 unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
                                               in buffered port:32 p_mii_rxd,
                                               rmii_data_4b_pin_assignment_t rx_port_4b_pins)
@@ -290,7 +290,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 // Prototype for ASM version of this main body
-{int, unsigned, unsigned, unsigned} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
+{int, unsigned, unsigned} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
                                                                         rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -300,7 +300,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 
 // XC version of main body. Kept for readibility and reference for ASM version
 // num_rx_bytes, in_counter, port_this, crc
-{int, unsigned, unsigned, unsigned, unsigned} master_rx_pins_4b_body( unsigned * unsafe dptr,
+{int, unsigned, unsigned} master_rx_pins_4b_body( unsigned * unsafe dptr,
                                                             in port p_mii_rxdv,
                                                             in buffered port:32 p_mii_rxd,
                                                             rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -312,10 +312,6 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     unsigned in_counter = 0; // We need two INs per word. Needed to track the tail handling.
 
     const unsigned poly = 0xEDB88320;
-    //unsigned crc = 0x9226F562;
-    timer t;
-    unsigned start, end;
-    t :> start;
 
 #if 0
     unsigned crc = 0x9226F562;
@@ -336,11 +332,6 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 #endif
 
 
-    /*if(crc != 0)
-    {
-        printhexln((unsigned)crc);
-    }*/
-
     /* Timestamp the start of packet and record it in the packet structure */
     timer tmr;
     unsafe{ tmr :> *timestamp; }
@@ -351,9 +342,64 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                t :> end;
-                //printuintln(end - start);
-                return {num_rx_bytes, in_counter, port_this, crc, (unsigned)dptr};
+                unsigned bits_left_in_port = endin(p_mii_rxd);
+                if(!crc)
+                {
+                    unsigned port_residual;
+                    PORT_IN(p_mii_rxd, port_residual);
+                    num_rx_bytes = 0;
+                }
+                else
+                {
+                    uint64_t combined = 0;          // Bit pattern that we will reconstruct from tail pre-unzip
+                    unsigned taillen_bytes = 0;     // Number of data bytes in tail 0..3
+                    // in_counter will be set if 2 data bytes or more remaining in tail
+                    // This logic works out which bit patterns from which port inputs need to be
+                    // recombined to extract the tail using the unzip
+
+                    if(bits_left_in_port) {
+                        unsigned port_residual;
+                        PORT_IN(p_mii_rxd, port_residual);
+                        if(in_counter)
+                        {
+                            combined = ((uint64_t)port_last << 16) | ((uint64_t)port_residual << 32);
+                            taillen_bytes = 3;
+                        }
+                        else{
+                            combined = ((uint64_t)port_residual << 32);
+                            taillen_bytes = 1;
+                        }
+                    }
+                    else
+                    {
+                        if(in_counter)
+                        {
+                            combined = (uint64_t)port_last << 32;
+                            taillen_bytes = 2;
+                        }
+                    }
+
+                    num_rx_bytes += (taillen_bytes);
+
+                    // Now turn the last constructed bit pattern into a word
+                    unsigned upper, lower;
+                    {upper, lower} = unzip(combined, 1);
+
+                    // Now CRC remaining received bytes
+                    if(taillen_bytes > 0){
+                        // Make it right aligned as CRC operates on LSb first
+                        unsigned tail;
+                        if(rx_port_4b_pins == USE_LOWER_2B) {
+                            tail = lower >> ((4 - taillen_bytes) << 3);
+                        } else {
+                            tail = upper >> ((4 - taillen_bytes) << 3);
+                        }
+                        crcn(crc, tail, poly, taillen_bytes << 3);
+                    }
+
+                }
+
+                return {num_rx_bytes, crc, (unsigned)dptr};
                 break;
 
             case p_mii_rxd :> port_this:
@@ -388,7 +434,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 break;
         } // select
     } // While(1)
-    return {0, 0, 0, 0, 0};
+    return {0, 0, 0};
 }
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
@@ -415,121 +461,50 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         unsigned * unsafe end_ptr;
         mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr);
 
-        unsigned crc = 0x9226F562;
-        unsigned poly = 0xEDB88320;
+        unsigned crc;
         unsigned * unsafe dptr = &buf->data[0];
 
-        /* Wait for the start of the packet and timestamp it */
-        //unsigned sfd_preamble;
-
-        // Receive first half of preamble
-        //sfd_preamble = rx_word_4b(*p_mii_rxd, rx_port_4b_pins);
-
         // For return values from next function
-        unsigned in_counter;
-        unsigned port_this;
         int num_rx_bytes;
-
+        unsigned dptr_new;
 #if ETH_RX_4B_USE_ASM
-        {num_rx_bytes, in_counter, port_this, crc} = master_rx_pins_4b_body_asm(dptr,
+        {num_rx_bytes, crc, dptr_new} = master_rx_pins_4b_body_asm(dptr,
                                                                                 p_mii_rxdv,
                                                                                 *p_mii_rxd,
                                                                                 rx_port_4b_pins,
                                                                                 (unsigned*)&buf->timestamp,
                                                                                 wrap_ptr,
                                                                                 end_ptr);
-        asm volatile ("ldw %0, sp[1]" : "=r"(dptr)); // read updated dptr that is returned on stack
 #else
-        unsigned dptr_new;
-        {num_rx_bytes, in_counter, port_this, crc, dptr_new} = master_rx_pins_4b_body(dptr,
+
+        {num_rx_bytes, crc, dptr_new} = master_rx_pins_4b_body(dptr,
                                                                             p_mii_rxdv,
                                                                             *p_mii_rxd,
                                                                             rx_port_4b_pins,
                                                                             (unsigned*)&buf->timestamp,
                                                                             wrap_ptr,
                                                                             end_ptr);
-        dptr = (unsigned * unsafe)dptr_new;
 #endif
-        //printhexln((unsigned)crc);
+        dptr = (unsigned * unsafe)dptr_new;
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
         // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16
-        unsigned bits_left_in_port = endin(*p_mii_rxd);
-        uint64_t combined;          // Bit pattern that we will reconstruct from tail pre-unzip
-        unsigned taillen_bytes;     // Number of data bytes in tail 0..3
 
-        if(!crc)
-        {
-            unsigned port_residual;
-            PORT_IN(*p_mii_rxd, port_residual);
-        }
-        else
-        {
-            // in_counter will be set if 2 data bytes or more remaining in tail
-            // This logic works out which bit patterns from which port inputs need to be
-            // recombined to extract the tail using the unzip
-            if(in_counter){
-                if(bits_left_in_port) {
-                    unsigned port_residual;
-                    PORT_IN(*p_mii_rxd, port_residual);
-                    combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
-                    taillen_bytes = 3;
-                } else {
-                    combined = (uint64_t)port_this << 32;
-                    taillen_bytes = 2;
-                }
-            } else {
-                if(bits_left_in_port) {
-                    unsigned port_residual;
-                    PORT_IN(*p_mii_rxd, port_residual);
-                    combined = ((uint64_t)port_residual << 32);
-                    taillen_bytes = 1;
-                } else {
-                    combined = 0;
-                    taillen_bytes = 0;
-                }
-            }
+        // This is needed to prevent the next preamble read take in residual junk
+        clearbuf(*p_mii_rxd);
 
-            num_rx_bytes += (taillen_bytes);
-
-            // Now turn the last constructed bit pattern into a word
-            unsigned upper, lower;
-            {upper, lower} = unzip(combined, 1);
-
-            // Now CRC remaining received bytes
-            if(taillen_bytes > 0){
-                // Make it right aligned as CRC operates on LSb first
-                unsigned tail;
-                if(rx_port_4b_pins == USE_UPPER_2B) {
-                    tail = upper >> ((4 - taillen_bytes) << 3);
-                } else {
-                    tail = lower >> ((4 - taillen_bytes) << 3);
-                }
-                crcn(crc, tail, poly, taillen_bytes << 3);
-            }
-
-            // CRC should be 0xffffffff to pass packet receive after applying frame CRC
-
-            // This is needed to prevent the next preamble read take in residual junk
-            clearbuf(*p_mii_rxd);
-
-            buf->length = num_rx_bytes;
-            buf->crc = crc;
+        buf->length = num_rx_bytes;
+        buf->crc = crc;
 
 
-            /* Update where the write pointer is in memory */
-            mii_commit(rx_mem, dptr);
+        /* Update where the write pointer is in memory */
+        mii_commit(rx_mem, dptr);
 
-            /* Record the fact that there is a valid packet ready for filtering */
-            /*  - the assumption is that the filtering is running fast enough */
-            /*    to keep up and process the packets so that the incoming_packet */
-            /*    pointers never fill up */
-            mii_add_packet(incoming_packets, buf);
-
-
-        }
-
-
+        /* Record the fact that there is a valid packet ready for filtering */
+        /*  - the assumption is that the filtering is running fast enough */
+        /*    to keep up and process the packets so that the incoming_packet */
+        /*    pointers never fill up */
+        mii_add_packet(incoming_packets, buf);
 
 
     }
