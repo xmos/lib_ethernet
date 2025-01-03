@@ -450,6 +450,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                                                             end_ptr);
         dptr = (unsigned * unsafe)dptr_new;
 #endif
+        //printhexln((unsigned)crc);
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
         // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16
@@ -457,67 +458,80 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         uint64_t combined;          // Bit pattern that we will reconstruct from tail pre-unzip
         unsigned taillen_bytes;     // Number of data bytes in tail 0..3
 
-        // in_counter will be set if 2 data bytes or more remaining in tail
-        // This logic works out which bit patterns from which port inputs need to be
-        // recombined to extract the tail using the unzip
-        if(in_counter){
-            if(bits_left_in_port) {
-                unsigned port_residual;
-                PORT_IN(*p_mii_rxd, port_residual);
-                combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
-                taillen_bytes = 3;
+        if(!crc)
+        {
+            unsigned port_residual;
+            PORT_IN(*p_mii_rxd, port_residual);
+        }
+        else
+        {
+            // in_counter will be set if 2 data bytes or more remaining in tail
+            // This logic works out which bit patterns from which port inputs need to be
+            // recombined to extract the tail using the unzip
+            if(in_counter){
+                if(bits_left_in_port) {
+                    unsigned port_residual;
+                    PORT_IN(*p_mii_rxd, port_residual);
+                    combined = ((uint64_t)port_this << 16) | ((uint64_t)port_residual << 32);
+                    taillen_bytes = 3;
+                } else {
+                    combined = (uint64_t)port_this << 32;
+                    taillen_bytes = 2;
+                }
             } else {
-                combined = (uint64_t)port_this << 32;
-                taillen_bytes = 2;
+                if(bits_left_in_port) {
+                    unsigned port_residual;
+                    PORT_IN(*p_mii_rxd, port_residual);
+                    combined = ((uint64_t)port_residual << 32);
+                    taillen_bytes = 1;
+                } else {
+                    combined = 0;
+                    taillen_bytes = 0;
+                }
             }
-        } else {
-            if(bits_left_in_port) {
-                unsigned port_residual;
-                PORT_IN(*p_mii_rxd, port_residual);
-                combined = ((uint64_t)port_residual << 32);
-                taillen_bytes = 1;
-            } else {
-                combined = 0;
-                taillen_bytes = 0;
+
+            num_rx_bytes += (taillen_bytes);
+
+            // Now turn the last constructed bit pattern into a word
+            unsigned upper, lower;
+            {upper, lower} = unzip(combined, 1);
+
+            // Now CRC remaining received bytes
+            if(taillen_bytes > 0){
+                // Make it right aligned as CRC operates on LSb first
+                unsigned tail;
+                if(rx_port_4b_pins == USE_LOWER_2B) {
+                    tail = lower >> ((4 - taillen_bytes) << 3);
+                } else {
+                    tail = upper >> ((4 - taillen_bytes) << 3);
+                }
+                crcn(crc, tail, poly, taillen_bytes << 3);
             }
+
+            // CRC should be 0xffffffff to pass packet receive after applying frame CRC
+
+            // This is needed to prevent the next preamble read take in residual junk
+            clearbuf(*p_mii_rxd);
+
+            buf->length = num_rx_bytes;
+            buf->crc = crc;
+
+            //if (dptr != end_ptr) {
+                /* Update where the write pointer is in memory */
+                mii_commit(rx_mem, dptr);
+
+                /* Record the fact that there is a valid packet ready for filtering */
+                /*  - the assumption is that the filtering is running fast enough */
+                /*    to keep up and process the packets so that the incoming_packet */
+                /*    pointers never fill up */
+                mii_add_packet(incoming_packets, buf);
+            //}
+
         }
 
-        num_rx_bytes += (taillen_bytes);
 
-        // Now turn the last constructed bit pattern into a word
-        unsigned upper, lower;
-        {upper, lower} = unzip(combined, 1);
 
-        // Now CRC remaining received bytes
-        if(taillen_bytes > 0){
-            // Make it right aligned as CRC operates on LSb first
-            unsigned tail;
-            if(rx_port_4b_pins == USE_LOWER_2B) {
-                tail = lower >> ((4 - taillen_bytes) << 3);
-            } else {
-                tail = upper >> ((4 - taillen_bytes) << 3);
-            }
-            crcn(crc, tail, poly, taillen_bytes << 3);
-        }
 
-        // CRC should be 0xffffffff to pass packet receive after applying frame CRC
-
-        // This is needed to prevent the next preamble read take in residual junk
-        clearbuf(*p_mii_rxd);
-
-        buf->length = num_rx_bytes;
-        buf->crc = crc;
-
-        if (dptr != end_ptr) {
-            /* Update where the write pointer is in memory */
-            mii_commit(rx_mem, dptr);
-
-            /* Record the fact that there is a valid packet ready for filtering */
-            /*  - the assumption is that the filtering is running fast enough */
-            /*    to keep up and process the packets so that the incoming_packet */
-            /*    pointers never fill up */
-            mii_add_packet(incoming_packets, buf);
-        }
     }
 }
 

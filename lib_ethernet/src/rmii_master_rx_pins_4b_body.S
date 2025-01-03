@@ -81,17 +81,22 @@ master_rx_pins_4b_body_asm:
     std r8, r9, sp[2]   // Save r8 and r9
 
     // I'm using r4, r6, r7, r11 in the preamble checking code and updating r5 with the CRC we should start with
+    // r4: TMP2
+    // r11: TMP1
+    // r6: IN_COUNTER
+    // r7: PORT_LAST
+    // r5: CRC
 
     {mkmsk TMP2, 0x1;     clre } // TMP2 = r4
-    setd    res[RXDV], TMP2
+    {setd    res[RXDV], TMP2; ldc CRC, 0}
     eeu res[RXD]
     {setc    res[RXDV], 0x11 ;     ldc TMP2, 0}
-    {in r5, res[RXDV]; ldap r11, preamble_rx_data_received}
+    {in r6, res[RXDV]; ldap r11, preamble_rx_data_received}
 
     eeu res[RXDV]
     {setv res[RXD], r11 ;     ldw WRENDPTR, WR_END_PTR}           // Keep write end value in register}
     {setd res[RXDV], TMP2; move(DPTR, NUM_BYTES)} // Move first argument (r0 -> NUM_BYTES) to DPTR. r0 is free now
-    {ldap r11, preamble_data_valid_deasserted; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
+    {ldap r11, data_valid_deasserted; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
     {setv res[RXDV], r11; ldc TMP2, 4}
 
 not_last_preamble_word:
@@ -111,28 +116,21 @@ use_upper_bits:
 preamble_not_match:
     ldw CRC, cp[inverted_crc]
     bu after_preamble
-preamble_data_valid_deasserted:
-    in TMP2, res[RXDV]
-    ldc CRC, 0
+
+
 
 
 
 after_preamble:
     // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 slots at 75MHz
-    {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
-    eeu res[RXDV]                       // Start setup for select early
-    eeu res[RXD]
-
 
     // Grab timestamp and store
     {gettime TMP2; ldw TMP1, TIME_STAMP}
-    stw TMP2, TMP1[0]
+    {stw TMP2, TMP1[0]; ldc IN_COUNTER, 0} // init IN_COUNTER
 
 ////////////////// Start select /////////////////////
     // Init port resources
-    {setd res[RXDV], IN_COUNTER; ldap TMP1, data_valid_deasserted} // no condition. IN_COUNTER happens to be 0 at this point so re-use
-    setv res[RXDV], TMP1
-    {setc res[RXDV], 0x11; ldap TMP1, rx_data_received}            // Set pinseq0 event and load vector addr
+    ldap TMP1, rx_data_received // load vector addr
     setv res[RXD], TMP1
 
     waiteu
