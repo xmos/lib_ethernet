@@ -500,10 +500,10 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             if(taillen_bytes > 0){
                 // Make it right aligned as CRC operates on LSb first
                 unsigned tail;
-                if(rx_port_4b_pins == USE_LOWER_2B) {
-                    tail = lower >> ((4 - taillen_bytes) << 3);
-                } else {
+                if(rx_port_4b_pins == USE_UPPER_2B) {
                     tail = upper >> ((4 - taillen_bytes) << 3);
+                } else {
+                    tail = lower >> ((4 - taillen_bytes) << 3);
                 }
                 crcn(crc, tail, poly, taillen_bytes << 3);
             }
@@ -516,16 +516,16 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             buf->length = num_rx_bytes;
             buf->crc = crc;
 
-            //if (dptr != end_ptr) {
-                /* Update where the write pointer is in memory */
-                mii_commit(rx_mem, dptr);
 
-                /* Record the fact that there is a valid packet ready for filtering */
-                /*  - the assumption is that the filtering is running fast enough */
-                /*    to keep up and process the packets so that the incoming_packet */
-                /*    pointers never fill up */
-                mii_add_packet(incoming_packets, buf);
-            //}
+            /* Update where the write pointer is in memory */
+            mii_commit(rx_mem, dptr);
+
+            /* Record the fact that there is a valid packet ready for filtering */
+            /*  - the assumption is that the filtering is running fast enough */
+            /*    to keep up and process the packets so that the incoming_packet */
+            /*    pointers never fill up */
+            mii_add_packet(incoming_packets, buf);
+
 
         }
 
