@@ -15,6 +15,8 @@
 #include "mii_common_lld.h"
 #include "string.h"
 #include "check_ifg_wait.h"
+#include "mii_rmii_rx_pins_exit.h"
+
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -328,7 +330,16 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd,
                                     rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-                                    volatile int * unsafe running_flag_ptr){
+                                    volatile int * unsafe running_flag_ptr,
+                                    chanend c_rx_pins_exit){
+
+    int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
+    rx_end_isr_ctx_t isr_ctx = {
+            isrstack,
+            c_rx_pins_exit,
+            *p_mii_rxd
+    };
+    rx_end_install_isr(&isr_ctx);
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -450,7 +461,11 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             /*    pointers never fill up */
             mii_add_packet(incoming_packets, buf);
         }
-    }
+    } // while running
+
+    // Exit cleanly so we don't leave channels full/in use
+    rx_end_disable_interrupt();
+    rx_end_drain_and_clear(c_rx_pins_exit);
 }
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
@@ -554,7 +569,8 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd_0,
                                     in buffered port:32 * unsafe p_mii_rxd_1,
-                                    volatile int * unsafe running_flag_ptr){
+                                    volatile int * unsafe running_flag_ptr,
+                                    chanend c_rx_pins_exit){
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -624,7 +640,9 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
             /*    pointers never fill up */
             mii_add_packet(incoming_packets, buf);
         }
-    }
+    } // while running
+
+    rx_end_drain_and_clear(c_rx_pins_exit);
 }
 
 ///////////////////////////////////// TX /////////////////////////////////////////

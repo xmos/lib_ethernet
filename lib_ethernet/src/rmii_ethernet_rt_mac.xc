@@ -14,6 +14,7 @@
 #include "xassert.h"
 #include "print.h"
 #include "server_state.h"
+#include "mii_rmii_rx_pins_exit.h"
 
 // These helpers allow the port to be reconfigured and work-around not being able to cast a port type in XC
 static in buffered port:32 * unsafe enable_buffered_in_port(unsigned *port_pointer, unsigned transferWidth)
@@ -149,9 +150,10 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
-    // Exit flag
+    // Exit flag and chanend
     int rmii_ethernet_rt_mac_running = 1;
     int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+    chan c_rx_pins_exit;
 
     chan c_conf;
     par {
@@ -164,7 +166,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                                  p_rxdv,
                                  rx_data_0,
                                  rx_port_4b_pins,
-                                 running_flag_ptr);
+                                 running_flag_ptr,
+                                 c_rx_pins_exit);
         } else {
           rmii_master_rx_pins_1b(rx_mem,
                                  (mii_packet_queue_t)&incoming_packets,
@@ -172,7 +175,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                                  p_rxdv,
                                  rx_data_0,
                                  rx_data_1,
-                                 running_flag_ptr);
+                                 running_flag_ptr,
+                                 c_rx_pins_exit);
         }
       }
       // Tx task
@@ -212,7 +216,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           c_tx_hp,
                           c_conf,
                           p_port_state,
-                          running_flag_ptr);
+                          running_flag_ptr,
+                          c_rx_pins_exit);
     } // par
 
     // If exit occurred, disable used ports and resources so they are left in a good state

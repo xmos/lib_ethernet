@@ -36,7 +36,8 @@ unsafe void rmii_master_rx_pins_4b(mii_mempool_t rx_mem,
                                 in port p_mii_rxdv,
                                 in buffered port:32 * unsafe p_mii_rxd,
                                 rmii_data_4b_pin_assignment_t rx_port_4b_pins,
-                                volatile int * unsafe running_flag_ptr);
+                                volatile int * unsafe running_flag_ptr,
+                                chanend c_rx_pins_exit);
 
 unsafe void rmii_master_rx_pins_1b(mii_mempool_t rx_mem,
                                 mii_packet_queue_t incoming_packets,
@@ -44,7 +45,8 @@ unsafe void rmii_master_rx_pins_1b(mii_mempool_t rx_mem,
                                 in port p_mii_rxdv,
                                 in buffered port:32 * unsafe p_mii_rxd_0,
                                 in buffered port:32 * unsafe p_mii_rxd_1,
-                                volatile int * unsafe running_flag_ptr);
+                                volatile int * unsafe running_flag_ptr,
+                                chanend c_rx_pins_exit);
 
 unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
@@ -77,7 +79,8 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
                                streaming chanend ? c_tx_hp,
                                chanend c_macaddr_filter,
                                volatile ethernet_port_state_t * unsafe p_port_state,
-                               volatile int * unsafe running_flag_ptr);
+                               volatile int * unsafe running_flag_ptr,
+                               chanend c_rx_pins_exit);
 
 #endif
 
