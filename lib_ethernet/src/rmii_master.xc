@@ -32,9 +32,10 @@
 #endif
 
 #define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
-#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1)
-
 #define ETH_RX_1B_USE_ASM    1 // Use fast dual-issue ASM version of 1b Rx
+
+#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1) // Call asm version of receive_full_preamble_4b_with_select
+#define RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM (1) // Call asm version of receive_full_preamble_1b_with_select
 
 // Timing tuning constants
 // TODO THESE NEED SETTING UP
@@ -313,24 +314,11 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 
     const unsigned poly = 0xEDB88320;
 
-#if 0
-    unsigned crc = 0x9226F562;
-    unsigned sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
-    sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
-
-    const unsigned expected_preamble = 0xD5555555;
-    if (sfd_preamble != expected_preamble) {
-        /* Corrupt the CRC so that the packet is discarded */
-        crc = ~crc;
-    }
-#else
 #if RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM
     unsigned crc = receive_full_preamble_4b_with_select_asm(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
 #else
     unsigned crc = receive_full_preamble_4b_with_select(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
 #endif
-#endif
-
 
     /* Timestamp the start of packet and record it in the packet structure */
     timer tmr;
@@ -536,7 +524,6 @@ unsigned receive_full_preamble_1b_with_select_asm(in buffered port:32 p_mii_rxd_
                                                     in port p_mii_rxdv);
 
 
-#define RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM (1)
 
 unsigned receive_full_preamble_1b_with_select(in buffered port:32 p_mii_rxd_0,
                                               in buffered port:32 p_mii_rxd_1,

@@ -91,13 +91,13 @@ master_rx_pins_4b_body_asm:
     {setd    res[RXDV], TMP2; ldc CRC, 0}
     eeu res[RXD]
     {setc    res[RXDV], 0x11 ;     ldc TMP2, 0}
-    {in r6, res[RXDV]; ldap r11, preamble_rx_data_received}
+    {in r6, res[RXDV]; ldap TMP1, preamble_rx_data_received}
 
     eeu res[RXDV]
-    {setv res[RXD], r11 ;     ldw WRENDPTR, WR_END_PTR}           // Keep write end value in register}
+    {setv res[RXD], TMP1 ;     ldw WRENDPTR, WR_END_PTR}           // Keep write end value in register}
     {setd res[RXDV], TMP2; move(DPTR, NUM_BYTES)} // Move first argument (r0 -> NUM_BYTES) to DPTR. r0 is free now
-    {ldap r11, data_valid_deasserted_new; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
-    {setv res[RXDV], r11; ldc TMP2, 4}
+    {ldap TMP1, data_valid_deasserted; ldw NUM_BYTES, cp[Minus_four]}       // Start count at -4 (CRC not included)
+    {setv res[RXDV], TMP1; ldc TMP2, 4}
 
 
 not_last_preamble_word:
@@ -112,62 +112,42 @@ preamble_rx_data_received:
     bt PINS_USED, use_upper_bits
     add r6, r11, 0 // USE_LOWER_2B: swap upper/lower
 use_upper_bits:
-    eq r7, r6, r7; ldw CRC, cp[initial_crc]
+    eq r7, r6, r7; ldw CRC, cp[initial_crc] // Compare with expected preamble
     bt r7, after_preamble
 preamble_not_match:
-    ldw CRC, cp[inverted_crc]
+    ldw CRC, cp[inverted_crc] // Start with corrupt CRC
     bu after_preamble
-
-
 
 
 
 after_preamble:
     // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 slots at 75MHz
-
     // Grab timestamp and store
     {gettime TMP2; ldw TMP1, TIME_STAMP}
     {stw TMP2, TMP1[0]; ldc IN_COUNTER, 0} // init IN_COUNTER
-
 ////////////////// Start select /////////////////////
     // Init port resources
     ldap TMP1, rx_data_received // load vector addr
     setv res[RXD], TMP1
-
     waiteu
 
 //// Select case /////
 data_valid_deasserted:
-    // We can now cleanup and return
-    {in TMP1, res[RXDV];    move(r1, IN_COUNTER)} // Complete the IN and start setting up returns
-    // returns {num_bytes, in_counter, port_this, crc} so setup registers for this
-    // NUM_BYTES already in r0
-    {move(r2, PORT_LAST);   move(r3, CRC)}
-
-    // Return the latest dptr by writing it to the caller's stack
-    stw DPTR, sp[STACK_WORDS + 1]
-    // Restore previous regs before return
-    ldd r4, r5, sp[0]
-    ldd r6, r7, sp[1]
-    ldd r8, r9, sp[2]
-    retsp  STACK_WORDS
-
-data_valid_deasserted_new:
     // return {num_rx_bytes(r0), crc(r1), dptr_new(r2)}
     // NUM_BYTES already in r0
     // CRC remains in r5 and will be moved to r1 at the end
     in r11, res[RXDV]
 
-    // r11, r4 , r9, r1 are free
+    // r11, r4 , r9, r1 are free to use at this point
     {endin r4, res[RXD]; ldw r1, cp[polynomial]}  // r4: bits_left_in_port, r1: polynomial
     {bf CRC, tail_0_and_the_end; in r11, res[RXD]} // r11: port_residual, r7: PORT_LAST
     bf r4, no_bits_left_in_port
     bf IN_COUNTER, tail_1
 tail_3:
-    {shl r7, r7, 16; add NUM_BYTES, NUM_BYTES, 3}
+    {shl r7, r7, 16; add NUM_BYTES, NUM_BYTES, 3} // port_last << 16
     unzip r11, r7, 1
     bt PINS_USED, tail_3_upper_bits
-    add r11, r7, 0
+    add r11, r7, 0 // USE_LOWER_2B: swap upper/lower
 tail_3_upper_bits:
     {shr r11, r11, 8; ldc r9, 24}
     crcn CRC, r11, r1, r9
@@ -181,7 +161,7 @@ tail_1:
     {ldc r7, 0; add NUM_BYTES, NUM_BYTES, 1}
     unzip r11, r7, 1
     bt PINS_USED, tail_1_upper_bits
-    add r11, r7, 0
+    add r11, r7, 0 // USE_LOWER_2B: swap upper/lower
 tail_1_upper_bits:
     {shr r11, r11, 24; ldc r9, 8}
     crcn CRC, r11, r1, r9
@@ -197,7 +177,7 @@ tail_2:
     {ldc r11, 0; add NUM_BYTES, NUM_BYTES, 2}
     unzip r7, r11, 1
     bt PINS_USED, tail_2_upper_bits
-    add r7, r11, 0
+    add r7, r11, 0 // USE_LOWER_2B: swap upper/lower
 tail_2_upper_bits:
     {shr r7, r7, 16; ldc r9, 16}
     crcn CRC, r7, r1, r9
