@@ -1,4 +1,4 @@
-// Copyright 2011-2021 XMOS LIMITED.
+// Copyright 2011-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <string.h>
 #include "mii_buffering.h"
@@ -93,6 +93,16 @@ void mii_init_lock()
     }
   }
 }
+
+void mii_deinit_lock()
+{
+  if (ETHERNET_USE_HARDWARE_LOCKS) {
+    if (ethernet_memory_lock) {
+       hwlock_free(ethernet_memory_lock);
+    }
+  }
+}
+
 
 int mii_packet_queue_full(mii_packet_queue_t queue)
 {

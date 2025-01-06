@@ -430,7 +430,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd,
-                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                    volatile int * unsafe running_flag_ptr){
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -441,7 +442,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     /* Make sure we do not start in the middle of a packet */
     p_mii_rxdv when pinseq(0) :> int lo;
 
-    while (1) {
+    while (*running_flag_ptr) {
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
@@ -643,7 +644,8 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd_0,
-                                    in buffered port:32 * unsafe p_mii_rxd_1){
+                                    in buffered port:32 * unsafe p_mii_rxd_1,
+                                    volatile int * unsafe running_flag_ptr){
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -654,7 +656,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     /* Make sure we do not start in the middle of a packet */
     p_mii_rxdv when pinseq(0) :> int lo;
 
-    while (1) {
+    while (*running_flag_ptr) {
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
@@ -957,7 +959,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
-                                volatile ethernet_port_state_t * unsafe p_port_state){
+                                volatile ethernet_port_state_t * unsafe p_port_state,
+                                volatile int * unsafe running_flag_ptr){
 
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
@@ -981,7 +984,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     ifg_tmr :> ifg_time;
 
-    while (1) {
+    while (*running_flag_ptr) {
         mii_packet_t * unsafe buf = null;
         mii_ts_queue_t *p_ts_queue = null;
         mii_mempool_t tx_mem = tx_mem_hp;
