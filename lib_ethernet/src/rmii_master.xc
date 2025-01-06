@@ -34,7 +34,7 @@
 #define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
 #define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1)
 
-
+#define ETH_RX_1B_USE_ASM    1 // Use fast dual-issue ASM version of 1b Rx
 
 // Timing tuning constants
 // TODO THESE NEED SETTING UP
@@ -641,7 +641,15 @@ unsafe{
 } // unsafe
 
 
-
+// Prototype of the asm version of this function
+{unsigned* unsafe, unsigned, unsigned}  extern master_rx_pins_1b_body_asm( unsigned * unsafe dptr,
+                                                                in port p_mii_rxdv,
+                                                                in buffered port:32 p_mii_rxd_0,
+                                                                in buffered port:32 p_mii_rxd_1,
+                                                                unsigned * unsafe timestamp,
+                                                                unsigned * unsafe wrap_ptr,
+                                                                unsigned * unsafe end_ptr
+                                                                );
 
 unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     mii_packet_queue_t incoming_packets,
@@ -675,7 +683,12 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         unsigned crc;
         // Receive body of frame. This is in a separate function to allow more efficient select.
         int num_rx_bytes;
+
+#if ETH_RX_1B_USE_ASM
+        {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body_asm(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
+#else
         {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
+#endif
 
         // This tells us how many bits left in the port shift register and moves the shift register contents
         // to the trafsnfer register. The number of bits will both be the same (ports are synched) so discard one.

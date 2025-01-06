@@ -46,7 +46,7 @@ Minus_four:
 #define WR_END_PTR  sp[STACK_WORDS + 2]
 
 
-// {dptr, in_counter, port_this, crc}
+// {num_rx_bytes, crc, dptr_new}
 // call: {int, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
 //                                                                      in port p_mii_rxdv,
 //                                                                      in buffered port:32 p_mii_rxd,
