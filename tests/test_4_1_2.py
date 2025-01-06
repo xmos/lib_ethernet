@@ -27,15 +27,10 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     if tx_clk.get_rate == Clock.CLK_125MHz:
         max_fragment_len = 142
 
-    if tx_phy.get_name() == "rmii":
-      if rx_width == "1b":
-        min_fragment_length = 9 # https://github.com/xmos/lib_ethernet/issues/73
-      else:
-         min_fragment_length = 2
-      warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
+    if tx_phy.get_name() == "rmii" and rx_width == "1b":
+        min_fragment_length = 4 # https://github.com/xmos/lib_ethernet/issues/73
     else:
        min_fragment_length = 2
-
 
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(2, max_fragment_len, 1))
     for m in [min_fragment_length, max_fragment_len/3, max_fragment_len/2, max_fragment_len]:

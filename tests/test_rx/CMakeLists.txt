@@ -47,12 +47,7 @@ foreach(PROFILE ${profile_list})
             list(APPEND done_configs ${config})
             message(STATUS "Building cfg_name: ${config}")
 
-            if(arch STREQUAL "xs3")
-                set(target "XCORE-AI-EXPLORER_custom.xn")
-            elseif(arch STREQUAL "xs2")
-                set(target "XCORE-200-EXPLORER")
-            endif()
-            set(APP_HW_TARGET ${target})
+            set_app_hw_target(arch)
 
             set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
 

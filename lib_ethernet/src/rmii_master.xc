@@ -32,9 +32,10 @@
 #endif
 
 #define ETH_RX_4B_USE_ASM    1 // Use fast dual-issue ASM version of 4b Rx
-#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1)
-
 #define ETH_RX_1B_USE_ASM    1 // Use fast dual-issue ASM version of 1b Rx
+
+#define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1) // Call asm version of receive_full_preamble_4b_with_select
+#define RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM (1) // Call asm version of receive_full_preamble_1b_with_select
 
 // Timing tuning constants
 // TODO THESE NEED SETTING UP
@@ -290,7 +291,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 }
 
 // Prototype for ASM version of this main body
-{int, unsigned, unsigned} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
+{int, unsigned, unsigned* unsafe} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
                                                                         rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -299,8 +300,8 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                                                                         unsigned * unsafe write_end_ptr);
 
 // XC version of main body. Kept for readibility and reference for ASM version
-// num_rx_bytes, in_counter, port_this, crc
-{int, unsigned, unsigned} master_rx_pins_4b_body( unsigned * unsafe dptr,
+// {num_rx_bytes, crc, dptr}
+{int, unsigned, unsigned* unsafe} master_rx_pins_4b_body( unsigned * unsafe dptr,
                                                             in port p_mii_rxdv,
                                                             in buffered port:32 p_mii_rxd,
                                                             rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -313,24 +314,11 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 
     const unsigned poly = 0xEDB88320;
 
-#if 0
-    unsigned crc = 0x9226F562;
-    unsigned sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
-    sfd_preamble = rx_word_4b(p_mii_rxd, rx_port_4b_pins);
-
-    const unsigned expected_preamble = 0xD5555555;
-    if (sfd_preamble != expected_preamble) {
-        /* Corrupt the CRC so that the packet is discarded */
-        crc = ~crc;
-    }
-#else
 #if RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM
     unsigned crc = receive_full_preamble_4b_with_select_asm(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
 #else
     unsigned crc = receive_full_preamble_4b_with_select(p_mii_rxdv, p_mii_rxd, rx_port_4b_pins);
 #endif
-#endif
-
 
     /* Timestamp the start of packet and record it in the packet structure */
     timer tmr;
@@ -399,7 +387,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 
                 }
 
-                return {num_rx_bytes, crc, (unsigned)dptr};
+                return {num_rx_bytes, crc, dptr};
                 break;
 
             case p_mii_rxd :> port_this:
@@ -434,7 +422,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 break;
         } // select
     } // While(1)
-    return {0, 0, 0};
+    return {0, 0, NULL};
 }
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
@@ -466,9 +454,8 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
         // For return values from next function
         int num_rx_bytes;
-        unsigned dptr_new;
 #if ETH_RX_4B_USE_ASM
-        {num_rx_bytes, crc, dptr_new} = master_rx_pins_4b_body_asm(dptr,
+        {num_rx_bytes, crc, dptr} = master_rx_pins_4b_body_asm(dptr,
                                                                                 p_mii_rxdv,
                                                                                 *p_mii_rxd,
                                                                                 rx_port_4b_pins,
@@ -477,7 +464,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                                                                 end_ptr);
 #else
 
-        {num_rx_bytes, crc, dptr_new} = master_rx_pins_4b_body(dptr,
+        {num_rx_bytes, crc, dptr} = master_rx_pins_4b_body(dptr,
                                                                             p_mii_rxdv,
                                                                             *p_mii_rxd,
                                                                             rx_port_4b_pins,
@@ -485,7 +472,6 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                                                             wrap_ptr,
                                                                             end_ptr);
 #endif
-        dptr = (unsigned * unsafe)dptr_new;
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
         // Due to the nature of whole bytes in ethernet, each taking 16b of the register, this number will be 0 or 16
@@ -536,7 +522,6 @@ unsigned receive_full_preamble_1b_with_select_asm(in buffered port:32 p_mii_rxd_
                                                     in port p_mii_rxdv);
 
 
-#define RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM (1)
 
 unsigned receive_full_preamble_1b_with_select(in buffered port:32 p_mii_rxd_0,
                                               in buffered port:32 p_mii_rxd_1,
