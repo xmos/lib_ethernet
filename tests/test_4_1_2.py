@@ -27,8 +27,11 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     if tx_clk.get_rate == Clock.CLK_125MHz:
         max_fragment_len = 142
 
-    if tx_phy.get_name() == "rmii" and rx_width == "1b":
-        min_fragment_length = 4 # https://github.com/xmos/lib_ethernet/issues/73
+    if tx_phy.get_name() == "rmii":
+        if rx_width == "1b":
+          min_fragment_length = 5 # https://github.com/xmos/lib_ethernet/issues/73
+        else:
+          min_fragment_length = 3
     else:
        min_fragment_length = 2
 
