@@ -99,6 +99,7 @@ void mii_deinit_lock()
   if (ETHERNET_USE_HARDWARE_LOCKS) {
     if (ethernet_memory_lock) {
        hwlock_free(ethernet_memory_lock);
+       ethernet_memory_lock = 0;
     }
   }
 }

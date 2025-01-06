@@ -447,7 +447,6 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
     case i_cfg[int i].exit(void): {
       *running_flag_ptr = 0;
       rx_end_send_sig(c_rx_pins_exit);
-      return;
       break;
     }
 
@@ -560,7 +559,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
     }
 
     handle_ts_queue(ts_queue_lp, tx_client_state_lp, n_tx_lp);
-  }
+  }// while (*running_flag_ptr)
 }
 
 
