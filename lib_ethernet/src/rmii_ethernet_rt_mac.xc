@@ -31,6 +31,7 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
 {
     asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_INUSE_ON));
     asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_BUF_BUFFERS));
+    asm volatile("setclk res[%0], %1"::"r"(*port_pointer), "r"(XS1_CLKBLK_REF)); // Set to ref clk initially. We override this later
     asm volatile("settw res[%0], %1"::"r"(*port_pointer),"r"(transferWidth));
     out buffered port:32 * unsafe bpp = NULL;
     asm("add %0, %1, %2": "=r"(bpp) : "r"(port_pointer), "r"(0)); // Copy
@@ -79,6 +80,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
 
     mii_init_lock();
+
     mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
     mii_ts_queue_info_t ts_queue_info;
 
