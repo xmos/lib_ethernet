@@ -321,7 +321,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
                 break;
         } // select
     } // While(1)
-    return {0, 0, 0, 0, 0};
+    return {0, 0, 0, 0, 0}; // Just to keep the compiler happy. This is unreachable.
 }
 
 unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
@@ -333,11 +333,14 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
 
+    // Setup ISR to for exiting this task
     int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
+    unsafe in buffered port:32 p_null = NULL;
     rx_end_isr_ctx_t isr_ctx = {
             isrstack,
             c_rx_pins_exit,
-            *p_mii_rxd
+            *p_mii_rxd,
+            p_null
     };
     rx_end_install_isr(&isr_ctx);
 
@@ -571,6 +574,17 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd_1,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
+    
+    // Setup ISR to for exiting this task
+    int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
+    rx_end_isr_ctx_t isr_ctx = {
+            isrstack,
+            c_rx_pins_exit,
+            *p_mii_rxd_0,
+            *p_mii_rxd_1
+    };
+    rx_end_install_isr(&isr_ctx);
+
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -642,6 +656,8 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         }
     } // while running
 
+    // Exit cleanly so we don't leave channels full/in use
+    rx_end_disable_interrupt();
     rx_end_drain_and_clear(c_rx_pins_exit);
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2014-2024 XMOS LIMITED.
+// Copyright 2014-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
@@ -22,6 +22,7 @@ void loopback(client ethernet_cfg_if cfg,
 {
   set_core_fast_mode_on();
 
+  // Restarts MAC at startup if needed
   if(restart_count > 0){
       cfg.exit();
       return;
@@ -41,18 +42,22 @@ void loopback(client ethernet_cfg_if cfg,
   memset(macaddr_filter.addr, 0xff, 6);
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
 
-  int done = 0;
+  int packets_remaining = 4;
 
-  while (!done) {
+  while (packets_remaining) {
     select {
     case rx.packet_ready():
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
       rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
       tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
+      packets_remaining--;
       break;
     }
   }
+
+  delay_microseconds(25); // Allow last Tx packet to make it to the harness
+  cfg.exit();
 }
 
 
@@ -66,7 +71,8 @@ int main()
     ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
     ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
     
-    int restart_count = 0;
+    // Restart three times. This helps weed out and restart once but not second time issues.
+    int restart_count = 3; // Each one takes about 23 microseconds so ensure initial IFG is sufficient
 
     // 5 threads total so thread speed = f/5
     while(1){

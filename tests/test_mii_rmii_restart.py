@@ -39,15 +39,25 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     dut_mac_address = get_dut_mac_address()
     broadcast_mac_address = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
 
-    # The inter-frame gap is to give the DUT time to print its output
     packets = []
 
-    for i in range(5):
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=dut_mac_address,
-            create_data_args=['step', (i, 80 + i)],
-            inter_frame_gap=4000 * tx_clk.get_bit_time() # Inserts delay at beinning of packet for IFG
-        ))
+    # These packets allow for 1) enough time for DUT to restart a few times at the start, receive
+    # and forward the test packets, restart again and then receive and forward the subsequent test packets
+
+    for cycle in range(2):
+        for i in range(4):
+            if i == 0:
+                if cycle == 0:
+                    ifg = 2000 * tx_clk.get_bit_time() # Wait for MAC to restart a few times
+                else:
+                    ifg = 7000 * tx_clk.get_bit_time() # Wait for forwarding completion and a restart
+            else:
+                ifg = 96 * tx_clk.get_bit_time() # Min eth spec IFG between packets
+            packets.append(MiiPacket(rand,
+                dst_mac_addr=dut_mac_address,
+                create_data_args=['step', (i, 80 + i)],
+                inter_frame_gap=ifg # Inserts delay at beinning of packet for IFG
+            ))
 
     error_driver = TxError(tx_phy, True)
 
@@ -56,7 +66,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
 test_params_file = Path(__file__).parent / "test_mii_rmii_restart/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_rx(capfd, seed, params):
+def test_mii_rmii_restart(capfd, seed, params):
     with capfd.disabled():
         print(params)
 
