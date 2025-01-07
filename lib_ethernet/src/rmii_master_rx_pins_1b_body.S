@@ -5,8 +5,9 @@
     .section .cp.rodata,     "ac", @progbits
     .align 4
 .cc_top rmiiconsts.data
-    .globl polynomial
 
+polynomial:
+    .word 0xEDB88320
 initial_crc:
     .word 0x9226F562
 preamble_second:
@@ -80,6 +81,7 @@ master_rx_pins_1b_body_asm:
     setv res[RXDV], TMP1
     waiteu
 
+
 preamble_data_received:
     in TMP2, res[RXD0]
     in TMP3, res[RXD1]
@@ -102,6 +104,8 @@ after_preamble:
     setv res[RXD0], TMP1
     waiteu
 
+
+
 rx_data_received:
     in TMP1, res[RXD0]
     in TMP2, res[RXD1]
@@ -122,9 +126,22 @@ rx_data_end:
     waiteu
 
 data_valid_deasserted:
-    {in TMP1, res[RXDV]; add r2, NUM_BYTES, 0}
+    {in TMP1, res[RXDV]; ldc PORT_SHIFT_COUNT, 32} // PORT_SHIFT_COUNT is free now
+    endin TMP1, res[RXD0]
+    {endin TMP2, res[RXD1]; shl TMP3, TMP1, 1} // TMP3 = (remaining_bits_in_port << 1)
+    {bf TMP2, done; in TMP1, res[RXD0]}
+    {in TMP2, res[RXD1]; sub PORT_SHIFT_COUNT, PORT_SHIFT_COUNT, TMP3} // PORT_SHIFT_COUNT = (32 - (remaining_bits_in_port << 1)
+    zip TMP2, TMP1, 0
+    ldw TMP1, cp[polynomial]
+    shr TMP2, TMP2, PORT_SHIFT_COUNT // TMP2 = tail, TMP1 = polynomial
+    crcn CRC, TMP2, TMP1, TMP3
+    shr TMP3, TMP3, 3 // (remaining_bits_in_port << 1) >> 3
+    add NUM_BYTES, NUM_BYTES, TMP3
+
+done:
     // DPTR is already in r0
-    add r1, CRC, 0
+    {add r2, NUM_BYTES, 0; add r1, CRC, 0}
+
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
     ldd r8, r9, sp[2]

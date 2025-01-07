@@ -592,8 +592,32 @@ unsafe{
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                 return {dptr, crc, num_rx_bytes};
-                 break;
+                // This tells us how many bits left in the port shift register and moves the shift register contents
+                // to the trafsnfer register. The number of bits will both be the same (ports are synched) so discard one.
+                // Bits will either be 4, 8 or 12 (x2 as two ports) representing a tail of 1, 2 or 3 bytes
+
+                unsigned remaining_bits_in_port = endin(p_mii_rxd_0);
+                endin(p_mii_rxd_1);
+
+                if(remaining_bits_in_port > 0){
+                    unsigned word, word2;
+                    // Grab the transfer registers
+                    PORT_IN(p_mii_rxd_0, word); // Saves one instruction over :>
+                    PORT_IN(p_mii_rxd_1, word2); // Saves one instruction over :>
+
+                    uint64_t combined = zip(word2, word, 0);
+                    word = (uint32_t)(combined >> 32);
+
+                    // Shift away unwanted part of word
+                    unsigned tail = word >> (32 - (remaining_bits_in_port << 1));
+                    crcn(crc, tail, poly, remaining_bits_in_port << 1);
+
+                    unsigned taillen_bytes = remaining_bits_in_port >> 2; // Divide by 4 because we get 4b on each port for a data byte
+                    num_rx_bytes += taillen_bytes;
+                }
+
+                return {dptr, crc, num_rx_bytes};
+                break;
 
             case p_mii_rxd_0 :> word:
                 unsigned word2;
@@ -674,29 +698,6 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
 #else
         {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
 #endif
-
-        // This tells us how many bits left in the port shift register and moves the shift register contents
-        // to the trafsnfer register. The number of bits will both be the same (ports are synched) so discard one.
-        // Bits will either be 4, 8 or 12 (x2 as two ports) representing a tail of 1, 2 or 3 bytes
-        unsigned remaining_bits_in_port = endin(*p_mii_rxd_0);
-        endin(*p_mii_rxd_1);
-
-        if(remaining_bits_in_port > 0){
-            unsigned word, word2;
-            // Grab the transfer registers
-            PORT_IN(*p_mii_rxd_0, word); // Saves one instruction over :>
-            PORT_IN(*p_mii_rxd_1, word2); // Saves one instruction over :>
-
-            uint64_t combined = zip(word2, word, 0);
-            word = (uint32_t)(combined >> 32);
-
-            // Shift away unwanted part of word
-            unsigned tail = word >> (32 - (remaining_bits_in_port << 1));
-            crcn(crc, tail, poly, remaining_bits_in_port << 1);
-
-            unsigned taillen_bytes = remaining_bits_in_port >> 2; // Divide by 4 because we get 4b on each port for a data byte
-            num_rx_bytes += taillen_bytes;
-        }
 
         // This is needed to prevent the next preamble read take in residual junk
         clearbuf(*p_mii_rxd_0);
