@@ -41,11 +41,13 @@ mii_setup_error_port:
         stw    r11, sp[0]                  // ...where KRESTSP expects it
         krestsp 0                          // Set KSP, restore SP
 
+        // Enable the error port ISR
         setc res[r0], XS1_SETC_IE_MODE_INTERRUPT
         ldc r2, 1
         setd res[r0], r2
         setc res[r0], XS1_SETC_COND_EQ
 
+        // Set the ISR entry point
         ldap r11, mii_error_interrupt_handler
         setv res[r0], r11
         eeu res[r0]

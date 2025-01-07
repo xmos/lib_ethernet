@@ -1,7 +1,5 @@
 {
     "PROFILES": [
-        {"phy":"mii", "clk":"25MHz", "mac":"rt_hp", "arch":["xs2", "xs3"]},
-
         {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"4b_lower"},
         {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"1b", "tx_width":"4b_lower"},     
         {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"1b"},

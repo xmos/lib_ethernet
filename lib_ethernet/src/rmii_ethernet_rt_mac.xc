@@ -219,7 +219,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           c_conf,
                           p_port_state,
                           running_flag_ptr,
-                          c_rx_pins_exit);
+                          c_rx_pins_exit,
+                          ETH_MAC_IF_RMII);
     } // par
 
     // If exit occurred, disable used ports and resources so they are left in a good state

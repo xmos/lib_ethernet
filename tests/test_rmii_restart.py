@@ -64,7 +64,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     # with capfd.disabled():
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, extra_tasks=[error_driver], rx_width=rx_width, tx_width=tx_width)
 
-test_params_file = Path(__file__).parent / "test_mii_rmii_restart/test_params.json"
+test_params_file = Path(__file__).parent / "test_rmii_restart/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_mii_rmii_restart(capfd, seed, params):
     with capfd.disabled():

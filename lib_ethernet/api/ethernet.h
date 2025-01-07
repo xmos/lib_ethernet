@@ -241,7 +241,7 @@ typedef interface ethernet_cfg_if {
 
   /** Exit ethernet MAC. Quits all of the associated sub tasks and frees memory.
    * Allows the resources previously used by the MAC to be re-used by other tasks.
-   * Only supported on RMII and MII real-time MACs. This command is ignored for
+   * Only supported on RMII real-time MACs. This command is ignored for
    * other ethernet MACs.
    *
    */
