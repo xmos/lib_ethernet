@@ -66,7 +66,7 @@ int main()
     ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
     ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
     
-    int restart_count = 1;
+    int restart_count = 0;
 
     // 5 threads total so thread speed = f/5
     while(1){
