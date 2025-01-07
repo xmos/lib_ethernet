@@ -11,10 +11,6 @@ initial_crc:
     .word 0x9226F562
 preamble_second:
     .word 0xD5555555
-inverted_crc:
-    .word 0x6DD90A9D
-Minus_four:
-    .word 0xFFFFFFFC
 .cc_bottom rmiiconsts.data
 
 .cc_top master_rx_pins_1b_body_asm.func, master_rx_pins_1b_body_asm
@@ -37,7 +33,7 @@ Minus_four:
 
 #define TIME_STAMP  sp[STACK_WORDS + 1]
 #define WRAP_PTR    sp[STACK_WORDS + 2]
-#define WR_END_PTR  sp[STACK_WORDS + 2]
+#define WR_END_PTR  sp[STACK_WORDS + 3]
 
 //{dptr, crc, num_rx_bytes} -> {r0, r1, r2}
 //{unsigned* unsafe, unsigned, unsigned}  master_rx_pins_1b_body( unsigned * unsafe dptr,
@@ -66,23 +62,22 @@ Minus_four:
     .align 8
     .issue_mode dual
 master_rx_pins_1b_body_asm:
-    DUALENTSP_lu6 STACK_WORDS
+    {dualentsp STACK_WORDS; clre}
 
     std r4, r5, sp[0]   // Save r4 and r5
     std r6, r7, sp[1]   // Save r6 and r7
     std r8, r9, sp[2]   // Save r8 and r9
 
-    {clre; mkmsk TMP2, 1}
-    eeu res[RXD0]
+    {mkmsk TMP2, 1; eeu res[RXD0]}
     {ldap TMP1, preamble_data_received;     setd res[RXDV], TMP2}
-    setv res[RXD0], TMP1
+    {setv res[RXD0], TMP1; mkmsk r8, 32}
 
     {setc res[RXDV], 0x11; ldc TMP2, 0}
     {in TMP1, res[RXDV]; ldw WRENDPTR, WR_END_PTR}
-    eeu res[RXDV]
+    {eeu res[RXDV]; shl r8, r8, 2}
 
     {setd res[RXDV], TMP2; ldap TMP1, data_valid_deasserted}
-    {setv res[RXDV], TMP1; ldw NUM_BYTES, cp[Minus_four]}
+    setv res[RXDV], TMP1
     waiteu
 
 preamble_data_received:
@@ -90,25 +85,27 @@ preamble_data_received:
     in TMP3, res[RXD1]
     ldw TMP1, cp[preamble_second]
     zip TMP3, TMP2, 0x0
-    {eq TMP1, TMP3, TMP1; ldw CRC, cp[initial_crc]}
+    ldw CRC, cp[initial_crc]
+    eq TMP1, TMP3, TMP1
     bt TMP1, after_preamble
-    ldw CRC, cp[inverted_crc]   // Preamble doesn't match
+    not CRC, CRC   // Preamble doesn't match
 
 after_preamble:
     // Grab timestamp and store
     {gettime TMP2; ldw TMP1, TIME_STAMP}
     {stw TMP2, TMP1[0]; ldc PORT_SHIFT_COUNT, 16}
     setpsc res[RXD0], PORT_SHIFT_COUNT
-    setpsc res[RXD1], PORT_SHIFT_COUNT
+    {setpsc res[RXD1], PORT_SHIFT_COUNT; ldap TMP1, rx_data_received} // load vector addr
 
     // Init port resources
-    ldap TMP1, rx_data_received // load vector addr
+
     setv res[RXD0], TMP1
     waiteu
 
 rx_data_received:
     in TMP1, res[RXD0]
-    {in TMP2, res[RXD1]; ldw TMP3, cp[polynomial]}
+    in TMP2, res[RXD1]
+    ldw TMP3, cp[polynomial]
     zip TMP2, TMP1, 0
     crc32 CRC, TMP2, TMP3
     // See if we have hit the write end pointer
