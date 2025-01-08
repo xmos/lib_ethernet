@@ -50,7 +50,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     for i in range(5): 
         packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
-            create_data_args=['step', (i, packet_start_len)],
+            create_data_args=['step', (i, packet_start_len + i)],
             inter_frame_gap=packet_processing_time(tx_phy, packet_start_len, mac),
         ))
 
