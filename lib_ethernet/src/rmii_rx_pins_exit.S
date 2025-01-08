@@ -9,7 +9,7 @@
 .cc_top rx_end_install_isr.func, rx_end_install_isr
 
 #include <xs1.h>
-#include "mii_rmii_rx_pins_exit.h"
+#include "rmii_rx_pins_exit.h"
 
 
 .globl rx_end_install_isr.nstackwords
@@ -41,9 +41,10 @@ rx_end_install_isr:
   
     ldw    r2, r0[RXE_SAVED_SP_OFFSET]  // Get the address of the stack from the struct
                                         // This addr will get overwritten later by the kernel SP
-                                        // Set up kernel stack.
     
-    // This bit sets up KSP (see xs3 arch guide - GETKSP) because we can't write directly
+
+    // Set up kernel stack.
+    // This section sets up KSP (see xs3 arch guide - GETKSP) because we can't write directly
     ldaw   r11, sp[0]                   // Save SP into R11
     set    sp, r2                       // Set SP, and place old SP...
     stw    r11, sp[0]                   // ...where KRESTSP expects it

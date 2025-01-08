@@ -3,7 +3,7 @@
 
 #include <xs1.h>
 #include <print.h>
-#include "mii_rmii_rx_pins_exit.h"
+#include "rmii_rx_pins_exit.h"
 
 static void drain_tokens(chanend c){
     char token;
@@ -19,6 +19,20 @@ static void drain_tokens(chanend c){
             }
     }
 }
+
+/* 
+The way this works is the following:
+
+The MAC server sends a data token to rx_pins. This causes an ISR. In the ISR we send an ACK token back.
+If the token is identified as RXE_ISR_ACK then we know it hasn't exited yet, so continue looping.
+If the token is RXE_RX_PINS_ACK we know that rx_pins has exited. 
+Then we drain any excess tokens and both sides send a XS1_CT_END control token (and consume) to ensure
+that the channel has been closed before we exit so all is left clean.
+
+The whole scheme aims to avoid any potential channel filling/blocking by always sending an ACK rather
+than a blind exit data token being sent many times which may block the server. The drains may not be
+needed but are included just in case there are any weird race conditions, which can happen with ISRs.
+*/
 
 void rx_end_send_sig(chanend c_rx_pins_exit){
     while(1){

@@ -14,7 +14,7 @@
 #include "xassert.h"
 #include "print.h"
 #include "server_state.h"
-#include "mii_rmii_rx_pins_exit.h"
+#include "rmii_rx_pins_exit.h"
 
 // These helpers allow the port to be reconfigured and work-around not being able to cast a port type in XC
 static in buffered port:32 * unsafe enable_buffered_in_port(unsigned *port_pointer, unsigned transferWidth)

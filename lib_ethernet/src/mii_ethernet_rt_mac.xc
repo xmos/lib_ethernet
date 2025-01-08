@@ -14,7 +14,7 @@
 #include "xassert.h"
 #include "print.h"
 #include "server_state.h"
-#include "mii_rmii_rx_pins_exit.h"
+#include "rmii_rx_pins_exit.h"
 
 
 static inline unsigned int get_tile_id_from_chanend(chanend c) {

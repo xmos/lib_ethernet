@@ -15,7 +15,7 @@
 #include "mii_common_lld.h"
 #include "string.h"
 #include "check_ifg_wait.h"
-#include "mii_rmii_rx_pins_exit.h"
+#include "rmii_rx_pins_exit.h"
 
 
 #define QUOTEAUX(x) #x
