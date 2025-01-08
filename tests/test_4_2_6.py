@@ -37,7 +37,12 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     recovery_time = 4*packet_processing_time(tx_phy, 46, mac)
 
     # Test shrinking the IFG by different amounts. Use the shrink as the step for debug purposes
-    for gap_shrink in [5, 10]:
+    if tx_phy.get_name() == "rmii":
+        max_ifg_gap_shrink = 9
+    else:
+        max_ifg_gap_shrink = 10
+
+    for gap_shrink in [5, max_ifg_gap_shrink]:
         new_ifg = ifg - gap_shrink * bit_time
 
         packets.append(MiiPacket(rand,
