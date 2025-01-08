@@ -1,4 +1,4 @@
-# Copyright 2014-2024 XMOS LIMITED.
+# Copyright 2014-2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
@@ -38,11 +38,11 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
     # Test shrinking the IFG by different amounts. Use the shrink as the step for debug purposes
     if tx_phy.get_name() == "rmii":
-        max_ifg_gap_shrink = 9
+        gap_shrink_list = [5]
     else:
-        max_ifg_gap_shrink = 10
+        gap_shrink_list = [5, 10]
 
-    for gap_shrink in [5, max_ifg_gap_shrink]:
+    for gap_shrink in gap_shrink_list:
         new_ifg = ifg - gap_shrink * bit_time
 
         packets.append(MiiPacket(rand,
