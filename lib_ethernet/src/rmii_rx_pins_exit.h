@@ -1,28 +1,25 @@
 // Copyright 2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
-#ifndef __mii_rmii_exit_h__
-#define __mii_rmii_exit_h__
+#ifndef __rmii_exit_h__
+#define __rmii_exit_h__
 
 
 #define RXE_NUM_STACKWORDS          2 // We only need to save 2 regs in the ISR
 
 // These define the indicies into the ISR context array
-#define RXE_ISR_STACK_OFFSET        4 // Start of stack
-#define RXE_PORT_OFFSET_1           3
-#define RXE_PORT_OFFSET_0           2
+#define RXE_ISR_STACK_OFFSET        3 // Start of stack
+#define RXE_PORT_OFFSET             2
 #define RXE_CHANEND_OFFSET          1
 #define RXE_SAVED_SP_OFFSET         0
 
 /* ISR context structure
 ┌──────────────────────┐
-│5 ISR stack 1         │
+│4 ISR stack 1         │
 ├──────────────────────┤
-│4 ISR stack 0         │
+│3 ISR stack 0         │
 ├──────────────────────┤
-│3 Port resource ID 1  │
-├──────────────────────┤
-│2 Port resource ID 0  │
+│2 Port resource ID.   │
 ├──────────────────────┤
 │1 ISR trigger chanend │
 ├──────────────────────┤
@@ -45,8 +42,7 @@
 typedef struct rx_end_isr_ctx_t{
     int * unsafe isrstack;          // pointer to ISR context and stack array
     unsafe chanend c_rx_end;        // chanend of causing the ISR
-    unsafe in buffered port:32 p0;  // In port which we wish to unblock
-    unsafe in buffered port:32 p1;  // In port which we wish to unblock
+    unsafe in port p_rxdv;          // In port which we wish to unblock
 }rx_end_isr_ctx_t;
 
 // ASM utility for installing the ISR
@@ -67,4 +63,4 @@ static inline void rx_end_disable_interrupt(void){
 
 #endif // __XC__
 
-#endif // __mii_rmii_exit_h__
+#endif // __rmii_exit_h__

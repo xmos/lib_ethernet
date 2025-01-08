@@ -53,10 +53,8 @@ rx_end_install_isr:
     // Copy the chanend and port res IDs into the context for use in the ISR
     ldw    r3, r0[RXE_CHANEND_OFFSET]   // Get the chan ID
     stw    r3, r2[RXE_CHANEND_OFFSET]   // Save port ID in the ISR context
-    ldw    r3, r0[RXE_PORT_OFFSET_0]    // Get the port ID
-    stw    r3, r2[RXE_PORT_OFFSET_0]    // Save port ID in the ISR context
-    ldw    r3, r0[RXE_PORT_OFFSET_1]    // Get the port ID
-    stw    r3, r2[RXE_PORT_OFFSET_1]    // Save port ID in the ISR context
+    ldw    r3, r0[RXE_PORT_OFFSET]      // Get the port ID
+    stw    r3, r2[RXE_PORT_OFFSET]      // Save port ID in the ISR context
 
     setsr  XS1_SR_IEBLE_MASK            // Enable interrupts!
     retsp  0
@@ -78,12 +76,10 @@ rx_end_isr_handler:
     ldc    r0, RXE_ISR_ACK  // Send ACK with ISR ID
     outt   res[r11], r0
 
-    // Unblock the port input by ending the IN
-    ldw    r0, sp[RXE_PORT_OFFSET_0]
-    endin  r11, res[r0]
-    ldw    r0, sp[RXE_PORT_OFFSET_1]
-    bf r0, rx_end_isr_exit // If second is invalid, skip
-    endin  r11, res[r0]
+    // Unblock the port input by clearing conditions
+    ldw    r0, sp[RXE_PORT_OFFSET]
+    ldc    r11, 0x0 // No conditions, will fall straight through in select
+    setd   res[r0], r11
 
 rx_end_isr_exit:
     // Restore regs

@@ -438,12 +438,10 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
 
     // Setup ISR to for exiting this task
     int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
-    unsafe in buffered port:32 p_null = NULL;
     rx_end_isr_ctx_t isr_ctx = {
             isrstack,
             c_rx_pins_exit,
-            *p_mii_rxd,
-            p_null
+            p_mii_rxdv,
     };
     rx_end_install_isr(&isr_ctx);
 
@@ -688,8 +686,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     rx_end_isr_ctx_t isr_ctx = {
             isrstack,
             c_rx_pins_exit,
-            *p_mii_rxd_0,
-            *p_mii_rxd_1
+            p_mii_rxdv,
     };
     rx_end_install_isr(&isr_ctx);
 
