@@ -504,9 +504,11 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         /*    to keep up and process the packets so that the incoming_packet */
         /*    pointers never fill up */
         mii_add_packet(incoming_packets, buf);
-
-
     }
+    
+    // Exit cleanly so we don't leave channels full/in use
+    rx_end_disable_interrupt();
+    rx_end_drain_and_clear(c_rx_pins_exit);
 }
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
