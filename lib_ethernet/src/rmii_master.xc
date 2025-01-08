@@ -15,6 +15,8 @@
 #include "mii_common_lld.h"
 #include "string.h"
 #include "check_ifg_wait.h"
+#include "rmii_rx_pins_exit.h"
+
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -430,7 +432,18 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd,
-                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                    volatile int * unsafe running_flag_ptr,
+                                    chanend c_rx_pins_exit){
+
+    // Setup ISR to for exiting this task
+    int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
+    rx_end_isr_ctx_t isr_ctx = {
+            isrstack,
+            c_rx_pins_exit,
+            p_mii_rxdv,
+    };
+    rx_end_install_isr(&isr_ctx);
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -441,7 +454,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     /* Make sure we do not start in the middle of a packet */
     p_mii_rxdv when pinseq(0) :> int lo;
 
-    while (1) {
+    while (*running_flag_ptr) {
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
@@ -491,9 +504,11 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         /*    to keep up and process the packets so that the incoming_packet */
         /*    pointers never fill up */
         mii_add_packet(incoming_packets, buf);
-
-
     }
+    
+    // Exit cleanly so we don't leave channels full/in use
+    rx_end_disable_interrupt();
+    rx_end_drain_and_clear(c_rx_pins_exit);
 }
 
 static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
@@ -529,7 +544,6 @@ unsigned receive_full_preamble_1b_with_select(in buffered port:32 p_mii_rxd_0,
 {
     unsigned crc = 0x9226F562;
     unsigned word, word2;
-    int count = -1;
 
     p_mii_rxdv when pinseq(1) :> int;
 
@@ -665,7 +679,19 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd_0,
-                                    in buffered port:32 * unsafe p_mii_rxd_1){
+                                    in buffered port:32 * unsafe p_mii_rxd_1,
+                                    volatile int * unsafe running_flag_ptr,
+                                    chanend c_rx_pins_exit){
+    
+    // Setup ISR to for exiting this task
+    int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
+    rx_end_isr_ctx_t isr_ctx = {
+            isrstack,
+            c_rx_pins_exit,
+            p_mii_rxdv,
+    };
+    rx_end_install_isr(&isr_ctx);
+
 
     /* Pointers to data that needs the latest value being read */
     volatile unsigned * unsafe p_rdptr = (volatile unsigned * unsafe)rdptr;
@@ -676,7 +702,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
     /* Make sure we do not start in the middle of a packet */
     p_mii_rxdv when pinseq(0) :> int lo;
 
-    while (1) {
+    while (*running_flag_ptr) {
         /* Read the shared pointer where the read pointer is kept up to date by the management process (mii_ethernet_server_aux). */
         unsigned * unsafe rdptr = (unsigned * unsafe)*p_rdptr;
 
@@ -716,7 +742,11 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
             /*    pointers never fill up */
             mii_add_packet(incoming_packets, buf);
         }
-    }
+    } // while running
+
+    // Exit cleanly so we don't leave channels full/in use
+    rx_end_disable_interrupt();
+    rx_end_drain_and_clear(c_rx_pins_exit);
 }
 
 ///////////////////////////////////// TX /////////////////////////////////////////
@@ -956,7 +986,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
-                                volatile ethernet_port_state_t * unsafe p_port_state){
+                                volatile ethernet_port_state_t * unsafe p_port_state,
+                                volatile int * unsafe running_flag_ptr){
 
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
@@ -980,7 +1011,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     ifg_tmr :> ifg_time;
 
-    while (1) {
+    while (*running_flag_ptr) {
         mii_packet_t * unsafe buf = null;
         mii_ts_queue_t *p_ts_queue = null;
         mii_mempool_t tx_mem = tx_mem_hp;

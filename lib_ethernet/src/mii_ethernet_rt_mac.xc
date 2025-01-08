@@ -1,4 +1,4 @@
-// Copyright 2013-2024 XMOS LIMITED.
+// Copyright 2013-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <string.h>
 
@@ -14,6 +14,8 @@
 #include "xassert.h"
 #include "print.h"
 #include "server_state.h"
+#include "rmii_rx_pins_exit.h"
+
 
 static inline unsigned int get_tile_id_from_chanend(chanend c) {
   unsigned int tile_id;
@@ -204,21 +206,24 @@ unsafe static inline void handle_ts_queue(mii_ts_queue_t ts_queue,
 }
 
 unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
-                               mii_packet_queue_t rx_packets_lp,
-                               mii_packet_queue_t rx_packets_hp,
-                               unsigned * unsafe rx_rdptr,
-                               mii_mempool_t tx_mem_lp,
-                               mii_mempool_t tx_mem_hp,
-                               mii_packet_queue_t tx_packets_lp,
-                               mii_packet_queue_t tx_packets_hp,
-                               mii_ts_queue_t ts_queue_lp,
-                               server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                               server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                               server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                               streaming chanend ? c_rx_hp,
-                               streaming chanend ? c_tx_hp,
-                               chanend c_macaddr_filter,
-                               volatile ethernet_port_state_t * unsafe p_port_state)
+                                mii_packet_queue_t rx_packets_lp,
+                                mii_packet_queue_t rx_packets_hp,
+                                unsigned * unsafe rx_rdptr,
+                                mii_mempool_t tx_mem_lp,
+                                mii_mempool_t tx_mem_hp,
+                                mii_packet_queue_t tx_packets_lp,
+                                mii_packet_queue_t tx_packets_hp,
+                                mii_ts_queue_t ts_queue_lp,
+                                server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                                server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                                server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                                streaming chanend ? c_rx_hp,
+                                streaming chanend ? c_tx_hp,
+                                chanend c_macaddr_filter,
+                                volatile ethernet_port_state_t * unsafe p_port_state,
+                                volatile int * unsafe running_flag_ptr,
+                                chanend c_rx_pins_exit,
+                                phy_100mb_t phy_type)
 {
   uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
@@ -239,7 +244,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
   volatile unsigned * unsafe p_rx_rdptr = (volatile unsigned * unsafe)rx_rdptr;
 
   int prioritize_rx = 0;
-  while (1) {
+  while (*running_flag_ptr) {
     if (prioritize_rx)
       prioritize_rx--;
 
@@ -440,6 +445,15 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         tx_client_state_lp[i].requested_send_buffer_size = n;
       break;
 
+    case i_cfg[int i].exit(void): {
+      if(phy_type == ETH_MAC_IF_RMII){
+          *running_flag_ptr = 0;
+          rx_end_send_sig(c_rx_pins_exit);
+      }
+      // else do nothing - not supported on MII currently
+      break;
+    }
+
     [[independent_guard]]
     case (unsigned i = 0; i < n_tx_lp; i++)
       (tx_client_state_lp[i].has_outgoing_timestamp_info) =>
@@ -549,7 +563,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
     }
 
     handle_ts_queue(ts_queue_lp, tx_client_state_lp, n_tx_lp);
-  }
+  }// while (*running_flag_ptr)
 }
 
 
@@ -617,6 +631,12 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
+    // Exit flag and chanend
+    int rmii_ethernet_rt_mac_running = 1;
+    int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+    chan c_rx_pins_exit;
+
+
     chan c_conf;
     par {
       mii_master_rx_pins(rx_mem,
@@ -634,7 +654,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
       mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp);
+                          (mii_packet_queue_t)&rx_packets_hp,
+                          running_flag_ptr);
 
       mii_ethernet_server(rx_mem,
                           (mii_packet_queue_t)&rx_packets_lp,
@@ -651,7 +672,10 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                           c_rx_hp,
                           c_tx_hp,
                           c_conf,
-                          p_port_state);
+                          p_port_state,
+                          running_flag_ptr,
+                          c_rx_pins_exit,
+                          ETH_MAC_IF_MII);
     }
   }
 }

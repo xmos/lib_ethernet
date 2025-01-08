@@ -1,4 +1,4 @@
-// Copyright 2013-2024 XMOS LIMITED.
+// Copyright 2013-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __ethernet__h__
 #define __ethernet__h__
@@ -238,6 +238,14 @@ typedef interface ethernet_cfg_if {
    *                      calling the get_index() method.
    */
   void disable_link_status_notification(size_t client_num);
+
+  /** Exit ethernet MAC. Quits all of the associated sub tasks and frees memory.
+   * Allows the resources previously used by the MAC to be re-used by other tasks.
+   * Only supported on RMII real-time MACs. This command is ignored for
+   * other ethernet MACs.
+   *
+   */
+  void exit(void);
 
 #ifdef __XC__
 } ethernet_cfg_if;

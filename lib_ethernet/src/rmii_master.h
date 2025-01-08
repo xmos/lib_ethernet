@@ -1,4 +1,4 @@
-// Copyright 2024 XMOS LIMITED.
+// Copyright 2024-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __rmii_master_h__
 #define __rmii_master_h__
@@ -35,14 +35,18 @@ unsafe void rmii_master_rx_pins_4b(mii_mempool_t rx_mem,
                                 unsigned * unsafe rdptr,
                                 in port p_mii_rxdv,
                                 in buffered port:32 * unsafe p_mii_rxd,
-                                rmii_data_4b_pin_assignment_t rx_port_4b_pins);
+                                rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                volatile int * unsafe running_flag_ptr,
+                                chanend c_rx_pins_exit);
 
 unsafe void rmii_master_rx_pins_1b(mii_mempool_t rx_mem,
                                 mii_packet_queue_t incoming_packets,
                                 unsigned * unsafe rdptr,
                                 in port p_mii_rxdv,
                                 in buffered port:32 * unsafe p_mii_rxd_0,
-                                in buffered port:32 * unsafe p_mii_rxd_1);
+                                in buffered port:32 * unsafe p_mii_rxd_1,
+                                volatile int * unsafe running_flag_ptr,
+                                chanend c_rx_pins_exit);
 
 unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
@@ -54,7 +58,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
-                                volatile ethernet_port_state_t * unsafe p_port_state);
+                                volatile ethernet_port_state_t * unsafe p_port_state,
+                                volatile int * unsafe running_flag_ptr);
 
 
 // This is re-used by RMII as it is abstracted from the MAC pins
@@ -73,7 +78,10 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
                                streaming chanend ? c_rx_hp,
                                streaming chanend ? c_tx_hp,
                                chanend c_macaddr_filter,
-                               volatile ethernet_port_state_t * unsafe p_port_state);
+                               volatile ethernet_port_state_t * unsafe p_port_state,
+                               volatile int * unsafe running_flag_ptr,
+                               chanend c_rx_pins_exit,
+                               phy_100mb_t phy_type);
 
 #endif
 
