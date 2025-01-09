@@ -11,8 +11,9 @@ Introduction
 ``lib_ethernet`` allows interfacing to MII, RMII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
 for the Ethernet stack.
 
-Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed.
+Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed, as described in :numref:`ethernet_supported_macs`.
 
+.. _ethernet_supported_macs:
 .. list-table:: Ethernet MAC support by XMOS device family
  :header-rows: 1
 
@@ -37,6 +38,20 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
    - Contact XMOS
    - N/A
 
+Using ``lib_ethernet``
+======================
+
+``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
+, the `XMOS` application build and dependency management system.
+
+To use ``lib_ethernet`` in an application, add ``lib_ethernet``, to the list of dependent modules in the application's `CMakeLists.txt` file.
+
+  set(APP_DEPENDENT_MODULES "lib_ethernet")
+
+All `lib_ethernet` functions can be accessed via the ``ethernet.h`` header file::
+
+  #include <ethernet.h>
+
 |newpage|
 
 **********************
@@ -44,8 +59,9 @@ Typical resource usage
 **********************
 
 Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
-The amount required depends on the feature set of the MAC. The table below summarises the main requirements.
+The amount required depends on the feature set of the MAC. :numref:`ethernet_mac_resource_usage` summarises the main requirements.
 
+.. _ethernet_mac_resource_usage:
 .. list-table:: Ethernet MAC XCORE resource usage
  :header-rows: 1
 
@@ -120,8 +136,9 @@ The MII transfers data using 4 bit words (nibbles) in each direction, clocked at
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
 A clock signal (TXCLK) clocks nibbles (TXD[3:0]) at 2.5 MHz for 10 Mb/s mode and 25 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). Table 1 below describes the MII signals:
+A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). :numref:`mii_signals` describes the MII signals:
 
+.. _mii_signals:
 .. list-table:: MII signals
  :header-rows: 1
 
@@ -199,8 +216,9 @@ have their port type set independently and can be mixed. Unused pins on a 4-bit 
 The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardware threads to be used on a 600 MHz xcore.ai device.
 
 
-Table 1 below describes the RMII signals:
+:numref:`rmii_signals` describes the RMII signals:
 
+.. _rmii_signals:
 .. list-table:: RMII signals
  :header-rows: 1
 
@@ -260,8 +278,9 @@ The Ethernet MAC will expect RX clock from PHY to xCORE be delayed by 1.2-2ns as
 
 The pins and functions are listed in Table 2. When the 10/100/1000 Mb/s Ethernet MAC is instantiated these pins can
 no longer be used as GPIO pins, and will instead be driven directly from a Double Data Rate RGMII block, which in turn
-is interfaced to a set of ports on Tile 1.
+is interfaced to a set of ports on Tile 1. :numref:`rgmii_signals` describes the RGMII pins and signals:
 
+.. _rgmii_signals:
 .. list-table:: RGMII pins and signals
  :header-rows: 1
 
@@ -311,7 +330,7 @@ Other IO pins and ports are unaffected.
 
 .. _rgmii_port_structure:
 
-.. figure:: images/XS2-RGMII.pdf
+.. figure:: images/XS2-RGMII.png
 
    RGMII port structure
 
@@ -343,9 +362,10 @@ non-real-time configuration.
 
 Ethernet MAC components are instantiated as parallel tasks that run in a ``par`` statement. The application
 can connect via a transmit, receive and configuration interface connection using the :ref:`ethernet_tx_if<ethernet_tx_if_section>`,
-:ref:`ethernet_rx_if<ethernet_rx_if_section>` and :ref:`ethernet_cfg_if` interface types:
+:ref:`ethernet_rx_if<ethernet_rx_if_section>` and :ref:`ethernet_cfg_if` interface types, as shown in :numref:`standard_mii_task_diagram`
 
-.. figure:: images/10_100_mac_tasks.pdf
+.. _standard_mii_task_diagram:
+.. figure:: images/10_100_mac_tasks.png
 
    10/100 Mb/s Ethernet MAC task diagram
 
@@ -418,9 +438,10 @@ The real-time MAC may support the RMII interface described in :ref:`rmii_signals
 
 
 It is instantiated similarly to the non-real-time Ethernet MAC, with additional streaming channels for sending and
-receiving high-priority Ethernet traffic:
+receiving high-priority Ethernet traffic, as shown in :numref:`rt_mac_task_diagram`:
 
-.. figure:: images/10_100_rt_mac_tasks.pdf
+.. _rt_mac_task_diagram:
+.. figure:: images/10_100_rt_mac_tasks.png
 
    10/100 Mb/s real-time Ethernet MAC task diagram
 
@@ -529,9 +550,10 @@ interface as described in :ref:`rgmii_signals_section`.
 
 It is instantiated similarly to the real-time Ethernet MAC, with an additional combinable task that allows the
 configuration interface to be shared with another slow interface such as SMI/MDIO. It must be instantiated on Tile 1
-and the user application run on Tile 0:
+and the user application run on Tile 0, as shown in :numref:`rgmii_mac_task_diagram`:
 
-.. figure:: images/10_100_1000_mac_tasks.pdf
+.. _rgmii_mac_task_diagram:
+.. figure:: images/10_100_1000_mac_tasks.png
 
    10/100/1000 Mb/s Ethernet MAC task diagram
 
@@ -573,9 +595,10 @@ filtering required by a compliant Ethernet MAC layer, and defers this to the app
 
 The buffering of this task is shared with the application it is connected to. It sets up an interrupt handler
 on the logical core the application is running on (via the ``init`` function on the :ref:`mii_if<mii_if_section>` interface connection) and also
-consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on.
+consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on (:numref:`raw_mii_task`).
 
-.. figure:: images/mii_tasks.pdf
+.. _raw_mii_task:
+.. figure:: images/mii_tasks.png
 
    MII task diagram
 
