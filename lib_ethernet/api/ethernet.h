@@ -618,11 +618,32 @@ typedef enum rmii_data_4b_pin_assignment_t{
     USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port */
 } rmii_data_4b_pin_assignment_t;
 
+/** ENUM to determine which two bits of an 8 bit port are to be used as data lines 
+ *  in the case that an eight bit port is specified for RMII Tx. The other six bits of the eight bit
+ *  port cannot be used. The unused pins are always driven low. Use of an eight bit port for RMII Rx is not supported. */
+typedef struct rmii_data_8b_pin_assignment_t{
+    unsigned short bit_pos_0;               /**< Which bit of the port data 0 should be on: 0..7 */
+    unsigned short bit_pos_1;               /**< Which bit of the port data 0 should be on: 0..7 */
+} rmii_data_8b_pin_assignment_t;
+
+/** Union representing which pins of a 4b or 8b port to be used. */
+typedef union rmii_data_pin_assignment_t{
+    rmii_data_4b_pin_assignment_t pins_4b;
+    rmii_data_8b_pin_assignment_t pins_8b;
+}rmii_data_pin_assignment_t;
+
+/** Structure representing a four bit port used for RMII data transmission or reception */
+typedef struct rmii_data_8b_t
+{
+    port data;                              /**< Four bit data port */
+    rmii_data_pin_assignment_t pins_used;   /**< Which bits of the port data should be on.*/
+} rmii_data_8b_t;
+
 /** Structure representing a four bit port used for RMII data transmission or reception */
 typedef struct rmii_data_4b_t
 {
     port data;                              /**< Four bit data port */
-    rmii_data_4b_pin_assignment_t pins_used;/**< Which two bits of the data port to use.
+    rmii_data_pin_assignment_t pins_used;   /**< Which two bits of the data port to use.
                                                  Unused Rx pins are ignored and unused
                                                  Tx pins are driven low. */
 } rmii_data_4b_t;
@@ -639,6 +660,7 @@ typedef struct rmii_data_1b_t
 typedef union rmii_data_port_t
 {
     rmii_data_4b_t rmii_data_4b;            /**< Four bit data port option */
+    rmii_data_8b_t rmii_data_8b;            /**< Four bit data port option. NOTE supported on Tx only */
     rmii_data_1b_t rmii_data_1b;            /**< One bit data port option */
 } rmii_data_port_t;
 

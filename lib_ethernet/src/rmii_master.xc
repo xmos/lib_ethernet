@@ -94,6 +94,7 @@
     #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b (12) // In reference timer ticks
 #endif
 
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b) //TODO
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES  (96 + 62 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES  (96 + 38 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
@@ -183,10 +184,10 @@ static void rmii_master_init_tx_common( in port p_clk,
 }
 
 
-unsafe void rmii_master_init_tx_4b( in port p_clk,
-                                    out buffered port:32 * unsafe tx_data,
-                                    out port p_txen,
-                                    clock txclk){
+unsafe void rmii_master_init_tx_4b_8b( in port p_clk,
+                                       out buffered port:32 * unsafe tx_data,
+                                       out port p_txen,
+                                       clock txclk){
     *tx_data <: 0;  // Ensure lines are low
     sync(*tx_data); // And wait to empty. This ensures no spurious p_txen on init
 
@@ -776,6 +777,17 @@ static inline void tx_4b_byte(out buffered port:32 p_mii_txd,
     partout(p_mii_txd, 16, zipped & 0xffffffff);
 }
 
+unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
+                                    mii_packet_t * unsafe buf,
+                                    out buffered port:32 p_mii_txd,
+                                    unsigned lookup_8b_tx[256],
+                                    hwtimer_t ifg_tmr,
+                                    unsigned &ifg_time,
+                                    unsigned last_frame_end_time)
+{
+    return 0;
+}
+
 
 unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
@@ -974,7 +986,18 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     return time;
 }
 
-
+void init_8b_tx_lookup(unsigned lookup[], int bitpos_0, int bitpos_1){
+    for(int i = 0; i < 256; i++){
+        lookup[i] |= (i & 0x1) << (bitpos_0 + 0);
+        lookup[i] |= (i & 0x2) << (bitpos_1 - 1);
+        lookup[i] |= (i & 0x4) << (bitpos_0 + 6);
+        lookup[i] |= (i & 0x8) << (bitpos_1 + 5);
+        lookup[i] |= (i & 0x10) << (bitpos_0 + 12);
+        lookup[i] |= (i & 0x20) << (bitpos_1 + 11);
+        lookup[i] |= (i & 0x40) << (bitpos_0 + 18);
+        lookup[i] |= (i & 0x80) << (bitpos_1 + 17);
+    }
+}
 
 unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
@@ -984,13 +1007,10 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
-                                rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                rmii_data_pin_assignment_t tx_port_pins,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
                                 volatile int * unsafe running_flag_ptr){
-
-    // Flag for readability and faster comparison
-    const unsigned use_4b = (tx_port_width == 4);
 
     int credit = 0;
     int credit_time;
@@ -1001,6 +1021,10 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     unsigned ifg_time = 0;
     unsigned eof_time = 0;
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
+
+    // Lookup table for 8b transmit case
+    unsigned lookup_8b_tx[256] = {0};
+    init_8b_tx_lookup(lookup_8b_tx, 6, 7);
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
         enable_shaper = 0;
@@ -1050,24 +1074,33 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
 
         unsigned time;
-        if(use_4b) {
-            time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time, eof_time);
-            eof_time = ifg_time;
-            ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
-        } else {
-            time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
-            eof_time = ifg_time;
-            if((buf->length & 0x3))
-            {
-                ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES;
-            }
-            else
-            {
-                ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES;
+        switch(tx_port_width){
+            case 8: {
+                    time = rmii_transmit_packet_8b(tx_mem, buf, *p_mii_txd_0, lookup_8b_tx, ifg_tmr, ifg_time, eof_time);
+                    eof_time = ifg_time;
+                    ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b; // TODO WORK ME OUT
+                    break;
+                }
+            case 4: {
+                    time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_pins.pins_4b, ifg_tmr, ifg_time, eof_time);
+                    eof_time = ifg_time;
+                    ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
+                    break;
+                }
+            case 1: {
+                    time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
+                    eof_time = ifg_time;
+                    if((buf->length & 0x3))
+                    {
+                        ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES;
+                    }
+                    else
+                    {
+                        ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES;
+                    }
+                    break;
             }
         }
-
-
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {

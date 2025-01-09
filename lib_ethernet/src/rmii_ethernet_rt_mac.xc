@@ -128,13 +128,16 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     out buffered port:32 * unsafe tx_data_0 = NULL;
     out buffered port:32 * unsafe tx_data_1 = NULL;
 
+    // Extract port info
     unsigned tx_port_width = ((unsigned)(p_txd->rmii_data_1b.data_0) >> 16) & 0xff;
-    rmii_data_4b_pin_assignment_t tx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_txd->rmii_data_1b.data_1);
+    unsigned tx_pins_used  = (unsigned)(p_txd->rmii_data_1b.data_1);
+    rmii_data_pin_assignment_t tx_port_pins = {tx_pins_used};
 
     switch(tx_port_width){
+      case 8:
       case 4:
         tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
-        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk);
+        rmii_master_init_tx_4b_8b(p_clk, tx_data_0, p_txen, txclk);
         break;
       case 1:
         tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
@@ -191,7 +194,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_port_width,
                           tx_data_0,
                           tx_data_1,
-                          tx_port_4b_pins,
+                          tx_port_pins,
                           txclk,
                           p_port_state,
                           running_flag_ptr);

@@ -19,10 +19,10 @@ unsafe void rmii_master_init_rx_1b( in port p_clk,
                                     in port p_rxdv,
                                     clock rxclk);
 
-unsafe void rmii_master_init_tx_4b( in port p_clk,
-                                    out buffered port:32 * unsafe tx_data,
-                                    out port p_txen,
-                                    clock txclk);
+unsafe void rmii_master_init_tx_4b_8b( in port p_clk,
+                                       out buffered port:32 * unsafe tx_data,
+                                       out port p_txen,
+                                       clock txclk);
 
 unsafe void rmii_master_init_tx_1b( in port p_clk,
                                     out buffered port:32 * unsafe tx_data_0,
@@ -56,7 +56,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
-                                rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                rmii_data_pin_assignment_t tx_port_pins,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
                                 volatile int * unsafe running_flag_ptr);
