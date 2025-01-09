@@ -8,7 +8,7 @@ lib_ethernet: Ethernet library
 Introduction
 ************
 
-``lib_ethernet`` allows interfacing to MII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
+``lib_ethernet`` allows interfacing to MII, RMII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
 for the Ethernet stack.
 
 Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed.
@@ -40,7 +40,7 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
 |newpage|
 
 **********************
-Typical Resource Usage
+Typical resource usage
 **********************
 
 Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
@@ -79,13 +79,13 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 4
    - ~102 k
    - 8
- * - Raw MII 
+ * - Raw MII
    - 13
    - 5 (1-bit), 2 (4-bit)
    - 2
    - ~10 k
    - 1
- * - SMI (MDIO) 
+ * - SMI (MDIO)
    - 2
    - 2 (1-bit) or 1 (multi-bit)
    - 0
@@ -168,8 +168,8 @@ A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). Table 1 below des
    - RX0
    - Receive data bit 0
 
-Any unused 1-bit and 4-bit xCORE ports can be used for MII providing that they are on the same Tile and there is enough
-resource to instantiate the relevant Ethernet MAC component on that Tile.
+Any unused 1-bit and 4-bit xCORE ports can be used for MII provided that they are on the same tile and there is enough
+resource to instantiate the relevant Ethernet MAC component on that tile.
 
 .. _rmii_signals_section:
 
@@ -183,11 +183,11 @@ similar functionality to MII however offers a reduced pin-count.
 The RMII transfers data using 2 bit words (half-nibbles) in each direction, clocked at 50 MHz to achieve 100 Mb/s data rate.
 
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
-A common clock signal clocks nibbles (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
+A common clock signal clocks 2 bits (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A common clock signal clocks the received nibbles (RXD[1:0]).
+A common clock signal clocks the received half-nibbles (RXD[1:0]).
 
-Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This 
+Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This
 provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
 have their port type set independently and can be mixed. Unused pins on a 4-bit port are ignored for Rx and driven low for Tx.
 
@@ -465,7 +465,7 @@ Similarly the RMII real-time MAC may be instantiated::
     port p_eth_txen = XS1_PORT_1L;
     clock eth_rxclk = XS1_CLKBLK_1;
     clock eth_txclk = XS1_CLKBLK_2;
-   
+
     int main()
     {
       ethernet_cfg_if i_cfg[1];
@@ -756,19 +756,3 @@ SMI PHY configuration helper functions
 .. doxygenfunction:: smi_phy_is_powered_down
 
 .. doxygenfunction:: smi_get_link_state
-
-
-|newpage|
-
-
-************
-Known Issues
-************
-
-Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
-
-*********
-Changelog
-*********
-
-Please see the active repo for the latest `changelog <https://github.com/xmos/lib_ethernet/blob/develop/CHANGELOG.rst>`_.
