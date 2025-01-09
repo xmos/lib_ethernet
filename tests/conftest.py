@@ -12,6 +12,13 @@ def pytest_addoption(parser):
         type = int,
         help = "Seed used for initialising the random number generator in tests",
     )
+    parser.addoption(
+        "--level",
+        action="store",
+        default="smoke",
+        choices=["smoke", "nightly"],
+        help="Test coverage level",
+    )
 
 
 def pytest_configure(config):
@@ -37,3 +44,7 @@ def seed(request):
         return request.config.workerinput['seed']
     else:
         return request.config.seed
+
+@pytest.fixture
+def level(pytestconfig):
+    return pytestconfig.getoption("level")

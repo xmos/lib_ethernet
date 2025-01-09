@@ -67,11 +67,11 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 2
    - ~23 k
    - 4
- * - 10/100 Mb/s Real-Time MII
+ * - 10/100 Mb/s Real-Time RMII
    - 7
    - 3 (1-bit), 2 (4-bit) or 4 (1-bit)
    - 2
-   - ~15 k
+   - ~25 k
    - 4
  * - 10/100/1000Mb/s RGMII
    - 12
@@ -79,13 +79,13 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 4
    - ~102 k
    - 8
- * - Raw MII 
+ * - Raw MII
    - 13
    - 5 (1-bit), 2 (4-bit)
    - 2
    - ~10 k
    - 1
- * - SMI (MDIO) 
+ * - SMI (MDIO)
    - 2
    - 2 (1-bit) or 1 (multi-bit)
    - 0
@@ -185,15 +185,18 @@ The RMII transfers data using 2 bit words (half-nibbles) in each direction, cloc
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
 A common clock signal clocks nibbles (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A common clock signal clocks the received nibbles (RXD[2:0]).
+A common clock signal clocks the received nibbles (RXD[1:0]).
 
-Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This 
+Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This
 provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
-have their port type set independently and can be mixed.
+have their port type set independently and can be mixed. Unused pins on a 4-bit port are ignored for Rx and driven low for Tx.
 
 .. note::
     By default most RMII PHYs supply a CRS_DV signal (carrier sense) instead of an RX_DV data valid strobe. This library requires
     the PHY to be configured so that the receive data strobe is set to RX_DV mode. Please check your chosen PHY supports this.
+
+
+The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardware threads to be used on a 600 MHz xcore.ai device.
 
 
 Table 1 below describes the RMII signals:
@@ -462,7 +465,7 @@ Similarly the RMII real-time MAC may be instantiated::
     port p_eth_txen = XS1_PORT_1L;
     clock eth_rxclk = XS1_CLKBLK_1;
     clock eth_txclk = XS1_CLKBLK_2;
-   
+
     int main()
     {
       ethernet_cfg_if i_cfg[1];
@@ -471,16 +474,22 @@ Similarly the RMII real-time MAC may be instantiated::
       streaming chan c_rx_hp;
       streaming chan c_tx_hp;
       par {
-        rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
-                            c_rx_hp, c_tx_hp,
-                            p_eth_clk,
-                            &p_eth_rxd, p_eth_rxdv,
-                            p_eth_txen, &p_eth_txd,
-                            eth_rxclk, eth_txclk,
-                            4000, 4000, ETHERNET_ENABLE_SHAPER);
+        unsafe{rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
+                                    c_rx_hp, c_tx_hp,
+                                    p_eth_clk,
+                                    &p_eth_rxd, p_eth_rxdv,
+                                    p_eth_txen, &p_eth_txd,
+                                    eth_rxclk, eth_txclk,
+                                    4000, 4000, ETHERNET_ENABLE_SHAPER);}
        application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
       }
     }
+
+
+.. note::
+    The call to rmii_ethernet_rt_mac() needs to be wrapped in  ``unsafe{}`` because the rmii_data_port_t types are sent as references which translate to unsafe (array bounds unchecked) pointers.
+
+
 
 
 The application can use the other end of the streaming channels to send and receive high-priority traffic e.g.::

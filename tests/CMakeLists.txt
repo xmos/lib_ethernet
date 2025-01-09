@@ -18,4 +18,6 @@ add_subdirectory(test_vlan_strip)
 add_subdirectory(test_speed_change)
 add_subdirectory(test_rx_queues)
 add_subdirectory(test_check_ifg_wait)
+add_subdirectory(test_rmii_timing)
+add_subdirectory(test_rmii_restart)
 

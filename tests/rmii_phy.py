@@ -24,8 +24,8 @@ class RMiiTxPhy(px.SimThread):
 
     def __init__(self, name, rxd, rxdv, rxer, clock,
                  rxd_4b_port_pin_assignment,
-                 initial_delay, verbose,
-                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time):
+                 initial_delay_us, verbose,
+                 test_ctrl, do_timeout, complete_fn, expect_loopback, dut_exit_time_us):
         self._name = name
         self._test_ctrl = test_ctrl
         # Check if rxd is a string or an array of strings
@@ -40,12 +40,12 @@ class RMiiTxPhy(px.SimThread):
         self._packets = []
         self._clock = clock
         self._rxd_4b_port_pin_assignment = rxd_4b_port_pin_assignment
-        self._initial_delay = initial_delay
+        self._initial_delay = initial_delay_us
         self._verbose = verbose
         self._do_timeout = do_timeout
         self._complete_fn = complete_fn
         self._expect_loopback = expect_loopback
-        self._dut_exit_time = dut_exit_time
+        self._dut_exit_time = dut_exit_time_us
         self._rxd_port_width = get_port_width_from_name(self._rxd[0])
         if len(self._rxd) == 2:
             assert self._rxd_port_width == 1, f"Only 1bit ports allowed when specifying 2 ports. {self._rxd}"
@@ -199,14 +199,14 @@ class RMiiTransmitter(RMiiTxPhy):
 
     def __init__(self, rxd, rxdv, rxer, clock,
                  rxd_4b_port_pin_assignment="lower_2b",
-                 initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
+                 initial_delay_us=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+                 dut_exit_time_us=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
         super(RMiiTransmitter, self).__init__('rmii', rxd, rxdv, rxer, clock,
                                              rxd_4b_port_pin_assignment,
-                                             initial_delay, verbose, test_ctrl,
+                                             initial_delay_us, verbose, test_ctrl,
                                              do_timeout, complete_fn, expect_loopback,
-                                             dut_exit_time)
+                                             dut_exit_time_us)
 
     def run(self):
         xsi = self.xsi

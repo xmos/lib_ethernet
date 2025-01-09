@@ -11,7 +11,7 @@ from rgmii_phy import RgmiiTransmitter
 from mii_packet import MiiPacket
 from helpers import get_sim_args, create_if_needed, args
 from helpers import get_mii_rx_clk_phy, get_mii_tx_clk_phy, get_rgmii_rx_clk_phy, get_rgmii_tx_clk_phy
-from helpers import get_rmii_clk, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
+from helpers import get_rmii_clk, get_rmii_rx_phy
 from helpers import generate_tests
 
 
@@ -131,24 +131,11 @@ def test_time_tx(capfd, params):
 
     elif params["phy"] == "rmii":
         clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['tx_width'] == "4b_lower":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                        "lower_2b",
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                        clk,
                                         packet_fn=packet_checker,
                                         verbose=verbose
-                                        )
-        elif params['tx_width'] == "4b_upper":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                "upper_2b",
-                                packet_fn=packet_checker,
-                                verbose=verbose
-                                )
-        elif params['tx_width'] == "1b":
-            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
-                                                packet_fn=packet_checker,
-                                                verbose=verbose)
-        else:
-            assert False, f"Invalid tx_width {params['tx_width']}"
+                                    )
 
         do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
     else:

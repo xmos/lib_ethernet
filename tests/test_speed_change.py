@@ -16,7 +16,7 @@ from helpers import get_rgmii_tx_clk_phy, create_if_needed, get_sim_args
 from helpers import generate_tests
 
 
-initial_delay = 100000 * 1e6
+initial_delay_us = 100000 * 1e6
 
 class ClockControl(px.SimThread):
     """ A class to control the clocks, alternating between the 25 and 125 MHz clocks
@@ -41,7 +41,7 @@ class ClockControl(px.SimThread):
 
 
         # Change clock speeds 1/2 window before the packets
-        self.wait_until(xsi.get_time() + initial_delay - (self.speed_change_time / 2))
+        self.wait_until(xsi.get_time() + initial_delay_us - (self.speed_change_time / 2))
 
         while True:
             # Wait for packets to be sent
@@ -152,10 +152,10 @@ def test_speed_change(capfd, seed, params):
 
     verbose = False
 
-    (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay=initial_delay,
-                                                  expect_loopback=False, verbose=verbose, dut_exit_time=(5 * px.Xsi.get_xsi_tick_freq_hz())/1e3)
-    (tx_clk_125, tx_rgmii_125) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, initial_delay=initial_delay,
+    (tx_clk_25, tx_rgmii_25) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, initial_delay_us=initial_delay_us,
+                                                  expect_loopback=False, verbose=verbose, dut_exit_time_us=(5 * px.Xsi.get_xsi_tick_freq_hz())/1e3)
+    (tx_clk_125, tx_rgmii_125) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, initial_delay_us=initial_delay_us,
                                                       test_ctrl='tile[0]:XS1_PORT_1C',
-                                                      expect_loopback=False, verbose=verbose, dut_exit_time=(5 * px.Xsi.get_xsi_tick_freq_hz())/1e3)
+                                                      expect_loopback=False, verbose=verbose, dut_exit_time_us=(5 * px.Xsi.get_xsi_tick_freq_hz())/1e3)
 
     do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii_25, tx_clk_125, tx_rgmii_125, seed)

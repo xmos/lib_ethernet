@@ -15,7 +15,7 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet
 from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
 from helpers import generate_tests
-from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy
 
 def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
     testname = 'test_etype_filter'
@@ -73,26 +73,12 @@ def test_etype_filter(capfd, seed, params):
 
     elif params["phy"] == "rmii":
         rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['rx_width'] == "4b_lower":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "lower_2b",
-                                        verbose=verbose,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
-        elif params['rx_width'] == "4b_upper":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "upper_2b",
-                                        verbose=verbose,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
-        elif params['rx_width'] == "1b":
-            tx_rmii_phy = get_rmii_1b_port_tx_phy(
-                                        rmii_clk,
-                                        verbose=verbose,
-                                        test_ctrl="tile[0]:XS1_PORT_1M"
-                                        )
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      rmii_clk,
+                                      verbose=verbose,
+                                      test_ctrl="tile[0]:XS1_PORT_1M"
+                                    )
+
         do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, params["rx_width"])
 
     elif params["phy"] == "rgmii":

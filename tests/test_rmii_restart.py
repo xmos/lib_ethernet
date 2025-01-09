@@ -1,4 +1,4 @@
-# Copyright 2014-2024 XMOS LIMITED.
+# Copyright 2014-2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
@@ -39,51 +39,34 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     dut_mac_address = get_dut_mac_address()
     broadcast_mac_address = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
 
-    # The inter-frame gap is to give the DUT time to print its output
     packets = []
 
-    for mac_address in [dut_mac_address, broadcast_mac_address]:
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            create_data_args=['step', (1, 72)]
-          ))
+    # These packets allow for 1) enough time for DUT to restart a few times at the start, receive
+    # and forward the test packets, restart again and then receive and forward the subsequent test packets
 
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            create_data_args=['step', (5, 52)],
-            inter_frame_gap=packet_processing_time(tx_phy, 72, mac),
-          ))
+    for cycle in range(2):
+        for i in range(4):
+            if i == 0:
+                if cycle == 0:
+                    ifg = 2000 * tx_clk.get_bit_time() # Wait for MAC to restart a few times
+                else:
+                    ifg = 7000 * tx_clk.get_bit_time() # Wait for forwarding completion and a restart
+            else:
+                ifg = 96 * tx_clk.get_bit_time() # Min eth spec IFG between packets
+            packets.append(MiiPacket(rand,
+                dst_mac_addr=dut_mac_address,
+                create_data_args=['step', (i, 80 + i)],
+                inter_frame_gap=ifg # Inserts delay at beinning of packet for IFG
+            ))
 
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            create_data_args=['step', (7, 1500)],
-            inter_frame_gap=packet_processing_time(tx_phy, 52, mac),
-          ))
+    error_driver = TxError(tx_phy, True)
 
-
-    # Send enough basic frames to ensure the buffers in the DUT have wrapped
-
-    for i in range(15):
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=dut_mac_address,
-            create_data_args=['step', (i, 1500)],
-            inter_frame_gap=packet_processing_time(tx_phy, 1500, mac),
-        ))
-
-
-    do_error = True
-
-    # The gigabit RGMII can't handle spurious errors
-    if tx_clk.get_rate() == Clock.CLK_125MHz:
-        do_error = False
-
-    error_driver = TxError(tx_phy, do_error)
-
+    # with capfd.disabled():
     do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, extra_tasks=[error_driver], rx_width=rx_width, tx_width=tx_width)
 
-test_params_file = Path(__file__).parent / "test_rx/test_params.json"
+test_params_file = Path(__file__).parent / "test_rmii_restart/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_rx(capfd, seed, params):
+def test_mii_rmii_restart(capfd, seed, params):
     with capfd.disabled():
         print(params)
 

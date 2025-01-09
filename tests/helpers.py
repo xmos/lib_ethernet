@@ -1,4 +1,4 @@
-# Copyright 2014-2024 XMOS LIMITED.
+# Copyright 2014-2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import os
 import random
@@ -47,7 +47,7 @@ def get_mii_rx_clk_phy(packet_fn=None, verbose=False, test_ctrl=None):
 
 def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                        complete_fn=None, expect_loopback=True,
-                       dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 85us
+                       dut_exit_time_us=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay_us=(85 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 85us
     clk = Clock('tile[0]:XS1_PORT_1J', Clock.CLK_25MHz)
     phy = MiiTransmitter('tile[0]:XS1_PORT_4E',
                          'tile[0]:XS1_PORT_1K',
@@ -56,7 +56,7 @@ def get_mii_tx_clk_phy(verbose=False, test_ctrl=None, do_timeout=True,
                          verbose=verbose, test_ctrl=test_ctrl,
                          do_timeout=do_timeout, complete_fn=complete_fn,
                          expect_loopback=expect_loopback,
-                         dut_exit_time=dut_exit_time, initial_delay=initial_delay)
+                         dut_exit_time_us=dut_exit_time_us, initial_delay_us=initial_delay_us)
     return (clk, phy)
 
 def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None):
@@ -69,7 +69,7 @@ def get_rgmii_rx_clk_phy(clk_rate, packet_fn=None, verbose=False, test_ctrl=None
 
 def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                           do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 135us
+                          dut_exit_time_us=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay_us=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6): # 50us and 135us
     clk = Clock('tile[1]:XS1_PORT_1O', clk_rate)
     phy = RgmiiTransmitter('tile[1]:XS1_PORT_8A',
                            'tile[1]:XS1_PORT_4E',
@@ -81,7 +81,7 @@ def get_rgmii_tx_clk_phy(clk_rate, verbose=False, test_ctrl=None,
                            verbose=verbose, test_ctrl=test_ctrl,
                            do_timeout=do_timeout, complete_fn=complete_fn,
                            expect_loopback=expect_loopback,
-                           dut_exit_time=dut_exit_time, initial_delay=initial_delay)
+                           dut_exit_time_us=dut_exit_time_us, initial_delay_us=initial_delay_us)
     return (clk, phy)
 
 
@@ -112,41 +112,16 @@ def run_parametrised_test_rx(capfd, test_fn, params, exclude_standard=False, ver
             assert 0, f"Invalid params: {params}"
     elif params["phy"] == "rmii":
         clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['rx_width'] == "4b_lower":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        clk,
-                                        "lower_2b",
-                                        verbose=verbose,
-                                        )
-        elif params['rx_width'] == "4b_upper":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        clk,
-                                        "upper_2b",
-                                        verbose=verbose,
-                                        )
-        elif params['rx_width'] == "1b":
-            tx_rmii_phy = get_rmii_1b_port_tx_phy(
-                                        clk,
-                                        verbose=verbose,
-                                        )
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      clk,
+                                      verbose=verbose
+                                      )
 
-        if params['tx_width'] == "4b_lower":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                            "lower_2b",
-                                            packet_fn=check_received_packet,
-                                            verbose=verbose,
-                                            )
-        elif params['tx_width'] == "4b_upper":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
-                                            "upper_2b",
-                                            packet_fn=check_received_packet,
-                                            verbose=verbose,
-                                            )
-        elif params['tx_width'] == "1b":
-            rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
-                                            packet_fn=check_received_packet,
-                                            verbose=verbose,
-                                            )
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                      clk,
+                                      packet_fn=check_received_packet,
+                                      verbose=verbose
+                                      )
         test_fn(capfd, params["mac"], params["arch"], None, rx_rmii_phy, clk, tx_rmii_phy, seed, rx_width=params['rx_width'], tx_width=params['tx_width'])
     else:
         assert 0, f"Invalid params: {params}"
@@ -245,22 +220,14 @@ def get_sim_args(testname, mac, clk, phy, arch='xs2'):
 def packet_processing_time(phy, data_bytes, mac):
     """ Returns the time it takes the DUT to process a given frame
     """
+    # TODO Investigate why this function ignores the data_bytes argument and
+    # returns a fixed number for a given mac type
     if mac == 'standard':
         return 4000 * phy.get_clock().get_bit_time()
     elif phy.get_name() == 'rgmii' and mac == 'rt':
         return 6000 * phy.get_clock().get_bit_time()
     else:
         return 2000 * phy.get_clock().get_bit_time()
-
-def packet_processing_time_clock_cycles(phy, data_bytes, mac):
-    """ Returns the time it takes the DUT to process a given frame
-    """
-    if mac == 'standard':
-        return 4000 / phy.get_clock().get_clock_cycle_to_bit_time_ratio()
-    elif phy.get_name() == 'rgmii' and mac == 'rt':
-        return 6000 / phy.get_clock().get_clock_cycle_to_bit_time_ratio()
-    else:
-        return 2000 / phy.get_clock().get_clock_cycle_to_bit_time_ratio()
 
 def get_dut_mac_address():
     """ Returns the MAC address of the DUT
@@ -335,60 +302,86 @@ def generate_tests(test_params_json):
     return test_config_list, test_config_ids
 
 ### RMII functions
-
 def get_rmii_clk(clk_rate):
     clk = Clock('tile[0]:XS1_PORT_1J', clk_rate)
     return clk
 
-def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, verbose=False, test_ctrl=None,
-                          do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+def get_rmii_tx_phy(rx_width, clk, **kwargs):
+    if rx_width == "4b_lower":
+        tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                    clk,
+                                    "lower_2b",
+                                    **kwargs
+                                    )
+    elif rx_width == "4b_upper":
+        tx_rmii_phy = get_rmii_4b_port_tx_phy(
+                                    clk,
+                                    "upper_2b",
+                                    **kwargs
+                                    )
+    elif rx_width == "1b":
+        tx_rmii_phy = get_rmii_1b_port_tx_phy(
+                                    clk,
+                                    **kwargs
+                                    )
+    else:
+        assert False, f"get_rmii_tx_phy(): Invalid rx_width {rx_width}"
+    return tx_rmii_phy
+
+def get_rmii_rx_phy(tx_width, clk, **kwargs):
+    if tx_width == "4b_lower":
+        rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                              "lower_2b",
+                                              **kwargs
+                                              )
+    elif tx_width == "4b_upper":
+        rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
+                                              "upper_2b",
+                                              **kwargs
+                                              )
+    elif tx_width == "1b":
+        rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
+                                              **kwargs
+                                            )
+    else:
+        assert False, f"get_rmii_rx_phy(): Invalid tx_width {tx_width}"
+    return rx_rmii_phy
+
+
+
+def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, **kwargs):
     phy = RMiiTransmitter('tile[0]:XS1_PORT_4A', # 4b rxd port
                           'tile[0]:XS1_PORT_1K', # 1b rxdv
                           'tile[0]:XS1_PORT_1I', # 1b rxerr
                           clk,
-                          verbose=verbose,
                           rxd_4b_port_pin_assignment=rxd_4b_port_pin_assignment,
-                          test_ctrl=test_ctrl,
-                          do_timeout=do_timeout, complete_fn=complete_fn,
-                          expect_loopback=expect_loopback,
-                          dut_exit_time=dut_exit_time, initial_delay=initial_delay
+                          **kwargs
                         )
     return phy
 
-def get_rmii_1b_port_tx_phy(clk, verbose=False, test_ctrl=None,
-                          do_timeout=True, complete_fn=None, expect_loopback=True,
-                          dut_exit_time=(50 * px.Xsi.get_xsi_tick_freq_hz())/1e6, initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+def get_rmii_1b_port_tx_phy(clk, **kwargs):
     phy = RMiiTransmitter(['tile[0]:XS1_PORT_1A', 'tile[0]:XS1_PORT_1B'], # 2, 1b rxd ports
                           'tile[0]:XS1_PORT_1K', # 1b rxdv
                           'tile[0]:XS1_PORT_1I', # 1b rxerr
                           clk,
-                          verbose=verbose,
-                          test_ctrl=test_ctrl,
-                          do_timeout=do_timeout, complete_fn=complete_fn,
-                          expect_loopback=expect_loopback,
-                          dut_exit_time=dut_exit_time, initial_delay=initial_delay
+                          **kwargs
                         )
     return phy
 
-def get_rmii_4b_port_rx_phy(clk, txd_4b_port_pin_assignment, packet_fn=None, verbose=False, test_ctrl=None):
+def get_rmii_4b_port_rx_phy(clk, txd_4b_port_pin_assignment, **kwargs):
     phy = RMiiReceiver('tile[0]:XS1_PORT_4B',
                         'tile[0]:XS1_PORT_1L',
                         clk,
-                        packet_fn=packet_fn,
-                        verbose=verbose,
-                        test_ctrl=test_ctrl,
-                        txd_4b_port_pin_assignment=txd_4b_port_pin_assignment
+                        txd_4b_port_pin_assignment=txd_4b_port_pin_assignment,
+                        **kwargs
                         )
     return phy
 
-def get_rmii_1b_port_rx_phy(clk, packet_fn=None, verbose=False, test_ctrl=None):
+def get_rmii_1b_port_rx_phy(clk, **kwargs):
     phy = RMiiReceiver(['tile[0]:XS1_PORT_1C', 'tile[0]:XS1_PORT_1D'],
                         'tile[0]:XS1_PORT_1L',
                         clk,
-                        packet_fn=packet_fn,
-                        verbose=verbose,
-                        test_ctrl=test_ctrl
+                        **kwargs
                         )
     return phy
 

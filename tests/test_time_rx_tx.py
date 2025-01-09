@@ -18,7 +18,7 @@ from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, args
 from helpers import get_sim_args, create_if_needed, get_mii_tx_clk_phy, get_mii_rx_clk_phy
 from helpers import get_rgmii_tx_clk_phy, get_rgmii_rx_clk_phy
-from helpers import get_rmii_clk, get_rmii_4b_port_tx_phy, get_rmii_1b_port_tx_phy, get_rmii_4b_port_rx_phy, get_rmii_1b_port_rx_phy
+from helpers import get_rmii_clk, get_rmii_tx_phy, get_rmii_rx_phy
 from helpers import generate_tests
 
 tx_complete = False
@@ -223,7 +223,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
 test_params_file = Path(__file__).parent / "test_time_rx_tx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_time_rx_tx(capfd, seed, params):
+def test_time_rx_tx(capfd, seed, level, params):
     if seed == None:
         seed = random.randint(0, sys.maxsize)
 
@@ -233,7 +233,7 @@ def test_time_rx_tx(capfd, seed, params):
     if params["phy"] == "mii":
         test_ctrl = 'tile[0]:XS1_PORT_1C'
         (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker, test_ctrl=test_ctrl)
-        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
         do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii, seed)
 
     elif params["phy"] == "rgmii":
@@ -241,7 +241,7 @@ def test_time_rx_tx(capfd, seed, params):
         test_ctrl = 'tile[0]:XS1_PORT_1C'
         if params["clk"] == "25MHz":
             (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker, test_ctrl=test_ctrl)
-            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, complete_fn=set_tx_complete, verbose=verbose, dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6)
             do_test(capfd, params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii, seed)
         # Test 1000 MBit - RGMII
         elif params["clk"] == "125MHz":
@@ -252,50 +252,18 @@ def test_time_rx_tx(capfd, seed, params):
     elif params["phy"] == "rmii":
         test_ctrl = 'tile[0]:XS1_PORT_1M'
         rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
-        if params['rx_width'] == "4b_lower":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      rmii_clk,
+                                      do_timeout=False,
+                                      complete_fn=set_tx_complete,
+                                      verbose=verbose,
+                                      dut_exit_time_us=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6
+                                      )
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
                                         rmii_clk,
-                                        "lower_2b",
-                                        do_timeout=False,
-                                        complete_fn=set_tx_complete,
-                                        verbose=verbose,
-                                        dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6
-                                        )
-        elif params['rx_width'] == "4b_upper":
-            tx_rmii_phy = get_rmii_4b_port_tx_phy(
-                                        rmii_clk,
-                                        "upper_2b",
-                                        do_timeout=False,
-                                        complete_fn=set_tx_complete,
-                                        verbose=verbose,
-                                        dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6
-                                        )
-        elif params['rx_width'] == "1b":
-            tx_rmii_phy = get_rmii_1b_port_tx_phy(
-                                        rmii_clk,
-                                        do_timeout=False,
-                                        complete_fn=set_tx_complete,
-                                        verbose=verbose,
-                                        dut_exit_time=(200 * px.Xsi.get_xsi_tick_freq_hz())/1e6
-                                        )
-
-        if params['tx_width'] == "4b_lower":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(rmii_clk,
-                                            "lower_2b",
-                                            packet_fn=packet_checker,
-                                            test_ctrl=test_ctrl,
-                                            )
-        elif params['tx_width'] == "4b_upper":
-            rx_rmii_phy = get_rmii_4b_port_rx_phy(rmii_clk,
-                                            "upper_2b",
-                                            packet_fn=packet_checker,
-                                            test_ctrl=test_ctrl,
-                                            )
-        elif params['tx_width'] == "1b":
-            rx_rmii_phy = get_rmii_1b_port_rx_phy(rmii_clk,
-                                            packet_fn=packet_checker,
-                                            test_ctrl=test_ctrl,
-                                            )
+                                        packet_fn=packet_checker,
+                                        test_ctrl=test_ctrl,
+                                    )
         do_test(capfd, params["mac"], params["arch"], None, rx_rmii_phy, rmii_clk, tx_rmii_phy, seed,
                 rx_width=params["rx_width"], tx_width=params["tx_width"])
     else:

@@ -19,13 +19,13 @@ class RgmiiTransmitter(TxPhy):
     (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
     def __init__(self, rxd, rxd_100, rxdv, mode_rxd, mode_rxdv, rxer, clock,
-                 initial_delay=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
+                 initial_delay_us=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
+                 dut_exit_time_us=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
         super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, rxer, clock,
-                                               initial_delay, verbose, test_ctrl,
+                                               initial_delay_us, verbose, test_ctrl,
                                                do_timeout, complete_fn, expect_loopback,
-                                               dut_exit_time)
+                                               dut_exit_time_us)
         self._mode_rxd = mode_rxd
         self._rxd_100 = rxd_100
         self._mode_rxdv = mode_rxdv

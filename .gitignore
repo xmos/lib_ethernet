@@ -30,3 +30,4 @@ tests/expect
 tests/*.xml
 seed.inc
 trace.txt
+tests/expect_temp

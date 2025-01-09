@@ -1,4 +1,4 @@
-# Copyright 2014-2024 XMOS LIMITED.
+# Copyright 2014-2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
@@ -28,11 +28,12 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
         max_fragment_len = 142
 
     if tx_phy.get_name() == "rmii":
-      min_fragment_length = 16 # https://github.com/xmos/lib_ethernet/issues/73
-      warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
+      if rx_width == "1b":
+        min_fragment_length = 5 # https://github.com/xmos/lib_ethernet/issues/73
+      else:
+        min_fragment_length = 4
     else:
        min_fragment_length = 2
-
 
     # Incrememnt is meant to be 1, but for pragmatic reasons just test a subset of options (range(2, max_fragment_len, 1))
     for m in [min_fragment_length, max_fragment_len/3, max_fragment_len/2, max_fragment_len]:
@@ -61,21 +62,12 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
     # Part B
 
     # Test Frame 5 - send a 7-octect preamble
-    if tx_phy.get_name() == "rmii":
-       warnings.warn("RMII doesn't support fragment lengths < 16. https://github.com/xmos/lib_ethernet/issues/73")
-       error_packets.append(MiiPacket(rand,
-        num_preamble_nibbles=min_fragment_length, num_data_bytes=0,
+    error_packets.append(MiiPacket(rand,
+        num_preamble_nibbles=15, num_data_bytes=0,
         sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
         ether_len_type=[], send_crc_word=False,
         dropped=True
       ))
-    else:
-      error_packets.append(MiiPacket(rand,
-          num_preamble_nibbles=15, num_data_bytes=0,
-          sfd_nibble=None, dst_mac_addr=[], src_mac_addr=[],
-          ether_len_type=[], send_crc_word=False,
-          dropped=True
-        ))
 
     # Test Frame 6 - send a 7-octect preamble with SFD
     error_packets.append(MiiPacket(rand,

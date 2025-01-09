@@ -1,4 +1,4 @@
-// Copyright 2024 XMOS LIMITED.
+// Copyright 2024-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
@@ -41,11 +41,11 @@ Minus_four:
 
 #define TIME_STAMP  sp[STACK_WORDS + 1]
 #define WRAP_PTR    sp[STACK_WORDS + 2]
-#define WR_END_PTR  sp[STACK_WORDS + 2]
+#define WR_END_PTR  sp[STACK_WORDS + 3]
 
 
-// {dptr, in_counter, port_this, crc}
-// call: {unsigned* unsafe, unsigned, unsigned, unsigned} master_4x_pins_4b_body(unsigned * unsafe dptr,
+// {num_rx_bytes, crc, dptr_new}
+// call: {int, unsigned, unsigned* unsafe} master_4x_pins_4b_body(unsigned * unsafe dptr,
 //                                                                      in port p_mii_rxdv,
 //                                                                      in buffered port:32 p_mii_rxd,
 //                                                                      rmii_data_4b_pin_assignment_t rx_port_4b_pins,
@@ -72,69 +72,116 @@ Minus_four:
     .align 8
     .issue_mode dual
 master_rx_pins_4b_body_asm:
-    DUALENTSP_lu6 STACK_WORDS
+    {dualentsp STACK_WORDS; clre}
 
     std r4, r5, sp[0]   // Save r4 and r5
     std r6, r7, sp[1]   // Save r6 and r7
     std r8, r9, sp[2]   // Save r8 and r9
 
-    // receive preamble second half (32b data = 64b port bits)
-    {in PORT_LAST, res[RXD];    ldw CRC, cp[initial_crc]}
+    // I'm using r4, r6, r7, r11 in the preamble checking code and updating r5 with the CRC we should start with
+    // r4: TMP2
+    // r11: TMP1
+    // r6: IN_COUNTER
+    // r7: PORT_LAST
+    // r5: CRC
 
-    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 slots at 75MHz
-    {ldc IN_COUNTER, 0;         clre}   // clear all events ahead of select and init IN_COUNTER
-    ldw TMP1, cp[preamble_second]       // Load expected second half of preamble
-    eeu res[RXDV]                       // Start setup for select early
-    eeu res[RXD]
-    move(DPTR, r0) // Move first argument (r0) to DPTR
+    {mkmsk TMP2, 0x1;     eeu res[RXD]} // TMP2 = r4
+    {setd    res[RXDV], TMP2; ldc CRC, 0}
+
+    {setc    res[RXDV], 0x11 ;     ldc TMP2, 0}
+    {in r6, res[RXDV]; ldap TMP1, preamble_rx_data_received}
+
+    {eeu res[RXDV]; ldw WRENDPTR, WR_END_PTR} // Keep write end value in register
+    {setv res[RXD], TMP1 ; move(DPTR, NUM_BYTES)}
+    {setd res[RXDV], TMP2; ldap TMP1, data_valid_deasserted} // Move first argument (r0 -> NUM_BYTES) to DPTR. r0 is free now
     ldw NUM_BYTES, cp[Minus_four]       // Start count at -4 (CRC not included)
-    ldw WRENDPTR, WR_END_PTR            // Keep write end value in register
+    {setv res[RXDV], TMP1; ldc TMP2, 4}
 
 
-    // Grab the second 32b port of the preamble second half
-    in TMP2, res[RXD]
-    unzip TMP2, PORT_LAST, 0x1
+not_last_preamble_word:
+    ldw r7, cp[preamble_second] // r11: prev word, r6: current word
+    add r11, r6, 0
+    waiteu
 
-    // swap results if PINS_USED set to zero (USE_LOWER)
-    bt PINS_USED, use_upper
-    move(TMP2, PORT_LAST) // Swap upper/lower
+preamble_rx_data_received:
+    {in r6, res[RXD]; sub TMP2, TMP2, 1}
+    bt r4, not_last_preamble_word
+    unzip r6, r11, 0x1
 
-use_upper:
-    // Check received preamable against expected
-    eq TMP1, TMP1, TMP2 // Check OK?
-    bt TMP1, preamble_ok
-    not CRC, CRC     // Corrupt CRC if not OK
+    {bt PINS_USED, use_upper_bits; eq r6, r6, r7}
+    eq r6, r11, r7 // USE_LOWER_2B: swap upper/lower
+use_upper_bits:
+    ldw CRC, cp[initial_crc] // Compare with expected preamble
+    bt r6, after_preamble
+preamble_not_match:
+    not CRC, CRC // Start with corrupt CRC
 
-preamble_ok:
+
+after_preamble:
+    // Make use of time here between INs by setting up stuff used later - we have 160ns or 12 slots at 75MHz
     // Grab timestamp and store
     {gettime TMP2; ldw TMP1, TIME_STAMP}
-    stw TMP2, TMP1[0]
-
+    {stw TMP2, TMP1[0]; ldap TMP1, rx_data_received} // load vector addr
 ////////////////// Start select /////////////////////
     // Init port resources
-    {setd res[RXDV], IN_COUNTER; ldap TMP1, data_valid_deasserted} // no condition. IN_COUNTER happens to be 0 at this point so re-use
-    setv res[RXDV], TMP1
-    {setc res[RXDV], 0x11; ldap TMP1, rx_data_received}            // Set pinseq0 event and load vector addr
-    setv res[RXD], TMP1
-
+    {setv res[RXD], TMP1; ldc IN_COUNTER, 0} // init IN_COUNTER
     waiteu
 
 //// Select case /////
 data_valid_deasserted:
-    // We can now cleanup and return
-    {in TMP1, res[RXDV];    move(r1, IN_COUNTER)} // Complete the IN and start setting up returns
-    // returns {num_bytes, in_counter, port_this, crc} so setup registers for this
+    // return {num_rx_bytes(r0), crc(r1), dptr_new(r2)}
     // NUM_BYTES already in r0
-    {move(r2, PORT_LAST);   move(r3, CRC)}
+    // CRC remains in r5 and will be moved to r1 at the end
+    {in r11, res[RXDV]; bf CRC, tail_0_and_the_end}
 
-    // Return the latest dptr by writing it to the caller's stack
-    stw DPTR, sp[STACK_WORDS + 1]
-    // Restore previous regs before return
+    // r11, r4 , r9, r1 are free to use at this point
+    endin r4, res[RXD]  // r4: bits_left_in_port, r1: polynomial
+    ldw r1, cp[polynomial]
+    {bf r4, no_bits_left_in_port; in r11, res[RXD]} // r11: port_residual, r7: PORT_LAST
+    bf IN_COUNTER, tail_1
+tail_3:
+    {shl r7, r7, 16; add NUM_BYTES, NUM_BYTES, 3} // port_last << 16
+    unzip r11, r7, 1
+    bt PINS_USED, tail_3_upper_bits
+    add r11, r7, 0 // USE_LOWER_2B: swap upper/lower
+tail_3_upper_bits:
+    {shr r11, r11, 8; ldc r9, 24}
+    crcn CRC, r11, r1, r9
+    {move(r1, CRC); move(r2, DPTR)} // Move into the correct registers before returning
     ldd r4, r5, sp[0]
     ldd r6, r7, sp[1]
     ldd r8, r9, sp[2]
+    retsp  STACK_WORDS
 
+tail_1:
+    {ldc r7, 0; add NUM_BYTES, NUM_BYTES, 1}
+    unzip r11, r7, 1
+    bt PINS_USED, tail_1_upper_bits
+    add r11, r7, 0 // USE_LOWER_2B: swap upper/lower
+tail_1_upper_bits:
+    {shr r11, r11, 24; ldc r9, 8}
+    crcn CRC, r11, r1, r9
+    {move(r1, CRC); move(r2, DPTR)} // Move into the correct registers before returning
+    ldd r4, r5, sp[0]
+    ldd r6, r7, sp[1]
+    ldd r8, r9, sp[2]
+    retsp  STACK_WORDS
 
+no_bits_left_in_port:
+bf IN_COUNTER, tail_0_and_the_end
+tail_2:
+    {ldc r11, 0; add NUM_BYTES, NUM_BYTES, 2}
+    unzip r7, r11, 1
+    bt PINS_USED, tail_2_upper_bits
+    add r7, r11, 0 // USE_LOWER_2B: swap upper/lower
+tail_2_upper_bits:
+    {shr r7, r7, 16; ldc r9, 16}
+    crcn CRC, r7, r1, r9
+tail_0_and_the_end:
+    {move(r1, CRC); move(r2, DPTR)} // Move into the correct registers before returning
+    ldd r4, r5, sp[0]
+    ldd r6, r7, sp[1]
+    ldd r8, r9, sp[2]
     retsp  STACK_WORDS
 
 //// Select case /////
@@ -146,11 +193,10 @@ rx_data_received:
     move(TMP2, PORT_LAST) // Swap upper/lower
 
 upper_bits_main:
-    {ldw TMP1, cp[polynomial]; ldc IN_COUNTER, 0x0}     // First load polynomial and toggle IN_COUTER
-    crc32 CRC, TMP2, TMP1                               // Do CRC.
-
+    ldw TMP1, cp[polynomial]     // First load polynomial
+    crc32 CRC, TMP2, TMP1        // Do CRC.
     // See if we have hit the write end pointer
-    eq TMP1, WRENDPTR, DPTR
+    {eq TMP1, WRENDPTR, DPTR;  ldc IN_COUNTER, 0x0}  // toggle IN_COUNTER
     {bt TMP1, rx_data_end; add NUM_BYTES, NUM_BYTES, 0x4}
     // If not, store the word and increment DPTR
     {stw TMP2, DPTR[0]; add DPTR, DPTR, 0x4}            // The increment will happen after the store
