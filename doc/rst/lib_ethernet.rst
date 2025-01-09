@@ -79,13 +79,13 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 4
    - ~102 k
    - 8
- * - Raw MII 
+ * - Raw MII
    - 13
    - 5 (1-bit), 2 (4-bit)
    - 2
    - ~10 k
    - 1
- * - SMI (MDIO) 
+ * - SMI (MDIO)
    - 2
    - 2 (1-bit) or 1 (multi-bit)
    - 0
@@ -187,7 +187,7 @@ A common clock signal clocks nibbles (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
 A common clock signal clocks the received nibbles (RXD[1:0]).
 
-Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This 
+Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This
 provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
 have their port type set independently and can be mixed. Unused pins on a 4-bit port are ignored for Rx and driven low for Tx.
 
@@ -465,7 +465,7 @@ Similarly the RMII real-time MAC may be instantiated::
     port p_eth_txen = XS1_PORT_1L;
     clock eth_rxclk = XS1_CLKBLK_1;
     clock eth_txclk = XS1_CLKBLK_2;
-   
+
     int main()
     {
       ethernet_cfg_if i_cfg[1];
@@ -756,7 +756,6 @@ SMI PHY configuration helper functions
 .. doxygenfunction:: smi_phy_is_powered_down
 
 .. doxygenfunction:: smi_get_link_state
-
 
 |newpage|
 
