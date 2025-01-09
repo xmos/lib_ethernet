@@ -777,6 +777,12 @@ static inline void tx_4b_byte(out buffered port:32 p_mii_txd,
     partout(p_mii_txd, 16, zipped & 0xffffffff);
 }
 
+void rmii_master_tx_pins_8b_asm(unsigned * unsafe dptr,
+                                int byte_count,
+                                out buffered port:32 p_mii_txd,
+                                unsigned lookup_8b_tx[256],
+                                unsigned poly);
+
 unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
@@ -785,7 +791,45 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
                                     unsigned &ifg_time,
                                     unsigned last_frame_end_time)
 {
-    return 0;
+    unsigned time;
+    const unsigned poly = 0xEDB88320;
+    unsigned * unsafe dptr;
+
+    int word_count = buf->length >> 2;
+    int tail_byte_count = buf->length & 3;
+    unsigned * unsafe wrap_ptr;
+    dptr = &buf->data[0];
+    wrap_ptr = mii_get_wrap_ptr(tx_mem);
+
+    // Check that we are out of the inter-frame gap
+    unsigned now;
+    ifg_tmr :> now;
+    unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
+    if(wait)
+    {
+        ifg_tmr when timerafter(ifg_time) :> ifg_time;
+    }
+
+    // Check to see if we need to wrap or not
+    int wrap_required = (dptr + (word_count + (tail_byte_count ? 1 : 0))) >= wrap_ptr;
+
+    // Tx all stuff incl preamble and CRC
+    if(wrap_required){
+        printstrln("wrap_required");
+    } else {
+        printstrln("rmii_master_tx_pins_8b_asm");
+        rmii_master_tx_pins_8b_asm(dptr, buf->length, p_mii_txd, lookup_8b_tx, poly);
+    }
+
+
+    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
+
+
+    ifg_tmr :> ifg_time;
+
+    return time;
 }
 
 
@@ -829,6 +873,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     dptr++;
     i++;
     crc32(crc, ~word, poly);
+    printhexln(crc);
 
     do {
         unsigned word = *dptr;
@@ -838,6 +883,7 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
         }
         i++;
         crc32(crc, word, poly);
+        printhexln(crc);
         tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
     } while (i < word_count);
 
@@ -1024,7 +1070,13 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     // Lookup table for 8b transmit case
     unsigned lookup_8b_tx[256] = {0};
-    init_8b_tx_lookup(lookup_8b_tx, 6, 7);
+    if(tx_port_width == 8){
+        rmii_data_8b_pin_assignment_t pins;
+        memcpy(&pins, &tx_port_pins, sizeof(rmii_data_8b_pin_assignment_t));
+        init_8b_tx_lookup(lookup_8b_tx, pins.bit_pos_0, pins.bit_pos_1);
+        printintln(pins.bit_pos_0);
+        printintln(pins.bit_pos_1);
+    }
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
         enable_shaper = 0;
