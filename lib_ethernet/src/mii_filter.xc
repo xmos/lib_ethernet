@@ -45,13 +45,14 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
 }
 
 unsafe void mii_ethernet_filter(chanend c_conf,
-                                mii_packet_queue_t incoming_packets,
-                                mii_packet_queue_t rx_packets_lp,
-                                mii_packet_queue_t rx_packets_hp)
+                                mii_packet_queue_t * unsafe incoming_packets,
+                                mii_packet_queue_t * unsafe rx_packets_lp,
+                                mii_packet_queue_t * unsafe rx_packets_hp)
 {
   eth_global_filter_info_t filter_info;
   ethernet_init_filter_table(filter_info);
   debug_printf("Starting filter\n");
+  unsigned current_port;
 
   while (1) {
     select {
@@ -68,13 +69,25 @@ unsafe void mii_ethernet_filter(chanend c_conf,
     default:
       break;
     }
+    packet_queue_info_t *incoming_packets_local = (packet_queue_info_t*)incoming_packets;
+    packet_queue_info_t *rx_packets_lp_local = (packet_queue_info_t *)rx_packets_lp;
+    packet_queue_info_t *rx_packets_hp_local = (packet_queue_info_t *)rx_packets_hp;
 
-    mii_packet_t * unsafe buf = mii_get_next_buf(incoming_packets);
+    mii_packet_t * unsafe buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets_local[0]);
 
+    current_port = 0;
     if (buf == null)
-      continue;
+    {
+      buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets_local[1]);
+      if(buf == null)
+      {
+        continue;
+      }
+      current_port = 1;
+    }
 
-    mii_move_rd_index(incoming_packets);
+
+    mii_move_rd_index((mii_packet_queue_t)&incoming_packets_local[current_port]);
 
     unsigned length = buf->length; // Number of bytes in the frame minus the CRC
     unsigned crc;
@@ -117,16 +130,16 @@ unsafe void mii_ethernet_filter(chanend c_conf,
     buf->filter_result = filter_result;
 
     if (ethernet_filter_result_is_hp(filter_result)) {
-      if (!mii_packet_queue_full(rx_packets_hp)) {
-        mii_add_packet(rx_packets_hp, buf);
+      if (!mii_packet_queue_full((mii_packet_queue_t)&rx_packets_hp_local[current_port])) {
+        mii_add_packet((mii_packet_queue_t)&rx_packets_hp_local[current_port], buf);
       } else {
         // Drop the packet because there is no room in the packet buffer
         // pointers
       }
     }
     else {
-      if (!mii_packet_queue_full(rx_packets_lp)) {
-        mii_add_packet(rx_packets_lp, buf);
+      if (!mii_packet_queue_full((mii_packet_queue_t)&rx_packets_lp_local[current_port])) {
+        mii_add_packet((mii_packet_queue_t)&rx_packets_lp_local[current_port], buf);
       } else {
         // Drop the packet because there is no room in the packet buffer
         // pointers

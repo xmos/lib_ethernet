@@ -61,7 +61,7 @@ typedef struct mii_packet_t {
  * The end of the buffer is used to contain a pointer to the start such that when the
  * end is reached it is a simple load operation from that address to get the start
  * address.
- */ 
+ */
 typedef struct mempool_info_t {
   unsigned *wrptr;
   unsigned *start;
@@ -92,6 +92,8 @@ typedef unsigned * mii_rdptr_t;
 typedef unsigned * mii_packet_queue_t;
 
 void mii_init_packet_queue(mii_packet_queue_t queue);
+void mii_init_packet_queue_new(packet_queue_info_t *queue);
+
 mii_mempool_t mii_init_mempool(unsigned *buffer, int size);
 void mii_init_lock();
 

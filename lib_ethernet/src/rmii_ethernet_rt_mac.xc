@@ -38,7 +38,7 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
 
 
 
-{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe} 
+{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe}
     init_rx_ports(in_port_t p_clk,
                   in_port_t p_rxdv,
                   clock rxclk,
@@ -122,7 +122,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     // Setup buffering
     unsigned int rx_data[rx_bufsize_words];
     unsigned int tx_data[tx_bufsize_words];
-    mii_mempool_t rx_mem = mii_init_mempool(rx_data, rx_bufsize_words*4);
+    mii_mempool_t rx_mem[1];
+    mii_mempool_t * unsafe rx_mem_ptr = (mii_mempool_t *)rx_mem;
+
+
+    rx_mem[0] = mii_init_mempool(rx_data, rx_bufsize_words*4);
 
     // If the high priority traffic is connected then allocate half the buffer for high priority
     // and half for low priority. Otherwise, allocate it all to low priority.
@@ -130,6 +134,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     const size_t hp_buffer_bytes = tx_bufsize_words * 4 - lp_buffer_bytes;
     mii_mempool_t tx_mem_lp = mii_init_mempool(tx_data, lp_buffer_bytes);
     mii_mempool_t tx_mem_hp = mii_init_mempool(tx_data + (lp_buffer_bytes/4), hp_buffer_bytes);
+    mii_mempool_t * unsafe tx_mem_lp_ptr = (mii_mempool_t *)&tx_mem_lp;
+    mii_mempool_t * unsafe tx_mem_hp_ptr = (mii_mempool_t *)&tx_mem_hp;
 
     packet_queue_info_t rx_packets_lp, rx_packets_hp, tx_packets_lp, tx_packets_hp, incoming_packets;
     mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp);
@@ -137,10 +143,15 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp);
     mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp);
     mii_init_packet_queue((mii_packet_queue_t)&incoming_packets);
+    mii_packet_queue_t * unsafe incoming_packets_ptr = (mii_packet_queue_t *)&incoming_packets;
+    mii_packet_queue_t * unsafe rx_packets_lp_ptr = (mii_packet_queue_t *)&rx_packets_lp;
+    mii_packet_queue_t * unsafe rx_packets_hp_ptr = (mii_packet_queue_t *)&rx_packets_hp;
+    mii_packet_queue_t * unsafe tx_packets_lp_ptr = (mii_packet_queue_t *)&tx_packets_lp;
+    mii_packet_queue_t * unsafe tx_packets_hp_ptr = (mii_packet_queue_t *)&tx_packets_hp;
 
     // Shared read pointer to help optimize the RX code
     unsigned rx_rdptr = 0;
-    unsigned * unsafe p_rx_rdptr = &rx_rdptr;
+    mii_rdptr_t * unsafe p_rx_rdptr = (mii_rdptr_t*)&rx_rdptr;
 
 
     mii_init_lock();
@@ -167,7 +178,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     in buffered port:32 * unsafe rx_data_1 = NULL;
     unsigned rx_port_width;
     rmii_data_4b_pin_assignment_t rx_port_4b_pins;
-    {rx_port_width, rx_port_4b_pins, rx_data_0, rx_data_1} = init_rx_ports(p_clk, p_rxdv, rxclk, p_rxd); 
+    {rx_port_width, rx_port_4b_pins, rx_data_0, rx_data_1} = init_rx_ports(p_clk, p_rxdv, rxclk, p_rxd);
 
     // Setup TX data ports
     // First declare C pointers for port resources and the initialise
@@ -188,16 +199,16 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
       // Rx task
       {
         if(rx_port_width == 4){
-          rmii_master_rx_pins_4b(rx_mem,
+          rmii_master_rx_pins_4b(rx_mem[0],
                                  (mii_packet_queue_t)&incoming_packets,
-                                 p_rx_rdptr,
+                                 (mii_rdptr_t)&rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
                                  rx_port_4b_pins);
         } else {
-          rmii_master_rx_pins_1b(rx_mem,
+          rmii_master_rx_pins_1b(rx_mem[0],
                                  (mii_packet_queue_t)&incoming_packets,
-                                 p_rx_rdptr,
+                                 (mii_rdptr_t)&rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
                                  rx_data_1);
@@ -217,18 +228,18 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           p_port_state);
 
       mii_ethernet_filter(c_conf,
-                          (mii_packet_queue_t)&incoming_packets,
-                          (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp);
+                          incoming_packets_ptr,
+                          rx_packets_lp_ptr,
+                          rx_packets_hp_ptr);
 
-      mii_ethernet_server(rx_mem,
-                          (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp,
+      mii_ethernet_server(rx_mem_ptr,
+                          rx_packets_lp_ptr,
+                          rx_packets_hp_ptr,
                           p_rx_rdptr,
-                          tx_mem_lp,
-                          tx_mem_hp,
-                          (mii_packet_queue_t)&tx_packets_lp,
-                          (mii_packet_queue_t)&tx_packets_hp,
+                          tx_mem_lp_ptr,
+                          tx_mem_hp_ptr,
+                          tx_packets_lp_ptr,
+                          tx_packets_hp_ptr,
                           ts_queue,
                           i_cfg, n_cfg,
                           i_rx_lp, n_rx_lp,
@@ -263,27 +274,51 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
   // Establish types of data ports presented
     unsafe{
         // Setup buffering
-        unsigned int rx_data[rx_bufsize_words];
-        unsigned int tx_data[tx_bufsize_words];
-        mii_mempool_t rx_mem = mii_init_mempool(rx_data, rx_bufsize_words*4);
+        unsigned int rx_data[rx_bufsize_words ][NUM_ETHERNET_PORTS];
+        unsigned int tx_data[tx_bufsize_words][NUM_ETHERNET_PORTS];
+        mii_mempool_t rx_mem[NUM_ETHERNET_PORTS];
+        mii_mempool_t * unsafe rx_mem_ptr = (mii_mempool_t *)rx_mem;
+        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        {
+          rx_mem[i] = mii_init_mempool(&rx_data[0][0] + i*tx_bufsize_words, rx_bufsize_words*4);
+        }
 
         // If the high priority traffic is connected then allocate half the buffer for high priority
         // and half for low priority. Otherwise, allocate it all to low priority.
         const size_t lp_buffer_bytes = !isnull(c_tx_hp) ? tx_bufsize_words * 2 : tx_bufsize_words * 4;
         const size_t hp_buffer_bytes = tx_bufsize_words * 4 - lp_buffer_bytes;
-        mii_mempool_t tx_mem_lp = mii_init_mempool(tx_data, lp_buffer_bytes);
-        mii_mempool_t tx_mem_hp = mii_init_mempool(tx_data + (lp_buffer_bytes/4), hp_buffer_bytes);
 
-        packet_queue_info_t rx_packets_lp, rx_packets_hp, tx_packets_lp, tx_packets_hp, incoming_packets;
-        mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp);
-        mii_init_packet_queue((mii_packet_queue_t)&rx_packets_hp);
-        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp);
-        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp);
-        mii_init_packet_queue((mii_packet_queue_t)&incoming_packets);
+        mii_mempool_t tx_mem_lp[NUM_ETHERNET_PORTS], tx_mem_hp[NUM_ETHERNET_PORTS];
+        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        {
+          tx_mem_lp[i] = mii_init_mempool(&tx_data[0][0] + i*((lp_buffer_bytes/4) + (hp_buffer_bytes/4)), lp_buffer_bytes);
+          tx_mem_hp[i] = mii_init_mempool(&tx_data[0][0] + i*((lp_buffer_bytes/4) + (hp_buffer_bytes/4)) + (lp_buffer_bytes/4), hp_buffer_bytes);
+        }
+        mii_mempool_t * unsafe tx_mem_lp_ptr = (mii_mempool_t *)tx_mem_lp;
+        mii_mempool_t * unsafe tx_mem_hp_ptr = (mii_mempool_t *)tx_mem_hp;
+
+        packet_queue_info_t rx_packets_lp[NUM_ETHERNET_PORTS], rx_packets_hp[NUM_ETHERNET_PORTS], incoming_packets[NUM_ETHERNET_PORTS];
+        packet_queue_info_t tx_packets_lp[NUM_ETHERNET_PORTS], tx_packets_hp[NUM_ETHERNET_PORTS];
+
+        mii_packet_queue_t * unsafe incoming_packets_ptr = (mii_packet_queue_t *)incoming_packets;
+        mii_packet_queue_t * unsafe rx_packets_lp_ptr = (mii_packet_queue_t *)rx_packets_lp;
+        mii_packet_queue_t * unsafe rx_packets_hp_ptr = (mii_packet_queue_t *)rx_packets_hp;
+        mii_packet_queue_t * unsafe tx_packets_lp_ptr = (mii_packet_queue_t *)tx_packets_lp;
+        mii_packet_queue_t * unsafe tx_packets_hp_ptr = (mii_packet_queue_t *)tx_packets_hp;
+
+        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        {
+          mii_init_packet_queue((mii_packet_queue_t)&incoming_packets[i]);
+          mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp[i]);
+          mii_init_packet_queue((mii_packet_queue_t)&rx_packets_hp[i]);
+          mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp[i]);
+          mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp[i]);
+        }
+
 
         // Shared read pointer to help optimize the RX code
-        unsigned rx_rdptr = 0;
-        unsigned * unsafe p_rx_rdptr = &rx_rdptr;
+        unsigned rx_rdptr[NUM_ETHERNET_PORTS] = {0};
+        mii_rdptr_t * unsafe p_rx_rdptr = (mii_rdptr_t *)rx_rdptr; // Array of pointers
 
 
         mii_init_lock();
@@ -312,13 +347,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         in buffered port:32 * unsafe rx_data_0_1 = NULL;
         unsigned rx_port_width_0;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins_0;
-        {rx_port_width_0, rx_port_4b_pins_0, rx_data_0_0, rx_data_0_1} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0); 
+        {rx_port_width_0, rx_port_4b_pins_0, rx_data_0_0, rx_data_0_1} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0);
         // MAC port 1
         in buffered port:32 * unsafe rx_data_1_0 = NULL;
         in buffered port:32 * unsafe rx_data_1_1 = NULL;
         unsigned rx_port_width_1 = 0;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins_1;
-        {rx_port_width_1, rx_port_4b_pins_1, rx_data_1_0, rx_data_1_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1); 
+        {rx_port_width_1, rx_port_4b_pins_1, rx_data_1_0, rx_data_1_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1);
 
 
 
@@ -349,16 +384,16 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
             {
                 if(rx_port_width_0 == 4)
                 {
-                    rmii_master_rx_pins_4b(rx_mem,
-                                         (mii_packet_queue_t)&incoming_packets,
-                                         p_rx_rdptr,
+                    rmii_master_rx_pins_4b(rx_mem[0],
+                                         (mii_packet_queue_t)(&incoming_packets[0]),
+                                         (mii_rdptr_t)&rx_rdptr[0],
                                          p_rxdv_0,
                                          rx_data_0_0,
                                          rx_port_4b_pins_0);
                 } else {
-                    rmii_master_rx_pins_1b(rx_mem,
-                                         (mii_packet_queue_t)&incoming_packets,
-                                         p_rx_rdptr,
+                    rmii_master_rx_pins_1b(rx_mem[0],
+                                         (mii_packet_queue_t)(&incoming_packets[0]),
+                                         (mii_rdptr_t)&rx_rdptr[0],
                                          p_rxdv_0,
                                          rx_data_0_0,
                                          rx_data_0_1);
@@ -367,25 +402,25 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
             {
                 if(rx_port_width_1 == 4)
                 {
-                    rmii_master_rx_pins_4b(rx_mem,
-                                         (mii_packet_queue_t)&incoming_packets,
-                                         p_rx_rdptr,
+                    rmii_master_rx_pins_4b(rx_mem[1],
+                                         (mii_packet_queue_t)(&incoming_packets[1]),
+                                         (mii_rdptr_t)&rx_rdptr[1],
                                          p_rxdv_1,
                                          rx_data_1_0,
                                          rx_port_4b_pins_1);
                 } else {
-                    rmii_master_rx_pins_1b(rx_mem,
-                                         (mii_packet_queue_t)&incoming_packets,
-                                         p_rx_rdptr,
+                    rmii_master_rx_pins_1b(rx_mem[1],
+                                         (mii_packet_queue_t)(&incoming_packets[1]),
+                                         (mii_rdptr_t)&rx_rdptr[1],
                                          p_rxdv_1,
                                          rx_data_1_0,
                                          rx_data_1_1);
                 }
             }
-            rmii_master_tx_pins(tx_mem_lp,
-                              tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
-                              (mii_packet_queue_t)&tx_packets_hp,
+            rmii_master_tx_pins(tx_mem_lp[0],
+                              tx_mem_hp[0],
+                              (mii_packet_queue_t)(&tx_packets_lp[0]),
+                              (mii_packet_queue_t)(&tx_packets_hp[0]),
                               ts_queue,
                               tx_port_width_0,
                               tx_data_0_0,
@@ -394,10 +429,10 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               txclk_0,
                               p_port_state);
 
-            rmii_master_tx_pins(tx_mem_lp,
-                              tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
-                              (mii_packet_queue_t)&tx_packets_hp,
+            rmii_master_tx_pins(tx_mem_lp[1],
+                              tx_mem_hp[1],
+                              (mii_packet_queue_t)(&tx_packets_lp[1]),
+                              (mii_packet_queue_t)(&tx_packets_hp[1]),
                               ts_queue,
                               tx_port_width_1,
                               tx_data_1_0,
@@ -408,18 +443,18 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
 
 
             mii_ethernet_filter(c_conf,
-                              (mii_packet_queue_t)&incoming_packets,
-                              (mii_packet_queue_t)&rx_packets_lp,
-                              (mii_packet_queue_t)&rx_packets_hp);
+                              incoming_packets_ptr,
+                              rx_packets_lp_ptr,
+                              rx_packets_hp_ptr);
 
-            mii_ethernet_server(rx_mem,
-                              (mii_packet_queue_t)&rx_packets_lp,
-                              (mii_packet_queue_t)&rx_packets_hp,
+            mii_ethernet_server(rx_mem_ptr,
+                              rx_packets_lp_ptr,
+                              rx_packets_hp_ptr,
                               p_rx_rdptr,
-                              tx_mem_lp,
-                              tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
-                              (mii_packet_queue_t)&tx_packets_hp,
+                              tx_mem_lp_ptr,
+                              tx_mem_hp_ptr,
+                              tx_packets_lp_ptr,
+                              tx_packets_hp_ptr,
                               ts_queue,
                               i_cfg, n_cfg,
                               i_rx_lp, n_rx_lp,
@@ -431,3 +466,4 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         } // par
     } // unsafe block
 }
+

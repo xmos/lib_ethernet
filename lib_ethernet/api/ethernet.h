@@ -59,6 +59,8 @@ typedef enum ethernet_macaddr_filter_result_t {
   ETHERNET_MACADDR_FILTER_TABLE_FULL  /**< The filter entry was not added because the filter table is full */
 } ethernet_macaddr_filter_result_t;
 
+#define NUM_ETHERNET_PORTS (2)
+
 #if (defined(__XC__) || defined(__DOXYGEN__))
 
 /** Ethernet MAC configuration interface.
@@ -602,7 +604,7 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 
 
-/** ENUM to determine which two bits of a four bit port are to be used as data lines 
+/** ENUM to determine which two bits of a four bit port are to be used as data lines
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
  *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{

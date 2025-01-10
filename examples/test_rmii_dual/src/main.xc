@@ -21,7 +21,7 @@ rmii_data_port_t p_eth_txd_1 = {{XS1_PORT_4D, USE_LOWER_2B}};
 #else
 rmii_data_port_t p_eth_txd_0 = {{XS1_PORT_4B, USE_UPPER_2B}};
 rmii_data_port_t p_eth_txd_1 = {{XS1_PORT_4D, USE_UPPER_2B}};
-#endif 
+#endif
 #elif TX_WIDTH == 1
 rmii_data_port_t p_eth_txd_0 = {{XS1_PORT_1C, XS1_PORT_1D}};
 rmii_data_port_t p_eth_txd_1 = {{XS1_PORT_1E, XS1_PORT_1F}};
@@ -137,7 +137,7 @@ void test_app(client ethernet_cfg_if i_cfg,
     timer tmr_tx;
     int time_tx_trig;
     tmr_tx :> time_tx_trig;
-    
+
     int start_length = 80;
 
 
@@ -152,7 +152,7 @@ void test_app(client ethernet_cfg_if i_cfg,
         uint8_t rxbuf[ETHERNET_MAX_PACKET_SIZE];
         ethernet_packet_info_t packet_info;
         printstr("select\n");
-        
+
         select {
             case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
                 printf("HP packet received: %d bytes\n", packet_info.len);
@@ -186,11 +186,11 @@ int main()
     ethernet_tx_if i_tx_lp[1];
     streaming chan c_rx_hp;
     streaming chan c_tx_hp;
-    
+
 
     // Setup 50M clock
     unsigned divider = 2; // 100 / 2 = 50;
-    configure_clock_ref(eth_clk_harness, divider / 2); 
+    configure_clock_ref(eth_clk_harness, divider / 2);
     set_port_clock(p_eth_clk_harness, eth_clk_harness);
     set_port_mode_clock(p_eth_clk_harness);
     start_clock(eth_clk_harness);
@@ -208,7 +208,7 @@ int main()
                                         p_eth_txen_1, &p_eth_txd_1,
                                         eth_rxclk_1, eth_txclk_1,
                                         4000, 4000, ETHERNET_ENABLE_SHAPER);}
-    
+
         test_app(i_cfg[0], i_rx_lp[0], c_rx_hp, i_tx_lp[0], c_tx_hp);
     }
 

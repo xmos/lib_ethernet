@@ -60,6 +60,14 @@ void mii_init_packet_queue(mii_packet_queue_t queue)
   memset(info->ptrs, 0, sizeof(info->ptrs));
 }
 
+void mii_init_packet_queue_new(packet_queue_info_t *queue)
+{
+  packet_queue_info_t *info = (packet_queue_info_t *)queue;
+  info->rd_index = 0;
+  info->wr_index = 0;
+  memset(info->ptrs, 0, sizeof(info->ptrs));
+}
+
 mii_mempool_t mii_init_mempool(unsigned *buf, int size)
 {
   if (size < 4)

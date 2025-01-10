@@ -296,16 +296,16 @@ unsafe static void handle_incoming_packet(rx_client_state_t client_states[n],
       }
 
       if (client_wants_packet) {
-        int wrptr = client_state.wr_index;
+        int wrptr = client_state.wr_index[0];
         int new_wrptr = wrptr + 1;
         if (new_wrptr >= ETHERNET_RX_CLIENT_QUEUE_SIZE) {
           new_wrptr = 0;
         }
-        if (new_wrptr != client_state.rd_index) {
-          client_state.fifo[wrptr] = (void *)buf;
+        if (new_wrptr != client_state.rd_index[0]) {
+          client_state.fifo[0][wrptr] = (void *)buf;
           tcount++;
           i_rx[i].packet_ready();
-          client_state.wr_index = new_wrptr;
+          client_state.wr_index[0] = new_wrptr;
 
         } else {
           client_state.dropped_pkt_cnt += 1;
@@ -328,14 +328,14 @@ unsafe static void drop_lp_packets(rx_client_state_t client_states[n], unsigned 
   for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
 
-    unsigned rd_index = client_state.rd_index;
-    if (rd_index != client_state.wr_index) {
-      mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state.fifo[rd_index];
+    unsigned rd_index = client_state.rd_index[0];
+    if (rd_index != client_state.wr_index[0]) {
+      mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state.fifo[0][rd_index];
 
       if (mii_get_and_dec_transmit_count(buf) == 0) {
         buffers_free_add(free_buffers, buf, 1);
       }
-      client_state.rd_index = increment_and_wrap_power_of_2(rd_index,
+      client_state.rd_index[0] = increment_and_wrap_power_of_2(rd_index,
                                                             ETHERNET_RX_CLIENT_QUEUE_SIZE);
       client_state.dropped_pkt_cnt += 1;
     }
@@ -440,10 +440,10 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
           desc.filter_data = 0;
           client_state.status_update_state = STATUS_UPDATE_WAITING;
         }
-        else if (client_state.rd_index != client_state.wr_index) {
+        else if (client_state.rd_index[0] != client_state.wr_index[0]) {
           // send received packet
-          int rd_index = client_state.rd_index;
-          mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state.fifo[rd_index];
+          int rd_index = client_state.rd_index[0];
+          mii_packet_t * unsafe buf = (mii_packet_t * unsafe)client_state.fifo[0][rd_index];
           ethernet_packet_info_t info;
           info.type = ETH_DATA;
           info.src_ifnum = 0; // There is only one RGMII port
@@ -456,10 +456,10 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
             buffers_free_add(free_buffers, buf, 1);
           }
 
-          client_state.rd_index = increment_and_wrap_power_of_2(client_state.rd_index,
+          client_state.rd_index[0] = increment_and_wrap_power_of_2(client_state.rd_index[0],
                                                                 ETHERNET_RX_CLIENT_QUEUE_SIZE);
 
-          if (client_state.rd_index != client_state.wr_index) {
+          if (client_state.rd_index[0] != client_state.wr_index[0]) {
             i_rx_lp[i].packet_ready();
           }
         }
@@ -585,7 +585,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
                                        int request_timestamp,
                                        unsigned dst_port):
 
-        mii_packet_t * unsafe buf = client_state_lp[i].send_buffer;
+        mii_packet_t * unsafe buf = client_state_lp[i].send_buffer[0];
         unsigned * unsafe dptr = &buf->data[0];
         memcpy(buf->data, data, n);
         buf->length = n;
@@ -602,7 +602,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         work_pending++;
         buffers_used_add(used_buffers_tx_lp, buf, RGMII_MAC_BUFFER_COUNT_TX, 0);
         buf->tcount = 0;
-        client_state_lp[i].send_buffer = null;
+        client_state_lp[i].send_buffer[0] = null;
         client_state_lp[i].requested_send_buffer_size = 0;
         prioritize_ack += 2;
         break;
@@ -710,8 +710,8 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
     }
 
     for (unsigned i = 0; i < n_tx_lp; i++) {
-      if (client_state_lp[i].requested_send_buffer_size != 0 && client_state_lp[i].send_buffer == null) {
-        client_state_lp[i].send_buffer = buffers_free_take(free_buffers_lp, 0);
+      if (client_state_lp[i].requested_send_buffer_size != 0 && client_state_lp[i].send_buffer[0] == null) {
+        client_state_lp[i].send_buffer[0] = buffers_free_take(free_buffers_lp, 0);
       }
     }
   }

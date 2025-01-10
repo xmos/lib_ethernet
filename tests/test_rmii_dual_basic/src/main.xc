@@ -59,7 +59,7 @@ int main()
 
 
   par {
-      
+
       unsafe{rmii_ethernet_rt_mac_dual(i_cfg, NUM_CFG_IF,
                                       i_rx_lp, NUM_RX_LP_IF,
                                       i_tx_lp, NUM_TX_LP_IF,
