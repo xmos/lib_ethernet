@@ -77,6 +77,10 @@
 // So the RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 30), and
 // RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 62) for frames with no tail bytes and (96 + 38) for frames with tail bytes.
 
+// For 8b TXD port, we output 8b of data pins at a time (one byte on the wire). So after the last OUT we have TR and SR full which is two wire bytes,
+// we have 16 timer ticks until it is empty. There are 4 slots after the last OUT in the ASM before we return to callee.
+// TODO work this out properly.
+
 // Further, there's an adjustment needed due to the fact that
 // 1. The instruction that reads the timer is in fact the next instruction adter the out of the CRC word.
 // 2. There's a delay between the timer wait for the next packet and the preamble actually showing up on the wire (TX_EN goes high when the first bit shows up)
@@ -94,7 +98,11 @@
     #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b (12) // In reference timer ticks
 #endif
 
-#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b) //TODO
+#ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b (12) // In reference timer ticks
+#endif
+
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b) //TODO Work me out
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES  (96 + 62 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES  (96 + 38 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
@@ -781,7 +789,9 @@ void rmii_master_tx_pins_8b_asm(unsigned * unsafe dptr,
                                 int byte_count,
                                 out buffered port:32 p_mii_txd,
                                 unsigned lookup_8b_tx[256],
-                                unsigned poly);
+                                unsigned poly,
+                                unsigned * unsafe wrap_start_ptr,
+                                int byte_count_wrapped);
 
 unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
@@ -793,13 +803,8 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
 {
     unsigned time;
     const unsigned poly = 0xEDB88320;
-    unsigned * unsafe dptr;
-
-    int word_count = buf->length >> 2;
-    int tail_byte_count = buf->length & 3;
-    unsigned * unsafe wrap_ptr;
-    dptr = &buf->data[0];
-    wrap_ptr = mii_get_wrap_ptr(tx_mem);
+    unsigned * unsafe dptr = &buf->data[0];
+    unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem);;
 
     // Check that we are out of the inter-frame gap
     unsigned now;
@@ -811,14 +816,24 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
     }
 
     // Check to see if we need to wrap or not
-    int wrap_required = (dptr + (word_count + (tail_byte_count ? 1 : 0))) >= wrap_ptr;
+    int first_chunk_size = buf->length;
+    int wrap_size = buf->length - ((int)wrap_ptr - (int)dptr);
+    wrap_size = wrap_size < 0 ? 0 : wrap_size;
+
+    if(wrap_size > 0){
+        first_chunk_size -= wrap_size;
+        wrap_ptr = (unsigned *)*wrap_ptr; // Dereference wrap pointer to get start of wrap memory
+        printstrln("wrap_required");
+    }
+
+    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
 
     // Tx all stuff incl preamble and CRC
-    if(wrap_required){
-        printstrln("wrap_required");
-    } else {
-        printstrln("rmii_master_tx_pins_8b_asm");
-        rmii_master_tx_pins_8b_asm(dptr, buf->length, p_mii_txd, lookup_8b_tx, poly);
+    if(buf->length > 5){ // The ASM always transmits at least 5 bytes. Less than that will break the
+                         // timing on the very tight loops so check in XC before we get there.
+        rmii_master_tx_pins_8b_asm(dptr, first_chunk_size, p_mii_txd, lookup_8b_tx, poly, wrap_ptr, wrap_size);
     }
 
 
@@ -873,7 +888,6 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     dptr++;
     i++;
     crc32(crc, ~word, poly);
-    printhexln(crc);
 
     do {
         unsigned word = *dptr;
@@ -883,7 +897,6 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
         }
         i++;
         crc32(crc, word, poly);
-        printhexln(crc);
         tx_4b_word(p_mii_txd, word, tx_port_4b_pins);
     } while (i < word_count);
 
@@ -1032,8 +1045,9 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     return time;
 }
 
-void init_8b_tx_lookup(unsigned lookup[], int bitpos_0, int bitpos_1){
+static void init_8b_tx_lookup(unsigned lookup[], int bitpos_0, int bitpos_1){
     for(int i = 0; i < 256; i++){
+        lookup[i] = 0; // All unused pins driven low
         lookup[i] |= (i & 0x1) << (bitpos_0 + 0);
         lookup[i] |= (i & 0x2) << (bitpos_1 - 1);
         lookup[i] |= (i & 0x4) << (bitpos_0 + 6);
@@ -1069,13 +1083,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
     // Lookup table for 8b transmit case
-    unsigned lookup_8b_tx[256] = {0};
+    unsigned lookup_8b_tx[256];
     if(tx_port_width == 8){
-        rmii_data_8b_pin_assignment_t pins;
-        memcpy(&pins, &tx_port_pins, sizeof(rmii_data_8b_pin_assignment_t));
-        init_8b_tx_lookup(lookup_8b_tx, pins.bit_pos_0, pins.bit_pos_1);
-        printintln(pins.bit_pos_0);
-        printintln(pins.bit_pos_1);
+        init_8b_tx_lookup(lookup_8b_tx, tx_port_pins.pins_8b.bit_pos_0, tx_port_pins.pins_8b.bit_pos_1);
     }
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
