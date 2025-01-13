@@ -1,32 +1,32 @@
-# Copyright 2014-2024 XMOS LIMITED.
+# Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import Pyxsim as px
 
 VERBOSE = False
 
-class I2CMasterChecker(px.SimThread):
+class smi_master_checker(px.SimThread):
     """"
-    This simulator thread will act as I2C slave and check any transactions
+    This simulator thread will act as SMI slave and check any transactions
     caused by the master.
     """
 
-    def __init__(self, scl_port, sda_port, expected_speed,
+    def __init__(self, mdc_port, mdio_port, expected_speed,
                  tx_data=[], ack_sequence=[], clock_stretch=0, original_speed=None):
-        self._scl_port = scl_port
-        self._sda_port = sda_port
+        self._mdc_port = mdc_port
+        self._mdio_port = mdio_port
         self._tx_data = tx_data
         self._ack_sequence = ack_sequence
         self._expected_speed = expected_speed # Speed the checker is expected to detect. Could be lower than the I2C master's original operating speed if the slave is clock stretching
         self._clock_stretch = clock_stretch*1e6 # ns to fs conversion
 
-        self._external_scl_value = 0
-        self._external_sda_value = 0
+        self._external_mdc_value = 0
+        self._external_mdio_value = 0
 
-        self._scl_change_time = None
-        self._sda_change_time = None
-        self._last_sda_change_time = None
-        self._scl_value = 0
-        self._sda_value = 0
+        self._mdc_change_time = None
+        self._mdio_change_time = None
+        self._last_mdio_change_time = None
+        self._mdc_value = 0
+        self._mdio_value = 0
 
         self._clock_release_time = None
 
@@ -44,7 +44,7 @@ class I2CMasterChecker(px.SimThread):
         else:
           self._original_speed = self._expected_speed
 
-        #print("Checking I2C: SCL=%s, SDA=%s" % (self._scl_port, self._sda_port))
+        print("Checking SMI: MDC=%s, MDIO=%s" % (self._mdc_port, self._mdio_port))
 
     def error(self, str):
          print("ERROR: %s @ %s" % (str, self.xsi.get_time()))
@@ -61,29 +61,16 @@ class I2CMasterChecker(px.SimThread):
       #   port, driving, value, external_value, self.xsi.get_time())
       return value
 
-    def read_scl_value(self):
-      return self.read_port(self._scl_port, self._external_scl_value)
+    def read_mdc_value(self):
+      return self.read_port(self._mdc_port, self._external_mdc_value)
 
-    def read_sda_value(self):
-      return self.read_port(self._sda_port, self._external_sda_value)
+    def read_mdio_value(self):
+      return self.read_port(self._mdio_port, self._external_mdio_value)
 
-    def drive_scl(self, value):
+    def drive_mdio(self, value):
        # Cache the value that is currently being driven
-       self._external_scl_value = value
-       self.xsi.drive_port_pins(self._scl_port, value)
-
-    def drive_sda(self, value):
-       # Cache the value that is currently being driven
-       self._external_sda_value = value
-       self.xsi.drive_port_pins(self._sda_port, value)
-
-    def get_next_ack(self):
-        if self._ack_index >= len(self._ack_sequence):
-            return True
-        else:
-            ack = self._ack_sequence[self._ack_index]
-            self._ack_index += 1
-            return ack
+       self._external_mdio_value = value
+       self.xsi.drive_port_pins(self._mdio_port, value)
 
     def check_data_valid_time(self, time):
         if time < 0:
@@ -124,13 +111,6 @@ class I2CMasterChecker(px.SimThread):
            (self._original_speed == 400 and time < 600e6):
             self.error("Stop bit setup time less than minimum in spec: %gfs" % time)
 
-    def check_bus_free_time(self, time):
-      """ Check the time from the STOP to the START condition
-      """
-      if (self._original_speed == 100 and time < 4700e6) or \
-         (self._original_speed == 400 and time < 1300e6):
-          self.error("STOP to START time less than minimum in spec: %gfs" % time)
-
     def get_next_data_item(self):
         if self._tx_data_index >= len(self._tx_data):
             return 0xab
@@ -161,83 +141,83 @@ class I2CMasterChecker(px.SimThread):
     }
 
     @property
-    def expected_scl(self):
+    def expected_mdc(self):
       return self.states[self._state][0]
 
     @property
-    def expected_sda(self):
+    def expected_mdio(self):
       return self.states[self._state][1]
 
     def wait_for_stopped(self):
-      while self._scl_value != 1 or self._sda_value != 1:
-        self.wait_for_port_pins_change([self._scl_port, self._sda_port])
-        self._scl_value = self.read_scl_value()
-        self._sda_value = self.read_sda_value()
+      while self._mdc_value != 1 or self._mdio_value != 1:
+        self.wait_for_port_pins_change([self._mdc_port, self._mdio_port])
+        self._mdc_value = self.read_mdc_value()
+        self._mdio_value = self.read_mdio_value()
 
     def wait_for_change(self):
       """ Wait for either the SDA/SCL port to change and return which one it was.
           Need to also maintain the drive of any value set by the user.
       """
-      scl_changed = False
-      sda_changed = False
+      mdc_changed = False
+      mdio_changed = False
 
-      scl_value = self._scl_value
-      sda_value = self._sda_value
+      mdc_value = self._mdc_value
+      mdio_value = self._mdio_value
 
       # The value might already not be the same if both signals transitioned
       # simultaneously previously
-      new_scl_value = self.read_scl_value()
-      new_sda_value = self.read_sda_value()
-      while new_scl_value == scl_value and new_sda_value == sda_value:
+      new_mdc_value = self.read_mdc_value()
+      new_mdio_value = self.read_mdio_value()
+      while new_mdc_value == mdc_value and new_mdio_value == mdio_value:
         if self._clock_release_time is not None:
           # When clock stretching it is necessary simply to clock the simulation
           # as there is no wait for data change with timeout
           self.wait_for_next_cycle()
           if self.xsi.get_time() >= self._clock_release_time:
-            self.drive_scl(1)
+            self.drive_mdc(1)
             self._clock_release_time = None
             if VERBOSE:
               print("End clock stretching @ {}".format(self.xsi.get_time()))
 
         else:
           # Default case, simply wait for one of the pins to change
-          self.wait_for_port_pins_change([self._scl_port, self._sda_port])
+          self.wait_for_port_pins_change([self._mdc_port, self._mdio_port])
 
-        new_scl_value = self.read_scl_value()
-        new_sda_value = self.read_sda_value()
+        new_mdc_value = self.read_mdc_value()
+        new_mdio_value = self.read_mdio_value()
 
       time_now = self.xsi.get_time()
 
       if VERBOSE:
         print("wait_for_change {},{} -> {},{} @ {}".format(
-          scl_value, sda_value, new_scl_value, new_sda_value, time_now))
+          mdc_value, mdio_value, new_mdc_value, new_mdio_value, time_now))
 
       #
       # SCL changed
       #
-      if scl_value != new_scl_value:
-        scl_changed = True
+      if mdc_value != new_mdc_value:
+        mdc_changed = True
 
         # Ensure the clock timing is correct
-        if self._scl_change_time:
-          if new_scl_value == 0:
-            self.check_clock_high_time(time_now - self._scl_change_time)
+        if self._mdc_change_time:
+          if new_mdc_value == 0:
+            self.check_clock_high_time(time_now - self._mdc_change_time)
           else:
-            self.check_clock_low_time(time_now - self._scl_change_time)
+            self.check_clock_low_time(time_now - self._mdc_change_time)
 
-        self._scl_change_time = time_now
-        self._scl_value = new_scl_value
+        self._mdc_change_time = time_now
+        self._mdc_value = new_mdc_value
 
         # Record the time of the falling edges
-        if new_scl_value == 0:
+        if new_mdc_value == 0:
           fall_time = self.xsi.get_time()
           if self._prev_fall_time is not None:
             self._bit_times.append(fall_time - self._prev_fall_time)
           self._prev_fall_time = fall_time
 
         # Stretch the clock if required
-        if self._clock_stretch and new_scl_value == 0:
-          self.drive_scl(0)
+        if self._clock_stretch and new_mdc_value == 0:
+          self.drive_mdc(0)
           self._clock_release_time = time_now + self._clock_stretch
           if VERBOSE:
             print("Start clock stretching @ {}".format(self.xsi.get_time()))
@@ -246,16 +226,16 @@ class I2CMasterChecker(px.SimThread):
       # SDA changed - don't detect simultaneous changes and have the clock
       # be higher priority if they do.
       #
-      if not scl_changed and (sda_value != new_sda_value):
-        sda_changed = True
-        self._last_sda_change_time = self._sda_change_time
-        self._sda_change_time = time_now
-        self._sda_value = new_sda_value
+      if not mdc_changed and (mdio_value != new_mdio_value):
+        mdio_changed = True
+        self._last_mdio_change_time = self._mdio_change_time
+        self._mdio_change_time = time_now
+        self._mdio_value = new_mdio_value
 
-        if new_scl_value == 0:
-          self.check_data_valid_time(time_now - self._scl_change_time)
+        if new_mdc_value == 0:
+          self.check_data_valid_time(time_now - self._mdc_change_time)
 
-      return scl_changed, sda_changed
+      return mdc_changed, mdio_changed
 
     def set_state(self, next_state):
       if VERBOSE:
@@ -264,14 +244,14 @@ class I2CMasterChecker(px.SimThread):
       self._state = next_state
 
       # Ensure the current state of the SCL/SDA is valid
-      self.check_scl_sda_lines()
+      self.check_mdc_mdio_lines()
 
       # Execute the handler for the state
       handler = getattr(self, "handle_" + self._state.lower())
       handler()
 
-    def move_to_next_state(self, scl_changed, sda_changed):
-      if scl_changed:
+    def move_to_next_state(self, mdc_changed, mdio_changed):
+      if mdc_changed:
         next_state = self.states[self._state][2]
       else:
         next_state = self.states[self._state][3]
@@ -282,9 +262,9 @@ class I2CMasterChecker(px.SimThread):
         if value != expected:
           self.error("{}: {} != {}".format(self._state, name, expected))
 
-    def check_scl_sda_lines(self):
-      self.check_value(self.read_scl_value(), self.expected_scl, "SCL")
-      self.check_value(self.read_sda_value(), self.expected_sda, "SDA")
+    def check_mdc_mdio_lines(self):
+      self.check_value(self.read_mdc_value(), self.expected_mdc, "SCL")
+      self.check_value(self.read_mdio_value(), self.expected_mdio, "SDA")
 
     def start_read(self):
       self._bit_num = 0
@@ -348,41 +328,41 @@ class I2CMasterChecker(px.SimThread):
     #
     def handle_stopped(self):
       print("Stop bit received")
-      self.check_setup_stop_time(self._sda_change_time - self._scl_change_time)
+      self.check_setup_stop_time(self._mdio_change_time - self._mdc_change_time)
       pass
 
     def starting_sequence(self):
       self._byte_num = 0
       self.start_read()
-      if self._last_sda_change_time is not None:
-        self.check_bus_free_time(self.xsi.get_time() - self._last_sda_change_time)
+      if self._last_mdio_change_time is not None:
+        self.check_bus_free_time(self.xsi.get_time() - self._last_mdio_change_time)
 
     def handle_drive_bit(self):
-      if self._sda_change_time is not None and \
+      if self._mdio_change_time is not None and \
         (self._prev_state == "STARTING" or self._prev_state == "REPEAT_START") :
         # Need to check that the start hold time has been respected
-        self.check_hold_start_time(self.xsi.get_time() - self._sda_change_time)
+        self.check_hold_start_time(self.xsi.get_time() - self._mdio_change_time)
 
       if self._write_data is not None:
         # Drive data being read by master
-        self.drive_sda((self._write_data & 0x80) >> 7)
+        self.drive_mdio((self._write_data & 0x80) >> 7)
       else:
         # Simulate external pullup
-        self.drive_sda(1)
+        self.drive_mdio(1)
 
     def handle_starting(self):
       print("Start bit received")
-      if self._scl_change_time:
-        self.check_setup_start_time(self._sda_change_time - self._scl_change_time)
+      if self._mdc_change_time:
+        self.check_setup_start_time(self._mdio_change_time - self._mdc_change_time)
       self.starting_sequence()
 
     def handle_sample_bit(self):
       if self._read_data is not None:
         # Ensure that the data setup time has been respected
-        self.check_data_setup_time(self.xsi.get_time() - self._sda_change_time)
+        self.check_data_setup_time(self.xsi.get_time() - self._mdio_change_time)
 
         # Read the data value
-        self._read_data = (self._read_data << 1) | self.read_sda_value()
+        self._read_data = (self._read_data << 1) | self.read_mdio_value()
 
       if self._write_data is not None:
         self._write_data = (self._write_data << 1) & 0xff
@@ -392,7 +372,7 @@ class I2CMasterChecker(px.SimThread):
         self.byte_done()
 
     def handle_check_start_stop(self):
-      if self._sda_value:
+      if self._mdio_value:
         if self._bit_num != 1:
           self.error("Stopping when mid-byte")
         self.set_state("STOPPED")
@@ -411,53 +391,20 @@ class I2CMasterChecker(px.SimThread):
         ack = self.get_next_ack()
         if ack:
           print("Sending ack")
-          self.drive_sda(0)
+          self.drive_mdio(0)
         else:
           print("Sending nack")
-          self.drive_sda(1)
+          self.drive_mdio(1)
         self.set_state("ACK_SENT")
       else:
         # Simulate external pullup
-        self.drive_sda(1)
+        self.drive_mdio(1)
 
-    def handle_ack_sent(self):
-      pass
-
-    def handle_sample_ack(self):
-      if self._drive_ack:
-        if self.xsi.is_port_driving(self._sda_port):
-          print("WARNING: master driving SDA during ACK phase")
-
-        if self.read_sda_value():
-          self.set_state("NACKED")
-        else:
-          self.set_state("ACKED")
-
-      else:
-        nack = self.read_sda_value()
-        print("Master sends %s." % ("NACK" if nack else "ACK"))
-        if nack:
-          self.set_state("NACKED")
-          self._write_data = None # Stop driving data on SDA if the master has NACKED
-          print("Waiting for stop/start bit")
-        else:
-          self.set_state("ACKED")
-          # Prepare the next byte to be read
-          self._write_data = self.get_next_data_item()
-
-      self._bit_num = 0
-      self._byte_num += 1
-
-    def handle_acked(self):
-      pass
-
-    def handle_nacked(self):
-      pass
 
     def handle_repeat_start(self):
       print("Repeated start bit received")
       # Need to check setup time for repeated start has been respected
-      self.check_setup_start_time(self._sda_change_time - self._scl_change_time)
+      self.check_setup_start_time(self._mdio_change_time - self._mdc_change_time)
       self.starting_sequence()
 
     def handle_illegal(self):
@@ -465,13 +412,13 @@ class I2CMasterChecker(px.SimThread):
 
     def run(self):
       # Simulate external pullup
-      self.drive_scl(1)
-      self.drive_sda(1)
+      self.drive_mdc(1)
+      self.drive_mdio(1)
 
       # Ignore the blips on the ports at the start
       self.wait_until(100e6)
-      self._scl_value = self.read_scl_value()
-      self._sda_value = self.read_sda_value()
+      self._mdc_value = self.read_mdc_value()
+      self._mdio_value = self.read_mdio_value()
 
       self.wait_for_stopped()
 
@@ -481,9 +428,9 @@ class I2CMasterChecker(px.SimThread):
       self._state = "STOPPED"
 
       while True:
-        scl_changed, sda_changed = self.wait_for_change()
+        mdc_changed, mdio_changed = self.wait_for_change()
 
-        if scl_changed and sda_changed:
+        if mdc_changed and mdio_changed:
           self.error("Unsupported having SCL & SDA changing simultaneously")
 
-        self.move_to_next_state(scl_changed, sda_changed)
+        self.move_to_next_state(mdc_changed, mdio_changed)
