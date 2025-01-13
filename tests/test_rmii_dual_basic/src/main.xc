@@ -40,7 +40,7 @@ void loopback(client ethernet_cfg_if cfg,
       unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
       ethernet_packet_info_t packet_info;
       rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
-      tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
+      tx.send_packet(rxbuf, packet_info.len, 1);
       break;
     }
   }

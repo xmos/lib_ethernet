@@ -274,6 +274,9 @@ def check_received_packet(packet, phy):
 
     if phy.expect_packet_index >= phy.num_expected_packets:
         print("Test done")
+        wait_time_us = 80 # In case the other port is receiving, wait sometime before terminating
+        wait_time_ticks = (wait_time_us * px.Xsi.get_xsi_tick_freq_hz())/1e6
+        phy.wait_until(phy.xsi.get_time() + wait_time_ticks)
         phy.xsi.terminate()
 
 def generate_tests(test_params_json):

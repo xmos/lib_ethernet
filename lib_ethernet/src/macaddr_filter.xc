@@ -10,10 +10,15 @@ int ethernet_filter_result_is_hp(unsigned value)
   return (value >> 31) ? 1 : 0;
 }
 
+int ethernet_filter_result_is_forwarding_set(unsigned value)
+{
+  return ((value >> 30) & 0x1) ? 1 : 0;
+}
+
 unsigned ethernet_filter_result_interfaces(unsigned value)
 {
-  // Throw away bit 31
-  return (value << 1) >> 1;
+  // Throw away bit 30 and 31
+  return (value << 2) >> 2;
 }
 
 unsigned ethernet_filter_result_set_hp(unsigned value, int is_hp)
@@ -21,6 +26,13 @@ unsigned ethernet_filter_result_set_hp(unsigned value, int is_hp)
   // Ensure it is a single bit in the LSB
   is_hp = is_hp ? 1 : 0;
   return value | (is_hp << 31);
+}
+
+unsigned ethernet_filter_result_set_forwarding(unsigned value, int is_forwarding_set)
+{
+  // Ensure it is a single bit in the LSB
+  is_forwarding_set = is_forwarding_set ? 1 : 0;
+  return value | (is_forwarding_set << 30);
 }
 
 void ethernet_init_filter_table(eth_global_filter_info_t table)

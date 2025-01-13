@@ -129,6 +129,12 @@ unsafe void mii_ethernet_filter(chanend c_conf,
     debug_printf("Filter result: %x\n", filter_result);
     buf->filter_result = filter_result;
 
+    if(!buf->filter_result)
+    {
+      // If none of the clients want the packet, forward it to the tx port
+      buf->filter_result = ethernet_filter_result_set_forwarding(buf->filter_result, 1);
+    }
+
     if (ethernet_filter_result_is_hp(filter_result)) {
       if (!mii_packet_queue_full((mii_packet_queue_t)&rx_packets_hp_local[current_port])) {
         mii_add_packet((mii_packet_queue_t)&rx_packets_hp_local[current_port], buf);

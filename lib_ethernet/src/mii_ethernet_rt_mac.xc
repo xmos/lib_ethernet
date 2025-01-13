@@ -103,6 +103,11 @@ unsafe static unsigned handle_incoming_packet(mii_packet_queue_t packets,
       }
     }
   }
+  if(ethernet_filter_result_is_forwarding_set(buf->filter_result))
+  {
+    tcount++; // TODO this assumes that there is only one client we want to forward this to, which is a valid assumption for a 2 port system but doesn't scale
+    buf->forwarding = 0xffffffff;
+  }
 
   if (tcount == 0) {
     mii_free_index(packets, rd_index);
@@ -319,7 +324,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
         memcpy(&desc, &info, sizeof(info));
 
         if (mii_get_and_dec_transmit_count(buf) == 0) {
-          mii_free_index((mii_packet_queue_t)&rx_packets_lp_local[0], packets_rd_index);
+          mii_free_index((mii_packet_queue_t)&rx_packets_lp_local[current_port_lp], packets_rd_index);
         }
 
         client_state.rd_index[current_port_lp] = increment_and_wrap_to_zero(client_state.rd_index[current_port_lp],

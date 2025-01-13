@@ -17,7 +17,7 @@ from rmii_phy import RMiiTransmitter, RMiiReceiver
 
 
 
-def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
+def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed, loopback_packets, forwarded_packets,
                extra_tasks=[], override_dut_dir=False, rx_width=None, tx_width=None):
 
     """ Shared test code for all RX tests using the test_rx application.
@@ -40,9 +40,9 @@ def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, t
     assert os.path.isfile(binary), f"Missing .xe {binary}"
 
     tx_phy[1].set_packets(packets)
-    rx_phy[1].set_expected_packets(packets)
-    #for phy in rx_phy:
-    #    phy.set_expected_packets(packets)
+    rx_phy[1].set_expected_packets(loopback_packets)
+    rx_phy[0].set_expected_packets(forwarded_packets)
+
 
     expect_folder = create_if_needed("expect_temp")
     if rx_width:
@@ -70,23 +70,6 @@ def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, t
                                     )
 
     assert result is True, f"{result}"
-
-"""
-def move_to_next_valid_packet(phy):
-    while (phy.expect_packet_index < phy.num_expected_packets and
-           phy.expected_packets[phy.expect_packet_index].dropped):
-        phy.expect_packet_index += 1
-
-
-def check_received_packet(packet, phy):
-    if phy.expected_packets is None:
-        return
-
-    move_to_next_valid_packet(phy)
-
-    print(packet, packet.num_data_bytes, packet.ether_len_type)
-    print(packet.data_bytes)
-"""
 
 
 def rmii_dual_test(capfd, params, seed):
@@ -123,20 +106,38 @@ def rmii_dual_test(capfd, params, seed):
         rand.seed(seed)
 
         dut_mac_address = get_dut_mac_address()
-        broadcast_mac_address = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        not_dut_mac_address = []
+        for i in range(6):
+            not_dut_mac_address.append(dut_mac_address[i]+1)
 
         packets = []
+        loopback_packets = []
+        forwarded_packets = []
 
         # Send frames which excercise all of the tail length vals (0, 1, 2, 3 bytes)
         packet_start_len = 100
+        # Packets that get looped back on the same port
         for i in range(5):
-            packets.append(MiiPacket(rand,
+            loopback_packets.append(MiiPacket(rand,
                 dst_mac_addr=dut_mac_address,
                 create_data_args=['step', (i, packet_start_len + i)],
                 inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
             ))
+        # packets that get forwarded to the other port
+        for i in range(5):
+            forwarded_packets.append(MiiPacket(rand,
+                dst_mac_addr=not_dut_mac_address,
+                create_data_args=['step', (i, packet_start_len + i)],
+                inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
+            ))
 
-        do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, rx_width=rx_width, tx_width=tx_width)
+        # interleave loopback and forwarded packets
+        for i in range(5):
+            packets.append(loopback_packets[i])
+            packets.append(forwarded_packets[i])
+
+
+        do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, loopback_packets, forwarded_packets, rx_width=rx_width, tx_width=tx_width)
 
 
 

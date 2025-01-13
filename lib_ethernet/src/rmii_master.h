@@ -48,13 +48,17 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
                                 mii_packet_queue_t hp_packets,
                                 mii_packet_queue_t lp_packets,
+                                mii_mempool_t * unsafe rx_mem,
+                                mii_packet_queue_t * unsafe rx_packets_lp,
+                                mii_packet_queue_t * unsafe rx_packets_hp,
                                 mii_ts_queue_t ts_queue_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
-                                volatile ethernet_port_state_t * unsafe p_port_state);
+                                volatile ethernet_port_state_t * unsafe p_port_state,
+                                int ifnum);
 
 
 // This is re-used by RMII as it is abstracted from the MAC pins

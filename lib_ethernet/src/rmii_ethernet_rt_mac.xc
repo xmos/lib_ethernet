@@ -219,13 +219,17 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_mem_hp,
                           (mii_packet_queue_t)&tx_packets_lp,
                           (mii_packet_queue_t)&tx_packets_hp,
+                          rx_mem_ptr,
+                          rx_packets_lp_ptr,
+                          rx_packets_hp_ptr,
                           ts_queue,
                           tx_port_width,
                           tx_data_0,
                           tx_data_1,
                           tx_port_4b_pins,
                           txclk,
-                          p_port_state);
+                          p_port_state,
+                          0);
 
       mii_ethernet_filter(c_conf,
                           incoming_packets_ptr,
@@ -421,25 +425,33 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               tx_mem_hp[0],
                               (mii_packet_queue_t)(&tx_packets_lp[0]),
                               (mii_packet_queue_t)(&tx_packets_hp[0]),
+                              rx_mem_ptr, // memory pool for the forwarding packets
+                              rx_packets_lp_ptr, // lp forwarding packets queue
+                              rx_packets_hp_ptr, // hp forwarding packets queue
                               ts_queue,
                               tx_port_width_0,
                               tx_data_0_0,
                               tx_data_0_1,
                               tx_port_4b_pins_0,
                               txclk_0,
-                              p_port_state);
+                              p_port_state,
+                              0);
 
             rmii_master_tx_pins(tx_mem_lp[1],
                               tx_mem_hp[1],
                               (mii_packet_queue_t)(&tx_packets_lp[1]),
                               (mii_packet_queue_t)(&tx_packets_hp[1]),
+                              rx_mem_ptr, // memory pool for the forwarding packets
+                              rx_packets_lp_ptr, // lp forwarding packets queue
+                              rx_packets_hp_ptr, // hp forwarding packets queue
                               ts_queue,
                               tx_port_width_1,
                               tx_data_1_0,
                               tx_data_1_1,
                               tx_port_4b_pins_1,
                               txclk_1,
-                              p_port_state);
+                              p_port_state,
+                              1);
 
 
             mii_ethernet_filter(c_conf,

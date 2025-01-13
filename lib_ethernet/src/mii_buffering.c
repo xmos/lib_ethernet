@@ -185,6 +185,8 @@ void mii_add_packet(mii_packet_queue_t queue, mii_packet_t *buf)
   packet_queue_info_t *info = (packet_queue_info_t *)queue;
   unsigned wr_index = info->wr_index;
 
+  buf->forwarding = 0;
+
   info->ptrs[wr_index] = (unsigned *)buf;
   info->wr_index = increment_and_wrap_power_of_2(wr_index, ETHERNET_NUM_PACKET_POINTERS);
 }
