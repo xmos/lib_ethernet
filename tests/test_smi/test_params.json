@@ -1,6 +1,6 @@
 {
     "PROFILES": [
-        {"phy":"mii", "mac":"standard", "arch":["xs2", "xs3"]},
-        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "rx_width":"4b_lower", "tx_width":"4b_lower"}
-        ]
+        {"type": "two_port", "arch":["xs2", "xs3"]},
+        {"type": "single_port", "arch":["xs2", "xs3"]}        
+    ]
 }

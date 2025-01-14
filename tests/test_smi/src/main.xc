@@ -11,12 +11,21 @@
 
 #include "ports.h"
 
+void test_smi(client interface smi_if i_smi){
+
+//   uint16_t read_reg(uint8_t phy_address, uint8_t reg_address);
+  // void write_reg(uint8_t phy_address, uint8_t reg_address, uint16_t val);
+}
+
 
 int main()
 {
-  par {
-   
-  }
-  return 0;
+    interface smi_if i_smi;
+    par {
+        test_smi(i_smi);
+        [[distribute]]
+        smi(i_smi, p_smi_mdio, p_smi_mdc);
+    }
+    return 0;
 }
 
