@@ -6,8 +6,9 @@ import pytest
 import os
 from pathlib import Path
 
-from smi import smi_master_checker
+from smi import smi_master_checker, smi_make_packet
 from helpers import generate_tests, create_if_needed
+
 
 def do_test(capfd, ptype, arch):
     testname = 'test_smi'
@@ -23,7 +24,6 @@ def do_test(capfd, ptype, arch):
 
     tester = px.testers.ComparisonTester(open(f'{testname}.expect'))
 
-
     log_folder = create_if_needed("logs")
     filename = f"{log_folder}/xsim_trace_{testname}_{ptype}_{arch}"
     sim_args = ['--trace-to', f'{filename}.txt', '--enable-fnop-tracing']
@@ -32,7 +32,12 @@ def do_test(capfd, ptype, arch):
     vcd_args+= f' -functions -cycles -clock-blocks -pads'
     sim_args += ['--vcd-tracing', vcd_args]
 
+    mdc_port = "XS1_PORT_1N"
+    mdio_port = "XS1_PORT_1M"
+    expected_speed_hz = 1.666666e6
+    header, write_data = smi_make_packet(0x2, 0x10, write_data=0x1234)
 
+    smi_harness = smi_master_checker(mdc_port, mdio_port, expected_speed_hz, write_data)
     result = px.run_on_simulator_(  binary,
                                     simthreads=[smi_master_checker],
                                     tester=tester,

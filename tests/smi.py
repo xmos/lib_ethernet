@@ -1,6 +1,8 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
+
 import Pyxsim as px
+from bitstring import BitArray, BitStream
 
 VERBOSE = False
 
@@ -10,15 +12,13 @@ class smi_master_checker(px.SimThread):
     caused by the master.
     """
 
-    def __init__(self, mdc_port, mdio_port, expected_speed,
-                 tx_data=[], ack_sequence=[], clock_stretch=0, original_speed=None):
+    def __init__(self, mdc_port, mdio_port, expected_speed_hz, tx_data=[]):
         self._mdc_port = mdc_port
         self._mdio_port = mdio_port
         self._tx_data = tx_data
-        self._ack_sequence = ack_sequence
-        self._expected_speed = expected_speed # Speed the checker is expected to detect. Could be lower than the I2C master's original operating speed if the slave is clock stretching
-        self._clock_stretch = clock_stretch*1e6 # ns to fs conversion
-
+ 
+        self.expected_speed_hz = expected_speed_hz
+      
         self._external_mdc_value = 0
         self._external_mdio_value = 0
 
@@ -28,8 +28,6 @@ class smi_master_checker(px.SimThread):
         self._mdc_value = 0
         self._mdio_value = 0
 
-        self._clock_release_time = None
-
         self._bit_num = 0
         self._bit_times = []
         self._prev_fall_time = None
@@ -37,12 +35,6 @@ class smi_master_checker(px.SimThread):
 
         self._read_data = None
         self._write_data = None
-
-        self._drive_ack = 1
-        if original_speed is not None:
-          self._original_speed = original_speed # Speed at which the I2C master is operating.
-        else:
-          self._original_speed = self._expected_speed
 
         print("Checking SMI: MDC=%s, MDIO=%s" % (self._mdc_port, self._mdio_port))
 
@@ -434,3 +426,37 @@ class smi_master_checker(px.SimThread):
           self.error("Unsupported having SCL & SDA changing simultaneously")
 
         self.move_to_next_state(mdc_changed, mdio_changed)
+
+
+# Will make an SMI packet. If write_data is not specified we assume a read.
+# Data is returned as a BitArray - get that as 1s and 0s using header.bin and wr_data.bin
+def smi_make_packet(phy_address, reg_address, write_data=None):
+    if phy_address > 0x1f or reg_address > 0x1f:
+        print(f"Error: phy address 0x{phy_address:x} and reg address 0x{reg_address:x} must be less than 31")
+
+    preamble = BitArray(bin='1' * 32) 
+    sof = BitArray(bin='01')
+    opcode = BitArray(bin='10' if write_data == None else '01')
+    phy_addr = BitArray(uint=phy_address, length=5)
+    reg_addr = BitArray(uint=reg_address, length=5)
+
+    header = preamble + sof + opcode + phy_addr + reg_addr
+    
+    # TODO debug only
+    print(opcode.bin)
+    print(phy_addr)
+    print(reg_addr)
+    print(header.bin)
+
+    # Note we need a two cycle Hi-Z turnaround between header and read or write data
+
+    print(write_data)
+    if write_data is None:
+        wr_data = None
+    else:
+        # Data is always 16bits
+        if write_data > 0xffff:
+            print(f"Error: write_data 0x{write_data} must be 16 bits")
+        wr_data = BitArray(uint=write_data, length=16)
+
+    return header, wr_data
