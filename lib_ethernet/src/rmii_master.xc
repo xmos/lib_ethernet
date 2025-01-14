@@ -857,9 +857,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
                                 mii_packet_queue_t packets_lp,
                                 mii_packet_queue_t packets_hp,
-                                mii_mempool_t * unsafe forwarding_mem,
-                                mii_packet_queue_t * unsafe forwarding_packets_lp,
-                                mii_packet_queue_t * unsafe forwarding_packets_hp,
+                                mii_mempool_t * unsafe forwarding_packets_mem,
+                                packet_queue_info_t * unsafe forwarding_packets_lp,
+                                packet_queue_info_t * unsafe forwarding_packets_hp,
                                 mii_ts_queue_t ts_queue_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
@@ -883,8 +883,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     unsigned eof_time = 0;
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
-    packet_queue_info_t *fwd_packets_lp_local = (packet_queue_info_t *)forwarding_packets_lp;
-    packet_queue_info_t *fwd_packets_hp_local = (packet_queue_info_t *)forwarding_packets_hp;
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
         enable_shaper = 0;
@@ -910,15 +908,15 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                     {
                         continue;
                     }
-                    buf = mii_get_next_buf((mii_packet_queue_t)(&fwd_packets_hp_local[i]));
+                    buf = mii_get_next_buf((mii_packet_queue_t)(&forwarding_packets_hp[i]));
                     if(!buf)
                     {
                         continue;
                     }
                     if(buf->forwarding)
                     {
-                        tx_mem = forwarding_mem[i];
-                        pkt_queue = (mii_packet_queue_t)&fwd_packets_hp_local[i];
+                        tx_mem = forwarding_packets_mem[i];
+                        pkt_queue = (mii_packet_queue_t)&forwarding_packets_hp[i];
                         break;
                     }
                     buf = 0;
@@ -956,15 +954,15 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                     {
                         continue;
                     }
-                    buf = mii_get_next_buf((mii_packet_queue_t)(&fwd_packets_lp_local[i]));
+                    buf = mii_get_next_buf((mii_packet_queue_t)(&forwarding_packets_lp[i]));
                     if(!buf)
                     {
                         continue;
                     }
                     if(buf->forwarding)
                     {
-                        tx_mem = forwarding_mem[i];
-                        pkt_queue = (mii_packet_queue_t)&fwd_packets_lp_local[i];
+                        tx_mem = forwarding_packets_mem[i];
+                        pkt_queue = (mii_packet_queue_t)&forwarding_packets_lp[i];
                         break;
                     }
                     buf = 0;

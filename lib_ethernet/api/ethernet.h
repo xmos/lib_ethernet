@@ -241,6 +241,8 @@ typedef interface ethernet_cfg_if {
    */
   void disable_link_status_notification(size_t client_num);
 
+  void forward_packets_as_hp(unsigned forward_as_hp_flag);
+
 #ifdef __XC__
 } ethernet_cfg_if;
 #endif
@@ -408,6 +410,7 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
                                     unsigned ifnum)
 {
   c_tx_hp <: n;
+  c_tx_hp <: ifnum;
   sout_char_array(c_tx_hp, packet, n);
 }
 

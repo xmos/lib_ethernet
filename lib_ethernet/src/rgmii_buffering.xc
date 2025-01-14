@@ -858,6 +858,10 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
           break;
         }
 
+      case i_cfg[int i].forward_packets_as_hp(unsigned forward_packets_in_hp_queue):
+        // Do nothing
+        break;
+
       case c_rgmii_cfg :> unsigned tmp:
         // Server has reset
         unsafe {

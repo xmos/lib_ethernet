@@ -143,11 +143,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp);
     mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp);
     mii_init_packet_queue((mii_packet_queue_t)&incoming_packets);
-    mii_packet_queue_t * unsafe incoming_packets_ptr = (mii_packet_queue_t *)&incoming_packets;
-    mii_packet_queue_t * unsafe rx_packets_lp_ptr = (mii_packet_queue_t *)&rx_packets_lp;
-    mii_packet_queue_t * unsafe rx_packets_hp_ptr = (mii_packet_queue_t *)&rx_packets_hp;
-    mii_packet_queue_t * unsafe tx_packets_lp_ptr = (mii_packet_queue_t *)&tx_packets_lp;
-    mii_packet_queue_t * unsafe tx_packets_hp_ptr = (mii_packet_queue_t *)&tx_packets_hp;
+    packet_queue_info_t * unsafe incoming_packets_ptr = &incoming_packets;
+    packet_queue_info_t * unsafe rx_packets_lp_ptr = &rx_packets_lp;
+    packet_queue_info_t * unsafe rx_packets_hp_ptr = &rx_packets_hp;
+    packet_queue_info_t * unsafe tx_packets_lp_ptr = &tx_packets_lp;
+    packet_queue_info_t * unsafe tx_packets_hp_ptr = &tx_packets_hp;
 
     // Shared read pointer to help optimize the RX code
     unsigned rx_rdptr = 0;
@@ -304,11 +304,11 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         packet_queue_info_t rx_packets_lp[NUM_ETHERNET_PORTS], rx_packets_hp[NUM_ETHERNET_PORTS], incoming_packets[NUM_ETHERNET_PORTS];
         packet_queue_info_t tx_packets_lp[NUM_ETHERNET_PORTS], tx_packets_hp[NUM_ETHERNET_PORTS];
 
-        mii_packet_queue_t * unsafe incoming_packets_ptr = (mii_packet_queue_t *)incoming_packets;
-        mii_packet_queue_t * unsafe rx_packets_lp_ptr = (mii_packet_queue_t *)rx_packets_lp;
-        mii_packet_queue_t * unsafe rx_packets_hp_ptr = (mii_packet_queue_t *)rx_packets_hp;
-        mii_packet_queue_t * unsafe tx_packets_lp_ptr = (mii_packet_queue_t *)tx_packets_lp;
-        mii_packet_queue_t * unsafe tx_packets_hp_ptr = (mii_packet_queue_t *)tx_packets_hp;
+        packet_queue_info_t * unsafe incoming_packets_ptr = incoming_packets;
+        packet_queue_info_t * unsafe rx_packets_lp_ptr = rx_packets_lp;
+        packet_queue_info_t * unsafe rx_packets_hp_ptr = rx_packets_hp;
+        packet_queue_info_t * unsafe tx_packets_lp_ptr = tx_packets_lp;
+        packet_queue_info_t * unsafe tx_packets_hp_ptr = tx_packets_hp;
 
         for(int i=0; i<NUM_ETHERNET_PORTS; i++)
         {
