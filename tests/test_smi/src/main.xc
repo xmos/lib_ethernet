@@ -25,6 +25,7 @@ int main()
         test_smi(i_smi);
         [[distribute]]
         smi(i_smi, p_smi_mdio, p_smi_mdc);
+        par(int i = 0; i < 7; i++){while(1);}
     }
     return 0;
 }

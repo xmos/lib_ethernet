@@ -7,26 +7,36 @@ import os
 from pathlib import Path
 
 from smi import smi_master_checker
-from helpers import generate_tests
+from helpers import generate_tests, create_if_needed
 
-def do_test(capfd):
+def do_test(capfd, ptype, arch):
     testname = 'test_smi'
 
     with capfd.disabled():
-        print(f"Running {testname}: {mac} {tx_phy.get_name()} phy, {arch} arch at {tx_clk.get_name()}")
+        print(f"Running {testname}:port type {ptype}, arch {arch}")
 
+    profile = f"{ptype}_{arch}"
 
     capfd.readouterr() # clear capfd buffer
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
 
     tester = px.testers.ComparisonTester(open(f'{testname}.expect'))
-    simargs = get_sim_args(testname, mac, tx_clk, tx_phy, arch=arch)
+
+
+    log_folder = create_if_needed("logs")
+    filename = f"{log_folder}/xsim_trace_{testname}_{ptype}_{arch}"
+    sim_args = ['--trace-to', f'{filename}.txt', '--enable-fnop-tracing']
+
+    vcd_args = f'-o {filename}.vcd -tile tile[0] -ports -ports-detailed -instructions'
+    vcd_args+= f' -functions -cycles -clock-blocks -pads'
+    sim_args += ['--vcd-tracing', vcd_args]
+
 
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[tx_clk, tx_phy],
+                                    simthreads=[smi_master_checker],
                                     tester=tester,
-                                    simargs=simargs,
+                                    simargs=sim_args,
                                     do_xe_prebuild=False,
                                     capfd=capfd
                                     )
@@ -38,12 +48,6 @@ test_params_file = Path(__file__).parent / "test_smi/test_params.json"
 def test_link_status(capfd, params):
     verbose = False
    
-    rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
-    tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
-                                  rmii_clk,
-                                      verbose=verbose,
-                                      test_ctrl="tile[0]:XS1_PORT_1M"
-                                    )
-
-    do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, params["rx_width"])
+    with capfd.disabled():  
+        do_test(capfd, params["type"], params["arch"])
 
