@@ -60,7 +60,7 @@ class smi_master_checker(px.SimThread):
       self._write_data = None
 
     def _calculate_ave_bit_time(self):
-      print(self._bit_num)
+      # we have 63 periods in between the bit times here (fencepost thing) not 64
       max_bit_time = max(self._bit_times)
       min_bit_time = min(self._bit_times)
       ave_bit_time = sum(self._bit_times)/self._bit_num
