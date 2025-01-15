@@ -1,0 +1,352 @@
+.. include:: ../../README.rst
+
+|newpage|
+
+Overview
+--------
+
+Introduction
+............
+
+The application note shows the use of the XMOS Ethernet library. The
+library allows multiple clients to access the Ethernet hardware. This
+application note uses the standard Ethernet MAC which uses two logical
+cores. The Ethernet library also provides a real-time MAC which uses
+more cores but provides high performance streaming data, accurate
+packet timestamping, priority queuing and 802.1Qav traffic shaping.
+
+MII provides the data transfer signals
+between the Ethernet PHY (Physical Layer Device or transceiver) and
+the xCORE device. The MII layer receives packets of data which are
+then routed by an Ethernet MAC layer to multiple processes running on
+the xCORE. SMI provides the management interface between the PHY and
+the xCORE device.
+
+Block Diagram
+.............
+
+.. figure:: images/block_diag.*
+   :width: 80%
+
+   Application block diagram
+
+The application communicates with the Ethernet MAC that drives the MII
+data interface to the PHY. A separate PHY driver configures the PHY
+via the SMI serial interface.
+
+
+100Mbit Ethernet library demo
+-----------------------------
+
+
+The Makefile
+............
+
+The demo in this note uses the XMOS Ethernet library and shows a
+simple program communicating with the Ethernet library.
+
+To start using the Ethernet library, you need to add ``lib_ethernet``
+to you Makefile::
+
+  USED_MODULES = .. lib_ethernet ...
+
+This demo also gets the MAC address out of the xCORE OTP rom and is
+for the sliceKIT. So the Makefile also includes the OTP reading library
+(``lib_otpinfo``) and the sliceKIT support library
+(``lib_slicekit_support``)::
+
+  USED_MODULES = .. lib_otpinfo lib_slicekit_support
+
+
+Allocating hardware resources
+.............................
+
+The Ethernet library requires several ports to communicate with the
+Ethernet PHY. These ports are declared in the main program file
+(``main.xc``). In this demo the ports are set up for the Ethernet
+slice connected to tile 1 triangle slot of the sliceKIT. Actual port
+names such as ``XS1_PORT_1J`` are specified in XN file and source refers
+to them with symbolic names such as ``PORT_ETH_RXCLK``:
+
+.. literalinclude:: main.xc
+   :start-on: PORT_ETH_RXCLK
+   :end-on: PORT_SMI_MDC
+
+Note that the port ``p_eth_dummy`` does not need to be connected to
+external hardware - it is just used internally by the Ethernet
+library.
+
+You will find three additional PHY signals on the sliceCARD: RST_N,
+CLK_IN and INT_N. INT_N will be left unused and we will poll SMI registers
+to get link state instead. CLK_N receives 25MHz clock from the sliceKIT
+and RST_N receives the sliceKITs system reset.
+
+The MDIO Serial Management Interface (SMI) is used to transfer
+management information between MAC and PHY. This interface consists of
+two signals which are connected to two ports:
+
+.. literalinclude:: main.xc
+   :start-on: p_smi_mdio
+   :end-on: p_smi_mdc
+
+The final ports used in the application
+are the ones to access the internal OTP
+memory on the xCORE. These ports are fixed and can be intialized with
+the ``OTP_PORTS_INITIALIZER`` macro supplied by the ``lib_otpinfo``
+OTP reading library.
+
+.. literalinclude:: main.xc
+   :start-on: // These ports are for accessing the OTP memory
+   :end-on: otp_ports
+
+The application main() function
+...............................
+
+The main function in the program sets up the tasks in the application.
+
+.. literalinclude:: main.xc
+   :start-on: int main
+
+The ``mii_ethernet_mac`` communicates with the PHY and connects to the
+application via the three interfaces. It takes the previously declared
+ports as arguments as well as the required buffer size for the packet
+buffer within the MAC.
+
+The ``smi`` task is part of the Ethernet library and controls the SMI
+protocol to configure the PHY. It connects to the
+``lan8710a_phy_driver`` task which connects configuration of the PHY
+
+|newpage|
+
+The PHY driver
+..............
+
+The PHY drive task connects to both the Ethernet MAC (via the
+``ethernet_cfg_if`` interface for configuration) and the SMI driver
+(via the ``smi_if`` interface):
+
+.. literalinclude:: main.xc
+   :start-on: [[combinable]]
+   :end-before:  ETH_RX_BUFFER
+
+The first action the drive does is wait for the PHY to power up and
+then configure the PHY. This is done via library functions provided by
+the Ethernet library.
+
+The main body of the drive is an infinite loop that periodically
+reacts to a timer event in an xC ``select`` statement. A a set period
+it checks the state of the PHY over SMI and then informs the MAC of
+this state via the ``eth.set_link_state`` call. This way the MAC can
+know about link up/down events or change of link speed.
+
+ICMP Packet Processing
+......................
+
+The packet processing in the application is handled by the
+``icmp_server`` task which is defined in the file ``icmp.xc``. This
+function connects to the ethernet MAC via a transmit, receive and
+configuration interface:
+
+.. literalinclude:: icmp.xc
+   :start-on: [[combinable]]
+   :end-on: {
+
+The first thing the task performs is configuring its connection to the
+MAC. The MAC address is configured by reading a MAC address out of OTP
+(using the ``otp_board_info_get_mac`` function from the OTP reading
+library) and then calling the ``set_macaddr`` interface function:
+
+.. literalinclude:: icmp.xc
+   :start-on: unsigned char mac_address[MACADDR_NUM_BYTES];
+   :end-on: cfg.set_macaddr
+
+After this, the task configures filters to determine which type of
+packets is will receive from the MAC:
+
+.. literalinclude:: icmp.xc
+   :start-on: memcpy(macaddr_filter.addr
+   :end-before: debug_printf
+
+The task then proceeds into an infinite loop that waits for a packet
+from the MAC and then processes it:
+
+.. literalinclude:: icmp.xc
+   :start-on: while (1)
+
+The xC ``select`` statement will wait for the event
+``rx.packet_ready()`` which is a receive notification from the MAC
+(see the Ethernet library user guide for details of the ethernet
+receive interface). When a packet arrives the ``rx.get_packet`` call
+will retreive the packet from the MAC.
+
+After the packet is processed the ``tx.send_packet`` call will send
+the created reponse packet to the MAC.
+
+Details of the packet processing functions ``is_valid_arp_packet``,
+``build_arp_response``, ``is_valid_icmp_packet`` and
+``build_icmp_response`` can be found in the ``icmp.xc`` file. The
+functions implement the ICMP protocol.
+
+|newpage|
+|appendix|
+
+Demo Hardware Setup
+--------------------
+
+ * To run the demo, connect the XTAG USB debug adapter to the sliceKIT via the supplied adaptor board
+ * Connect the XTAG to the host PC (using USB extension cable if desired)
+ * Connect the ethernet sliceCARD to the **TILE 1 TRIANGLE** slot of the sliceKIT. Then, connect the slice to the host PC or to the network switch using an ethernet cable.
+ * On the xCORE-200 series sliceKIT ensure that the xCONNECT LINK (xSCOPE) switch is set to ON, as per the image, to allow xSCOPE to function. 
+
+.. figure:: images/hardware_setup.*
+   :scale: 100%
+   :align: center
+
+   Hardware Setup for XMOS MAC library demo
+
+|newpage|
+
+Launching the demo device
+-------------------------
+
+
+
+Once the application source code is imported into the tools you can
+edit the demo to configure the IP address the ICMP code uses. This is
+declared as a data structure in ``main.xc`` (which is then passed to
+the ``icmp_server`` function)::
+
+  static unsigned char ip_address[4] = {192, 168, 1, 178};
+
+Alter this value to an IP address that works on your network.
+
+You can now build the project which will generate the binary file required to run the demo application.
+Once the application has been built you need to download the application code onto the xCORE-L sliceKIT. Here you use the tools to load the application over JTAG onto the xCORE device.
+
+ * Select **Run Configuration**.
+ * In **Main** menu, enable **xSCOPE** in Target I/O options.
+ * In **XScope** menu, enable **Offline [XScope] Mode**.
+ * Click **Apply** and then **Run**.
+
+When the processor has finished booting you will see the following text in the xTIMEcomposer console window when **ping**-ed from the host. 
+
+.. _fig_ping_response:
+
+.. figure:: images/ping_response.*
+   :scale: 85%
+   :align: center
+
+   Response on xTIMEcomposer console for **Ping**
+
+|newpage|
+
+.. figure:: images/host_ping_response.*
+   :scale: 85%
+   :align: center
+
+   Response on Host PC for **Ping**
+
+On the above `ping` response on host, out of 40 packets transmitted to device first 15 packet couldn't able to reach the device. During this period, device will respond as **ARP packet received**. 
+After that device (remaining 35 packets) responds as **ICMP packet received**. (:ref:`fig_ping_response`)
+
+|newpage|
+
+FAQs
+-----
+
+1. What do I do if I need to change the ethernet sliceCARD slot?
+
+The ports in the application are configured to connect to ethernet
+sliceCARD in the CIRCLE slot but this can be changed by changing the
+port declarations in ``main.xc``.
+
+2. How can the demo be altered to use the real-time MAC?
+
+   The call to ``mii_ethernet_mac`` needs to be replaces with a call
+   to ``mii_ethernet_rt_mac``. See the Ethernet library user guide for
+   more details.
+
+3. What are Buffers and Queues? Why are they needed?
+
+ The MAC maintains two sets of buffers: one for the incoming packets
+ and the other for outgoing packets.
+
+  For the incoming packets:
+
+  - Empty buffers are in the incoming queue awaiting a packet coming from the MII interfaces.
+  - Buffers received from the MII interface are filtered and moved into a forwarding queue if appropriate.
+  - Buffers in the forwarding queue are moved into a client queue depending on which client registered for that type of packet.
+  - Once the data from a buffer has been sent to a client, the buffer is moved back into the incoming queue.
+
+  For the outgoing packets:
+
+  - Empty buffers are stored in an empty queue awaiting a packet from the client.
+  - Once the data is received the buffer is moved into a transmit queue awaiting output on the MII interface.
+  - Once the data is transmitted, the buffer is released back to the empty queue.
+
+|newpage|
+
+References
+----------
+
+.. nopoints::
+
+ * XMOS Tools User Guide 
+   
+   http://www.xmos.com/published/xtimecomposer-user-guide
+
+ * XMOS xCORE Programming Guide 
+   
+   http://www.xmos.com/published/xmos-programming-guide
+
+ * XMOS Layer 2 Ethernet MAC Component
+
+   https://www.xmos.com/published/xmos-layer-2-ethernet-mac-component
+
+ * IEEE 802.3 Ethernet Standards
+
+   http://standards.ieee.org/about/get/802/802.3.html
+
+ * Ethernet Basics
+  
+   http://homepage.smc.edu/morgan_david/linux/n-protocol-09-ethernet.pdf
+
+ * Ethernet Frame
+  
+   http://en.wikipedia.org/wiki/Ethernet_frame
+ 
+ * Ethernet Timestamps
+
+   http://m.eetindia.co.in/STATIC/PDF/200906/EEIOL_2009JUN03_NETD_TA_01.pdf?SOURCES=DOWNLOAD
+
+ * MAC address
+
+   http://en.wikipedia.org/wiki/MAC_address
+
+ * Ethernet Type
+  
+   http://en.wikipedia.org/wiki/EtherType
+
+ * Internet Control Message Protocol
+   
+   http://en.wikipedia.org/wiki/Internet_Control_Message_Protocol
+ 
+|newpage|
+
+Full Source code listing
+-------------------------
+
+Source code for main.xc
+.......................
+
+.. literalinclude:: main.xc
+   :largelisting:
+
+Source code for icmp.xc
+...........................
+
+.. literalinclude:: icmp.xc
+   :largelisting:
+
+|newpage|
+
