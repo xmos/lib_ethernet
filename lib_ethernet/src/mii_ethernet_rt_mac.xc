@@ -199,11 +199,12 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
 
 static inline void update_client_state(rx_client_state_t client_state[n],
                                               server ethernet_rx_if i_rx[n],
-                                              unsigned n)
+                                              unsigned n,
+                                              unsigned ifnum)
 {
   for (unsigned i = 0; i < n; i += 1) {
-    if (client_state[i].status_update_state == STATUS_UPDATE_WAITING) {
-      client_state[i].status_update_state = STATUS_UPDATE_PENDING;
+    if (client_state[i].status_update_state[ifnum] == STATUS_UPDATE_WAITING) {
+      client_state[i].status_update_state[ifnum] = STATUS_UPDATE_PENDING;
       i_rx[i].packet_ready();
     }
   }
@@ -211,15 +212,16 @@ static inline void update_client_state(rx_client_state_t client_state[n],
 
 unsafe static inline void handle_ts_queue(mii_ts_queue_t ts_queue,
                                    tx_client_state_t client_state[n],
-                                   unsigned n)
+                                   unsigned n,
+                                   unsigned current_port)
 {
   unsigned index = 0;
   unsigned timestamp = 0;
   int found = mii_ts_queue_get_entry(ts_queue, &index, &timestamp);
   if (found) {
     size_t client_id = index - 1;
-    client_state[client_id].has_outgoing_timestamp_info = 1;
-    client_state[client_id].outgoing_timestamp = timestamp;
+    client_state[client_id].has_outgoing_timestamp_info[current_port] = 1;
+    client_state[client_id].outgoing_timestamp[current_port] = timestamp;
   }
 }
 
@@ -279,20 +281,26 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
 
     case i_rx_lp[int i].get_packet(ethernet_packet_info_t &desc, char data[n], unsigned n): {
       prioritize_rx += 1;
-
+      unsigned update_client_state = 0;
       rx_client_state_t &client_state = rx_client_state_lp[i];
-
-      if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
-        data[0] = p_port_state->link_state;
-        data[1] = p_port_state->link_speed;
-        desc.type = ETH_IF_STATUS;
-        desc.src_ifnum = 0;
-        desc.timestamp = 0;
-        desc.len = 2;
-        desc.filter_data = 0;
-        client_state.status_update_state = STATUS_UPDATE_WAITING;
+      for(int p=0; p<NUM_ETHERNET_PORTS; p++)
+      {
+        if (client_state.status_update_state[p] == STATUS_UPDATE_PENDING) {
+          data[0] = p_port_state[p].link_state;
+          data[1] = p_port_state[p].link_speed;
+          desc.type = ETH_IF_STATUS;
+          desc.src_ifnum = p;
+          desc.timestamp = 0;
+          desc.len = 2;
+          desc.filter_data = 0;
+          client_state.status_update_state[p] = STATUS_UPDATE_WAITING;
+          update_client_state = 1;
+          break;
+        }
       }
-      else if (client_state.rd_index[current_port_lp] != client_state.wr_index[current_port_lp]) {
+
+      if (!update_client_state && (client_state.rd_index[current_port_lp] != client_state.wr_index[current_port_lp]))
+      {
         unsigned client_rd_index = client_state.rd_index[current_port_lp];
         unsigned packets_rd_index = (unsigned)client_state.fifo[current_port_lp][client_rd_index];
 
@@ -351,10 +359,10 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       break;
 
     case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
-      if (p_port_state->link_state != status) {
-        p_port_state->link_state = status;
-        p_port_state->link_speed = speed;
-        update_client_state(rx_client_state_lp, i_rx_lp, n_rx_lp);
+      if (p_port_state[ifnum].link_state != status) {
+        p_port_state[ifnum].link_state = status;
+        p_port_state[ifnum].link_speed = speed;
+        update_client_state(rx_client_state_lp, i_rx_lp, n_rx_lp, ifnum);
       }
       break;
 
@@ -429,7 +437,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     }
 
     case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope): {
-      p_port_state->qav_idle_slope = slope;
+      p_port_state[ifnum].qav_idle_slope = slope;
       break;
     }
 
@@ -437,7 +445,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->ingress_ts_latency[speed] = value / 10;
+      p_port_state[ifnum].ingress_ts_latency[speed] = value / 10;
       break;
     }
 
@@ -445,7 +453,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->egress_ts_latency[speed] = value / 10;
+      p_port_state[ifnum].egress_ts_latency[speed] = value / 10;
       break;
     }
 
@@ -461,12 +469,18 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
 
     case i_cfg[int i].enable_link_status_notification(size_t client_num):
       rx_client_state_t &client_state = rx_client_state_lp[client_num];
-      client_state.status_update_state = STATUS_UPDATE_WAITING;
+      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      {
+        client_state.status_update_state[i] = STATUS_UPDATE_WAITING;
+      }
       break;
 
     case i_cfg[int i].disable_link_status_notification(size_t client_num):
       rx_client_state_t &client_state = rx_client_state_lp[client_num];
-      client_state.status_update_state = STATUS_UPDATE_IGNORING;
+      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      {
+        client_state.status_update_state[i] = STATUS_UPDATE_IGNORING;
+      }
       break;
 
     case i_tx_lp[int i]._init_send_packet(unsigned n, unsigned dst_port):
@@ -479,10 +493,16 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
 
     [[independent_guard]]
     case (unsigned i = 0; i < n_tx_lp; i++)
-      (tx_client_state_lp[i].has_outgoing_timestamp_info) =>
-      i_tx_lp[i]._get_outgoing_timestamp() -> unsigned timestamp:
-      timestamp = tx_client_state_lp[i].outgoing_timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
-      tx_client_state_lp[i].has_outgoing_timestamp_info = 0;
+      i_tx_lp[i]._get_outgoing_timestamp(unsigned dst_port) -> unsigned timestamp:
+      if(tx_client_state_lp[i].has_outgoing_timestamp_info[dst_port])
+      {
+        timestamp = tx_client_state_lp[i].outgoing_timestamp[dst_port] + p_port_state[dst_port].egress_ts_latency[p_port_state[dst_port].link_speed];
+        tx_client_state_lp[i].has_outgoing_timestamp_info[dst_port] = 0;
+      }
+      else
+      {
+        timestamp = 0;
+      }
       break;
 
     case (!isnull(c_tx_hp) && !prioritize_rx) => c_tx_hp :> unsigned len:
@@ -572,7 +592,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     if (!isnull(c_rx_hp)) {
       for(int i=0; i<NUM_ETHERNET_PORTS; i++)
       {
-        handle_incoming_hp_packets(rx_mem[i], (mii_packet_queue_t)&rx_packets_hp[i], rd_index_hp[i], c_rx_hp, p_port_state, i);
+        handle_incoming_hp_packets(rx_mem[i], (mii_packet_queue_t)&rx_packets_hp[i], rd_index_hp[i], c_rx_hp, &p_port_state[i], i);
       }
     }
 
@@ -621,8 +641,10 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
         reserve(tx_client_state_lp, n_tx_lp, tx_mem_lp[i], rdptr, i);
       }
     }
-
-    handle_ts_queue(ts_queue_lp, tx_client_state_lp, n_tx_lp);
+    for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+    {
+      handle_ts_queue(&ts_queue_lp[i], tx_client_state_lp, n_tx_lp, i);
+    }
   }
 }
 
@@ -697,7 +719,9 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
       fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
     }
 
-    mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
+    mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
+    mii_ts_queue_info_t * unsafe ts_queue_info_ptr = &ts_queue_info;
+
     mii_master_init(p_rxclk, p_rxd, p_rxdv, rxclk, p_txclk, p_txen, p_txd, txclk, p_rxer);
 
     ethernet_port_state_t port_state;
@@ -717,7 +741,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                          tx_mem_hp,
                          (mii_packet_queue_t)&tx_packets_lp,
                          (mii_packet_queue_t)&tx_packets_hp,
-                         ts_queue, p_txd,
+                         &ts_queue_info, p_txd,
                          p_port_state);
 
       mii_ethernet_filter(c_conf,
@@ -733,7 +757,7 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                           tx_mem_hp_ptr,
                           tx_packets_lp_ptr,
                           tx_packets_hp_ptr,
-                          ts_queue,
+                          ts_queue_info_ptr,
                           i_cfg, n_cfg,
                           i_rx_lp, n_rx_lp,
                           i_tx_lp, n_tx_lp,

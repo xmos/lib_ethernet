@@ -430,7 +430,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
       case i_rx_lp[int i].get_packet(ethernet_packet_info_t &desc, char data[n], unsigned n):
         rx_client_state_t &client_state = client_state_lp[i];
 
-        if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
+        if (client_state.status_update_state[0] == STATUS_UPDATE_PENDING) {
           data[0] = cur_link_state;
           data[1] = p_port_state->link_speed;
           desc.type = ETH_IF_STATUS;
@@ -438,7 +438,7 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
           desc.timestamp = 0;
           desc.len = 2;
           desc.filter_data = 0;
-          client_state.status_update_state = STATUS_UPDATE_WAITING;
+          client_state.status_update_state[0] = STATUS_UPDATE_WAITING;
         }
         else if (client_state.rd_index[0] != client_state.wr_index[0]) {
           // send received packet
@@ -490,8 +490,8 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
       if (cur_link_state != p_port_state->link_state) {
         cur_link_state = p_port_state->link_state;
         for (unsigned i = 0; i < n_rx_lp; i += 1) {
-          if (client_state_lp[i].status_update_state == STATUS_UPDATE_WAITING) {
-            client_state_lp[i].status_update_state = STATUS_UPDATE_PENDING;
+          if (client_state_lp[i].status_update_state[0] == STATUS_UPDATE_WAITING) {
+            client_state_lp[i].status_update_state[0] = STATUS_UPDATE_PENDING;
             i_rx_lp[i].packet_ready();
           }
         }
@@ -572,10 +572,10 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
 
       [[independent_guard]]
       case (unsigned i = 0; i < n_tx_lp; i++)
-        (client_state_lp[i].has_outgoing_timestamp_info) =>
-        i_tx_lp[i]._get_outgoing_timestamp() -> unsigned timestamp:
-        timestamp = client_state_lp[i].outgoing_timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
-        client_state_lp[i].has_outgoing_timestamp_info = 0;
+        (client_state_lp[i].has_outgoing_timestamp_info[0]) =>
+        i_tx_lp[i]._get_outgoing_timestamp(unsigned dst_port) -> unsigned timestamp:
+        timestamp = client_state_lp[i].outgoing_timestamp[0] + p_port_state->egress_ts_latency[p_port_state->link_speed];
+        client_state_lp[i].has_outgoing_timestamp_info[0] = 0;
         break;
 
       [[independent_guard]]
@@ -632,8 +632,8 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
           // Low priority packet sent
           if (buf->timestamp_id) {
             size_t client_id = buf->timestamp_id - 1;
-            client_state_lp[client_id].has_outgoing_timestamp_info = 1;
-            client_state_lp[client_id].outgoing_timestamp = buf->timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
+            client_state_lp[client_id].has_outgoing_timestamp_info[0] = 1;
+            client_state_lp[client_id].outgoing_timestamp[0] = buf->timestamp + p_port_state->egress_ts_latency[p_port_state->link_speed];
           }
           buffers_free_add(free_buffers_lp, buf, 0);
         }
@@ -847,14 +847,14 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
       case i_cfg[int i].enable_link_status_notification(size_t client_num):
         unsafe {
           rx_client_state_t &client_state = client_state_lp[client_num];
-          client_state.status_update_state = STATUS_UPDATE_WAITING;
+          client_state.status_update_state[0] = STATUS_UPDATE_WAITING;
           break;
         }
 
       case i_cfg[int i].disable_link_status_notification(size_t client_num):
         unsafe {
           rx_client_state_t &client_state = client_state_lp[client_num];
-          client_state.status_update_state = STATUS_UPDATE_IGNORING;
+          client_state.status_update_state[0] = STATUS_UPDATE_IGNORING;
           break;
         }
 

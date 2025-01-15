@@ -166,7 +166,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
       fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
     }
 
-    mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
+    mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
+    mii_ts_queue_info_t * unsafe ts_queue_info_ptr = &ts_queue_info;
 
 
     // Common initialisation
@@ -222,7 +223,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           rx_mem_ptr,
                           rx_packets_lp_ptr,
                           rx_packets_hp_ptr,
-                          ts_queue,
+                          &ts_queue_info,
                           tx_port_width,
                           tx_data_0,
                           tx_data_1,
@@ -244,7 +245,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_mem_hp_ptr,
                           tx_packets_lp_ptr,
                           tx_packets_hp_ptr,
-                          ts_queue,
+                          ts_queue_info_ptr,
                           i_cfg, n_cfg,
                           i_rx_lp, n_rx_lp,
                           i_tx_lp, n_tx_lp,
@@ -326,8 +327,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
 
 
         mii_init_lock();
-        mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
-        mii_ts_queue_info_t ts_queue_info;
+        mii_ts_queue_entry_t ts_fifo[NUM_ETHERNET_PORTS][MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
+        mii_ts_queue_info_t ts_queue_info[NUM_ETHERNET_PORTS];
 
         if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE) {
             fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in ethernet_conf.h");
@@ -337,7 +338,12 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
             fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
         }
 
-        mii_ts_queue_t ts_queue = mii_ts_queue_init(&ts_queue_info, ts_fifo, n_tx_lp + 1);
+        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        {
+          mii_ts_queue_init(&ts_queue_info[i], ts_fifo[i], n_tx_lp + 1);
+        }
+        mii_ts_queue_info_t * unsafe ts_queue_info_ptr = ts_queue_info;
+
 
 
 
@@ -377,10 +383,14 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         {tx_port_width_1, tx_port_4b_pins_1, tx_data_1_0, tx_data_1_1} = init_tx_ports(p_clk, p_txen_1, txclk_1, p_txd_1);
 
         // Setup server
-        ethernet_port_state_t port_state;
-        init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
+        ethernet_port_state_t port_state[NUM_ETHERNET_PORTS];
 
-        ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
+        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        {
+          init_server_port_state(port_state[i], enable_shaper == ETHERNET_ENABLE_SHAPER);
+        }
+
+        ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)port_state;
 
         chan c_conf;
         par
@@ -428,13 +438,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               rx_mem_ptr, // memory pool for the forwarding packets
                               rx_packets_lp_ptr, // lp forwarding packets queue
                               rx_packets_hp_ptr, // hp forwarding packets queue
-                              ts_queue,
+                              (mii_ts_queue_t)&ts_queue_info[0],
                               tx_port_width_0,
                               tx_data_0_0,
                               tx_data_0_1,
                               tx_port_4b_pins_0,
                               txclk_0,
-                              p_port_state,
+                              &p_port_state[0],
                               0);
 
             rmii_master_tx_pins(tx_mem_lp[1],
@@ -444,13 +454,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               rx_mem_ptr, // memory pool for the forwarding packets
                               rx_packets_lp_ptr, // lp forwarding packets queue
                               rx_packets_hp_ptr, // hp forwarding packets queue
-                              ts_queue,
+                              (mii_ts_queue_t)&ts_queue_info[1],
                               tx_port_width_1,
                               tx_data_1_0,
                               tx_data_1_1,
                               tx_port_4b_pins_1,
                               txclk_1,
-                              p_port_state,
+                              &p_port_state[1],
                               1);
 
 
@@ -467,7 +477,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               tx_mem_hp_ptr,
                               tx_packets_lp_ptr,
                               tx_packets_hp_ptr,
-                              ts_queue,
+                              ts_queue_info_ptr,
                               i_cfg, n_cfg,
                               i_rx_lp, n_rx_lp,
                               i_tx_lp, n_tx_lp,

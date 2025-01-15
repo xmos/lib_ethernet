@@ -269,7 +269,7 @@ typedef interface ethernet_tx_if {
   void _complete_send_packet(char packet[n], unsigned n,
                              int request_timestamp, size_t ifnum);
   /** Internal API call. Do not use. */
-  unsigned _get_outgoing_timestamp();
+  unsigned _get_outgoing_timestamp(size_t ifnum);
 #ifdef __XC__
 } ethernet_tx_if;
 
@@ -311,7 +311,12 @@ extends client interface ethernet_tx_if : {
                                     unsigned ifnum) {
     i._init_send_packet(n, ifnum);
     i._complete_send_packet(packet, n, 1, ifnum);
-    return i._get_outgoing_timestamp();
+    unsigned timestamp = 0;
+    while(!timestamp)
+    {
+      timestamp = i._get_outgoing_timestamp(ifnum);
+    }
+    return timestamp;
   }
 /**@}*/ // END: addtogroup ethernet_tx_if
 #ifdef __XC__

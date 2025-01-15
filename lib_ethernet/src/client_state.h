@@ -27,7 +27,7 @@ typedef struct
   unsigned rd_index[NUM_ETHERNET_PORTS];
   unsigned wr_index[NUM_ETHERNET_PORTS];
   void *fifo[NUM_ETHERNET_PORTS][ETHERNET_RX_CLIENT_QUEUE_SIZE];
-  int status_update_state;
+  int status_update_state[NUM_ETHERNET_PORTS];
   size_t num_etype_filters;
   int strip_vlan_tags;
   uint16_t etype_filters[ETHERNET_MAX_ETHERTYPE_FILTERS];
@@ -38,8 +38,8 @@ typedef struct
 {
   int requested_send_buffer_size;
   mii_packet_t *send_buffer[NUM_ETHERNET_PORTS];
-  int has_outgoing_timestamp_info;
-  unsigned outgoing_timestamp;
+  int has_outgoing_timestamp_info[NUM_ETHERNET_PORTS];
+  unsigned outgoing_timestamp[NUM_ETHERNET_PORTS];
   int dst_port;
 } tx_client_state_t;
 

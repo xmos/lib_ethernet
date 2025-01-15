@@ -235,7 +235,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         // Do nothing
         break;
 
-      case i_tx[int i]._get_outgoing_timestamp() -> unsigned timestamp:
+      case i_tx[int i]._get_outgoing_timestamp(unsigned dst_port) -> unsigned timestamp:
         fail("Outgoing timestamps are not supported in standard MII Ethernet MAC");
         break;
 
