@@ -75,4 +75,8 @@
 #define __SIMULATOR__ 0
 #endif
 
+#ifndef NUM_ETHERNET_PORTS
+#define NUM_ETHERNET_PORTS (1)
+#endif
+
 #endif // __default_ethernet_conf_h__

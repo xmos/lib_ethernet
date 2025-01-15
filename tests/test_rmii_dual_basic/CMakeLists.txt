@@ -14,7 +14,8 @@ set(APP_INCLUDES            ../include src)
 set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE=1
-                            -Os)
+                            -Os
+                            -DNUM_ETHERNET_PORTS=2)
 
 set(XMOS_SANDBOX_DIR                    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 

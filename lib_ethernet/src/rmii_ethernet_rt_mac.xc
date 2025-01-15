@@ -314,7 +314,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
   } // unsafe block
 }
 
-
+#if (NUM_ETHERNET_PORTS == 2)
 void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
                               SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
                               SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
@@ -564,4 +564,5 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         } // par
     } // unsafe block
 }
+#endif
 

@@ -59,8 +59,6 @@ typedef enum ethernet_macaddr_filter_result_t {
   ETHERNET_MACADDR_FILTER_TABLE_FULL  /**< The filter entry was not added because the filter table is full */
 } ethernet_macaddr_filter_result_t;
 
-#define NUM_ETHERNET_PORTS (2)
-
 #if (defined(__XC__) || defined(__DOXYGEN__))
 
 /** Ethernet MAC configuration interface.
