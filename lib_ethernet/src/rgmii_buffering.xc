@@ -1,4 +1,4 @@
-// Copyright 2015-2021 XMOS LIMITED.
+// Copyright 2015-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <string.h>
 #include "default_ethernet_conf.h"
@@ -859,7 +859,11 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         }
 
       case i_cfg[int i].forward_packets_as_hp(unsigned forward_packets_in_hp_queue):
-        // Do nothing
+        // Do nothing - Not supported on rgmii
+        break;
+
+      case i_cfg[int i].exit(void):
+        // Do nothing - exit not supported on this MAC
         break;
 
       case c_rgmii_cfg :> unsigned tmp:

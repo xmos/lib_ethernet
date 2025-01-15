@@ -8,10 +8,14 @@ lib_ethernet change log
   * ADDED: RMII Ethernet MAC support for XCORE-AI
   * ADDED: Extended sim tests for testing RMII applications
   * ADDED: Support for XCommon CMake build system
+  * ADDED: Exit command to RMII RT MAC
   * RESOLVED: Build warnings even when compile successful
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * REMOVED: Support for XS1 devices
+  * RESOLVED: Build warnings even when compile successful
+  * ADDED: Support for running MII sim tests for XS3 architecture
+  * CHANGED: Moved PHY support to separate head and source
 
   * Changes to dependencies:
 

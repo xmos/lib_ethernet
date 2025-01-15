@@ -11,7 +11,8 @@ set(APP_PCA_ENABLE          ON)
 set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE
-                            -DRGMII=1)
+                            -DRGMII=1
+                            -DBOARD_SUPPORT_BOARD=XK_EVK_XE216)
 
 set(APP_COMPILER_FLAGS          ${COMPILER_FLAGS_COMMON})
 set(APP_COMPILER_FLAGS_icmp.xc  ${COMPILER_FLAGS_COMMON}

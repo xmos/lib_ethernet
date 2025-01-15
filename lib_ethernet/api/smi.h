@@ -8,24 +8,28 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 // SMI Registers
-#define BASIC_CONTROL_REG                  0x0
-#define BASIC_STATUS_REG                   0x1
-#define PHY_ID1_REG                        0x2
-#define PHY_ID2_REG                        0x3
-#define AUTONEG_ADVERT_REG                 0x4
-#define AUTONEG_LINK_REG                   0x5
-#define AUTONEG_EXP_REG                    0x6
-#define GIGE_CONTROL_REG                   0x9
+#define BASIC_CONTROL_REG                   0x0
+#define BASIC_STATUS_REG                    0x1
+#define PHY_ID1_REG                         0x2
+#define PHY_ID2_REG                         0x3
+#define AUTONEG_ADVERT_REG                  0x4
+#define AUTONEG_LINK_REG                    0x5
+#define AUTONEG_EXP_REG                     0x6
+#define GIGE_CONTROL_REG                    0x9
+#define RMII_AND_STATUS_REG                 0x17
+#define IO_CONFIG_1_REG                     0x302
 
-#define BASIC_CONTROL_LOOPBACK_BIT        14
-#define BASIC_CONTROL_100_MBPS_BIT        13
-#define BASIC_CONTROL_1000_MBPS_BIT        6
-#define BASIC_CONTROL_AUTONEG_EN_BIT      12
-#define BASIC_CONTROL_POWER_DOWN_BIT      11
-#define BASIC_CONTROL_RESTART_AUTONEG_BIT  9
-#define BASIC_CONTROL_FULL_DUPLEX_BIT      8
+#define BASIC_CONTROL_LOOPBACK_BIT          14
+#define BASIC_CONTROL_100_MBPS_BIT          13
+#define BASIC_CONTROL_1000_MBPS_BIT         6
+#define BASIC_CONTROL_AUTONEG_EN_BIT        12
+#define BASIC_CONTROL_POWER_DOWN_BIT        11
+#define BASIC_CONTROL_RESTART_AUTONEG_BIT   9
+#define BASIC_CONTROL_FULL_DUPLEX_BIT       8
 
-#define BASIC_STATUS_LINK_BIT              2
+#define BASIC_STATUS_LINK_BIT               2
+
+#define IO_CFG_CRS_RX_DV_BIT                8
 
 #define AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX             9
 #define AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX             8

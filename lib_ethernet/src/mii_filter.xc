@@ -1,4 +1,4 @@
-// Copyright 2013-2021 XMOS LIMITED.
+// Copyright 2013-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "ethernet.h"
 #include "mii_filter.h"
@@ -47,7 +47,8 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
 unsafe void mii_ethernet_filter(chanend c_conf,
                                 packet_queue_info_t * unsafe incoming_packets,
                                 packet_queue_info_t * unsafe rx_packets_lp,
-                                packet_queue_info_t * unsafe rx_packets_hp)
+                                packet_queue_info_t * unsafe rx_packets_hp,
+                                volatile int * unsafe running_flag_ptr)
 {
   eth_global_filter_info_t filter_info;
   ethernet_init_filter_table(filter_info);
@@ -55,7 +56,7 @@ unsafe void mii_ethernet_filter(chanend c_conf,
   unsigned current_port;
   unsigned forward_packets_as_high_priority = 0;
 
-  while (1) {
+  while (*running_flag_ptr) {
     select {
 #pragma xta endpoint "rx_packet"
     case c_conf :> int i:

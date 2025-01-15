@@ -1,4 +1,4 @@
-// Copyright 2015-2021 XMOS LIMITED.
+// Copyright 2015-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "ethernet.h"
 #include "default_ethernet_conf.h"
@@ -258,8 +258,13 @@ static void mii_ethernet_aux(client mii_if i_mii,
         break;
 
       case i_cfg[int i].forward_packets_as_hp(unsigned forward_packets_in_hp_queue):
-        // Do nothing
+        // Do nothing - not supported on this Mac
         break;
+
+      case i_cfg[int i].exit(void): {
+        // Do nothing - exit not supported on this MAC
+        break;
+      }
 
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                              int request_timestamp,

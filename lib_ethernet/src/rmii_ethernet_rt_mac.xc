@@ -1,4 +1,4 @@
-// Copyright 2013-2024 XMOS LIMITED.
+// Copyright 2013-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <string.h>
 
@@ -14,6 +14,7 @@
 #include "xassert.h"
 #include "print.h"
 #include "server_state.h"
+#include "rmii_rx_pins_exit.h"
 
 // These helpers allow the port to be reconfigured and work-around not being able to cast a port type in XC
 static in buffered port:32 * unsafe enable_buffered_in_port(unsigned *port_pointer, unsigned transferWidth)
@@ -30,6 +31,7 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
 {
     asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_INUSE_ON));
     asm volatile("setc res[%0], %1"::"r"(*port_pointer), "r"(XS1_SETC_BUF_BUFFERS));
+    asm volatile("setclk res[%0], %1"::"r"(*port_pointer), "r"(XS1_CLKBLK_REF)); // Set to ref clk initially. We override this later
     asm volatile("settw res[%0], %1"::"r"(*port_pointer),"r"(transferWidth));
     out buffered port:32 * unsafe bpp = NULL;
     asm("add %0, %1, %2": "=r"(bpp) : "r"(port_pointer), "r"(0)); // Copy
@@ -155,6 +157,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
 
     mii_init_lock();
+
     mii_ts_queue_entry_t ts_fifo[MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
     mii_ts_queue_info_t ts_queue_info;
 
@@ -195,6 +198,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
+    // Exit flag and chanend
+    int rmii_ethernet_rt_mac_running = 1;
+    int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+    chan c_rx_pins_exit[1];
+
     chan c_conf;
     par {
       // Rx task
@@ -205,14 +213,18 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                                  (mii_rdptr_t)&rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
-                                 rx_port_4b_pins);
+                                 rx_port_4b_pins,
+                                 running_flag_ptr,
+                                 c_rx_pins_exit[0]);
         } else {
           rmii_master_rx_pins_1b(rx_mem[0],
                                  (mii_packet_queue_t)&incoming_packets,
                                  (mii_rdptr_t)&rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
-                                 rx_data_1);
+                                 rx_data_1,
+                                 running_flag_ptr,
+                                 c_rx_pins_exit[0]);
         }
       }
       // Tx task
@@ -230,12 +242,14 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_port_4b_pins,
                           txclk,
                           p_port_state,
-                          0);
+                          0,
+                          running_flag_ptr);
 
       mii_ethernet_filter(c_conf,
                           incoming_packets_ptr,
                           rx_packets_lp_ptr,
-                          rx_packets_hp_ptr);
+                          rx_packets_hp_ptr,
+                          running_flag_ptr);
 
       mii_ethernet_server(rx_mem_ptr,
                           rx_packets_lp_ptr,
@@ -252,8 +266,51 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           c_rx_hp,
                           c_tx_hp,
                           c_conf,
-                          p_port_state);
+                          p_port_state,
+                          running_flag_ptr,
+                          c_rx_pins_exit,
+                          ETH_MAC_IF_RMII);
     } // par
+
+    // If exit occurred, disable used ports and resources so they are left in a good state
+    mii_deinit_lock();
+
+    stop_clock(rxclk);
+    switch(rx_port_width){
+      case 4:
+        set_port_use_off(p_rxd->rmii_data_1b.data_0);
+        break;
+      case 1:
+        set_port_use_off(p_rxd->rmii_data_1b.data_0);
+        set_port_use_off(p_rxd->rmii_data_1b.data_1);
+        break;
+      default:
+        fail("Invald port width for RMII Rx");
+        break;
+    }
+    set_port_use_off(p_rxdv);
+
+    stop_clock(txclk);
+    switch(tx_port_width){
+      case 4:
+        set_port_use_off(p_txd->rmii_data_1b.data_0);
+        break;
+      case 1:
+        set_port_use_off(p_txd->rmii_data_1b.data_0);
+        set_port_use_off(p_txd->rmii_data_1b.data_1);
+        break;
+      default:
+        fail("Invald port width for RMII Tx");
+        break;
+    }
+    set_port_use_off(p_txen);
+
+    set_clock_off(rxclk);
+    set_clock_off(txclk);
+    set_port_use_off(p_clk);
+
+    // All MII memory is reserved from the stack of this function so will be cleaned automatically
+
   } // unsafe block
 }
 
@@ -392,6 +449,11 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
 
         ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)port_state;
 
+        // Exit flag and chanend
+        int rmii_ethernet_rt_mac_running = 1;
+        int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+        chan c_rx_pins_exit[NUM_ETHERNET_PORTS];
+
         chan c_conf;
         par
         {
@@ -399,36 +461,44 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                 if(rx_port_width_0 == 4)
                 {
                     rmii_master_rx_pins_4b(rx_mem[0],
-                                         (mii_packet_queue_t)(&incoming_packets[0]),
-                                         (mii_rdptr_t)&rx_rdptr[0],
-                                         p_rxdv_0,
-                                         rx_data_0_0,
-                                         rx_port_4b_pins_0);
+                                          (mii_packet_queue_t)(&incoming_packets[0]),
+                                          (mii_rdptr_t)&rx_rdptr[0],
+                                          p_rxdv_0,
+                                          rx_data_0_0,
+                                          rx_port_4b_pins_0,
+                                          running_flag_ptr,
+                                          c_rx_pins_exit[0]);
                 } else {
                     rmii_master_rx_pins_1b(rx_mem[0],
-                                         (mii_packet_queue_t)(&incoming_packets[0]),
-                                         (mii_rdptr_t)&rx_rdptr[0],
-                                         p_rxdv_0,
-                                         rx_data_0_0,
-                                         rx_data_0_1);
+                                          (mii_packet_queue_t)(&incoming_packets[0]),
+                                          (mii_rdptr_t)&rx_rdptr[0],
+                                          p_rxdv_0,
+                                          rx_data_0_0,
+                                          rx_data_0_1,
+                                          running_flag_ptr,
+                                          c_rx_pins_exit[0]);
                 }
             }
             {
                 if(rx_port_width_1 == 4)
                 {
                     rmii_master_rx_pins_4b(rx_mem[1],
-                                         (mii_packet_queue_t)(&incoming_packets[1]),
-                                         (mii_rdptr_t)&rx_rdptr[1],
-                                         p_rxdv_1,
-                                         rx_data_1_0,
-                                         rx_port_4b_pins_1);
+                                          (mii_packet_queue_t)(&incoming_packets[1]),
+                                          (mii_rdptr_t)&rx_rdptr[1],
+                                          p_rxdv_1,
+                                          rx_data_1_0,
+                                          rx_port_4b_pins_1,
+                                          running_flag_ptr,
+                                          c_rx_pins_exit[1]);
                 } else {
                     rmii_master_rx_pins_1b(rx_mem[1],
                                          (mii_packet_queue_t)(&incoming_packets[1]),
                                          (mii_rdptr_t)&rx_rdptr[1],
                                          p_rxdv_1,
                                          rx_data_1_0,
-                                         rx_data_1_1);
+                                         rx_data_1_1,
+                                         running_flag_ptr,
+                                         c_rx_pins_exit[1]);
                 }
             }
             rmii_master_tx_pins(tx_mem_lp[0],
@@ -445,7 +515,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               tx_port_4b_pins_0,
                               txclk_0,
                               &p_port_state[0],
-                              0);
+                              0,
+                              running_flag_ptr);
 
             rmii_master_tx_pins(tx_mem_lp[1],
                               tx_mem_hp[1],
@@ -461,13 +532,15 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               tx_port_4b_pins_1,
                               txclk_1,
                               &p_port_state[1],
-                              1);
+                              1,
+                              running_flag_ptr);
 
 
             mii_ethernet_filter(c_conf,
                               incoming_packets_ptr,
                               rx_packets_lp_ptr,
-                              rx_packets_hp_ptr);
+                              rx_packets_hp_ptr,
+                              running_flag_ptr);
 
             mii_ethernet_server(rx_mem_ptr,
                               rx_packets_lp_ptr,
@@ -484,7 +557,10 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               c_rx_hp,
                               c_tx_hp,
                               c_conf,
-                              p_port_state);
+                              p_port_state,
+                              running_flag_ptr,
+                              c_rx_pins_exit,
+                              ETH_MAC_IF_RMII);
         } // par
     } // unsafe block
 }
