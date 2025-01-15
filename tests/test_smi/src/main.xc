@@ -5,22 +5,29 @@
 #include <platform.h>
 #include "ethernet.h"
 #include "smi.h"
-#include "print.h"
+#include <stdio.h>
 #include "debug_print.h"
 #include "syscall.h"
 
 #include "ports.h"
 
 void test_smi(client interface smi_if i_smi){
+    delay_microseconds(1);
+    p_phy_rst_n <: 0xf;
+    delay_microseconds(1);
 
 //   uint16_t read_reg(uint8_t phy_address, uint8_t reg_address);
-  // void write_reg(uint8_t phy_address, uint8_t reg_address, uint16_t val);
+    i_smi.write_reg(0x01, 0x02, 0x1234);
+
+    uint16_t read = i_smi.read_reg(0x10, 0x11);
+    printf("READ: 0x%u\n", read);
 }
 
 
 int main()
 {
     interface smi_if i_smi;
+    p_phy_rst_n <: 0;
     par {
         test_smi(i_smi);
         [[distribute]]

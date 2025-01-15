@@ -32,14 +32,15 @@ def do_test(capfd, ptype, arch):
     vcd_args+= f' -functions -cycles -clock-blocks -pads'
     sim_args += ['--vcd-tracing', vcd_args]
 
-    mdc_port = "XS1_PORT_1N"
-    mdio_port = "XS1_PORT_1M"
+    mdc_port = "tile[0]:XS1_PORT_1N"
+    mdio_port = "tile[0]:XS1_PORT_1M"
+    rst_n_port = "tile[0]:XS1_PORT_4A"
     expected_speed_hz = 1.666666e6
     header, write_data = smi_make_packet(0x2, 0x10, write_data=0x1234)
 
-    smi_harness = smi_master_checker(mdc_port, mdio_port, expected_speed_hz, write_data)
+    smi_harness = smi_master_checker(mdc_port, mdio_port, rst_n_port, expected_speed_hz, write_data)
     result = px.run_on_simulator_(  binary,
-                                    simthreads=[smi_master_checker],
+                                    simthreads=[smi_harness],
                                     tester=tester,
                                     simargs=sim_args,
                                     do_xe_prebuild=False,
@@ -50,7 +51,7 @@ def do_test(capfd, ptype, arch):
 
 test_params_file = Path(__file__).parent / "test_smi/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_link_status(capfd, params):
+def test_smi(capfd, params):
     verbose = False
    
     with capfd.disabled():  
