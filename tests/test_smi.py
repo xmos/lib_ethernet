@@ -36,9 +36,9 @@ def do_test(capfd, ptype, arch):
     mdio_port = "tile[0]:XS1_PORT_1M"
     rst_n_port = "tile[0]:XS1_PORT_4A"
     expected_speed_hz = 1.666666e6
-    header, write_data = smi_make_packet(0x2, 0x10, write_data=0x1234)
+    # header, write_data = smi_make_packet(0x2, 0x10, write_data=0x1234)
 
-    smi_harness = smi_master_checker(mdc_port, mdio_port, rst_n_port, expected_speed_hz, write_data)
+    smi_harness = smi_master_checker(mdc_port, mdio_port, rst_n_port, expected_speed_hz, [0x1234, 0xaaaa, 0x4321])
     result = px.run_on_simulator_(  binary,
                                     simthreads=[smi_harness],
                                     tester=tester,

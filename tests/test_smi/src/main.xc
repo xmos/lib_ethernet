@@ -6,7 +6,7 @@
 #include "ethernet.h"
 #include "smi.h"
 #include <stdio.h>
-#include "debug_print.h"
+#include <print.h>
 #include "syscall.h"
 
 #include "ports.h"
@@ -16,11 +16,13 @@ void test_smi(client interface smi_if i_smi){
     p_phy_rst_n <: 0xf;
     delay_microseconds(1);
 
-//   uint16_t read_reg(uint8_t phy_address, uint8_t reg_address);
-    i_smi.write_reg(0x01, 0x02, 0x1234);
+    // i_smi.write_reg(0x01, 0x02, 0x1234);
+    // delay_microseconds(1);
 
-    uint16_t read = i_smi.read_reg(0x10, 0x11);
-    printf("READ: 0x%u\n", read);
+    for(int i = 0; i < 3; i++){
+        uint16_t read = i_smi.read_reg(0x10, 0x11);
+        printf("DUT READ: 0x%x\n", read);
+    }
 }
 
 

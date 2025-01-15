@@ -9,17 +9,18 @@ VERBOSE = False
 class smi_master_checker(px.SimThread):
     """"
     This simulator thread will act as SMI slave and check any transactions
-    caused by the master.
+    sent by the master.
     """
 
-    def __init__(self, mdc_port, mdio_port, rst_n_port, expected_speed_hz, tx_data=[]):
+    def __init__(self, mdc_port, mdio_port, rst_n_port, expected_speed_hz, tx_data=[], mdc_mdio_bit_pos=None):
       # ports and data
       self._mdc_port = mdc_port
       self._mdio_port = mdio_port
+      self._mdc_mdio_bit_pos = mdc_mdio_bit_pos
       self._rst_n_port = rst_n_port
 
       # Data to send
-      self._tx_data = tx_data
+      self._tx_data =[[int(bit) for bit in BitArray(uint=tx_word, length=16).bin] for tx_word in tx_data]
 
       # Bit rate
       self._expected_speed_hz = expected_speed_hz
@@ -58,6 +59,18 @@ class smi_master_checker(px.SimThread):
       self._read_data = None
       self._write_data = None
 
+    def _calculate_ave_bit_time(self):
+      print(self._bit_num)
+      max_bit_time = max(self._bit_times)
+      min_bit_time = min(self._bit_times)
+      ave_bit_time = sum(self._bit_times)/self._bit_num
+
+      print(f"Average bit time: {ave_bit_time/1e6:.2f}ns ({1e9/ave_bit_time:.2f}MHz)")
+      print(f"Min bit time: {min_bit_time/1e6:.2f}ns ({1e9/min_bit_time:.2f}MHz)")
+      print(f"Max bit time: {max_bit_time/1e6:.2f}ns ({1e9/max_bit_time:.2f}MHz)")
+
+
+
     def error(self, str):
          print("ERROR: %s @ %s" % (str, self.xsi.get_time()))
 
@@ -90,45 +103,6 @@ class smi_master_checker(px.SimThread):
        # Cache the value that is currently being driven
        self._external_mdio_value = value
        self.xsi.drive_port_pins(self._mdio_port, value)
-
-    # def check_data_valid_time(self, time):
-    #     if time < 0:
-    #         # Data change must have been for a previous bit
-    #         return
-
-    #     if (self._original_speed == 100 and time > 3450e6) or\
-    #        (self._original_speed == 400 and time >  900e6):
-    #         self.error("Data valid time not respected: %gns" % time)
-
-    # def check_hold_start_time(self, time):
-    #     if (self._original_speed == 100 and time < 4000e6) or\
-    #        (self._original_speed == 400 and time < 600e6):
-    #         self.error(f"Start hold time less than minimum in spec: %gfs" % time)
-
-    # def check_setup_start_time(self, time):
-    #     if (self._original_speed == 100 and time < 4700e6) or\
-    #        (self._original_speed == 400 and time < 600e6):
-    #         self.error(f"Start bit setup time less than minimum in spec: %gfs" % time)
-
-    # def check_data_setup_time(self, time):
-    #     if (self._original_speed == 100 and time < 250e6) or\
-    #        (self._original_speed == 400 and time < 100e6):
-    #         self.error("Data setup time less than minimum in spec: %gfs" % time)
-
-    # def check_clock_low_time(self, time):
-    #     if (self._original_speed == 100 and time < 4700e6) or\
-    #        (self._original_speed == 400 and time < 1300e6):
-    #         self.error("Clock low time less than minimum in spec: %gfs" % time)
-
-    # def check_clock_high_time(self, time):
-    #     if (self._original_speed == 100 and time < 4000e6) or\
-    #        (self._original_speed == 400 and time < 900e6):
-    #         self.error("Clock high time less than minimum in spec: %gfs" % time)
-
-    # def check_setup_stop_time(self, time):
-    #     if (self._original_speed == 100 and time < 4000e6) or\
-    #        (self._original_speed == 400 and time < 600e6):
-    #         self.error("Stop bit setup time less than minimum in spec: %gfs" % time)
 
     def get_next_data_item(self):
         if self._tx_data_index >= len(self._tx_data):
@@ -172,25 +146,17 @@ class smi_master_checker(px.SimThread):
         self._mdio_value = new_mdio_value
 
         return mdc_changed, mdio_changed
-        
 
     
       # MDC changed
       if mdc_value != new_mdc_value:
         mdc_changed = True
 
-        # # Ensure the clock timing is correct
-        # if self._mdc_change_time:
-        #   if new_mdc_value == 0:
-        #     self.check_clock_high_time(time_now - self._mdc_change_time)
-        #   else:
-        #     self.check_clock_low_time(time_now - self._mdc_change_time)
-
         self._mdc_change_time = time_now
         self._mdc_value = new_mdc_value
 
-        # Record the time of the falling edges
-        if new_mdc_value == 0:
+        # Record the time of the rising edges
+        if new_mdc_value == 1:
           fall_time = self.xsi.get_time()
           if self._prev_fall_time is not None:
             self._bit_times.append(fall_time - self._prev_fall_time)
@@ -203,103 +169,126 @@ class smi_master_checker(px.SimThread):
         self._mdio_change_time = time_now
         self._mdio_value = new_mdio_value
 
-        if new_mdc_value == 0:
-          self.check_data_valid_time(time_now - self._mdc_change_time)
+        # if new_mdc_value == 0:
+        #   self.check_data_valid_time(time_now - self._mdc_change_time)
 
       return mdc_changed, mdio_changed
 
-    # This all happens on the falling edge
-    def decode_frame(self):
-        if self._bit_num == 0:
-            self._state = "preamble"
-            print("first bit")
+    # This all happens on the rising edge
+    def decode_frame_on_rising(self):
+      # start
+      print(self._bit_num)
+      if self._bit_num == 0:
+          self._state = "preamble"
+          print("first bit")
 
-        elif self._bit_num == 31:
-            self._preamble = self._data
-            self._data = []
-            print(self._state, self._preamble)
-            if self._preamble != [1] * 32:
-               self.error(f"Invalid preamble: {self._preamble}")
-            self._state = "start_of_frame"
+      # end of preamble
+      elif self._bit_num == 31:
+          self._preamble = self._data
+          self._data = []
+          print(self._state, self._preamble)
+          if self._preamble != [1] * 32:
+             self.error(f"Invalid preamble: {self._preamble}")
+          self._state = "start_of_frame"
 
-        elif self._bit_num == 33:
-            self._start_of_frame = self._data
-            self._data = []
-            print(self._state, self._start_of_frame)
-            if self._preamble != [1] * 32:
-               self.error(f"Invalid preamble: {self._preamble}")
-            self._state = "op_code"
-        
-        elif self._bit_num == 35:
-            self._op_code = self._data
-            self._data = []
-            print(self._state, self._op_code)
-            if self._op_code != [1, 0] and self._op_code != [0, 1]:
-               self.error(f"Invalid opecode: {self._op_code}")
-            self._state = "phy_address"
+      # end of SoF
+      elif self._bit_num == 33:
+          self._start_of_frame = self._data
+          self._data = []
+          print(self._state, self._start_of_frame)
+          if self._preamble != [1] * 32:
+             self.error(f"Invalid start_of_frame: {self._start_of_frame}")
+          self._state = "op_code"
+      
+      # end of opcode
+      elif self._bit_num == 35:
+          self._op_code = self._data
+          self._data = []
+          print(self._state, self._op_code)
 
-        elif self._bit_num == 40:
-            self._phy_addr = self._data
-            self._data = []
-            print(self._state, self._phy_addr)
-            self._state = "reg_address"
+          # read
+          if self._op_code == [1, 0]:
+            if(len(self._tx_data) < 1):
+              self.error("Run out of data to transmit / SMI read")
+            self._tx_word = self._tx_data[0]
+            del self._tx_data[0]
+          # write
+          elif self._op_code == [0, 1]:
+            pass
+          else:
+             self.error(f"Invalid opcode: {self._op_code}")
+          self._state = "phy_address"
 
-        elif self._bit_num == 45:
-            self._reg_addr = self._data
-            self._data = []
-            print(self._state, self._reg_addr)
-            self._state = "turnaround"
+      # end of phy_address
+      elif self._bit_num == 40:
+          self._phy_addr = self._data
+          self._data = []
+          print(self._state, self._phy_addr)
+          self._state = "reg_address"
 
-        # Turnaround
-        elif self._bit_num == 47:
-            self._turnaround = self._data
-            self._data = []
-            print(self._state, self._turnaround)
-            if self._op_code == [1, 0]:
-                self._state = "read"
-            elif self._op_code == [0, 1]:
-                self._state = "write"
-            else:
-                self._state = "invalid_op_code"
+      #end of reg address
+      elif self._bit_num == 45:
+          self._reg_addr = self._data
+          self._data = []
+          print(self._state, self._reg_addr)
+          self._state = "turnaround"
 
-        # Start read
-        elif self._bit_num == 48 and self._state == "read":
-          value = tx_data[0]
-          self.xsi.drive_port_pins(self._mdio_port, value)
-          del tx_data[0]
+      # Turnaround
+      elif self._bit_num == 47:
+          self._turnaround = self._data
+          self._data = []
+          print(self._state, self._turnaround)
+          if self._op_code == [1, 0]:
+              self._state = "read"
+          elif self._op_code == [0, 1]:
+              self._state = "write"
+          else:
+              self._state = "invalid_op_code"
 
-        elif self._bit_num == 63:
-            if self._state == "write":
-                self._write_data = self._data
-                self._data = []
-                print(self._state, self._write_data)
+      elif self._bit_num == 63:
+          if self._state == "write":
+              self._write_data = self._data
+              self._data = []
+              written_data = BitArray(self._write_data).uint
+              print(f"{self._state} {written_data:x}")
 
- 
-            elif self._state == "read":
-                pass            
 
-            self._reset_smi_state_machine()
+          elif self._state == "read":
+              pass            
 
-        elif self._bit_num > 63:
-            self.error("Bit number exceed 63")
+          self._calculate_ave_bit_time()
+          self._reset_smi_state_machine()
+          self._bit_num = -1
 
+      elif self._bit_num > 63:
+          self.error("Bit number exceed 63")
+
+
+    def drive_frame_on_falling(self):
+      # Start read 
+      if self._bit_num >= 46 and self._state == "read":
+        value = self._tx_word[0]
+        self.drive_mdio(value);
+        print(f"sending mdio: {value} {self.xsi.get_time()} driving: {self.xsi.is_port_driving(self._mdio_port)}")
+        del self._tx_word[0]
 
     def move_to_next_state(self, mdc_changed, mdio_changed):
       if mdc_changed:
         # Rising edge of MDC
         if self._mdc_value == 1:
-            # print(f"Got MDIO bit {self._bit_num}: {self._mdio_value} at time {self._mdc_change_time}")
-            self._data.append(self._mdio_value)
-            self.decode_frame()
-            self._bit_num += 1
+          # print(f"Got MDIO bit {self._bit_num}: {self._mdio_value} at time {self._mdc_change_time}")
+          self._data.append(self._mdio_value)
+          self.decode_frame_on_rising()
+          self._bit_num += 1
+
+        if self._mdc_value == 0:
+          self.drive_frame_on_falling()          
 
 
     def run(self):
       # Simulate external pullup
       self.drive_mdio(1)
 
-      # Ignore the blips on the ports at the start
-      self.wait_until(100e6)
       self._mdc_value = self.read_mdc_value()
       self._mdio_value = self.read_mdio_value()
 
@@ -307,7 +296,6 @@ class smi_master_checker(px.SimThread):
 
       self._tx_data_index = 0
 
-      # self._state = "STOPPED"
 
       while True:
         mdc_changed, mdio_changed = self.wait_for_change()

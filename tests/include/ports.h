@@ -27,5 +27,7 @@ clock eth_txclk   = on tile[0]: XS1_CLKBLK_2;
 port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
 port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
 port p_phy_rst_n  = on tile[0]: XS1_PORT_4A;
+port p_smi_mdc_mdio = on tile[0]: XS1_PORT_4B;
+
 
 #endif // __ports_h__
