@@ -42,8 +42,8 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
                   data_bit |= SMI_MDIO_REST;
                 p_smi_mdc            <: data_bit;
                 data = (data << 1) | (data_bit >> SMI_MDIO_BIT);
-                p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | data_bit;
-                p_smi_mdc            :> void;
+                p_smi_mdc  @ (t + 60) :> void;
+                p_smi_mdc             <: 1 << SMI_MDC_BIT | data_bit;
                 t += 60;
             }
             p_smi_mdc @ (t+30) :> void;
