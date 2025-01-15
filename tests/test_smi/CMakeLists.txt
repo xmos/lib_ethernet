@@ -33,8 +33,17 @@ foreach(PROFILE ${profile_list})
         message(STATUS "Building cfg_name: ${config}")
 
         set_app_hw_target(arch)
-
         set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
+
+        string(FIND "${PROFILE}" "single" position)
+        if(position GREATER -1)
+            list(APPEND APP_COMPILER_FLAGS_${config} -DSINGLE_PORT=1)
+        else()
+            list(APPEND APP_COMPILER_FLAGS_${config} -DTWO_PORTS=1)
+        endif()
+
+
+        message(STATUS APP_COMPILER_FLAGS_${config} ${APP_COMPILER_FLAGS_${config}})
 
         XMOS_REGISTER_APP()
         unset(APP_COMPILER_FLAGS_${config})

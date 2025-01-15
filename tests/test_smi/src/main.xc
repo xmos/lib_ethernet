@@ -11,6 +11,9 @@
 
 #include "ports.h"
 
+#define SMI_SINGLE_PORT_MDC_BIT     0
+#define SMI_SINGLE_PORT_MDIO_BIT    1
+
 void test_smi(client interface smi_if i_smi){
     delay_microseconds(1);
     p_phy_rst_n <: 0xf;
@@ -33,7 +36,11 @@ int main()
     par {
         test_smi(i_smi);
         [[distribute]]
+#if TWO_PORTS
         smi(i_smi, p_smi_mdio, p_smi_mdc);
+#elif SINGLE_PORT
+        smi_singleport(i_smi, p_smi_mdc_mdio, SMI_SINGLE_PORT_MDIO_BIT, SMI_SINGLE_PORT_MDC_BIT);
+#endif
         par(int i = 0; i < 7; i++){while(1);}
     }
     return 0;
