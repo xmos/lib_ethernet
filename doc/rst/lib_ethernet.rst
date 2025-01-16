@@ -200,7 +200,7 @@ similar functionality to MII however offers a reduced pin-count.
 The RMII transfers data using 2 bit words (half-nibbles) in each direction, clocked at 50 MHz to achieve 100 Mb/s data rate.
 
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
-A common clock signal clocks 2 bits (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
+A common clock signal clocks 2 bits (TXD[1:0]) at 50 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
 A common clock signal clocks the received half-nibbles (RXD[1:0]).
 
