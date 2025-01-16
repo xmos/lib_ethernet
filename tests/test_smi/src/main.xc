@@ -26,6 +26,8 @@ void test_smi(client interface smi_if i_smi){
         uint16_t read = i_smi.read_reg(0x10, 0x11);
         printf("DUT READ: 0x%x\n", read);
     }
+
+    p_phy_rst_n <: 0; // This terminates the test
 }
 
 

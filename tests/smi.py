@@ -36,6 +36,9 @@ class smi_master_checker(px.SimThread):
       self._mdc_value = 0
       self._mdio_value = 0
 
+      # Test state
+      self._test_running = False
+
       self._reset_smi_state_machine()
 
       print("Checking SMI: MDC=%s, MDIO=%s RST_N=%s" % (self._mdc_port, self._mdio_port, self._rst_n_port))
@@ -128,7 +131,14 @@ class smi_master_checker(px.SimThread):
       new_mdc_value = self.read_mdc_value()
       new_mdio_value = self.read_mdio_value()
       while new_mdc_value == mdc_value and new_mdio_value == mdio_value:
-        self.wait_for_port_pins_change([self._mdc_port, self._mdio_port])
+        self.wait_for_port_pins_change([self._mdc_port, self._mdio_port, self._rst_n_port])
+
+        # Logic to exit test when reset driven low by FW
+        if self._test_running and self.xsi.sample_port_pins(self._rst_n_port) == 0x0:
+          self.xsi.terminate()
+
+        if not self._test_running and self.xsi.sample_port_pins(self._rst_n_port) == 0xf:
+          self._test_running = True
 
         new_mdc_value = self.read_mdc_value()
         new_mdio_value = self.read_mdio_value()
