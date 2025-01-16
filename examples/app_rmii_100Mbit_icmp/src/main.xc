@@ -1,4 +1,4 @@
-// Copyright 2014-2021 XMOS LIMITED.
+// Copyright 2014-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
@@ -8,8 +8,6 @@
 #include "smi.h"
 #include "xk_eth_xu316_dual_100m/board.h"
 #include "debug_print.h"
-
-//#include "ports_rmii.h"
 
 rmii_data_port_t p_eth_rxd = {{PHY_0_RXD_4B, USE_LOWER_2B}};
 rmii_data_port_t p_eth_txd = {{PHY_0_TXD_4B, USE_LOWER_2B}};

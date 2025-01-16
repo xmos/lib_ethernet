@@ -77,6 +77,9 @@ pipeline {
         dir("${REPO}") {
           warnError("Docs") {
             buildDocs()
+            dir("examples/app_rmii_100Mbit_icmp") {
+              buildDocs()
+            }
           }
         }
       }
