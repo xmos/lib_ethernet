@@ -8,19 +8,23 @@
 
 // Constants used in calls to smi_bit_shift and smi_reg.
 
-#define SMI_READ 1
-#define SMI_WRITE 0
+#define SMI_READ                    1
+#define SMI_WRITE                   0
 
 #ifndef SMI_MDIO_RESET_MUX
-#define SMI_MDIO_RESET_MUX 0
+#define SMI_MDIO_RESET_MUX          0
 #endif
 
 #ifndef SMI_MDIO_REST
-#define SMI_MDIO_REST 0
+#define SMI_MDIO_REST               0
 #endif
 
-#define MMD_ACCESS_CONTROL 0xD
-#define MMD_ACCESS_DATA 0xE
+#define MMD_ACCESS_CONTROL          0xD
+#define MMD_ACCESS_DATA             0xE
+
+#define SMI_BIT_CLOCK_HZ            1660000
+#define SMI_BIT_TIME_TICKS          (XS1_TIMER_HZ / SMI_BIT_CLOCK_HZ)
+#define SMI_HALF_BIT_TIME_TICKS     (SMI_BIT_TIME_TICKS / 2)
 
 // Shift in a number of data bits to or from the SMI port
 static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
@@ -36,28 +40,28 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
         if (inning) {
             while (i != 0) {
                 i--;
-                p_smi_mdc @ (t + 30) :> data_bit;
+                p_smi_mdc @ (t + SMI_HALF_BIT_TIME_TICKS) :> data_bit;
                 data_bit &= (1 << SMI_MDIO_BIT);
                 if (SMI_MDIO_RESET_MUX)
                   data_bit |= SMI_MDIO_REST;
                 p_smi_mdc            <: data_bit;
                 data = (data << 1) | (data_bit >> SMI_MDIO_BIT);
-                p_smi_mdc  @ (t + 60) :> void;
+                p_smi_mdc  @ (t + SMI_BIT_TIME_TICKS) :> void;
                 p_smi_mdc             <: 1 << SMI_MDC_BIT | data_bit;
-                t += 60;
+                t += SMI_BIT_TIME_TICKS;
             }
-            p_smi_mdc @ (t+30) :> void;
+            p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) :> void;
         } else {
           while (i != 0) {
                 i--;
                 data_bit = ((data >> i) & 1) << SMI_MDIO_BIT;
                 if (SMI_MDIO_RESET_MUX)
                   data_bit |= SMI_MDIO_REST;
-                p_smi_mdc @ (t + 30) <:                    data_bit;
-                p_smi_mdc @ (t + 60) <: 1 << SMI_MDC_BIT | data_bit;
-                t += 60;
+                p_smi_mdc @ (t + SMI_HALF_BIT_TIME_TICKS) <: data_bit;
+                p_smi_mdc @ (t + SMI_BIT_TIME_TICKS) <: 1 << SMI_MDC_BIT | data_bit;
+                t += SMI_BIT_TIME_TICKS;
             }
-            p_smi_mdc @ (t+30) <: 1 << SMI_MDC_BIT | data_bit;
+            p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) <: 1 << SMI_MDC_BIT | data_bit;
         }
         return data;
     }
@@ -65,7 +69,7 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
       p_smi_mdc <: ~0 @ t;
       while (i != 0) {
         i--;
-        p_smi_mdc @ (t+30) <: 0;
+        p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) <: 0;
         if (!inning) {
           int data_bit;
           data_bit = ((data >> i) & 1) << SMI_MDIO_BIT;
@@ -73,15 +77,15 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
             data_bit |= SMI_MDIO_REST;
           p_smi_mdio <: data_bit;
         }
-        p_smi_mdc @ (t+60) <: ~0;
+        p_smi_mdc @ (t+SMI_BIT_TIME_TICKS) <: ~0;
         if (inning) {
           p_smi_mdio :> data_bit;
           data_bit = data_bit >> SMI_MDIO_BIT;
           data = (data << 1) | data_bit;
         }
-        t += 60;
+        t += SMI_BIT_TIME_TICKS;
       }
-      p_smi_mdc @ (t+30) <: ~0;
+      p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) <: ~0;
       return data;
     }
 }
