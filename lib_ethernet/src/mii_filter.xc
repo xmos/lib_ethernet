@@ -84,12 +84,16 @@ unsafe void mii_ethernet_filter(chanend c_conf,
     current_port = 0;
     if (buf == null)
     {
+#if (NUM_ETHERNET_PORTS == 2)
       buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets[1]);
       if(buf == null)
       {
         continue;
       }
       current_port = 1;
+#else
+      continue;
+#endif
     }
 
 

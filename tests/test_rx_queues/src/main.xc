@@ -22,7 +22,7 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 #define NUM_TX_LP_IF 1
 #define NUM_LP_CLIENTS 2
 
-port p_rx_lp_control[NUM_LP_CLIENTS] = on tile[0]: { XS1_PORT_1E, XS1_PORT_1F };
+port p_rx_lp_control[NUM_LP_CLIENTS] = on tile[0]: { XS1_PORT_1G, XS1_PORT_1N };
 
 #include "helpers.xc"
 

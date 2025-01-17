@@ -511,6 +511,10 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     [[independent_guard]]
     case (unsigned i = 0; i < n_tx_lp; i++)
       i_tx_lp[i]._get_outgoing_timestamp(unsigned dst_port) -> unsigned timestamp:
+      if(dst_port == ETHERNET_ALL_INTERFACES)
+      {
+        dst_port = 0; // TODO - FIXME
+      }
       if(tx_client_state_lp[i].has_outgoing_timestamp_info[dst_port])
       {
         timestamp = tx_client_state_lp[i].outgoing_timestamp[dst_port] + p_port_state[dst_port].egress_ts_latency[p_port_state[dst_port].link_speed];
@@ -531,7 +535,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
         if((dst_port == ETHERNET_ALL_INTERFACES || dst_port == p) && (buf != null))
         {
           unsigned * unsafe dptr = &buf->data[0];
-          unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_hp[dst_port]);
+          unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_hp[p]);
           unsigned prewrap = ((char *) wrap_ptr - (char *) dptr);
           unsigned len1 = prewrap > len ? len : prewrap;
           unsigned len2 = prewrap > len ? 0 : len - prewrap;
@@ -550,8 +554,9 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
             dptr = dptr + (len+3)/4;
           }
           buf->length = len;
-          mii_commit(tx_mem_hp[dst_port], dptr);
-          mii_add_packet((mii_packet_queue_t)&tx_packets_hp[dst_port], buf);
+          mii_commit(tx_mem_hp[p], dptr);
+          mii_add_packet((mii_packet_queue_t)&tx_packets_hp[p], buf);
+
           buf->tcount = 0;
         }
         tx_client_state_hp[0].send_buffer[0] = null;

@@ -178,7 +178,7 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed,
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1E', bit_time, 0, True, rand.randint(0, int(sys.maxsize)))
+    rxLpControl = RxLpControl('tile[0]:XS1_PORT_1G', bit_time, 0, True, rand.randint(0, int(sys.maxsize)))
 
     testname = 'test_avb_traffic'
     expect_folder = create_if_needed("expect_temp")

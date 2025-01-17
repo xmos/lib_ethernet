@@ -122,8 +122,8 @@ def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, test_id,
     rand.seed(seed)
 
     bit_time = tx_phy.get_clock().get_bit_time()
-    rxLpControl1 = RxLpControl('tile[0]:XS1_PORT_1E', bit_time, 0, True, rand.randint(0, sys.maxsize))
-    rxLpControl2 = RxLpControl('tile[0]:XS1_PORT_1F', bit_time, 0, True, rand.randint(0, sys.maxsize))
+    rxLpControl1 = RxLpControl('tile[0]:XS1_PORT_1G', bit_time, 0, True, rand.randint(0, sys.maxsize))
+    rxLpControl2 = RxLpControl('tile[0]:XS1_PORT_1N', bit_time, 0, True, rand.randint(0, sys.maxsize))
 
     testname = 'test_rx_queues'
     expect_folder = create_if_needed("expect_temp")

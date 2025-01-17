@@ -1118,8 +1118,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             }
         }
 
-
-
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {
             const int preamble_bytes = 8;

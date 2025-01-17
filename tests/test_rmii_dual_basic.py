@@ -74,70 +74,69 @@ def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, t
 
 def rmii_dual_test(capfd, params, seed):
     verbose = False
-    with capfd.disabled():
-        clk = get_rmii_clk(Clock.CLK_50MHz)
-        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
-                                      clk,
-                                      verbose=verbose
-                                      )
+    clk = get_rmii_clk(Clock.CLK_50MHz)
+    tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                    clk,
+                                    verbose=verbose
+                                    )
 
-        tx_rmii_phy_2 = get_rmii_tx_phy(params['rx_width'],
-                                      clk,
-                                      verbose=verbose,
-                                      second_phy=True
-                                      )
+    tx_rmii_phy_2 = get_rmii_tx_phy(params['rx_width'],
+                                    clk,
+                                    verbose=verbose,
+                                    second_phy=True
+                                    )
 
-        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
-                                      clk,
-                                      packet_fn=check_received_packet,
-                                      verbose=verbose
-                                      )
+    rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                    clk,
+                                    packet_fn=check_received_packet,
+                                    verbose=verbose
+                                    )
 
-        rx_rmii_phy_2 = get_rmii_rx_phy(params['tx_width'],
-                                      clk,
-                                      packet_fn=check_received_packet,
-                                      verbose=verbose,
-                                      second_phy=True
-                                      )
+    rx_rmii_phy_2 = get_rmii_rx_phy(params['tx_width'],
+                                    clk,
+                                    packet_fn=check_received_packet,
+                                    verbose=verbose,
+                                    second_phy=True
+                                    )
 
-        mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, rx_width, tx_width = params["mac"], params["arch"], None, [rx_rmii_phy, rx_rmii_phy_2], clk, [tx_rmii_phy, tx_rmii_phy_2], params['rx_width'],params['tx_width']
+    mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, rx_width, tx_width = params["mac"], params["arch"], None, [rx_rmii_phy, rx_rmii_phy_2], clk, [tx_rmii_phy, tx_rmii_phy_2], params['rx_width'],params['tx_width']
 
-        rand = random.Random()
-        rand.seed(seed)
+    rand = random.Random()
+    rand.seed(seed)
 
-        dut_mac_address = get_dut_mac_address()
-        not_dut_mac_address = []
-        for i in range(6):
-            not_dut_mac_address.append(dut_mac_address[i]+1)
+    dut_mac_address = get_dut_mac_address()
+    not_dut_mac_address = []
+    for i in range(6):
+        not_dut_mac_address.append(dut_mac_address[i]+1)
 
-        packets = []
-        loopback_packets = []
-        forwarded_packets = []
+    packets = []
+    loopback_packets = []
+    forwarded_packets = []
 
-        # Send frames which excercise all of the tail length vals (0, 1, 2, 3 bytes)
-        packet_start_len = 100
-        # Packets that get looped back on the same port
-        for i in range(5):
-            loopback_packets.append(MiiPacket(rand,
-                dst_mac_addr=dut_mac_address,
-                create_data_args=['step', (i, packet_start_len + i)],
-                inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
-            ))
-        # packets that get forwarded to the other port
-        for i in range(5):
-            forwarded_packets.append(MiiPacket(rand,
-                dst_mac_addr=not_dut_mac_address,
-                create_data_args=['step', (i, packet_start_len + i)],
-                inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
-            ))
+    # Send frames which excercise all of the tail length vals (0, 1, 2, 3 bytes)
+    packet_start_len = 100
+    # Packets that get looped back on the same port
+    for i in range(5):
+        loopback_packets.append(MiiPacket(rand,
+            dst_mac_addr=dut_mac_address,
+            create_data_args=['step', (i, packet_start_len + i)],
+            inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
+        ))
+    # packets that get forwarded to the other port
+    for i in range(5):
+        forwarded_packets.append(MiiPacket(rand,
+            dst_mac_addr=not_dut_mac_address,
+            create_data_args=['step', (i, packet_start_len + i)],
+            inter_frame_gap=packet_processing_time(tx_phy[0], packet_start_len, mac),
+        ))
 
-        # interleave loopback and forwarded packets
-        for i in range(5):
-            packets.append(loopback_packets[i])
-            packets.append(forwarded_packets[i])
+    # interleave loopback and forwarded packets
+    for i in range(5):
+        packets.append(loopback_packets[i])
+        packets.append(forwarded_packets[i])
 
 
-        do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, loopback_packets, forwarded_packets, rx_width=rx_width, tx_width=tx_width)
+    do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, loopback_packets, forwarded_packets, rx_width=rx_width, tx_width=tx_width)
 
 
 

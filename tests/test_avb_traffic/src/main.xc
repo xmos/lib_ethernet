@@ -17,7 +17,7 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 
 #include "control.xc"
 
-port p_rx_lp_control = on tile[0]: XS1_PORT_1E;
+port p_rx_lp_control = on tile[0]: XS1_PORT_1G;
 
 #include "helpers.xc"
 
