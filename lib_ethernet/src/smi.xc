@@ -153,6 +153,10 @@ void smi(server interface smi_if i,
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
       res = smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
+
+      // Ensure MDIO is pull high at end after 100ns at end of transaction
+      delay_ticks(10);
+      p_smi_mdio :> void;
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int is_read = 0;
@@ -166,6 +170,10 @@ void smi(server interface smi_if i,
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
       (void) smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
+      
+      // Ensure MDIO is pull high at end after 100ns at end of transaction
+      delay_ticks(10);
+      p_smi_mdio :> void;
       break;
     }
   }
@@ -193,6 +201,8 @@ void smi_singleport(server interface smi_if i,
       smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       res = smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
+
+      // port already high so MDC and MDIO will be pulled high
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int is_read = 0;
@@ -206,6 +216,10 @@ void smi_singleport(server interface smi_if i,
       smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       (void) smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
+
+      // Ensure MDIO is pull high at end after 100ns at end of transaction
+      delay_ticks(10);
+      p_smi :> void;
       break;
     }
   }
