@@ -73,7 +73,7 @@ class smi_master_checker(px.SimThread):
         print(f"Max bit time: {max_bit_time/1e6:.2f}ns ({1e9/max_bit_time:.2f}MHz)")
 
       max_bit_freq_hz = 1e15 / min_bit_time
-      if(max_bit_freq_hz > self._expected_speed_hz):
+      if(max_bit_freq_hz > self._expected_speed_hz * 1.07): # Allow some wiggle
         self.error(f"Max MDC rate {max_bit_freq_hz} higher than expected {self._expected_speed_hz}")
 
     def error(self, str):

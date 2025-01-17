@@ -56,7 +56,9 @@ test_params_file = Path(__file__).parent / "test_smi/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_smi(capfd, params):
    
-    # For debug
-    # with capfd.disabled():
-    #     do_test(capfd, params["type"], params["arch"])
-    do_test(capfd, params["type"], params["arch"])
+    debug = 0
+    if debug:
+        with capfd.disabled():
+            do_test(capfd, params["type"], params["arch"])
+    else:
+        do_test(capfd, params["type"], params["arch"])
