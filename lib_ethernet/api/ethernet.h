@@ -276,7 +276,7 @@ typedef interface ethernet_tx_if {
   /** Internal API call. Do not use. */
   void _init_send_packet(size_t n, size_t ifnum);
   /** Internal API call. Do not use. */
-  void _complete_send_packet(char packet[n], unsigned n,
+  unsigned _complete_send_packet(char packet[n], unsigned n,
                              int request_timestamp, size_t ifnum);
   /** Internal API call. Do not use. */
   unsigned _get_outgoing_timestamp(size_t ifnum);
@@ -299,7 +299,10 @@ extends client interface ethernet_tx_if : {
   inline void send_packet(CLIENT_INTERFACE(ethernet_tx_if, i), char packet[n], unsigned n,
                           unsigned ifnum) {
     i._init_send_packet(n, ifnum);
-    i._complete_send_packet(packet, n, 0, ifnum);
+    unsigned ready;
+    do {
+        ready = i._complete_send_packet(packet, n, 1, ifnum);
+    }while(!ready);
   }
 
   /** Function to send an Ethernet packet on the specified interface and return a timestamp
@@ -320,7 +323,10 @@ extends client interface ethernet_tx_if : {
                                     unsigned n,
                                     unsigned ifnum) {
     i._init_send_packet(n, ifnum);
-    i._complete_send_packet(packet, n, 1, ifnum);
+    unsigned ready;
+    do {
+        ready = i._complete_send_packet(packet, n, 1, ifnum);
+    }while(!ready);
     unsigned timestamp = 0;
     while(!timestamp)
     {
@@ -424,8 +430,17 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
                                     unsigned n,
                                     unsigned ifnum)
 {
+  unsigned ready = 0;
+
   c_tx_hp <: n;
   c_tx_hp <: ifnum;
+  c_tx_hp :> ready;
+  while(!ready)
+  {
+    c_tx_hp <: n;
+    c_tx_hp <: ifnum;
+    c_tx_hp :> ready;
+  }
   sout_char_array(c_tx_hp, packet, n);
 }
 

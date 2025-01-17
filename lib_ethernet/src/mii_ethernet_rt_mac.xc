@@ -304,7 +304,11 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
         }
       }
 
-      if (!update_client_state && (client_state.rd_index[current_port_lp] != client_state.wr_index[current_port_lp]))
+      if(update_client_state)
+      {
+        break;
+      }
+      else if (client_state.rd_index[current_port_lp] != client_state.wr_index[current_port_lp])
       {
         unsigned client_rd_index = client_state.rd_index[current_port_lp];
         unsigned packets_rd_index = (unsigned)client_state.fifo[current_port_lp][client_rd_index];
@@ -526,42 +530,51 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       }
       break;
 
+
     case (!isnull(c_tx_hp) && !prioritize_rx) => c_tx_hp :> unsigned len:
       unsigned dst_port;
       c_tx_hp :> dst_port;
-      for(int p=0; p<NUM_ETHERNET_PORTS; p++)
+      if(dst_port == ETHERNET_ALL_INTERFACES)
       {
-        mii_packet_t * unsafe buf = tx_client_state_hp[0].send_buffer[p];
-        if((dst_port == ETHERNET_ALL_INTERFACES || dst_port == p) && (buf != null))
-        {
-          unsigned * unsafe dptr = &buf->data[0];
-          unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_hp[p]);
-          unsigned prewrap = ((char *) wrap_ptr - (char *) dptr);
-          unsigned len1 = prewrap > len ? len : prewrap;
-          unsigned len2 = prewrap > len ? 0 : len - prewrap;
-          unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
-
-          // sout_char_array sends bytes in reverse order so the second
-          // half must be received first
-          if (len2) {
-            sin_char_array(c_tx_hp, (char*)start_ptr, len2);
-          }
-          sin_char_array(c_tx_hp, (char*)dptr, len1);
-          if (len2) {
-            dptr = start_ptr + (len2+3)/4;
-          }
-          else {
-            dptr = dptr + (len+3)/4;
-          }
-          buf->length = len;
-          mii_commit(tx_mem_hp[p], dptr);
-          mii_add_packet((mii_packet_queue_t)&tx_packets_hp[p], buf);
-
-          buf->tcount = 0;
-        }
-        tx_client_state_hp[0].send_buffer[0] = null;
+        dst_port = 0; // TODO FIXME Sending on multiple ports with one send_packet() call when NUM_ETHERNET_PORTS > 1 is not supported yet.
       }
-      prioritize_rx = 3;
+
+      mii_packet_t * unsafe buf = tx_client_state_hp[0].send_buffer[dst_port];
+      if(!buf) // check if there's a send_buffer available for this port
+      {
+        c_tx_hp <: 0; // not ready
+      }
+      else
+      {
+        c_tx_hp <: 1; //ready. Expect data next
+
+        unsigned * unsafe dptr = &buf->data[0];
+        unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_hp[dst_port]);
+        unsigned prewrap = ((char *) wrap_ptr - (char *) dptr);
+        unsigned len1 = prewrap > len ? len : prewrap;
+        unsigned len2 = prewrap > len ? 0 : len - prewrap;
+        unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
+
+        // sout_char_array sends bytes in reverse order so the second
+        // half must be received first
+        if (len2) {
+          sin_char_array(c_tx_hp, (char*)start_ptr, len2);
+        }
+        sin_char_array(c_tx_hp, (char*)dptr, len1);
+        if (len2) {
+          dptr = start_ptr + (len2+3)/4;
+        }
+        else {
+          dptr = dptr + (len+3)/4;
+        }
+        buf->length = len;
+        buf->tcount = 0;
+        mii_commit(tx_mem_hp[dst_port], dptr);
+        mii_add_packet((mii_packet_queue_t)&tx_packets_hp[dst_port], buf);
+        tx_client_state_hp[0].send_buffer[dst_port] = null;
+        prioritize_rx = 3;
+      }
+
       break;
 
     [[independent_guard]]
@@ -569,42 +582,55 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       (!prioritize_rx) =>
     i_tx_lp[i]._complete_send_packet(char data[n], unsigned n,
                                      int request_timestamp,
-                                     unsigned dst_port):
-
+                                     unsigned dst_port) -> unsigned ready:
+      ready = 1;
       for(int p=0; p<NUM_ETHERNET_PORTS; p++)
       {
-        if((dst_port == ETHERNET_ALL_INTERFACES || dst_port == p) && (tx_client_state_lp[i].send_buffer[p] != null))
+        if(dst_port == ETHERNET_ALL_INTERFACES || dst_port == p)
         {
-          mii_packet_t * unsafe buf = tx_client_state_lp[i].send_buffer[p];
-          unsigned * unsafe dptr = &buf->data[0];
-          unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_lp[p]);
-          int prewrap = ((char *) wrap_ptr - (char *) dptr);
-          int len = n;
-          int len1 = prewrap > len ? len : prewrap;
-          int len2 = prewrap > len ? 0 : len - prewrap;
-          memcpy(dptr, data, len1);
-          if (len2) {
-            unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
-            memcpy((unsigned *) start_ptr, &data[len1], len2);
-            dptr = start_ptr + (len2+3)/4;
+          if(tx_client_state_lp[i].send_buffer[p] == null)
+          {
+            ready = 0;
+            break;
           }
-          else {
-            dptr = dptr + (len+3)/4;
-          }
-          buf->length = n;
-          if (request_timestamp)
-            buf->timestamp_id = i+1;
-          else
-            buf->timestamp_id = 0;
-          mii_commit(tx_mem_lp[p], dptr);
-          mii_add_packet((mii_packet_queue_t)&tx_packets_lp[p], buf);
-          buf->tcount = 0;
         }
-        tx_client_state_lp[i].send_buffer[p] = null;
       }
-
-      tx_client_state_lp[i].requested_send_buffer_size = 0;
-      prioritize_rx = 3;
+      if(ready)
+      {
+        for(int p=0; p<NUM_ETHERNET_PORTS; p++)
+        {
+          if((dst_port == ETHERNET_ALL_INTERFACES || dst_port == p))
+          {
+            mii_packet_t * unsafe buf = tx_client_state_lp[i].send_buffer[p];
+            unsigned * unsafe dptr = &buf->data[0];
+            unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem_lp[p]);
+            int prewrap = ((char *) wrap_ptr - (char *) dptr);
+            int len = n;
+            int len1 = prewrap > len ? len : prewrap;
+            int len2 = prewrap > len ? 0 : len - prewrap;
+            memcpy(dptr, data, len1);
+            if (len2) {
+              unsigned * unsafe start_ptr = (unsigned *) *wrap_ptr;
+              memcpy((unsigned *) start_ptr, &data[len1], len2);
+              dptr = start_ptr + (len2+3)/4;
+            }
+            else {
+              dptr = dptr + (len+3)/4;
+            }
+            buf->length = n;
+            if (request_timestamp)
+              buf->timestamp_id = i+1;
+            else
+              buf->timestamp_id = 0;
+            mii_commit(tx_mem_lp[p], dptr);
+            mii_add_packet((mii_packet_queue_t)&tx_packets_lp[p], buf);
+            buf->tcount = 0;
+          }
+          tx_client_state_lp[i].send_buffer[p] = null;
+        }
+        tx_client_state_lp[i].requested_send_buffer_size = 0;
+        prioritize_rx = 3;
+      }
       break;
 
     default:

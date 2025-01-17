@@ -50,6 +50,8 @@ void test_link_status(client ethernet_cfg_if cfg,
 
   size_t index = rx.get_index();
 
+  index = 0; // This is the mac port index and not the client index
+
   cfg.enable_link_status_notification(index);
 
   int events_expected = 4;

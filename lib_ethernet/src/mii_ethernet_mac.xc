@@ -268,7 +268,8 @@ static void mii_ethernet_aux(client mii_if i_mii,
 
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                              int request_timestamp,
-                                             unsigned dst_port):
+                                             unsigned dst_port) -> unsigned ready:
+        ready = 1;
         memcpy(txbuf, data, n);
         i_mii.send_packet(txbuf, n);
         // wait for the packet to be sent

@@ -583,7 +583,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         (client_state_lp[i].send_buffer[0] != null && !prioritize_ack) =>
          i_tx_lp[i]._complete_send_packet(char data[n], unsigned n,
                                        int request_timestamp,
-                                       unsigned dst_port):
+                                       unsigned dst_port) -> unsigned ready:
 
         mii_packet_t * unsafe buf = client_state_lp[i].send_buffer[0];
         unsigned * unsafe dptr = &buf->data[0];
@@ -608,6 +608,8 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         break;
 
       case (tx_buf_hp && !prioritize_ack) => c_tx_hp :> unsigned n_bytes:
+        c_tx_hp :> unsigned dst_port;
+        c_tx_hp <: 1; // protocol requires 'ready' to be transmitted
         sin_char_array(c_tx_hp, (char *)tx_buf_hp->data, n_bytes);
         tx_buf_hp->length = n_bytes;
         tx_buf_hp->timestamp_id = 0;
