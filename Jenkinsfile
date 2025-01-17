@@ -1,6 +1,6 @@
 // This file relates to internal XMOS infrastructure and should be ignored by external users
 
-@Library('xmos_jenkins_shared_library@v0.34.0') _
+@Library('xmos_jenkins_shared_library@v0.36.0') _
 
 getApproval()
 
@@ -20,7 +20,7 @@ pipeline {
     )
     string(
       name: 'XMOSDOC_VERSION',
-      defaultValue: 'v6.1.3',
+      defaultValue: 'v6.2.0',
       description: 'The xmosdoc version'
     )
     string(
@@ -42,7 +42,7 @@ pipeline {
       steps {
         println "Stage running on: ${env.NODE_NAME}"
         dir("${REPO}") {
-          checkout scm
+          checkoutScmShallow()
           createVenv()
           installPipfile(false)
         }
@@ -56,8 +56,7 @@ pipeline {
             script {
               echo "Test Stage: SEED is ${env.SEED}"
               // Build all apps in the examples directory
-              sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
-              sh "xmake -j 32 -C build"
+              xcoreBuild()
             } // script
           } // dir
         } //withTools
@@ -93,8 +92,7 @@ pipeline {
               dir("tests") {
                 script {
                 // Build all apps in the examples directory
-                  sh "cmake -B build -G\"Unix Makefiles\" -DDEPS_CLONE_SHALLOW=TRUE"
-                  sh "xmake -j 32 -C build"
+                  xcoreBuild()
                   if(params.TEST_TYPE == 'fixed_seed')
                   {
                     echo "Running tests with fixed seed ${env.SEED}"

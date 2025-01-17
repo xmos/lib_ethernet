@@ -565,7 +565,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
 
     select {
       case i_tx_lp[int i]._init_send_packet(unsigned n, unsigned dst_port):
-        if (client_state_lp[i].send_buffer == null) {
+        if (client_state_lp[i].send_buffer[0] == null) {
           client_state_lp[i].requested_send_buffer_size = 1;
         }
         break;
@@ -580,7 +580,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
 
       [[independent_guard]]
       case (unsigned i = 0; i < n_tx_lp; i++)
-        (client_state_lp[i].send_buffer != null && !prioritize_ack) =>
+        (client_state_lp[i].send_buffer[0] != null && !prioritize_ack) =>
          i_tx_lp[i]._complete_send_packet(char data[n], unsigned n,
                                        int request_timestamp,
                                        unsigned dst_port):
