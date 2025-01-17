@@ -19,8 +19,10 @@ void test_smi(client interface smi_if i_smi){
     p_phy_rst_n <: 0xf;
     delay_microseconds(1);
 
-    // i_smi.write_reg(0x01, 0x02, 0x1234);
-    // delay_microseconds(1);
+    for(int i = 0; i < 3; i++){
+        uint16_t word_to_tx = i + (i << 4) + (i << 8) + (i << 12);
+        i_smi.write_reg(0x03, 0x0a, word_to_tx);
+    }
 
     for(int i = 0; i < 3; i++){
         uint16_t read = i_smi.read_reg(0x10, 0x11);

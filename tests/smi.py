@@ -25,9 +25,9 @@ class smi_master_checker(px.SimThread):
       # Bit rate
       self._expected_speed_hz = expected_speed_hz
     
-      # Driven values
-      self._external_mdc_value = 0
-      self._external_mdio_value = 0
+      # These values are used to simulate pull-ups
+      self._external_mdc_value = 1
+      self._external_mdio_value = 1
 
       # pin states
       self._mdc_change_time = None
@@ -44,7 +44,6 @@ class smi_master_checker(px.SimThread):
       print("Checking SMI: MDC=%s, MDIO=%s RST_N=%s" % (self._mdc_port, self._mdio_port, self._rst_n_port))
 
     def _reset_smi_state_machine(self):
-      print("_reset_smi_state_machine")
       # State of transaction
       self._bit_num = 0
       self._bit_times = []
@@ -68,15 +67,19 @@ class smi_master_checker(px.SimThread):
       min_bit_time = min(self._bit_times)
       ave_bit_time = sum(self._bit_times)/self._bit_num
 
-      print(f"Average bit time: {ave_bit_time/1e6:.2f}ns ({1e9/ave_bit_time:.2f}MHz)")
-      print(f"Min bit time: {min_bit_time/1e6:.2f}ns ({1e9/min_bit_time:.2f}MHz)")
-      print(f"Max bit time: {max_bit_time/1e6:.2f}ns ({1e9/max_bit_time:.2f}MHz)")
+      if VERBOSE:
+        print(f"Average bit time: {ave_bit_time/1e6:.2f}ns ({1e9/ave_bit_time:.2f}MHz)")
+        print(f"Min bit time: {min_bit_time/1e6:.2f}ns ({1e9/min_bit_time:.2f}MHz)")
+        print(f"Max bit time: {max_bit_time/1e6:.2f}ns ({1e9/max_bit_time:.2f}MHz)")
 
-
+      max_bit_freq_hz = 1e15 / min_bit_time
+      if(max_bit_freq_hz > self._expected_speed_hz):
+        self.error(f"Max MDC rate {max_bit_freq_hz} higher than expected {self._expected_speed_hz}")
 
     def error(self, str):
          print("ERROR: %s @ %s" % (str, self.xsi.get_time()))
 
+    # We use this helper to implement a virtual pull-up resistor
     def read_port(self, port, external_value):
       driving = self.xsi.is_port_driving(port)
       if driving:
@@ -85,8 +88,7 @@ class smi_master_checker(px.SimThread):
         value = external_value
         # Maintain the weak external drive
         self.xsi.drive_port_pins(port, external_value)
-      # print "READ {}, got {}, {} ({}) @ {}".format(
-      #   port, driving, value, external_value, self.xsi.get_time())
+      # print("READ {}: drive {}, val: {} (ext: {}) @ {}".format(port, driving, value, external_value, self.xsi.get_time()))
       return value
 
     def read_mdc_value(self):
@@ -136,7 +138,6 @@ class smi_master_checker(px.SimThread):
         # Logic to exit test when reset driven low by FW
         if self._test_running and self.xsi.sample_port_pins(self._rst_n_port) == 0x0:
           self.xsi.terminate()
-
         if not self._test_running and self.xsi.sample_port_pins(self._rst_n_port) == 0xf:
           self._test_running = True
 
@@ -186,17 +187,14 @@ class smi_master_checker(px.SimThread):
 
     # This all happens on the rising edge
     def decode_frame_on_rising(self):
-      # start
-      print(self._bit_num)
+      # start of transaction
       if self._bit_num == 0:
           self._state = "preamble"
-          print("first bit")
 
       # end of preamble
       elif self._bit_num == 31:
           self._preamble = self._data
           self._data = []
-          print(self._state, self._preamble)
           if self._preamble != [1] * 32:
              self.error(f"Invalid preamble: {self._preamble}")
           self._state = "start_of_frame"
@@ -205,7 +203,6 @@ class smi_master_checker(px.SimThread):
       elif self._bit_num == 33:
           self._start_of_frame = self._data
           self._data = []
-          print(self._state, self._start_of_frame)
           if self._preamble != [1] * 32:
              self.error(f"Invalid start_of_frame: {self._start_of_frame}")
           self._state = "op_code"
@@ -214,7 +211,6 @@ class smi_master_checker(px.SimThread):
       elif self._bit_num == 35:
           self._op_code = self._data
           self._data = []
-          print(self._state, self._op_code)
 
           # read
           if self._op_code == [1, 0]:
@@ -233,21 +229,18 @@ class smi_master_checker(px.SimThread):
       elif self._bit_num == 40:
           self._phy_addr = self._data
           self._data = []
-          print(self._state, self._phy_addr)
           self._state = "reg_address"
 
       #end of reg address
       elif self._bit_num == 45:
           self._reg_addr = self._data
           self._data = []
-          print(self._state, self._reg_addr)
           self._state = "turnaround"
 
       # Turnaround
       elif self._bit_num == 47:
           self._turnaround = self._data
           self._data = []
-          print(self._state, self._turnaround)
           if self._op_code == [1, 0]:
               self._state = "read"
           elif self._op_code == [0, 1]:
@@ -260,7 +253,7 @@ class smi_master_checker(px.SimThread):
               self._write_data = self._data
               self._data = []
               written_data = BitArray(self._write_data).uint
-              print(f"{self._state} {written_data:x}")
+              print(f"DUT WRITE: 0x{written_data:x}")
 
 
           elif self._state == "read":
@@ -274,12 +267,12 @@ class smi_master_checker(px.SimThread):
           self.error("Bit number exceed 63")
 
 
-    def drive_frame_on_falling(self):
+    def drive_frame_on_rising(self):
       # Start read 
       if self._bit_num >= 46 and self._state == "read":
         value = self._tx_word[0]
         self.drive_mdio(value);
-        print(f"sending mdio: {value} {self.xsi.get_time()} driving: {self.xsi.is_port_driving(self._mdio_port)}")
+        # print(f"sending mdio: {value} {self.xsi.get_time()/1e9:.2f}us driving: {self.xsi.is_port_driving(self._mdio_port)}")
         del self._tx_word[0]
 
     def move_to_next_state(self, mdc_changed, mdio_changed):
@@ -289,10 +282,11 @@ class smi_master_checker(px.SimThread):
           # print(f"Got MDIO bit {self._bit_num}: {self._mdio_value} at time {self._mdc_change_time}")
           self._data.append(self._mdio_value)
           self.decode_frame_on_rising()
+          self.drive_frame_on_rising()          
           self._bit_num += 1
 
         if self._mdc_value == 0:
-          self.drive_frame_on_falling()          
+          pass # Do nothing on falling edge
 
 
     def run(self):
