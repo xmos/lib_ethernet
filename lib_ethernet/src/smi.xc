@@ -11,83 +11,123 @@
 #define SMI_READ                    1
 #define SMI_WRITE                   0
 
-#ifndef SMI_MDIO_RESET_MUX
-#define SMI_MDIO_RESET_MUX          0
-#endif
-
-#ifndef SMI_MDIO_REST
-#define SMI_MDIO_REST               0
-#endif
-
 #define MMD_ACCESS_CONTROL          0xD
 #define MMD_ACCESS_DATA             0xE
 
+// This is setup to support a tVAL time of 300ns (LAN8710A) for read
+// If your PHY is faster than this you may increase the BIT_CLOCK_HZ
 #define SMI_BIT_CLOCK_HZ            1660000
 #define SMI_BIT_TIME_TICKS          (XS1_TIMER_HZ / SMI_BIT_CLOCK_HZ)
 #define SMI_HALF_BIT_TIME_TICKS     (SMI_BIT_TIME_TICKS / 2)
 
+
 // Shift in a number of data bits to or from the SMI port
 static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
-                         unsigned data,
-                         unsigned count, unsigned inning,
+                         unsigned write_data,
+                         unsigned count, unsigned is_read,
                          unsigned SMI_MDIO_BIT,
                          unsigned SMI_MDC_BIT)
 {
-    int i = count, data_bit = 0, t;
+  timer t;
+  int t_trigger;
 
-    if (isnull(p_smi_mdio)) {
-        p_smi_mdc :> void @ t;
-        if (inning) {
-            while (i != 0) {
-                i--;
-                p_smi_mdc @ (t + SMI_HALF_BIT_TIME_TICKS) :> data_bit;
-                data_bit &= (1 << SMI_MDIO_BIT);
-                if (SMI_MDIO_RESET_MUX)
-                  data_bit |= SMI_MDIO_REST;
-                p_smi_mdc            <: data_bit;
-                data = (data << 1) | (data_bit >> SMI_MDIO_BIT);
-                p_smi_mdc  @ (t + SMI_BIT_TIME_TICKS) :> void;
-                p_smi_mdc             <: 1 << SMI_MDC_BIT | data_bit;
-                t += SMI_BIT_TIME_TICKS;
-            }
-            p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) :> void;
-        } else {
-          while (i != 0) {
-                i--;
-                data_bit = ((data >> i) & 1) << SMI_MDIO_BIT;
-                if (SMI_MDIO_RESET_MUX)
-                  data_bit |= SMI_MDIO_REST;
-                p_smi_mdc @ (t + SMI_HALF_BIT_TIME_TICKS) <: data_bit;
-                p_smi_mdc @ (t + SMI_BIT_TIME_TICKS) <: 1 << SMI_MDC_BIT | data_bit;
-                t += SMI_BIT_TIME_TICKS;
-            }
-            p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) <: 1 << SMI_MDC_BIT | data_bit;
-        }
-        return data;
-    }
-    else {
-      p_smi_mdc <: ~0 @ t;
-      while (i != 0) {
-        i--;
-        p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) <: 0;
-        if (!inning) {
-          int data_bit;
-          data_bit = ((data >> i) & 1) << SMI_MDIO_BIT;
-          if (SMI_MDIO_RESET_MUX)
-            data_bit |= SMI_MDIO_REST;
-          p_smi_mdio <: data_bit;
-        }
-        p_smi_mdc @ (t+SMI_BIT_TIME_TICKS) <: ~0;
-        if (inning) {
-          p_smi_mdio :> data_bit;
-          data_bit = data_bit >> SMI_MDIO_BIT;
-          data = (data << 1) | data_bit;
-        }
-        t += SMI_BIT_TIME_TICKS;
+  unsigned read_data = 0;
+
+  // Single port version. Note this requires that MDC is pulled up externally.
+  if (isnull(p_smi_mdio)) {
+    // Start of MDC clock cycle
+    // port Hi-Z. Clock will rise via pull-up, data is Hi-Z
+    t :> t_trigger;
+    p_smi_mdc :> void; 
+    if (is_read) {
+      while (count != 0) {
+        count--;
+        // Wait til half cycle
+        t_trigger += SMI_HALF_BIT_TIME_TICKS;
+        t when timerafter(t_trigger) :> void;
+
+        // Read port with PHY driven data bit just before falling edge of clock
+        unsigned port_data;
+        p_smi_mdc :> port_data;
+        port_data &= ~(1 << SMI_MDC_BIT); // clear clock bit to zero
+        // Assert clock low and drive back previously read data (to avoid contention) 
+        p_smi_mdc <: port_data;
+        read_data |=  (port_data >> SMI_MDIO_BIT) << count;
+ 
+        // Wait til end of cycle
+        t_trigger += SMI_HALF_BIT_TIME_TICKS;
+        t when timerafter(t_trigger) :> void;
+
+        // At end of cycle allow clock to be pulled high, data is Hi-Z 
+        p_smi_mdc :> void;
       }
-      p_smi_mdc @ (t+SMI_HALF_BIT_TIME_TICKS) <: ~0;
-      return data;
     }
+    else
+    // Write
+    {
+      // port is hi-z so MDC is pulled high, data undriven
+      while (count != 0) {
+        count--;
+        unsigned data_bit = ((write_data >> count) & 1) << SMI_MDIO_BIT;
+
+        // Wait til half cycle
+        t_trigger += SMI_HALF_BIT_TIME_TICKS;
+        t when timerafter(t_trigger) :> void;
+        // drive required data bit and MDC low halfway through
+        p_smi_mdc <: data_bit;
+
+        // Wait til end of cycle
+        t_trigger += SMI_HALF_BIT_TIME_TICKS;
+        t when timerafter(t_trigger) :> void;
+
+        // Continue to drive data bit and clock high at end of cycle
+        p_smi_mdc <: 1 << SMI_MDC_BIT | data_bit;
+      }
+    }
+
+    return read_data;
+  }
+  else
+  // Two port version
+  {
+    // Clock high
+    t :> t_trigger;
+    p_smi_mdc <: 1;
+    while(count != 0){
+      count--;
+
+      // Wait til half cycle
+      t_trigger += SMI_HALF_BIT_TIME_TICKS;
+      t when timerafter(t_trigger) :> void;
+      // Falling edge and data assert or hi-z
+      if(is_read){
+        p_smi_mdio :> void; // Hi-Z
+      }
+      else
+      {
+        unsigned data_bit = (write_data >> count) & 1;
+        p_smi_mdio <: data_bit;
+      }
+      p_smi_mdc <: 0;
+
+      // Wait til end of cycle
+      t_trigger += SMI_HALF_BIT_TIME_TICKS;
+      t when timerafter(t_trigger) :> void;
+      if(is_read){
+        unsigned data_bit;
+        p_smi_mdio :> data_bit;
+        read_data |= (data_bit << count);
+      }
+      else
+      {
+        // Keep previous data bit asserted
+      }
+      // Rising edge
+      p_smi_mdc <: 1;
+    } // count != 0
+
+    return read_data;
+  } // Two port
 }
 
 
@@ -95,44 +135,37 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
 void smi(server interface smi_if i,
          port p_smi_mdio, port p_smi_mdc)
 {
-  if (SMI_MDIO_RESET_MUX) {
-    timer tmr;
-    int t;
-    p_smi_mdio <: 0x0;
-    tmr :> t;tmr when timerafter(t+100000) :> void;
-    p_smi_mdio <: SMI_MDIO_REST;
-  }
 
   p_smi_mdc <: 1;
 
   while (1) {
     select {
     case i.read_reg(uint8_t phy_addr, uint8_t reg_addr) -> uint16_t res:
-      int inning = 1;
+      int is_read = 1;
       int val;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 0xffffffff, 32, SMI_WRITE,
                     0, 0);         // Preamble
-      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+inning) << 10 | phy_addr << 5 | reg_addr,
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+is_read) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     0, 0);
-      smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, inning,
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
-      res = smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, inning, 0, 0);
+      res = smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
-      int inning = 0;
+      int is_read = 0;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 0xffffffff, 32, SMI_WRITE,
                     0, 0);         // Preamble
-      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+inning) << 10 | phy_addr << 5 | reg_addr,
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, (5+is_read) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     0, 0);
-      smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, inning,
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
-      (void) smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, inning, 0, 0);
+      (void) smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
       break;
     }
   }
@@ -142,44 +175,37 @@ void smi(server interface smi_if i,
 void smi_singleport(server interface smi_if i,
                     port p_smi, unsigned SMI_MDIO_BIT, unsigned SMI_MDC_BIT)
 {
-  if (SMI_MDIO_RESET_MUX) {
-    timer tmr;
-    int t;
-    p_smi <: 0x0;
-    tmr :> t;tmr when timerafter(t+100000) :> void;
-    p_smi <: SMI_MDIO_REST;
-  }
 
   p_smi <: 1 << SMI_MDC_BIT;
 
   while (1) {
     select {
     case i.read_reg(uint8_t phy_addr, uint8_t reg_addr) -> uint16_t res:
-      int inning = 1;
+      int is_read = 1;
       int val;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi, null, 0xffffffff, 32, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);         // Preamble
-      smi_bit_shift(p_smi, null, (5+inning) << 10 | phy_addr << 5 | reg_addr,
+      smi_bit_shift(p_smi, null, (5+is_read) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
-      smi_bit_shift(p_smi, null, 2, 2, inning,
+      smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
-      res = smi_bit_shift(p_smi, null, val, 16, inning, SMI_MDIO_BIT, SMI_MDC_BIT);
+      res = smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
-      int inning = 0;
+      int is_read = 0;
       // Register access: lots of 1111, then a code (read/write), phy address,
       // register, and a turn-around, then data.
       smi_bit_shift(p_smi, null, 0xffffffff, 32, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);         // Preamble
-      smi_bit_shift(p_smi, null, (5+inning) << 10 | phy_addr << 5 | reg_addr,
+      smi_bit_shift(p_smi, null, (5+is_read) << 10 | phy_addr << 5 | reg_addr,
                     14, SMI_WRITE,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
-      smi_bit_shift(p_smi, null, 2, 2, inning,
+      smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
-      (void) smi_bit_shift(p_smi, null, val, 16, inning, SMI_MDIO_BIT, SMI_MDC_BIT);
+      (void) smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
     }
   }

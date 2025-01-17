@@ -90,6 +90,8 @@ void smi(SERVER_INTERFACE(smi_if, i_smi),
 
 /** SMI component that connects to an Ethernet PHY or switch via MDIO
  *  on a shared multi-bit port.
+ * 
+ *  Important!! This version requires a pull-up resistor on MDC to function.
  *
  *  This function implements a SMI component that connects to an 
  *  Ethernet PHY/ switch via MDIO/MDC connected on the same multi-bit port.
