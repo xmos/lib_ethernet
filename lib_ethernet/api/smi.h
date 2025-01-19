@@ -96,6 +96,8 @@ void smi(SERVER_INTERFACE(smi_if, i_smi),
  *  This function implements a SMI component that connects to an 
  *  Ethernet PHY/ switch via MDIO/MDC connected on the same multi-bit port.
  *  Interaction to the component is via the connected SMI interface.
+ *  Unsed pins in the port are reserved and should be left unconnected or weakly
+ *  pulled down.
  *
  *  \param i_smi    Client register read/write interface
  *  \param p_smi    The multi-bit port with MDIO/MDC pins
