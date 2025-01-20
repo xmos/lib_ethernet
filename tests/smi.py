@@ -109,15 +109,6 @@ class smi_master_checker(px.SimThread):
        self._external_mdio_value = value
        self.xsi.drive_port_pins(self._mdio_port, value)
 
-    def get_next_data_item(self):
-        if self._tx_data_index >= len(self._tx_data):
-            return 0xab
-        else:
-            data = self._tx_data[self._tx_data_index]
-            self._tx_data_index += 1
-            return data
-
-
     def wait_for_change(self):
       """ Wait for either the MDIO/MDC port to change and return which one it was.
           Need to also maintain the drive of any value set by the user.
