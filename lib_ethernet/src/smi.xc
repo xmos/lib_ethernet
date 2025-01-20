@@ -15,11 +15,25 @@
 #define MMD_ACCESS_DATA             0xE
 
 // This is setup to support a tVAL time of 300ns (LAN8710A) for read
-// If your PHY is faster than this you may increase the BIT_CLOCK_HZ
+// using the single port version. If using the two port version you 
+// may double this bit clock and still meet timing.
+// Or if your PHY is faster than 300ns tVAL you may increase the BIT_CLOCK_HZ
 #define SMI_BIT_CLOCK_HZ            1660000
 #define SMI_BIT_TIME_TICKS          (XS1_TIMER_HZ / SMI_BIT_CLOCK_HZ)
 #define SMI_HALF_BIT_TIME_TICKS     (SMI_BIT_TIME_TICKS / 2)
 
+/* Notes about single port implementation.
+Sampling just before the rising edge is the correct thing to do for maximum performance
+(min cycle time) so we do that in the two port version.
+In the single port version we have a challenge due to not having full control of direction 
+on individual port bits:
+The PHY will start driving data from the MDC rising edge so we must be high-Z on the data port
+at that point (and clock gets pulled high externally).
+We run slow enough so that the data presented on MDIO is valid by time of the falling edge, which is then sampled.
+However we then need to drive the low clock to complete the cycle which we do actively.
+We also drive back the read data so that it doesn't contend. This effectively doubles the
+required cycle time but does work.
+*/
 
 // Shift in a number of data bits to or from the SMI port
 static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
@@ -49,9 +63,9 @@ static int smi_bit_shift(port p_smi_mdc, port ?p_smi_mdio,
         // Read port with PHY driven data bit just before falling edge of clock
         unsigned port_data;
         p_smi_mdc :> port_data;
-        port_data &= ~(1 << SMI_MDC_BIT); // clear clock bit to zero
+        port_data &= ~(1 << SMI_MDC_BIT);   // clear clock bit to zero
         // Assert clock low and drive back previously read data (to avoid contention) 
-        p_smi_mdc <: port_data;
+        p_smi_mdc <: port_data;             // drive back data and assert clock low    
         read_data |=  (port_data >> SMI_MDIO_BIT) << count;
  
         // Wait til end of cycle

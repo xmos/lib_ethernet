@@ -635,14 +635,14 @@ SMI/MDIO interface
 
 The SMI (Serial Management Interface) is used in Ethernet systems for the management and configuration of PHY (physical layer) devices. It is part of the MDIO (Management Data Input/Output) system defined by the IEEE 802.3 standard and provides a mechanism for communication between a MAC (Media Access Control) layer and PHY devices in an Ethernet system.
 
-The SMI task is marked as ``[[distributable]]`` which means, if called from the same tile, it does not occupy a hardware thread. Instead the call to the ``read_reg()`` or ``write_reg()`` methods are treated as function calls which return when the last bit of the SMI transaction is complete.
+The SMI task is marked as ``[[distributable]]`` which means, if it is called from the same tile, does not occupy a hardware thread. Instead the call to the ``read_reg()`` or ``write_reg()`` methods are treated as function calls which return when the last bit of the SMI transaction is complete.
 
 The interface uses two pins to communicate and there are two variants of the API provided, depending on whether you wish to use two one bit ports or two bits of a wider port. If you use two bits of a wider port, the remaining pins are not available for general use and should either be left disconnected or weakly pulled down.
 
 .. note::
     The standard SMI/MDIO specification requires use of a pull-up resistor on MDIO (typically 4.7 kOhm for a single PHY in a 3.3 v system). If using the single-port version then it is necessary to also connect a pull-up to the MDC line (typically 4.7 kOhm for 3.3 v systems). The reason for this is that xcore ports have only a single direction bit. So in order to sample the MDIO line with a known MDC state, an external resistor is required.
 
-The speed of the interface is fixed at 1.66 MHz which supports slower PHY SMI interfaces (eg. LAN8710A) that have a relatively slow time to data valid. If faster access is required then it is possible to adjust the following define in ``smi.xc`` up to a maximum of around 4 MHz for xCORE-200 and 5 MHz for xcore.ai::
+The speed of the interface is set conservatively at 1.66 MHz which supports slower PHY SMI interfaces (eg. LAN8710A) that have a relatively slow time to data valid. This speed is also chosen to support the single port version which has to sample read data at the falling edge, effectively reducing the maximum bit clock by a factor of two. If faster access is required and supported by the PHY, or the two port version is used, then it is possible to adjust the following define in ``smi.xc`` up to a maximum of around 4 MHz for xCORE-200 and 5 MHz for xcore.ai::
 
     #define SMI_BIT_CLOCK_HZ 1660000
 
