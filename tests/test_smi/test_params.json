@@ -1,0 +1,6 @@
+{
+    "PROFILES": [
+        {"type": "two_port", "arch":["xs2", "xs3"]},
+        {"type": "single_port", "arch":["xs2", "xs3"]}        
+    ]
+}

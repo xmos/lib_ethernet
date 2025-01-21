@@ -10,6 +10,8 @@ lib_ethernet change log
   * ADDED: Support for XCommon CMake build system
   * ADDED: Exit command to RMII RT MAC
   * RESOLVED: Build warnings even when compile successful
+  * ADDED: Test for SMI
+  * CHANGED: SMI re-write. Single port version now functional
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * REMOVED: Support for XS1 devices

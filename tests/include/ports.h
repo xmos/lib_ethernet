@@ -24,10 +24,4 @@ clock eth_txclk   = on tile[0]: XS1_CLKBLK_2;
 
 #endif // RGMII
 
-/* Commenting these out since they conflict with test ports (XS1_PORT_1N is the same as p_rx_lp_control[1] used in test_rx_queues and test_avb)
-   defined in other tests and the smi ports are not used in any tests
-*/
-//port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
-//port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
-
 #endif // __ports_h__
