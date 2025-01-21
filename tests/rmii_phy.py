@@ -313,11 +313,13 @@ class RMiiReceiver(RMiiRxPhy):
     def __init__(self, txd, txen, clock,
                  txd_4b_port_pin_assignment="lower_2b",
                  print_packets=False,
-                 packet_fn=None, verbose=False, test_ctrl=None, id=None):
+                 packet_fn=None, verbose=False, test_ctrl=None, id=None, sync_send_port=None, sync_recv_port=None):
         super(RMiiReceiver, self).__init__('rmii', txd, txen, clock, txd_4b_port_pin_assignment,
                                           print_packets,
                                           packet_fn, verbose, test_ctrl, id)
         self._txen_val = None
+        self._sync_send_port = sync_send_port
+        self._sync_recv_port = sync_recv_port
 
     def run(self):
         rand = random.Random()
@@ -326,6 +328,9 @@ class RMiiReceiver(RMiiRxPhy):
         crumb_index = 0
 
         xsi = self.xsi
+        if self._sync_send_port != None:
+            xsi.drive_port_pins(self._sync_send_port, 0)
+
         self.wait(lambda x: xsi.sample_port_pins(self._txen) == 0)
         self._txen_val = 0
         self.wait(lambda x: self._clock.is_low()) # Wait for clock to go low so we can start sampling at the next rising edge

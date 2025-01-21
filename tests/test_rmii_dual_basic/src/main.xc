@@ -132,6 +132,9 @@ void test_rx_loopback(client ethernet_cfg_if cfg,
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
 
+port p_rx_lp_control_1 = on tile[0]:XS1_PORT_1G;
+port p_rx_lp_control_2 = on tile[0]:XS1_PORT_1N;
+
 int main()
 {
   ethernet_cfg_if i_cfg[NUM_CFG_IF];
@@ -146,6 +149,7 @@ int main()
   #define c_rx_hp null
   #define c_tx_hp null
 #endif
+
 
 
   par {

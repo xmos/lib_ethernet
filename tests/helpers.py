@@ -290,10 +290,12 @@ def check_received_packet(packet, phy):
 
     if phy.expect_packet_index >= phy.num_expected_packets:
         print("Test done")
-        if phy.get_name() == "rmii":
-            wait_time_us = 200 # In case the other port is receiving, wait sometime before terminating
-            wait_time_ticks = (wait_time_us * px.Xsi.get_xsi_tick_freq_hz())/1e6
-            phy.wait_until(phy.xsi.get_time() + wait_time_ticks)
+        if phy._sync_send_port != None:
+            phy.xsi.drive_port_pins(phy._sync_send_port, 1)
+
+        if (phy._sync_recv_port != None): # wait for the other phy to signal that its done as well before terminating
+            phy.wait(lambda x: phy.xsi.sample_port_pins(phy._sync_recv_port) == 1)
+
         phy.xsi.terminate()
 
 def generate_tests(test_params_json):
@@ -382,17 +384,22 @@ def get_rmii_rx_phy(tx_width, clk, **kwargs):
     return rx_rmii_phy
 
 def get_rmii_rx_phy_dual(tx_widths, clk, **kwargs):
+    sync_ports = ['tile[0]:XS1_PORT_1G', 'tile[0]:XS1_PORT_1N']
     rx_rmii_phy = get_rmii_rx_phy(tx_widths[0],
                                     clk,
                                     **kwargs,
-                                    id="0"
+                                    id="0",
+                                    sync_send_port=sync_ports[0],
+                                    sync_recv_port=sync_ports[1]
                                     )
 
     rx_rmii_phy_2 = get_rmii_rx_phy(tx_widths[1],
                                     clk,
                                     **kwargs,
                                     second_phy=True,
-                                    id="1"
+                                    id="1",
+                                    sync_send_port=sync_ports[1],
+                                    sync_recv_port=sync_ports[0]
                                     )
     return rx_rmii_phy, rx_rmii_phy_2
 
@@ -488,12 +495,13 @@ def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, t
 
     st = [tx_clk, rx_phy[0], rx_phy[1], tx_phy[0], tx_phy[1]]
 
-    result = px.run_on_simulator_(  binary,
-                                    simthreads=st + extra_tasks,
-                                    tester=tester,
-                                    simargs=simargs,
-                                    do_xe_prebuild=False,
-                                    capfd=capfd
-                                    )
+    with capfd.disabled():
+        result = px.run_on_simulator_(  binary,
+                                        simthreads=st + extra_tasks,
+                                        tester=tester,
+                                        simargs=simargs,
+                                        do_xe_prebuild=False,
+                                        #capfd=capfd
+                                        )
 
     assert result is True, f"{result}"
