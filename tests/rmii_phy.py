@@ -20,7 +20,7 @@ def get_port_width_from_name(port_name):
 class RMiiTxPhy(px.SimThread):
 
     # Time in fs from the last packet being sent until the end of test is signalled to the DUT
-    END_OF_TEST_TIME = (10 * px.Xsi.get_xsi_tick_freq_hz())/1e6 # 10us
+    END_OF_TEST_TIME = (1000 * px.Xsi.get_xsi_tick_freq_hz())/1e6 # 1000us
 
     def __init__(self, name, rxd, rxdv, rxer, clock,
                  rxd_4b_port_pin_assignment,
@@ -90,7 +90,6 @@ class RMiiTxPhy(px.SimThread):
 
                 total_data_bits = total_packet_bytes * 8
 
-                # Allow 2 cycles per bit
                 timeout_time += 2 * total_data_bits * 1e6 # scale to femtoseconds vs nanoseconds in old xsim
 
                 # The clock ticks are 2ns long
@@ -98,6 +97,7 @@ class RMiiTxPhy(px.SimThread):
 
                 # The packets are copied to and from the user application
                 timeout_time *= 2
+
 
             self.wait_until(self.xsi.get_time() + timeout_time)
 
@@ -253,7 +253,7 @@ class RMiiTransmitter(RMiiTxPhy):
 
 class RMiiRxPhy(px.SimThread):
 
-    def __init__(self, name, txd, txen, clock, txd_4b_port_pin_assignment, print_packets, packet_fn, verbose, test_ctrl):
+    def __init__(self, name, txd, txen, clock, txd_4b_port_pin_assignment, print_packets, packet_fn, verbose, test_ctrl, id):
         self._name = name
         # Check if txd is a string or an array of strings
         if not isinstance(txd, (list, tuple)):
@@ -267,6 +267,7 @@ class RMiiRxPhy(px.SimThread):
         self._verbose = verbose
         self._test_ctrl = test_ctrl
         self._packet_fn = packet_fn
+        self._id = id
 
         self._txd_port_width = get_port_width_from_name(self._txd[0])
         if len(self._txd) == 2:
@@ -295,6 +296,9 @@ class RMiiRxPhy(px.SimThread):
     def get_clock(self):
         return self._clock
 
+    def get_id(self):
+        return self._id
+
     def set_expected_packets(self, packets):
         self.expect_packet_index = 0;
         self.expected_packets = packets
@@ -309,10 +313,10 @@ class RMiiReceiver(RMiiRxPhy):
     def __init__(self, txd, txen, clock,
                  txd_4b_port_pin_assignment="lower_2b",
                  print_packets=False,
-                 packet_fn=None, verbose=False, test_ctrl=None):
+                 packet_fn=None, verbose=False, test_ctrl=None, id=None):
         super(RMiiReceiver, self).__init__('rmii', txd, txen, clock, txd_4b_port_pin_assignment,
                                           print_packets,
-                                          packet_fn, verbose, test_ctrl)
+                                          packet_fn, verbose, test_ctrl, id)
         self._txen_val = None
 
     def run(self):

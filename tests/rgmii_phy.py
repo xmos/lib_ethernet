@@ -112,9 +112,9 @@ class RgmiiTransmitter(TxPhy):
 class RgmiiReceiver(RxPhy):
 
     def __init__(self, txd, txen, clock, print_packets=False,
-                 packet_fn=None, verbose=None, test_ctrl=None):
+                 packet_fn=None, verbose=None, test_ctrl=None, id=None):
         super(RgmiiReceiver, self).__init__('rgmii', txd, txen, clock, print_packets,
-                                            packet_fn, verbose, test_ctrl)
+                                            packet_fn, verbose, test_ctrl, id)
 
     def run(self):
         xsi = self.xsi

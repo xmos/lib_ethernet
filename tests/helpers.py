@@ -9,6 +9,7 @@ from filelock import FileLock
 import pytest
 import json
 import copy
+import numpy as np
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -184,11 +185,23 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
 def create_expect(packets, filename):
     """ Create the expect file for what packets should be reported by the DUT
     """
+    ndim = np.array(packets).ndim
     with open(filename, 'w') as f:
-        for i,packet in enumerate(packets):
-            if not packet.dropped:
-                f.write("Received packet {} ok\n".format(i))
-        f.write("Test done\n")
+        if ndim == 1:
+            for i,packet in enumerate(packets):
+                if not packet.dropped:
+                    f.write(f"Received packet {i} ok\n")
+            f.write("Test done\n")
+        elif ndim == 2:
+            for id in range(2):
+                for i,packet in enumerate(packets[id]):
+                    if not packet.dropped:
+                        f.write(f"Phy {id} Received packet {i} ok\n")
+                f.write("Test done\n")
+        else:
+            assert False, f"Incorrect dimensions of the packets array.\n{packets}"
+
+
 
 def get_sim_args(testname, mac, clk, phy, arch='xs2'):
     sim_args = []
@@ -260,7 +273,10 @@ def check_received_packet(packet, phy):
             print("Expected:")
             sys.stdout.write(expected.dump())
 
-        print(f"Received packet {phy.expect_packet_index} ok")
+        st = f"Received packet {phy.expect_packet_index} ok"
+        if phy.get_id() != None:
+            st = f"Phy {phy.get_id()} " + st
+        print(st)
         # Skip this packet
         phy.expect_packet_index += 1
 
@@ -274,9 +290,10 @@ def check_received_packet(packet, phy):
 
     if phy.expect_packet_index >= phy.num_expected_packets:
         print("Test done")
-        wait_time_us = 80 # In case the other port is receiving, wait sometime before terminating
-        wait_time_ticks = (wait_time_us * px.Xsi.get_xsi_tick_freq_hz())/1e6
-        phy.wait_until(phy.xsi.get_time() + wait_time_ticks)
+        if phy.get_name() == "rmii":
+            wait_time_us = 200 # In case the other port is receiving, wait sometime before terminating
+            wait_time_ticks = (wait_time_us * px.Xsi.get_xsi_tick_freq_hz())/1e6
+            phy.wait_until(phy.xsi.get_time() + wait_time_ticks)
         phy.xsi.terminate()
 
 def generate_tests(test_params_json):
@@ -331,6 +348,20 @@ def get_rmii_tx_phy(rx_width, clk, **kwargs):
         assert False, f"get_rmii_tx_phy(): Invalid rx_width {rx_width}"
     return tx_rmii_phy
 
+def get_rmii_tx_phy_dual(rx_widths, clk, **kwargs):
+    tx_rmii_phy = get_rmii_tx_phy(rx_widths[0],
+                                    clk,
+                                    **kwargs
+                                    )
+
+    tx_rmii_phy_2 = get_rmii_tx_phy(rx_widths[1],
+                                    clk,
+                                    **kwargs,
+                                    second_phy=True
+                                    )
+    return tx_rmii_phy, tx_rmii_phy_2
+
+
 def get_rmii_rx_phy(tx_width, clk, **kwargs):
     if tx_width == "4b_lower":
         rx_rmii_phy = get_rmii_4b_port_rx_phy(clk,
@@ -350,6 +381,20 @@ def get_rmii_rx_phy(tx_width, clk, **kwargs):
         assert False, f"get_rmii_rx_phy(): Invalid tx_width {tx_width}"
     return rx_rmii_phy
 
+def get_rmii_rx_phy_dual(tx_widths, clk, **kwargs):
+    rx_rmii_phy = get_rmii_rx_phy(tx_widths[0],
+                                    clk,
+                                    **kwargs,
+                                    id="0"
+                                    )
+
+    rx_rmii_phy_2 = get_rmii_rx_phy(tx_widths[1],
+                                    clk,
+                                    **kwargs,
+                                    second_phy=True,
+                                    id="1"
+                                    )
+    return rx_rmii_phy, rx_rmii_phy_2
 
 
 def get_rmii_4b_port_tx_phy(clk, rxd_4b_port_pin_assignment, **kwargs):
@@ -406,3 +451,49 @@ def get_rmii_1b_port_rx_phy(clk, **kwargs):
                        )
     return phy
 
+def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_file, seed,
+               extra_tasks=[], override_dut_dir=False, rx_width=None, tx_width=None):
+
+    """ Shared test code for all RX tests using the test_rx application.
+    """
+    testname,extension = os.path.splitext(os.path.basename(test_file))
+
+    with capfd.disabled():
+        print(f"Running {testname}: {mac} {[phy.get_name() for phy in tx_phy]} phy, {arch}, rx_width {rx_width} arch at {tx_clk.get_name()} (seed = {seed})")
+    capfd.readouterr() # clear capfd buffer
+
+    profile = f'{mac}_{tx_phy[0].get_name()}'
+    if rx_width:
+        profile = profile + f"_rx{rx_width}"
+    if tx_width:
+        profile = profile + f"_tx{tx_width}"
+    profile = profile + f"_{arch}"
+
+    dut_dir = override_dut_dir if override_dut_dir else testname
+    binary = f'{dut_dir}/bin/{profile}/{dut_dir}_{profile}.xe'
+    assert os.path.isfile(binary), f"Missing .xe {binary}"
+
+
+    expect_folder = create_if_needed("expect_temp")
+    if rx_width:
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy[0].get_name()}_{rx_width}_{tx_width}_{tx_clk.get_name()}_{arch}.expect'
+    else:
+        expect_filename = f'{expect_folder}/{testname}_{mac}_{tx_phy[0].get_name()}_{tx_clk.get_name()}_{arch}.expect'
+
+    create_expect(packets, expect_filename)
+
+    tester = px.testers.ComparisonTester(open(expect_filename), ordered=False)
+
+    simargs = get_sim_args(testname, mac, tx_clk, tx_phy[0], arch)
+
+    st = [tx_clk, rx_phy[0], rx_phy[1], tx_phy[0], tx_phy[1]]
+
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=st + extra_tasks,
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd
+                                    )
+
+    assert result is True, f"{result}"
