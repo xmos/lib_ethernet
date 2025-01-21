@@ -39,6 +39,18 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
    - N/A
 
 
+The MII MAC is available as two types; a low resource usage version which provides standard layer 2 data access to an array of clients, and a real-time version which offers additional hardware features including:
+
+ * Hardware time-stamping of point of ingress and egress of frames supporting standards such as IEEE 802.1AS.
+ * Support for high priority send and receive queues and receive filtering. This allows time sensitive traffic to be prioritised over other traffic.
+ * Traffic shaping on egress using an IEEE 802.1Qav compliant credit based shaper.
+ * Configurable VLAN tag stripping on received frames.
+
+All RMII and RGMII implementations offer the 'real-time' features as standard. See the :ref:`rt_mac_section` section for more details.
+
+In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
+
+
 ``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
 , the `XMOS` application build and dependency management system.
 
@@ -114,6 +126,63 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
     The SMI configuration API is a function call and so uses no dedicated threads. It
     blocks until the last bit of the transaction is complete.
 
+|newpage|
+
+
+.. _standard_mac_section:
+
+*********************
+Standard MAC Features
+*********************
+
+All MACs in this library support a number of useful features which can be configured by clients.
+
+  * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
+  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses. 
+  * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp providing a unique MAC address per chip.
+  * Link state detection allowing action to be taken bu higher layers in the case of link state change.
+  * MAC exit command. This tears down all tasks associate with the MAC and frees the memory and xcore resources used, including ports. This can be helpful in the case where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
+  * Separately configurable Rx and Tx buffer sizes (queues).
+
+Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. Reception of a packet can be a blocking call or combined with a notification allowing the client to ``select`` on the receive interface whereupon it can then receive the waiting packet. Please see the :ref:`api_section` for details on how to use the MAC.
+
+
+|newpage|
+
+.. _rt_mac_section:
+
+**********************
+Real-Time MAC Features
+**********************
+
+In addition to all of the features outlined in the :ref:`standard_mac_section` section, real-time (RT) MACs offer enhanced features which are useful in a number of applications such as industrial control, real-time networking and Audio/Video streaming cases. These specific features are introduced below.
+
+
+Hardware Time Stamping
+======================
+
+The XCORE contains architectural features supporting precise timing measurements. Specifically a 100 MHz timer is included and the RT MACs make use of this to timestamp packets at the point of ingress and egress. This 100 MHz, 32-bit timer value has a resolution of 10 nanoseconds and can be converted to nanoseconds by multiplying by 10.
+
+When receiving packets, a reference structure of type ``ethernet_packet_info_t`` contains the timestamp of the received packet at point of ingress. When transmitting packets, a special API which blocks until the packet has been transmitted is available, which returns the time of egress.
+
+These features, along with APIs to tune the ingress and egress latency offsets, can be used by higher layers such as IEEE 802.1AS (Timing and Synchronization) or PTP (IEEE 1588) to implement precise timing synchronisation across the newtork.
+
+
+High Priority Queues
+====================
+
+blah
+
+Credit Based Shaper
+===================
+
+blah
+
+
+VLAN Tag Stripping
+==================
+
+blah
 
 |newpage|
 
@@ -649,6 +718,8 @@ The speed of the interface is set conservatively at 1.66 MHz which supports slow
 Increasing the bit clock may require use of smaller pull-up resistor(s) depending on board layout to ensure that the signal rise time is sufficient.
 
 |newpage|
+
+.. _api_section:
 
 ***
 API
