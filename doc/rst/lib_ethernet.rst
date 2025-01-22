@@ -15,6 +15,7 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
 
 .. _ethernet_supported_macs:
 .. list-table:: Ethernet MAC support by XMOS device family
+ :widths: 30 20 20 20 20
  :header-rows: 1
 
  * - XCORE Architecture
@@ -39,6 +40,18 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
    - N/A
 
 
+The MII MAC is available as two types; a low resource usage version which provides standard layer 2 data access to an array of clients, and a real-time version which offers additional hardware features including:
+
+ * Hardware time-stamping of point of ingress and egress of frames supporting standards such as IEEE 802.1AS.
+ * Support for high priority send and receive queues and receive filtering. This allows time sensitive traffic to be prioritised over other traffic.
+ * Traffic shaping on egress using an IEEE 802.1Qav compliant credit based shaper.
+ * Configurable VLAN tag stripping on received frames.
+
+All RMII and RGMII implementations offer the 'real-time' features as standard. See the :ref:`rt_mac_section` section for more details.
+
+In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
+
+
 ``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
 , the `XMOS` application build and dependency management system.
 
@@ -61,6 +74,7 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
 
 .. _ethernet_mac_resource_usage:
 .. list-table:: Ethernet MAC XCORE resource usage
+ :widths: 25 7 25 7 9 7
  :header-rows: 1
 
  * - Configuration
@@ -114,6 +128,86 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
     The SMI configuration API is a function call and so uses no dedicated threads. It
     blocks until the last bit of the transaction is complete.
 
+|newpage|
+
+
+.. _standard_mac_section:
+
+*********************
+Standard MAC Features
+*********************
+
+All MACs in this library support a number of useful features which can be configured by clients.
+
+  * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
+  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries is configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
+  * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
+  * Link state detection allowing action to be taken by higher layers in the case of link state change.
+  * Separately configurable Rx and Tx buffer sizes (queues).
+  * VLAN aware packet reception. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
+
+Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. Reception of a packet can be a blocking call or combined with a notification allowing the client to ``select`` on the receive interface whereupon it can then receive the waiting packet. Please see the :ref:`api_section` for details on how to use the MAC.
+
+In addition the RMII RT MAC supports an exit command. This tears down all tasks associated with the MAC and frees the memory and xcore resources used, including ports. This can be helpful in cases where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
+
+|newpage|
+
+.. _rt_mac_section:
+
+**********************
+Real-Time MAC Features
+**********************
+
+In addition to all of the features outlined in the :ref:`standard_mac_section` section, real-time (RT) MACs offer enhanced features which are useful in a number of applications such as industrial control, real-time networking and Audio/Video streaming cases. These specific features are introduced below.
+
+
+Hardware Time Stamping
+======================
+
+The XCORE contains architectural features supporting precise timing measurements. Specifically, a 100 MHz timer is included and the RT MACs make use of this to timestamp packets at the point of ingress and egress. This 100 MHz, 32-bit timer value has a resolution of 10 nanoseconds and the provided timestamp can be converted to nanoseconds by multiplying by 10.
+
+When receiving packets, a reference to a structure of type ``ethernet_packet_info_t`` contains the timestamp of the received packet at point of ingress.
+
+When transmitting packets, an additional Tx API is provided for the RT MAC which blocks until the packet has been transmitted and returns the time of egress.
+
+These features, along with APIs to tune the ingress and egress latency offsets, can be used by higher layers such as IEEE 802.1AS (Timing and Synchronization) or PTP (IEEE 1588) to implement precise timing synchronisation across the network.
+
+
+High Priority Queues
+====================
+
+The RT MACs extend the standard client interfaces with the support of a dedicated High Priority (HP) queue. This queue allows traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic. The MAC logic always prioritises HP packets and queues over low priority.
+
+The dedicated HP client API uses streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
+
+A flag in the filter table can manually be set when making filter entries which is then used to determine the priority level when receiving packets. This determines which queue to use.
+
+The transmit HP queue is optionally rate limited using the Credit Based Shaper which is described below. Together, these features provide the mechanisms required by IEEE 802.1Qav enabling reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
+
+
+Credit Based Shaper
+===================
+
+The Credit Based Shaper (CBS), in conjunction with the HP queue, limits the bandwidth of non-time-sensitive traffic and ensures a reserved bandwidth for high-priority streams.
+
+
+The CBS uses the following mechanisms to manage egress rate:
+
+  * Credits: The high priority queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
+  * Idle Slope: Determines how quickly credit increases when the queue is idle (i.e., waiting to transmit).
+  * Transmission of data decreases credit proportionally to the number of bits sent.
+
+If the credit is positive, the high priority stream is eligible for transmission and will always be transmitted before any low priority traffic. If the credit is negative, the high priority stream is paused until the credit returns to a positive state. By spreading traffic out evenly over time using a CBS, the queue size in each bridge and endpoint can be shorter, which in turn reduces the latency experienced by traffic as it flows through the system.
+
+The RT MACs are passed an enum argument when instantiated which enables or disables the CBS. In addition the MAC provides an API which can adjust the high-priority transmit queue's CBS idle slope dynamically, for example, if a different bandwidth reservation is required.
+
+The idle slope passed is a fractional value representing the number of bits per reference timer tick in a Q16.16 format defined by ``MII_CREDIT_FRACTIONAL_BITS`` allowing very precise control over bandwidth reservation. Please see :ref:`api_section` for details and an example showing how to convert from bits-per-second to the slope argument.
+
+
+VLAN Tag Stripping
+==================
+
+In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
 
 |newpage|
 
@@ -646,6 +740,8 @@ The speed of the interface is set conservatively at 1.66 MHz which supports slow
 Increasing the bit clock may require use of smaller pull-up resistor(s) depending on board layout to ensure that the signal rise time is sufficient. If in doubt, either test operation using lower the bit rate by setting a smaller ``SMI_BIT_CLOCK_HZ`` or check with an oscilloscope to ensure that the MDC and MDIO lines are fully reaching the logic high state.
 
 |newpage|
+
+.. _api_section:
 
 ***
 API
