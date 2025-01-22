@@ -140,7 +140,7 @@ Standard MAC Features
 All MACs in this library support a number of useful features which can be configured by clients.
 
   * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
-  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries if configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
+  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries is configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
   * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
   * Link state detection allowing action to be taken by higher layers in the case of link state change.
   * Separately configurable Rx and Tx buffer sizes (queues).
