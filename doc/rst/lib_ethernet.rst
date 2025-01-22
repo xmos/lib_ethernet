@@ -15,6 +15,7 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
 
 .. _ethernet_supported_macs:
 .. list-table:: Ethernet MAC support by XMOS device family
+ :widths: 30 20 20 20 20
  :header-rows: 1
 
  * - XCORE Architecture
@@ -73,6 +74,7 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
 
 .. _ethernet_mac_resource_usage:
 .. list-table:: Ethernet MAC XCORE resource usage
+ :widths: 25 7 25 7 9 7
  :header-rows: 1
 
  * - Configuration
@@ -174,15 +176,15 @@ These features, along with APIs to tune the ingress and egress latency offsets, 
 High Priority Queues
 ====================
 
-The RT MACs extend the standard client interfaces with the support of High Priority (HP) queues. These queues allow certain traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic.
+The RT MACs extend the standard client interfaces with the support of High Priority (HP) queues. These queues allow certain traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic. The MAC logic always prioritises HP packets and queues over low priority.
 
 HP traffic has it's own dedicate queues inside the MAC providing separation from other traffic.
 
 The dedicated HP client interfaces use streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
 
-A flag in the filter table can manually be set when making filter entries which is then used to determine the priority level when receiving packets.
+A flag in the filter table can manually be set when making filter entries which is then used to determine the priority level when receiving packets. This determines which queue to use.
 
-A dedicated API is provided to send and receive the HP packets. The MAC logic always prioritises HP packets and queues over low priority.
+A dedicated API is provided to send and receive the HP packets.
 
 The transmit HP queue is optionally rate limited using using the Credit Based Shaper which is described below. Together, these features provide the machinery required by IEEE 802.1Qav, allowing reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
 
