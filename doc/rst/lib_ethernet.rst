@@ -178,7 +178,7 @@ High Priority Queues
 
 The RT MACs extend the standard client interfaces with the support of High Priority (HP) queues. These queues allow certain traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic. The MAC logic always prioritises HP packets and queues over low priority.
 
-HP traffic has it's own dedicate queues inside the MAC providing separation from other traffic.
+HP traffic has its own dedicate queues inside the MAC providing separation from other traffic.
 
 The dedicated HP client interfaces use streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
 
