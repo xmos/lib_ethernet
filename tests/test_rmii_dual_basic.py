@@ -65,14 +65,14 @@ def test_rmii_dual_basic(capfd, seed, params):
         loopback_packets.append(MiiPacket(rand,
             dst_mac_addr=dut_mac_address,
             create_data_args=['step', (i, packet_start_len + i)],
-            inter_frame_gap=200*clk.get_bit_time()
+            inter_frame_gap=201*clk.get_bit_time()
         ))
     # packets that get forwarded to the other port
     for i in range(num_test_packets):
         forwarded_packets.append(MiiPacket(rand,
             dst_mac_addr=not_dut_mac_address,
             create_data_args=['step', (i, packet_start_len + i)],
-            inter_frame_gap=200*clk.get_bit_time()
+            inter_frame_gap=201*clk.get_bit_time()
         ))
 
     # interleave loopback and forwarded packets

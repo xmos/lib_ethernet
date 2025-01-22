@@ -10,6 +10,7 @@
 #include "syscall.h"
 
 #include "ports_rmii.h"
+#include "helpers.xc"
 
 #if ETHERNET_SUPPORT_HP_QUEUES
 typedef interface loopback_if {
@@ -168,6 +169,7 @@ int main()
     test_rx(i_cfg[0], c_rx_hp, i_loopback);
     test_loopback(c_tx_hp, i_loopback);
 #else
+    filler(0x2222);
     test_rx_loopback(i_cfg[0], i_rx_lp[0], i_tx_lp[0]);
 #endif
 
