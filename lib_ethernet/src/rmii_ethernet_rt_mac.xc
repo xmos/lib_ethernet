@@ -317,7 +317,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
   } // unsafe block
 }
 
-#if (NUM_ETHERNET_PORTS == 2)
+
 void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
                               SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
                               SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
@@ -339,11 +339,11 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
   // Establish types of data ports presented
     unsafe{
         // Setup buffering
-        unsigned int rx_data[rx_bufsize_words ][NUM_ETHERNET_PORTS];
-        unsigned int tx_data[tx_bufsize_words][NUM_ETHERNET_PORTS];
-        mii_mempool_t rx_mem[NUM_ETHERNET_PORTS];
+        unsigned int rx_data[rx_bufsize_words ][2];
+        unsigned int tx_data[tx_bufsize_words][2];
+        mii_mempool_t rx_mem[2];
         mii_mempool_t * unsafe rx_mem_ptr = (mii_mempool_t *)rx_mem;
-        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        for(int i=0; i<2; i++)
         {
           rx_mem[i] = mii_init_mempool(&rx_data[0][0] + i*tx_bufsize_words, rx_bufsize_words*4);
         }
@@ -353,8 +353,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         const size_t lp_buffer_bytes = !isnull(c_tx_hp) ? tx_bufsize_words * 2 : tx_bufsize_words * 4;
         const size_t hp_buffer_bytes = tx_bufsize_words * 4 - lp_buffer_bytes;
 
-        mii_mempool_t tx_mem_lp[NUM_ETHERNET_PORTS], tx_mem_hp[NUM_ETHERNET_PORTS];
-        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        mii_mempool_t tx_mem_lp[2], tx_mem_hp[2];
+        for(int i=0; i<2; i++)
         {
           tx_mem_lp[i] = mii_init_mempool(&tx_data[0][0] + i*((lp_buffer_bytes/4) + (hp_buffer_bytes/4)), lp_buffer_bytes);
           tx_mem_hp[i] = mii_init_mempool(&tx_data[0][0] + i*((lp_buffer_bytes/4) + (hp_buffer_bytes/4)) + (lp_buffer_bytes/4), hp_buffer_bytes);
@@ -362,8 +362,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         mii_mempool_t * unsafe tx_mem_lp_ptr = (mii_mempool_t *)tx_mem_lp;
         mii_mempool_t * unsafe tx_mem_hp_ptr = (mii_mempool_t *)tx_mem_hp;
 
-        packet_queue_info_t rx_packets_lp[NUM_ETHERNET_PORTS], rx_packets_hp[NUM_ETHERNET_PORTS], incoming_packets[NUM_ETHERNET_PORTS];
-        packet_queue_info_t tx_packets_lp[NUM_ETHERNET_PORTS], tx_packets_hp[NUM_ETHERNET_PORTS];
+        packet_queue_info_t rx_packets_lp[2], rx_packets_hp[2], incoming_packets[2];
+        packet_queue_info_t tx_packets_lp[2], tx_packets_hp[2];
 
         packet_queue_info_t * unsafe incoming_packets_ptr = incoming_packets;
         packet_queue_info_t * unsafe rx_packets_lp_ptr = rx_packets_lp;
@@ -371,7 +371,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         packet_queue_info_t * unsafe tx_packets_lp_ptr = tx_packets_lp;
         packet_queue_info_t * unsafe tx_packets_hp_ptr = tx_packets_hp;
 
-        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        for(int i=0; i<2; i++)
         {
           mii_init_packet_queue((mii_packet_queue_t)&incoming_packets[i]);
           mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp[i]);
@@ -382,13 +382,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
 
 
         // Shared read pointer to help optimize the RX code
-        unsigned rx_rdptr[NUM_ETHERNET_PORTS] = {0};
+        unsigned rx_rdptr[2] = {0};
         mii_rdptr_t * unsafe p_rx_rdptr = (mii_rdptr_t *)rx_rdptr; // Array of pointers
 
 
         mii_init_lock();
-        mii_ts_queue_entry_t ts_fifo[NUM_ETHERNET_PORTS][MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
-        mii_ts_queue_info_t ts_queue_info[NUM_ETHERNET_PORTS];
+        mii_ts_queue_entry_t ts_fifo[2][MII_TIMESTAMP_QUEUE_MAX_SIZE + 1];
+        mii_ts_queue_info_t ts_queue_info[2];
 
         if (n_tx_lp > MII_TIMESTAMP_QUEUE_MAX_SIZE) {
             fail("Exceeded maximum number of transmit clients. Increase MII_TIMESTAMP_QUEUE_MAX_SIZE in ethernet_conf.h");
@@ -398,7 +398,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
             fail("Using high priority channels without #define ETHERNET_SUPPORT_HP_QUEUES set true");
         }
 
-        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        for(int i=0; i<2; i++)
         {
           mii_ts_queue_init(&ts_queue_info[i], ts_fifo[i], n_tx_lp + 1);
         }
@@ -443,9 +443,9 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         {tx_port_width_1, tx_port_4b_pins_1, tx_data_1_0, tx_data_1_1} = init_tx_ports(p_clk, p_txen_1, txclk_1, p_txd_1);
 
         // Setup server
-        ethernet_port_state_t port_state[NUM_ETHERNET_PORTS];
+        ethernet_port_state_t port_state[2];
 
-        for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+        for(int i=0; i<2; i++)
         {
           init_server_port_state(port_state[i], enable_shaper == ETHERNET_ENABLE_SHAPER);
         }
@@ -455,7 +455,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         // Exit flag and chanend
         int rmii_ethernet_rt_mac_running = 1;
         int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
-        chan c_rx_pins_exit[NUM_ETHERNET_PORTS];
+        chan c_rx_pins_exit[2];
 
         chan c_conf;
         par
@@ -571,5 +571,4 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         } // par
     } // unsafe block
 }
-#endif
 

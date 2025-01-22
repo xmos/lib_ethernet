@@ -721,6 +721,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           enum ethernet_enable_shaper_t shaper_enabled);
 
 
+/** 100 Mbps RT RMII dual mac component.
+ * It creates two MAC instances, with each MAC connected to a separate, dedicated RMII PHY interface.
+ *
+ * Note: This is still WIP and requires additional testing.
+ */
 void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
                               SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
                               SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,

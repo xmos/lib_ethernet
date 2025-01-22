@@ -181,10 +181,6 @@ void mii_commit(mii_mempool_t mempool, unsigned *end_ptr)
 {
   mempool_info_t *info = (mempool_info_t *) mempool;
 
-#if 0 && (NUM_ETHERNET_PORTS > 1) && !defined(DISABLE_ETHERNET_PORT_FORWARDING)
-  buf->forwarding = 0;
-#endif
-
   if (end_ptr > info->last_safe_wrptr)
     end_ptr = info->start;
 
