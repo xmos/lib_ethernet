@@ -175,7 +175,7 @@ typedef interface ethernet_cfg_if {
    *  To convert from bits-per-second to the MII_CREDIT_FRACTIONAL_BITS format for the parameter 'slope', the
    *  following helper function may be used:
    * 
-   *  static unsigned calc_idle_slope(unsigned bits_per_second)
+   *  unsigned calc_idle_slope(unsigned bits_per_second)
    *  {
    *      unsigned long long slope = ((unsigned long long) bits_per_second) << (MII_CREDIT_FRACTIONAL_BITS);
    *      slope = slope / XS1_TIMER_HZ; // bits that should be sent per ref timer tick

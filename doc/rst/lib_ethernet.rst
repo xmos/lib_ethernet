@@ -138,14 +138,15 @@ Standard MAC Features
 All MACs in this library support a number of useful features which can be configured by clients.
 
   * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
-  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses. 
-  * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp providing a unique MAC address per chip.
+  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries if configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
+  * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
   * Link state detection allowing action to be taken by higher layers in the case of link state change.
-  * MAC exit command. This tears down all tasks associate with the MAC and frees the memory and xcore resources used, including ports. This can be helpful in the case where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
   * Separately configurable Rx and Tx buffer sizes (queues).
+  * VLAN aware packet reception. If the VLAN tag (0x8100) is seen the the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
 
 Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. Reception of a packet can be a blocking call or combined with a notification allowing the client to ``select`` on the receive interface whereupon it can then receive the waiting packet. Please see the :ref:`api_section` for details on how to use the MAC.
 
+In addition the RMII RT MAC supports an exit command. This tears down all tasks associated with the MAC and frees the memory and xcore resources used, including ports. This can be helpful in cases where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
 
 |newpage|
 
@@ -161,9 +162,11 @@ In addition to all of the features outlined in the :ref:`standard_mac_section` s
 Hardware Time Stamping
 ======================
 
-The XCORE contains architectural features supporting precise timing measurements. Specifically a 100 MHz timer is included and the RT MACs make use of this to timestamp packets at the point of ingress and egress. This 100 MHz, 32-bit timer value has a resolution of 10 nanoseconds and can be converted to nanoseconds by multiplying by 10.
+The XCORE contains architectural features supporting precise timing measurements. Specifically, a 100 MHz timer is included and the RT MACs make use of this to timestamp packets at the point of ingress and egress. This 100 MHz, 32-bit timer value has a resolution of 10 nanoseconds and the provided timestamp can be converted to nanoseconds by multiplying by 10.
 
-When receiving packets, a reference structure of type ``ethernet_packet_info_t`` contains the timestamp of the received packet at point of ingress. When transmitting packets, a special additional Tx API is provided which blocks until the packet has been transmitted is available, which returns the time of egress.
+When receiving packets, a reference to a structure of type ``ethernet_packet_info_t`` contains the timestamp of the received packet at point of ingress.
+
+When transmitting packets, an additional Tx API is provided for the RT MAC which blocks until the packet has been transmitted and returns the time of egress.
 
 These features, along with APIs to tune the ingress and egress latency offsets, can be used by higher layers such as IEEE 802.1AS (Timing and Synchronization) or PTP (IEEE 1588) to implement precise timing synchronisation across the network.
 
@@ -171,21 +174,23 @@ These features, along with APIs to tune the ingress and egress latency offsets, 
 High Priority Queues
 ====================
 
-The RT MACs extend the standard client interfaces with the support of High Priority (HP) queues. These queues allow certain traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications.
+The RT MACs extend the standard client interfaces with the support of High Priority (HP) queues. These queues allow certain traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic.
 
-The dedicated HP client interfaces use streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration when the client is placed on a different channel due to the architectural limitation of a maximum of four inter-tile switch paths. A maximum of one HP client may be supported per MAC.
+HP traffic has it's own dedicate queues inside the MAC providing separation from other traffic.
 
-A flag in the filter table can manually be set when making filter entries. This flag is then used to determine which priority client is to receive the packet.
+The dedicated HP client interfaces use streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
 
-A dedicated API is provided to send and receive the HP packets and the MAC logic always prioritises HP packets and queues over low priority.
+A flag in the filter table can manually be set when making filter entries which is then used to determine the priority level when receiving packets.
 
-The transmit HP queue is optionally rate limited using using the Credit Based Shaper which is described below. Together, these features provide the machinery required by IEEE 802.1Qav to ensure reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
+A dedicated API is provided to send and receive the HP packets. The MAC logic always prioritises HP packets and queues over low priority.
+
+The transmit HP queue is optionally rate limited using using the Credit Based Shaper which is described below. Together, these features provide the machinery required by IEEE 802.1Qav, allowing reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
 
 
 Credit Based Shaper
 ===================
 
-The Credit Based Shaper (CBD) uses the following mechanisms to manage egress rate:
+The Credit Based Shaper (CBS) uses the following mechanisms to manage egress rate:
 
   * Credits: Each port or queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
   * Idle Slope: Determines how quickly credits increase when the queue is idle (i.e., waiting to transmit).
@@ -193,7 +198,7 @@ The Credit Based Shaper (CBD) uses the following mechanisms to manage egress rat
   * Bandwidth Limitation: CBS limits the bandwidth of non-time-sensitive traffic, ensuring reserved bandwidth for high-priority streams.
 
 
-If the credit is positive, the traffic stream is eligible for transmission. If the credit is negative, the traffic stream is paused until the credit returns to a positive state.
+If the credit is positive, the traffic stream is eligible for transmission. If the credit is negative, the traffic stream is paused until the credit returns to a positive state. By spreading traffic out evenly over time using a CBS, the queue size in each bridge and endpoint can be shorter, which in turn reduces the latency experienced by traffic as it flows through the system.
 
 The RT MACs are passed an enum when instantiated allowing enabling or disabling of the CBS. In addition the MAC provides an API which adjusts the high-priority TX queue's credit based shaper's idle slope dynamically.
 
@@ -203,7 +208,7 @@ The idle slope passed is a fractional value representing the number of bits per 
 VLAN Tag Stripping
 ==================
 
-blah
+In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to automatically strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
 
 |newpage|
 
