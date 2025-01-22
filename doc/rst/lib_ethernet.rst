@@ -186,7 +186,7 @@ A flag in the filter table can manually be set when making filter entries which 
 
 A dedicated API is provided to send and receive the HP packets.
 
-The transmit HP queue is optionally rate limited using using the Credit Based Shaper which is described below. Together, these features provide the machinery required by IEEE 802.1Qav, allowing reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
+The transmit HP queue is optionally rate limited using the Credit Based Shaper which is described below. Together, these features provide the machinery required by IEEE 802.1Qav, allowing reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
 
 
 Credit Based Shaper
