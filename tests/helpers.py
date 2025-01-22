@@ -10,6 +10,7 @@ import pytest
 import json
 import copy
 import numpy as np
+import multiprocessing
 
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
@@ -290,12 +291,15 @@ def check_received_packet(packet, phy):
 
     if phy.expect_packet_index >= phy.num_expected_packets:
         print("Test done")
-        if phy._sync_send_port != None:
-            phy.xsi.drive_port_pins(phy._sync_send_port, 1)
-
-        if (phy._sync_recv_port != None): # wait for the other phy to signal that its done as well before terminating
-            phy.wait(lambda x: phy.xsi.sample_port_pins(phy._sync_recv_port) == 1)
-
+        if phy._sync_pipe != None:
+            phy._sync_pipe.send(f"done") # Send done to the other phy
+            while True: # wait for a done from the other end
+                poll_duration_us = 1
+                poll_duration_ticks = (poll_duration_us* px.Xsi.get_xsi_tick_freq_hz())/1e6
+                phy.wait_until(phy.xsi.get_time() + poll_duration_ticks) # Thread needs to yield for other threads to run
+                if phy._sync_pipe.poll(0): # Check if there's something to receive from the other phy
+                    assert phy._sync_pipe.recv() == "done", "Unexpected recv over the pipe from the other phy"
+                    break
         phy.xsi.terminate()
 
 def generate_tests(test_params_json):
@@ -384,13 +388,13 @@ def get_rmii_rx_phy(tx_width, clk, **kwargs):
     return rx_rmii_phy
 
 def get_rmii_rx_phy_dual(tx_widths, clk, **kwargs):
-    sync_ports = ['tile[0]:XS1_PORT_1G', 'tile[0]:XS1_PORT_1N']
+    end1, end2 = multiprocessing.Pipe()
+
     rx_rmii_phy = get_rmii_rx_phy(tx_widths[0],
                                     clk,
                                     **kwargs,
                                     id="0",
-                                    sync_send_port=sync_ports[0],
-                                    sync_recv_port=sync_ports[1]
+                                    sync_pipe=end1
                                     )
 
     rx_rmii_phy_2 = get_rmii_rx_phy(tx_widths[1],
@@ -398,8 +402,7 @@ def get_rmii_rx_phy_dual(tx_widths, clk, **kwargs):
                                     **kwargs,
                                     second_phy=True,
                                     id="1",
-                                    sync_send_port=sync_ports[1],
-                                    sync_recv_port=sync_ports[0]
+                                    sync_pipe=end2
                                     )
     return rx_rmii_phy, rx_rmii_phy_2
 
@@ -495,13 +498,13 @@ def do_rx_test_dual(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, t
 
     st = [tx_clk, rx_phy[0], rx_phy[1], tx_phy[0], tx_phy[1]]
 
-    with capfd.disabled():
-        result = px.run_on_simulator_(  binary,
-                                        simthreads=st + extra_tasks,
-                                        tester=tester,
-                                        simargs=simargs,
-                                        do_xe_prebuild=False,
-                                        #capfd=capfd
-                                        )
+
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=st + extra_tasks,
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd
+                                    )
 
     assert result is True, f"{result}"
