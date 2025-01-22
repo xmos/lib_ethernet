@@ -85,7 +85,8 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
                                volatile ethernet_port_state_t * unsafe p_port_state,
                                volatile int * unsafe running_flag_ptr,
                                chanend c_rx_pins_exit[],
-                               phy_100mb_t phy_type);
+                               phy_100mb_t phy_type,
+                               static const unsigned num_mac_ports);
 
 #endif
 

@@ -13,7 +13,8 @@ unsafe void mii_ethernet_filter(chanend c_conf,
                                 packet_queue_info_t * unsafe incoming_packets,
                                 packet_queue_info_t * unsafe rx_packets_lp,
                                 packet_queue_info_t * unsafe rx_packets_hp,
-                                volatile int * unsafe running_flag_ptr);
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports);
 
 #endif
 

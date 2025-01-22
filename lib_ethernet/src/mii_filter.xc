@@ -48,7 +48,8 @@ unsafe void mii_ethernet_filter(chanend c_conf,
                                 packet_queue_info_t * unsafe incoming_packets,
                                 packet_queue_info_t * unsafe rx_packets_lp,
                                 packet_queue_info_t * unsafe rx_packets_hp,
-                                volatile int * unsafe running_flag_ptr)
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports)
 {
   eth_global_filter_info_t filter_info;
   ethernet_init_filter_table(filter_info);
@@ -84,16 +85,19 @@ unsafe void mii_ethernet_filter(chanend c_conf,
     current_port = 0;
     if (buf == null)
     {
-#if (NUM_ETHERNET_PORTS == 2)
-      buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets[1]);
-      if(buf == null)
+      if(num_mac_ports == 2)
+      {
+        buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets[1]);
+        if(buf == null)
+        {
+          continue;
+        }
+        current_port = 1;
+      }
+      else
       {
         continue;
       }
-      current_port = 1;
-#else
-      continue;
-#endif
     }
 
 

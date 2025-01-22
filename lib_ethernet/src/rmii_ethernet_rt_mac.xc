@@ -249,7 +249,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           incoming_packets_ptr,
                           rx_packets_lp_ptr,
                           rx_packets_hp_ptr,
-                          running_flag_ptr);
+                          running_flag_ptr,
+                          1);
 
       mii_ethernet_server(rx_mem_ptr,
                           rx_packets_lp_ptr,
@@ -269,7 +270,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           p_port_state,
                           running_flag_ptr,
                           c_rx_pins_exit,
-                          ETH_MAC_IF_RMII);
+                          ETH_MAC_IF_RMII,
+                          1);
     } // par
 
     // If exit occurred, disable used ports and resources so they are left in a good state
@@ -540,7 +542,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               incoming_packets_ptr,
                               rx_packets_lp_ptr,
                               rx_packets_hp_ptr,
-                              running_flag_ptr);
+                              running_flag_ptr,
+                              2);
 
             mii_ethernet_server(rx_mem_ptr,
                               rx_packets_lp_ptr,
@@ -560,7 +563,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               p_port_state,
                               running_flag_ptr,
                               c_rx_pins_exit,
-                              ETH_MAC_IF_RMII);
+                              ETH_MAC_IF_RMII,
+                              2);
         } // par
     } // unsafe block
 }

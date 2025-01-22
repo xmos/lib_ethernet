@@ -246,7 +246,9 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
                                volatile ethernet_port_state_t * unsafe p_port_state,
                                volatile int * unsafe running_flag_ptr,
                                chanend c_rx_pins_exit[],
-                               phy_100mb_t phy_type)
+                               phy_100mb_t phy_type,
+                               static const unsigned num_mac_ports
+                               )
 {
   uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
@@ -255,9 +257,9 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
   tx_client_state_t tx_client_state_hp[1];
 
 
-  unsigned rd_index_hp[NUM_ETHERNET_PORTS], rd_index_lp[NUM_ETHERNET_PORTS];
+  unsigned rd_index_hp[num_mac_ports], rd_index_lp[num_mac_ports];
   // Server's read index in the rx_packets_lp and rx_packets_hp queues
-  for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+  for(int i=0; i<num_mac_ports; i++)
   {
     rd_index_hp[i] = mii_init_my_rd_index((mii_packet_queue_t)&rx_packets_hp[i]);
     rd_index_lp[i] = mii_init_my_rd_index((mii_packet_queue_t)&rx_packets_lp[i]);
@@ -288,7 +290,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       prioritize_rx += 1;
       unsigned update_client_state = 0;
       rx_client_state_t &client_state = rx_client_state_lp[i];
-      for(int p=0; p<NUM_ETHERNET_PORTS; p++)
+      for(int p=0; p<num_mac_ports; p++)
       {
         if (client_state.status_update_state[p] == STATUS_UPDATE_PENDING) {
           data[0] = p_port_state[p].link_state;
@@ -478,7 +480,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
 
     case i_cfg[int i].enable_link_status_notification(size_t client_num):
       rx_client_state_t &client_state = rx_client_state_lp[client_num];
-      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      for(int i=0; i<num_mac_ports; i++)
       {
         client_state.status_update_state[i] = STATUS_UPDATE_WAITING;
       }
@@ -486,7 +488,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
 
     case i_cfg[int i].disable_link_status_notification(size_t client_num):
       rx_client_state_t &client_state = rx_client_state_lp[client_num];
-      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      for(int i=0; i<num_mac_ports; i++)
       {
         client_state.status_update_state[i] = STATUS_UPDATE_IGNORING;
       }
@@ -503,7 +505,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     case i_cfg[int i].exit(void): {
       if(phy_type == ETH_MAC_IF_RMII){
           *running_flag_ptr = 0;
-          for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+          for(int i=0; i<num_mac_ports; i++)
           {
             rx_end_send_sig(c_rx_pins_exit[i]);
           }
@@ -536,7 +538,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       c_tx_hp :> dst_port;
       if(dst_port == ETHERNET_ALL_INTERFACES)
       {
-        dst_port = 0; // TODO FIXME Sending on multiple ports with one send_packet() call when NUM_ETHERNET_PORTS > 1 is not supported yet.
+        dst_port = 0; // TODO FIXME Sending on multiple ports with one send_packet() call when num_mac_ports > 1 is not supported yet.
       }
 
       mii_packet_t * unsafe buf = tx_client_state_hp[0].send_buffer[dst_port];
@@ -584,7 +586,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
                                      int request_timestamp,
                                      unsigned dst_port) -> unsigned ready:
       ready = 1;
-      for(int p=0; p<NUM_ETHERNET_PORTS; p++)
+      for(int p=0; p<num_mac_ports; p++)
       {
         if(dst_port == ETHERNET_ALL_INTERFACES || dst_port == p)
         {
@@ -597,7 +599,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       }
       if(ready)
       {
-        for(int p=0; p<NUM_ETHERNET_PORTS; p++)
+        for(int p=0; p<num_mac_ports; p++)
         {
           if((dst_port == ETHERNET_ALL_INTERFACES || dst_port == p))
           {
@@ -638,13 +640,13 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     }
 
     if (!isnull(c_rx_hp)) {
-      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      for(int i=0; i<num_mac_ports; i++)
       {
         handle_incoming_hp_packets(rx_mem[i], (mii_packet_queue_t)&rx_packets_hp[i], rd_index_hp[i], c_rx_hp, &p_port_state[i], i);
       }
     }
 
-    for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+    for(int i=0; i<num_mac_ports; i++)
     {
       if(handle_incoming_packet((mii_packet_queue_t)&rx_packets_lp[i], rd_index_lp[i], rx_client_state_lp, i_rx_lp, n_rx_lp, i))
       {
@@ -653,7 +655,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
       }
     }
 
-    for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+    for(int i=0; i<num_mac_ports; i++)
     {
       unsigned * unsafe rx_rdptr = mii_get_next_rdptr((mii_packet_queue_t)&rx_packets_lp[i], (mii_packet_queue_t)&rx_packets_hp[i]);
       // Keep the shared read pointer up to date
@@ -661,7 +663,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     }
 
     if (!isnull(c_rx_hp)) {
-      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      for(int i=0; i<num_mac_ports; i++)
       {
         // Test to see whether the buffer has reached a critical fullness level. If so, then start
         // dropping LP packets
@@ -674,7 +676,7 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
     }
 
     if (!isnull(c_tx_hp)) {
-      for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+      for(int i=0; i<num_mac_ports; i++)
       {
         if (!mii_packet_queue_full((mii_packet_queue_t)&tx_packets_hp[i])) {
           unsigned * unsafe rdptr = mii_get_rdptr((mii_packet_queue_t)&tx_packets_hp[i]);
@@ -682,14 +684,14 @@ unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
         }
       }
     }
-    for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+    for(int i=0; i<num_mac_ports; i++)
     {
       if (!mii_packet_queue_full((mii_packet_queue_t)&tx_packets_lp[i])) {
         unsigned * unsafe rdptr = mii_get_rdptr((mii_packet_queue_t)&tx_packets_lp[i]);
         reserve(tx_client_state_lp, n_tx_lp, tx_mem_lp[i], rdptr, i);
       }
     }
-    for(int i=0; i<NUM_ETHERNET_PORTS; i++)
+    for(int i=0; i<num_mac_ports; i++)
     {
       handle_ts_queue(&ts_queue_lp[i], tx_client_state_lp, n_tx_lp, i);
     }
@@ -802,7 +804,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                           incoming_packets_ptr,
                           rx_packets_lp_ptr,
                           rx_packets_hp_ptr,
-                          running_flag_ptr);
+                          running_flag_ptr,
+                          1);
 
       mii_ethernet_server(rx_mem_ptr,
                           rx_packets_lp_ptr,
@@ -822,7 +825,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                           p_port_state,
                           running_flag_ptr,
                           c_rx_pins_exit,
-                          ETH_MAC_IF_MII);
+                          ETH_MAC_IF_MII,
+                          1);
     }
   }
 }
