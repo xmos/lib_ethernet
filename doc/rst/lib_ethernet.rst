@@ -176,41 +176,38 @@ These features, along with APIs to tune the ingress and egress latency offsets, 
 High Priority Queues
 ====================
 
-The RT MACs extend the standard client interfaces with the support of High Priority (HP) queues. These queues allow certain traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic. The MAC logic always prioritises HP packets and queues over low priority.
+The RT MACs extend the standard client interfaces with the support of a dedicated High Priority (HP) queue. This queue allows traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic. The MAC logic always prioritises HP packets and queues over low priority.
 
-HP traffic has its own dedicate queues inside the MAC providing separation from other traffic.
-
-The dedicated HP client interfaces use streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
+The dedicated HP client API uses streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
 
 A flag in the filter table can manually be set when making filter entries which is then used to determine the priority level when receiving packets. This determines which queue to use.
 
-A dedicated API is provided to send and receive the HP packets.
-
-The transmit HP queue is optionally rate limited using the Credit Based Shaper which is described below. Together, these features provide the machinery required by IEEE 802.1Qav, allowing reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
+The transmit HP queue is optionally rate limited using the Credit Based Shaper which is described below. Together, these features provide the mechanisms required by IEEE 802.1Qav enabling reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
 
 
 Credit Based Shaper
 ===================
 
-The Credit Based Shaper (CBS) uses the following mechanisms to manage egress rate:
-
-  * Credits: Each port or queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
-  * Idle Slope: Determines how quickly credits increase when the queue is idle (i.e., waiting to transmit).
-  * Send Slope: Determines how quickly credits decrease when the queue is actively transmitting.
-  * Bandwidth Limitation: CBS limits the bandwidth of non-time-sensitive traffic, ensuring reserved bandwidth for high-priority streams.
+The Credit Based Shaper (CBS), in conjunction with the HP queue, limits the bandwidth of non-time-sensitive traffic and ensures a reserved bandwidth for high-priority streams.
 
 
-If the credit is positive, the traffic stream is eligible for transmission. If the credit is negative, the traffic stream is paused until the credit returns to a positive state. By spreading traffic out evenly over time using a CBS, the queue size in each bridge and endpoint can be shorter, which in turn reduces the latency experienced by traffic as it flows through the system.
+The CBS uses the following mechanisms to manage egress rate:
 
-The RT MACs are passed an enum when instantiated allowing enabling or disabling of the CBS. In addition the MAC provides an API which adjusts the high-priority TX queue's credit based shaper's idle slope dynamically.
+  * Credits: The high priority queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
+  * Idle Slope: Determines how quickly credit increases when the queue is idle (i.e., waiting to transmit).
+  * Transmission of data decreases credit proportionally to the number of bits sent.
 
-The idle slope passed is a fractional value representing the number of bits per reference timer tick in a Q16.16 format defined by ``MII_CREDIT_FRACTIONAL_BITS`` allowing very precise control over bandwidth reservation. Please see the :ref:`api_section` for details and an example of how to convert from bits-per-second to the slope argument.
+If the credit is positive, the high priority stream is eligible for transmission and will always be transmitted before any low priority traffic. If the credit is negative, the high priority stream is paused until the credit returns to a positive state. By spreading traffic out evenly over time using a CBS, the queue size in each bridge and endpoint can be shorter, which in turn reduces the latency experienced by traffic as it flows through the system.
+
+The RT MACs are passed an enum argument when instantiated which enables or disables the CBS. In addition the MAC provides an API which can adjust the high-priority transmit queue's CBS idle slope dynamically, for example, if a different bandwidth reservation is required.
+
+The idle slope passed is a fractional value representing the number of bits per reference timer tick in a Q16.16 format defined by ``MII_CREDIT_FRACTIONAL_BITS`` allowing very precise control over bandwidth reservation. Please see :ref:`api_section` for details and an example showing how to convert from bits-per-second to the slope argument.
 
 
 VLAN Tag Stripping
 ==================
 
-In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to automatically strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
+In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
 
 |newpage|
 
