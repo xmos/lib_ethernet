@@ -991,7 +991,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
                                 int ifnum,
-                                volatile int * unsafe running_flag_ptr)
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports)
 {
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
@@ -1026,7 +1027,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             buf = mii_get_next_buf(packets_hp);
             if(!buf)
             {
-                for (unsigned int i=0; i<NUM_ETHERNET_PORTS; ++i)
+                for (unsigned int i=0; i<num_mac_ports; ++i)
                 {
                     if(i == ifnum)
                     {
@@ -1072,7 +1073,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             buf = mii_get_next_buf(packets_lp);
             if(!buf)
             {
-                for (unsigned int i=0; i<NUM_ETHERNET_PORTS; ++i)
+                for (unsigned int i=0; i<num_mac_ports; ++i)
                 {
                     if(i == ifnum)
                     {

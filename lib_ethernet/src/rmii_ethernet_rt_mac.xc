@@ -243,7 +243,8 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           txclk,
                           p_port_state,
                           0,
-                          running_flag_ptr);
+                          running_flag_ptr,
+                          1);
 
       mii_ethernet_filter(c_conf,
                           incoming_packets_ptr,
@@ -518,7 +519,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               txclk_0,
                               &p_port_state[0],
                               0,
-                              running_flag_ptr);
+                              running_flag_ptr,
+                              2);
 
             rmii_master_tx_pins(tx_mem_lp[1],
                               tx_mem_hp[1],
@@ -535,7 +537,8 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               txclk_1,
                               &p_port_state[1],
                               1,
-                              running_flag_ptr);
+                              running_flag_ptr,
+                              2);
 
 
             mii_ethernet_filter(c_conf,

@@ -63,7 +63,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
                                 int ifnum,
-                                volatile int * unsafe running_flag_ptr);
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports);
 
 
 // This is re-used by RMII as it is abstracted from the MAC pins
