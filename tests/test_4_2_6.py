@@ -38,7 +38,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
     # Test shrinking the IFG by different amounts. Use the shrink as the step for debug purposes
     if tx_phy.get_name() == "rmii":
-        gap_shrink_list = [5]
+        gap_shrink_list = [3]
     else:
         gap_shrink_list = [5, 10]
 

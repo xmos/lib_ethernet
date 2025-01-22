@@ -50,7 +50,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
                 if cycle == 0:
                     ifg = 2000 * tx_clk.get_bit_time() # Wait for MAC to restart a few times
                 else:
-                    ifg = 7000 * tx_clk.get_bit_time() # Wait for forwarding completion and a restart
+                    ifg = 9000 * tx_clk.get_bit_time() # Wait for forwarding completion and a restart
             else:
                 ifg = 96 * tx_clk.get_bit_time() # Min eth spec IFG between packets
             packets.append(MiiPacket(rand,

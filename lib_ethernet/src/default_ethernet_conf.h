@@ -76,7 +76,7 @@
 #endif
 
 #ifndef MAX_ETHERNET_PORTS
-#define MAX_ETHERNET_PORTS (1)
+#define MAX_ETHERNET_PORTS (2)
 #endif
 
 #endif // __default_ethernet_conf_h__
