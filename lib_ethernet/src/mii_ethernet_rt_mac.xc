@@ -161,7 +161,7 @@ unsafe static void handle_incoming_hp_packets(mii_mempool_t rxmem,
 
     int client_wants_packet = 0;
     if (buf->filter_result && ethernet_filter_result_is_hp(buf->filter_result)) {
-      client_wants_packet = (buf->filter_result & 1); // there's only one hp client??
+      client_wants_packet = (buf->filter_result & 1); // there's only one hp client
     }
 
     if (client_wants_packet)

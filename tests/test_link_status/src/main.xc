@@ -50,13 +50,13 @@ void test_link_status(client ethernet_cfg_if cfg,
 
   size_t index = rx.get_index();
 
-  index = 0; // This is the mac port index and not the client index
+  unsigned mac_index = 0; // This is the mac port index and not the client index
 
-  cfg.enable_link_status_notification(index);
+  cfg.enable_link_status_notification(mac_index);
 
   int events_expected = 4;
   while (events_expected) {
-    c <: index;
+    c <: mac_index;
 
     select {
     case rx.packet_ready():

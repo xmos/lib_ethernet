@@ -345,7 +345,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         mii_mempool_t * unsafe rx_mem_ptr = (mii_mempool_t *)rx_mem;
         for(int i=0; i<2; i++)
         {
-          rx_mem[i] = mii_init_mempool(&rx_data[0][0] + i*tx_bufsize_words, rx_bufsize_words*4);
+          rx_mem[i] = mii_init_mempool(&rx_data[0][0] + i*rx_bufsize_words, rx_bufsize_words*4);
         }
 
         // If the high priority traffic is connected then allocate half the buffer for high priority

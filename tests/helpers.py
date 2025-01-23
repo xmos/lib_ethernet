@@ -186,6 +186,10 @@ def do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, test_f
 def create_expect(packets, filename):
     """ Create the expect file for what packets should be reported by the DUT
     """
+    # Check if the packet array is one or 2 dimensional.
+    # ndim=1 means its an array of packets, all meant for a single ethernet port
+    # ndim=2 means, its a 2D array of form [num ehthernet ports][packets for a given port]
+    # Anything other than 1 or 2 is unexpected and should be flagged.
     ndim = np.array(packets).ndim
     with open(filename, 'w') as f:
         if ndim == 1:
