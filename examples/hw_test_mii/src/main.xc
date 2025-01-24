@@ -84,6 +84,7 @@ int main()
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   smi_if i_smi;
+  streaming chan c_rx_hp;
 
   par {
     on tile[1]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,

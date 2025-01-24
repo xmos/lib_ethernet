@@ -6,7 +6,6 @@
 #include <otp_board_info.h>
 
 
-[[combinable]]
 void icmp_server(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,

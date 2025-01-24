@@ -118,7 +118,7 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
 {
   for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
-    
+
     if (client_state.rd_index != client_state.wr_index) {
       unsigned client_rd_index = client_state.rd_index;
       unsigned packets_rd_index = (unsigned)client_state.fifo[client_rd_index];
@@ -285,6 +285,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         int len = (n > buf->length ? buf->length : n);
         unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
         unsigned * unsafe dptr = buf->data;
+
         int prewrap = ((char *) wrap_ptr - (char *) dptr);
         int len1 = prewrap > len ? len : prewrap;
         int len2 = prewrap > len ? 0 : len - prewrap;
@@ -550,7 +551,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         drop_lp_packets(rx_packets_lp, rx_client_state_lp, n_rx_lp);
       }
     }
-    
+
     if (!isnull(c_tx_hp)) {
       if (!mii_packet_queue_full(tx_packets_hp)) {
         unsigned * unsafe rdptr = mii_get_rdptr(tx_packets_hp);
