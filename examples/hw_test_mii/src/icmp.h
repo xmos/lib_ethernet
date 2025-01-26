@@ -6,10 +6,12 @@
 #include <otp_board_info.h>
 
 
-void icmp_server(client ethernet_cfg_if cfg,
+void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
-                 client ethernet_tx_if tx,
-                 const unsigned char ip_address[4],
-                 otp_ports_t &otp_ports);
+                 client ethernet_tx_if tx);
+
+void test_rx_hp(client ethernet_cfg_if cfg,
+                 streaming chanend c_rx_hp,
+                 unsigned num_lp_clients);
 
 #endif // __icmp_h__

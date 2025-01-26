@@ -24,19 +24,8 @@ port p_smi_mdio   = PORT_SMI_MDIO;
 port p_smi_mdc    = PORT_SMI_MDC;
 
 
-// These ports are for accessing the OTP memory
-otp_ports_t otp_ports = on tile[0]: OTP_PORTS_INITIALIZER;
+//static unsigned char ip_address[4] = {192, 168, 1, 178};
 
-static unsigned char ip_address[4] = {192, 168, 1, 178};
-
-// An enum to manage the array of connections from the ethernet component
-// to its clients.
-
-enum cfg_clients {
-  CFG_TO_ICMP,
-  CFG_TO_PHY_DRIVER,
-  NUM_CFG_CLIENTS
-};
 
 [[combinable]]
 void lan8710a_phy_driver(client interface smi_if smi,
@@ -74,7 +63,7 @@ void lan8710a_phy_driver(client interface smi_if smi,
   }
 }
 
-
+#define NUM_CFG_CLIENTS 3
 #define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
 
@@ -90,19 +79,22 @@ int main()
     on tile[1]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
                                 i_rx_lp, NUM_RX_LP_IF,
                                 i_tx_lp, NUM_TX_LP_IF,
-                                null, null,
+                                c_rx_hp, null,
                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
                                 4000, 4000, ETHERNET_DISABLE_SHAPER);
 
-    on tile[1]: lan8710a_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER]);
+    on tile[1]: lan8710a_phy_driver(i_smi, i_cfg[0]);
 
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
-    on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
-                            i_rx_lp[0], i_tx_lp[0],
-                            ip_address, otp_ports);
+    // RX threads
+    on tile[0]: test_rx_lp(i_cfg[1],
+                            i_rx_lp[0], i_tx_lp[0]);
+
+    on tile[0]: test_rx_hp(i_cfg[2], c_rx_hp, NUM_RX_LP_IF);
+
   }
   return 0;
 }

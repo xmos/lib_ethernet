@@ -13,7 +13,9 @@ set(COMPILER_FLAGS_COMMON   -g
                             -DDEBUG_PRINT_ENABLE=1
                             -save-temps
                             -Os
-                            -Wno-reinterpret-alignment)
+                            -Wno-reinterpret-alignment
+                            -DETHERNET_SUPPORT_HP_QUEUES=1
+                            )
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
 
