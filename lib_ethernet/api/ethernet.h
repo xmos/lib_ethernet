@@ -173,7 +173,19 @@ typedef interface ethernet_cfg_if {
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
    *  \param ifnum   The index of the MAC interface to set the slope
-   *  \param slope   The slope value
+   *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
+   * 
+   *  To convert from bits-per-second to the MII_CREDIT_FRACTIONAL_BITS format for the parameter 'slope', the
+   *  following helper function may be used:
+   * 
+   *  unsigned calc_idle_slope(unsigned bits_per_second)
+   *  {
+   *      unsigned long long slope = ((unsigned long long) bits_per_second) << (MII_CREDIT_FRACTIONAL_BITS);
+   *      slope = slope / XS1_TIMER_HZ; // bits that should be sent per ref timer tick
+   * 
+   *      return (unsigned) slope;
+   *  }
+   * 
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
 

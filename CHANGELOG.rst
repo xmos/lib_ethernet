@@ -9,7 +9,7 @@ lib_ethernet change log
   * ADDED: Extended sim tests for testing RMII applications
   * ADDED: Support for XCommon CMake build system
   * ADDED: Exit command to RMII RT MAC
-  * RESOLVED: Build warnings even when compile successful
+  * ADDED: Improved MAC feature documentation
   * ADDED: Test for SMI
   * CHANGED: SMI re-write. Single port version now functional
   * REMOVED: Slicekit based examples because hardware is obsolete
