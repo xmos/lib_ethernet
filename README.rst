@@ -9,7 +9,7 @@ lib_ethernet: Ethernet library
 :scope: General Use
 :description: XMOS Ethernet Library
 :category: Networking
-:keywords: Ethernet, MII, RGMII, AVB, SMI
+:keywords: Ethernet, MII, RMII, RGMII, AVB, SMI
 :devices: xcore.ai, xcore-200
 
 *******
