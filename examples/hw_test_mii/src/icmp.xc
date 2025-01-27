@@ -12,6 +12,7 @@
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
+                 client ethernet_tx_if tx,
                  chanend c_shutdown,
                  unsigned client_num)
 {
@@ -36,17 +37,25 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned timestamps[100];
   unsigned length[100];
   unsigned done = 0;
+  uint8_t broadcast[MACADDR_NUM_BYTES];
+  for(int i=0; i<MACADDR_NUM_BYTES; i++)
+  {
+    broadcast[i] = 0xff;
+  }
   while (1)
   {
     select {
       case rx.packet_ready():
         unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
-        unsigned char txbuf[ETHERNET_MAX_PACKET_SIZE];
         ethernet_packet_info_t packet_info;
         rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
 
         if (packet_info.type != ETH_DATA)
           continue;
+
+        uint8_t dst_mac[MACADDR_NUM_BYTES], src_mac[MACADDR_NUM_BYTES];
+        memcpy(dst_mac, rxbuf, MACADDR_NUM_BYTES);
+        memcpy(src_mac, rxbuf+MACADDR_NUM_BYTES, MACADDR_NUM_BYTES);
 
         // Random data packet
         //printintln(9999);
@@ -65,10 +74,25 @@ void test_rx_lp(client ethernet_cfg_if cfg,
           }*/
         }
         pkt_count += 1;
+        // swap src and dst
+
+        memcpy(rxbuf, src_mac, MACADDR_NUM_BYTES);
+        memcpy(rxbuf+MACADDR_NUM_BYTES, dst_mac, MACADDR_NUM_BYTES);
+
+        tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
         break;
 
       case c_shutdown :> int done:
         debug_printf("lp client %d, Received %d lp bytes, %d lp packets\n", client_num, num_rx_bytes, pkt_count);
+        unsigned print_pkt_count = (pkt_count > 100) ? 100 : pkt_count;
+
+        if(print_pkt_count >= 2)
+        {
+          for(int i=0; i<print_pkt_count-1; i++)
+          {
+            debug_printf("LP client %d: i=%d, ts_diff=%u, len=%d,%d\n", client_num, i, (unsigned)(timestamps[i+1]-timestamps[i]), length[i], length[i+1] );
+          }
+        }
         c_shutdown <: 1;
         done = 1;
         break;
@@ -144,9 +168,12 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   debug_printf("Received %d hp bytes, %d hp packets\n", num_rx_bytes, pkt_count);
   unsigned print_pkt_count = (pkt_count > 100) ? 100 : pkt_count;
 
-  for(int i=0; i<print_pkt_count-1; i++)
+  if(print_pkt_count >= 2)
   {
-    debug_printf("i=%d, ts_diff=%u, len=%d,%d\n", i, (unsigned)(timestamps[i+1]-timestamps[i]), length[i], length[i+1] );
+    for(int i=0; i<print_pkt_count-1; i++)
+    {
+      debug_printf("HP client: i=%d, ts_diff=%u, len=%d,%d\n", i, (unsigned)(timestamps[i+1]-timestamps[i]), length[i], length[i+1] );
+    }
   }
   for(int i=0; i<num_lp_clients; i++)
   {

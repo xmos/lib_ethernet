@@ -8,6 +8,7 @@
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
+                 client ethernet_tx_if tx,
                  chanend c_shutdown,
                  unsigned client_num);
 

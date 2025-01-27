@@ -64,7 +64,7 @@ void lan8710a_phy_driver(client interface smi_if smi,
 }
 
 #define NUM_RX_LP_IF 2
-#define NUM_TX_LP_IF 1
+#define NUM_TX_LP_IF 2
 #define NUM_CFG_CLIENTS NUM_RX_LP_IF + 1 /*HP interface*/ + 1 /*lan8710a_phy_driver*/
 
 int main()
@@ -92,10 +92,10 @@ int main()
 
     // RX threads
     on tile[0]: test_rx_lp(i_cfg[1],
-                            i_rx_lp[0], c_shutdown[0], 0);
+                            i_rx_lp[0], i_tx_lp[0], c_shutdown[0], 0);
 
     on tile[0]: test_rx_lp(i_cfg[2],
-                            i_rx_lp[1], c_shutdown[1], 1);
+                            i_rx_lp[1], i_tx_lp[1], c_shutdown[1], 1);
 
     on tile[0]: test_rx_hp(i_cfg[3], c_rx_hp, c_shutdown, NUM_RX_LP_IF);
 
