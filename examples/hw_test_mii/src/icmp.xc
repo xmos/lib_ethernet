@@ -110,6 +110,8 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   unsigned test_end_time;
   unsigned enable_time_based_check = 0;
   unsigned done = 0;
+  unsigned timestamps[100];
+  unsigned length[100];
 
   while (!done) {
     ethernet_packet_info_t packet_info;
@@ -119,6 +121,11 @@ void test_rx_hp(client ethernet_cfg_if cfg,
       case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
         // Check the first byte after the header (which can be VLAN tagged)
         num_rx_bytes += packet_info.len;
+        if(pkt_count < 100)
+        {
+          timestamps[pkt_count] = packet_info.timestamp;
+          length[pkt_count] = packet_info.len;
+        }
         pkt_count += 1;
         if(pkt_count == 1)
         {
@@ -135,6 +142,12 @@ void test_rx_hp(client ethernet_cfg_if cfg,
     }
   }
   debug_printf("Received %d hp bytes, %d hp packets\n", num_rx_bytes, pkt_count);
+  unsigned print_pkt_count = (pkt_count > 100) ? 100 : pkt_count;
+
+  for(int i=0; i<print_pkt_count-1; i++)
+  {
+    debug_printf("i=%d, ts_diff=%u, len=%d,%d\n", i, (unsigned)(timestamps[i+1]-timestamps[i]), length[i], length[i+1] );
+  }
   for(int i=0; i<num_lp_clients; i++)
   {
     c_shutdown[i] <: 1;
