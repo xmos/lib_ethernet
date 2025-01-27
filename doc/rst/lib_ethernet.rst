@@ -146,9 +146,11 @@ All MACs in this library support a number of useful features which can be config
   * Separately configurable Rx and Tx buffer sizes (queues).
   * VLAN aware packet reception. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
 
-Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. Reception of a packet can be a blocking call or combined with a notification allowing the client to ``select`` on the receive interface whereupon it can then receive the waiting packet. Please see the :ref:`api_section` for details on how to use the MAC.
+Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. This means the buffer size should be appropriately sized for your application or the application should tolerate blocking.
 
-In addition the RMII RT MAC supports an exit command. This tears down all tasks associated with the MAC and frees the memory and xcore resources used, including ports. This can be helpful in cases where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
+Reception of a packet blocks until a packet is available. It may however be combined with an asynchronous notification allowing the client to ``select`` on the XC interface whereupon it can then receive the waiting packet. This provides an efficient, event-driven API option. Please see the :ref:`api_section` for details on how to use the MAC.
+
+In addition, the RMII RT MAC supports an exit command. This tears down all of the tasks associated with the MAC and frees the memory and XCORE resources used, including ports. After exit, the MAC may be re-started again. This can be helpful in cases where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
 
 |newpage|
 
