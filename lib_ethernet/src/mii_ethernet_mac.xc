@@ -160,7 +160,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         memcpy(r_mac_address, mac_address, sizeof mac_address);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+      case i_cfg[int i].set_macaddr(size_t ifnum, const uint8_t r_mac_address[MACADDR_NUM_BYTES]):
         memcpy(mac_address, r_mac_address, sizeof r_mac_address);
         break;
 

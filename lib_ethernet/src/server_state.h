@@ -6,8 +6,6 @@
 #include "xccompat.h"
 #include "ethernet.h"
 
-#define MII_CREDIT_FRACTIONAL_BITS 16
-
 // Server is shared for rmii/mii so pass in enum
 typedef enum phy_100mb_t {
     ETH_MAC_IF_MII = 0,
