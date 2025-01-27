@@ -14,8 +14,8 @@ def create_data(args):
     return globals()[func](f_args)
 
 def create_data_step(args):
-    step,num_data_bytes = args
-    return [(step * i) & 0xff for i in range(num_data_bytes)]
+    step,num_data_bytes,start = args
+    return [(start + (step * i)) & 0xff for i in range(num_data_bytes)]
 
 def create_data_same(args):
     value,num_data_bytes = args
@@ -101,6 +101,9 @@ class MiiPacket(object):
         # Source MAC address - use a random one if not user-defined
         if self.src_mac_addr is None:
             self.src_mac_addr = [rand.randint(0, 255) for x in range(6)]
+
+        self.dst_mac_addr_str = ":".join([str(format(j, '02x')) for j in self.dst_mac_addr ])
+        self.src_mac_addr_str = ":".join([str(format(j, '02x')) for j in self.src_mac_addr ])
 
         # If the data is defined, then record the length. Otherwise create random
         # data of the length specified
