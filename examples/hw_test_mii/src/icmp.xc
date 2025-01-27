@@ -12,14 +12,14 @@
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
-                 client ethernet_tx_if tx,
-                 chanend c_shutdown)
+                 chanend c_shutdown,
+                 unsigned client_num)
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
   macaddr_filter.appdata = 0;
   for (int i = 0; i < MACADDR_NUM_BYTES; i++)
-    macaddr_filter.addr[i] = i;
+    macaddr_filter.addr[i] = i+client_num;
 
   size_t index = rx.get_index();
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
@@ -68,7 +68,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         break;
 
       case c_shutdown :> int done:
-        debug_printf("Received %d lp bytes, %d lp packets\n", num_rx_bytes, pkt_count);
+        debug_printf("lp client %d, Received %d lp bytes, %d lp packets\n", client_num, num_rx_bytes, pkt_count);
         c_shutdown <: 1;
         done = 1;
         break;

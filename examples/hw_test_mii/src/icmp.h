@@ -8,8 +8,8 @@
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
-                 client ethernet_tx_if tx,
-                 chanend c_shutdown);
+                 chanend c_shutdown,
+                 unsigned client_num);
 
 void test_rx_hp(client ethernet_cfg_if cfg,
                  streaming chanend c_rx_hp,
