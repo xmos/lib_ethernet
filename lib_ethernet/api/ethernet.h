@@ -9,10 +9,13 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 
-#define ETHERNET_ALL_INTERFACES  (-1)
-#define ETHERNET_MAX_PACKET_SIZE (1518) /**< MAX packet size in bytes */
+#define ETHERNET_ALL_INTERFACES     (-1)
+#define ETHERNET_MAX_PACKET_SIZE    (1518) /**< MAX packet size in bytes */
 
-#define MACADDR_NUM_BYTES 6
+#define MACADDR_NUM_BYTES           (6) /**< Number of octets in MAC address */
+
+#define MII_CREDIT_FRACTIONAL_BITS  (16) /** Fractional bits for QAV credit based shaper */
+
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -77,7 +80,7 @@ typedef interface ethernet_cfg_if {
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
    */
-  void set_macaddr(size_t ifnum, uint8_t mac_address[MACADDR_NUM_BYTES]);
+  void set_macaddr(size_t ifnum, const uint8_t mac_address[MACADDR_NUM_BYTES]);
 
   /** Gets the source MAC address of the Ethernet MAC
    *
