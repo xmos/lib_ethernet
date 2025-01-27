@@ -74,6 +74,7 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   smi_if i_smi;
   streaming chan c_rx_hp;
+  chan c_shutdown[NUM_RX_LP_IF];
 
   par {
     on tile[1]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
@@ -91,9 +92,9 @@ int main()
 
     // RX threads
     on tile[0]: test_rx_lp(i_cfg[1],
-                            i_rx_lp[0], i_tx_lp[0]);
+                            i_rx_lp[0], i_tx_lp[0], c_shutdown[0]);
 
-    on tile[0]: test_rx_hp(i_cfg[2], c_rx_hp, NUM_RX_LP_IF);
+    on tile[0]: test_rx_hp(i_cfg[2], c_rx_hp, c_shutdown, NUM_RX_LP_IF);
 
   }
   return 0;

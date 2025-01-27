@@ -8,10 +8,12 @@
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
-                 client ethernet_tx_if tx);
+                 client ethernet_tx_if tx,
+                 chanend c_shutdown);
 
 void test_rx_hp(client ethernet_cfg_if cfg,
                  streaming chanend c_rx_hp,
+                 chanend c_shutdown[num_lp_clients],
                  unsigned num_lp_clients);
 
 #endif // __icmp_h__
