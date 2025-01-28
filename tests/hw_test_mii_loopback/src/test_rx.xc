@@ -38,7 +38,15 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   {
     broadcast[i] = 0xff;
   }
-  while (1)
+  unsigned enable_time_based_check = 0;
+  timer t;
+  unsigned time;
+  t :> time;
+  unsigned test_end_time;
+  unsigned done = 0;
+  unsigned dut_timeout_s = 10; // dut timeout in seconds
+
+  while (!done)
   {
     select {
       case rx.packet_ready():
@@ -54,6 +62,14 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         memcpy(dst_mac, rxbuf, MACADDR_NUM_BYTES);
         memcpy(src_mac, rxbuf+MACADDR_NUM_BYTES, MACADDR_NUM_BYTES);
 
+        if(pkt_count == 0)
+        {
+          enable_time_based_check = 1;
+          t :> time;
+          test_end_time = time + (dut_timeout_s * XS1_TIMER_HZ);
+        }
+
+
         pkt_count += 1;
         num_rx_bytes += packet_info.len;
         // swap src and dst mac addr
@@ -62,6 +78,12 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 
         tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
         break;
+#if ENABLE_DUT_TIMEOUT
+      case (enable_time_based_check == 1) => t when timerafter(test_end_time) :> test_end_time:
+        done = 1;
+        break;
+#endif
     } // select
   }
+  debug_printf("DUT: Received %d bytes, %d packets\n", num_rx_bytes, pkt_count);
 }

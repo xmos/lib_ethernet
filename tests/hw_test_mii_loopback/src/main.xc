@@ -2,10 +2,12 @@
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
+#include <stdlib.h>
 #include "otp_board_info.h"
 #include "ethernet.h"
 #include "test_rx.h"
 #include "smi.h"
+
 
 
 port p_eth_rxclk  = PORT_ETH_RXCLK;
@@ -86,8 +88,12 @@ int main()
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
     // RX threads
-    on tile[1]: test_rx_lp(i_cfg[1],
+    on tile[1]: {
+    test_rx_lp(i_cfg[1],
                             i_rx_lp[0], i_tx_lp[0], 0);
+    _Exit(0);
+
+    }
 
   }
   return 0;

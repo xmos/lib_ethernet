@@ -14,6 +14,7 @@ set(COMPILER_FLAGS_COMMON   -g
                             -save-temps
                             -Os
                             -Wno-reinterpret-alignment
+                            -DENABLE_DUT_TIMEOUT=1
                             )
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
