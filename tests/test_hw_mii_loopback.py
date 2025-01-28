@@ -31,13 +31,13 @@ def sniff_pkt(intf, expected_packets, timeout_s):
         if Ether in packet and packet[Ether].dst == expect_packets[0].dst_mac_addr_str:
             payload = packet[Raw].load
             expected_payload = bytes(expect_packets[recvd_packet_count].data_bytes)
-            """
+
             if payload != expected_payload:
                 print(f"ERROR: mismatch in pkt number {recvd_packet_count}")
-                print(f"Received: {payload}")
-                print(f"Expected: {expected_payload}")
-                assert(False)
-            """
+                #print(f"Received: {payload}")
+                #print(f"Expected: {expected_payload}")
+                #assert(False)
+
             #print("Received ", packet.summary(), len(payload), "packet ", recvd_packet_count)  # Print a summary of each packet
             recvd_packet_count += 1
             recvd_bytes += len(payload)
@@ -80,6 +80,9 @@ def test_hw_mii_loopback(request, payload_len):
 
     # Create packets
     mac_address = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]
+
+    print(f"Generating {test_duration_s} seconds of packet sequence")
+
     while True:
         if payload_len == 'max':
             num_data_bytes = 1500
