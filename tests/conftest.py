@@ -19,7 +19,18 @@ def pytest_addoption(parser):
         choices=["smoke", "nightly"],
         help="Test coverage level",
     )
-
+    parser.addoption(
+        "--adapter-id",
+        action="store",
+        default=None,
+        help="DUT adapter-id when running HW tests",
+    )
+    parser.addoption(
+        "--eth-intf",
+        action="store",
+        default=None,
+        help="DUT adapter-id when running HW tests",
+    )
 
 def pytest_configure(config):
     if config.pluginmanager.hasplugin("xdist"):

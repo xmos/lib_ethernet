@@ -14,8 +14,8 @@ def create_data(args):
     return globals()[func](f_args)
 
 def create_data_step(args):
-    step,num_data_bytes,start = args
-    return [(start + (step * i)) & 0xff for i in range(num_data_bytes)]
+    step,num_data_bytes = args
+    return [(step * i) & 0xff for i in range(num_data_bytes)]
 
 def create_data_same(args):
     value,num_data_bytes = args
