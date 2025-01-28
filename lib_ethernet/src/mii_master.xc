@@ -504,9 +504,9 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     if (enable_shaper) {
       credit_tmr :> credit_time;
-      buf = shaper_do_idle_slope(buf, credit_time, prev_credit_time, credit, p_port_state->qav_idle_slope);
+      {buf, prev_credit_time, credit} = shaper_do_idle_slope(buf, prev_credit_time, credit, credit_time, p_port_state->qav_idle_slope);
     }
-
+    
     if (!buf) {
       buf = mii_get_next_buf(packets_lp);
       p_ts_queue = &ts_queue;

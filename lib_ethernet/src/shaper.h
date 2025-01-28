@@ -59,18 +59,18 @@ static unsigned idle_slope_bps_calc(unsigned bits_per_second){
 
 
 
-static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe buf,
-                                                  int current_time,
-                                                  int &prev_time,
-                                                  int &credit,
-                                                  unsigned qav_idle_slope){
+{mii_packet_t * unsafe, int, int} static inline shaper_do_idle_slope(mii_packet_t * unsafe hp_buf,
+                                                                    int prev_time,
+                                                                    int credit,
+                                                                    int current_time,
+                                                                    unsigned qav_idle_slope){
   int elapsed = current_time - prev_time;
   credit += elapsed * (int)qav_idle_slope; // add bit budget since last transmission to credit. ticks * bits/tick = bits
 
   // If valid hp buffer
-  if (buf) {
+  if (hp_buf) {
     if (credit < 0) {
-      buf = 0; // if out of credit drop this HP packet
+      hp_buf = 0; // if out of credit drop this HP packet
     }
   }
   else
@@ -80,10 +80,10 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe b
       credit = 0;
     }
   }
-  // Update record of last time
-  prev_time = current_time;
 
-  return buf;
+  // just for readibilty
+  int previous_time = current_time;
+  return {hp_buf, previous_time, credit};
 }
 
 static inline void shaper_do_send_slope(unsigned len_bytes, int &credit){
