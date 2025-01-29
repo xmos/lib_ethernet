@@ -472,10 +472,9 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                out buffered port:32 p_mii_txd,
                                volatile ethernet_port_state_t * unsafe p_port_state)
 {
-  int credit = 0; // No. of bits allowed to send
-  int credit_time;
-  int prev_credit_time;
-  // Need one timer to be able to read at any time for the shaper
+  qav_state_t qav_state = {0, 0, 1}; // Set times to zero and credit to 1 so it can tx first frame
+
+  // Need a timer to be able to read at any time for the shaper
   timer credit_tmr;
   // And a second timer to be enforcing the IFG gap
   hwtimer_t ifg_tmr;
@@ -487,8 +486,8 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
     enable_shaper = 0;
 
   if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
-    credit_tmr :> credit_time;
-    prev_credit_time = credit_time;
+    credit_tmr :> qav_state.current_time;
+    qav_state.prev_time = qav_state.current_time;;
   }
 
   ifg_tmr :> ifg_time;
@@ -503,8 +502,8 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
       buf = mii_get_next_buf(packets_hp);
 
     if (enable_shaper) {
-      credit_tmr :> credit_time;
-      {buf, prev_credit_time, credit} = shaper_do_idle_slope(buf, prev_credit_time, credit, credit_time, p_port_state->qav_idle_slope);
+      credit_tmr :> qav_state.current_time;
+      buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
     }
     
     if (!buf) {
@@ -528,7 +527,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
     // Calculate the send slope (decrement credit) if enabled and was HP
     const int packet_is_high_priority = (p_ts_queue == null);
     if (enable_shaper && packet_is_high_priority) {
-      shaper_do_send_slope(buf->length, credit);
+      shaper_do_send_slope(buf->length, &qav_state);
     }
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {
@@ -545,6 +544,6 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
         mii_free_current(packets_hp);
       }
     }
-  }
+  } // while(1)
 }
 

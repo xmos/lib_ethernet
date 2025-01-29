@@ -10,11 +10,11 @@
 
 
 #define ETHERNET_ALL_INTERFACES     (-1)
-#define ETHERNET_MAX_PACKET_SIZE    (1518) /**< MAX packet size in bytes */
+#define ETHERNET_MAX_PACKET_SIZE    (1518) /**< MAX packet size in bytes including src, dst, ether/tags but NOT preamble or CRC*/
 
 #define MACADDR_NUM_BYTES           (6) /**< Number of octets in MAC address */
 
-#define MII_CREDIT_FRACTIONAL_BITS  (16) /** Fractional bits for QAV credit based shaper */
+#define MII_CREDIT_FRACTIONAL_BITS  (16) /** Fractional bits for Qav credit based shaper setting */
 
 
 /** Type representing the type of packet from the MAC */

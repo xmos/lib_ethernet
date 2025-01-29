@@ -19,6 +19,7 @@ typedef struct ethernet_port_state_t
   ethernet_speed_t link_speed;
   int qav_shaper_enabled;
   int qav_idle_slope;
+  int64_t qav_credit_limit;
   int ingress_ts_latency[NUM_ETHERNET_SPEEDS];
   int egress_ts_latency[NUM_ETHERNET_SPEEDS];
 } ethernet_port_state_t;
