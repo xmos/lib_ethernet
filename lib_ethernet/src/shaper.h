@@ -74,6 +74,7 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe h
       qav_state->credit += (int)credit64;
     }
 #else
+    // This is the old code from <4.0.0
     qav_state->credit += elapsed_ticks * (int)port_state->qav_idle_slope; // add bit budget since last transmission to credit. ticks * bits/tick = bits
 #endif
 

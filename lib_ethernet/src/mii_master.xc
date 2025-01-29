@@ -487,7 +487,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
   if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
     credit_tmr :> qav_state.current_time;
-    qav_state.prev_time = qav_state.current_time;;
+    qav_state.prev_time = qav_state.current_time;
   }
 
   ifg_tmr :> ifg_time;
