@@ -44,10 +44,10 @@ void set_qav_idle_slope(ethernet_port_state_t * port_state, unsigned limit_bps);
 void set_qav_credit_limit(ethernet_port_state_t * port_state, int payload_limit_bytes);
 
 
-/** Performs the idle slope calculation.
+/** Performs the idle slope calculation for MII and RMII MACs.
  * 
  * Adds credits based on time since last HP packet and bit rate. If credit after calculation is above zero then
- * the HP packet is allowed to be transmitted. If credit is zero or less then the return buffer
+ * the HP packet is allowed to be transmitted. If credit is negative then the return buffer
  * is null so that it waits until credit is sufficient. 
  * 
  * The credit is optionally limited to hiCredit which is initialised by set_qav_credit_limit()
@@ -70,8 +70,9 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe h
     if(credit64 > port_state->qav_credit_limit)
     {
       qav_state->credit = port_state->qav_credit_limit;
+      printstrln("clip");
     } else {
-      qav_state->credit += (int)credit64;
+      qav_state->credit = (int)credit64;
     }
 #else
     // This is the old code from <4.0.0
@@ -88,7 +89,7 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe h
     // Buffer invalid, no HP packet so reset credit as per Annex L of Qav
     {
       if (qav_state->credit > 0){
-        qav_state->credit = 0;
+        qav_state->credit = 0; // HP ready to send next time
       }
     }
 
@@ -98,6 +99,7 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe h
     return hp_buf;
   }
 }
+
 
 static inline void shaper_do_send_slope(int len_bytes, qav_state_t * unsafe qav_state){
   unsafe{

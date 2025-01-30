@@ -49,10 +49,46 @@ int do_test(int last_time, int current_time, qav_state_t *qav_state, ethernet_po
     }
 }
 
+// For dev only not main test
+void do_characterise(void){unsafe{
+    ethernet_port_state_t port_state = {0};
+    qav_state_t qav_state = {0, 0, 0};
+    set_qav_idle_slope(&port_state, 75000000); // Set to max reservation to test for overflows
+    set_qav_credit_limit(&port_state, ETHERNET_MAX_PACKET_SIZE);
+
+    mii_packet_t mii_packet;
+    mii_packet_t * unsafe buff = &mii_packet;
+
+    qav_state.prev_time = 0;
+    qav_state.current_time = 0;
+    debug_printf("credit: %d\n", qav_state.credit);
+
+    int time_inc = 20 * 8;
+
+    for(int i = 0; i < 20; i++){
+        int ishp = ((i % 3) == 0);
+        if(ishp) buff = &mii_packet; else buff = 0;
+        qav_state.current_time += 10;
+        buff = shaper_do_idle_slope(buff, &qav_state, &port_state);
+        debug_printf("%d %s credit: %d - ", i, ishp == 0 ? "LP":"HP", qav_state.credit);
+        debug_printf("HP Tx: %s\n", buff != 0 ? "True" : "False");
+        
+        if(buff){
+            debug_printf("do send slope\n");
+            shaper_do_send_slope(40, &qav_state);
+        }
+        qav_state.current_time += time_inc;
+
+        if(i == 10) time_inc = 40 * 8;
+    }
+}}
+
 // To make volatile
 in port p_vol = XS1_PORT_1A;
 
 int main(void){
+    do_characterise();
+
     unsafe{
         ethernet_port_state_t port_state;
         qav_state_t qav_state = {0, 0, 0};

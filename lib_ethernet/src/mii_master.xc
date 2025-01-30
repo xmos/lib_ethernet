@@ -472,7 +472,7 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                out buffered port:32 p_mii_txd,
                                volatile ethernet_port_state_t * unsafe p_port_state)
 {
-  qav_state_t qav_state = {0, 0, 1}; // Set times to zero and credit to 1 so it can tx first frame
+  qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
 
   // Need a timer to be able to read at any time for the shaper
   timer credit_tmr;

@@ -1000,7 +1000,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     unsigned ifg_time = 0;
     unsigned eof_time = 0;
 
-    qav_state_t qav_state = {0, 0, 1}; // Set times to zero and credit to 1 so it can tx first frame
+    qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {

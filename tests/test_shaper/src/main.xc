@@ -18,8 +18,6 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 
 #define VLAN_TAGGED 1
 
-#define MII_CREDIT_FRACTIONAL_BITS 16
-
 static int calc_idle_slope(int bps)
 {
   long long slope = ((long long) bps) << (MII_CREDIT_FRACTIONAL_BITS);
