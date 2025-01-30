@@ -13,7 +13,8 @@
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
-                 unsigned client_num)
+                 unsigned client_num,
+                 chanend c_xscope_control)
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
@@ -49,6 +50,8 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned timestamps[NUM_TS_LOGS];
   unsigned seq_ids[NUM_TS_LOGS];
   unsigned counter = 0;
+
+  c_xscope_control <: 1; // Indicate ready
 
   while (!done)
   {
@@ -94,6 +97,9 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         done = 1;
         break;
 #endif
+      case c_xscope_control :> int temp: // Shutdown received over xscope
+        done = 1;
+        break;
     } // select
   }
 
@@ -132,4 +138,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   }
   debug_printf("counter = %u, min_ifg = %u, max_ifg = %u\n", counter, min_ifg, max_ifg);
   debug_printf("DUT: Received %d bytes, %d packets\n", num_rx_bytes, pkt_count);
+
+  c_xscope_control <: 1; // Acknowledge shutdown completion
 }

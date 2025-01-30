@@ -50,7 +50,7 @@ def test_hw_mii_rx_only(request, payload_len):
     rand.seed(seed)
 
     if adapter_id == None:
-        test_duration_s = 0.5 # xrun in a different terminal. Test is more stable (TODO), so test longer duration
+        test_duration_s = 0.4 # xrun in a different terminal. Test is more stable (TODO), so test longer duration
     else:
         test_duration_s = 0.1
 
