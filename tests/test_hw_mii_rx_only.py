@@ -13,7 +13,8 @@ import time
 
 pkg_dir = Path(__file__).parent
 
-def send_l2_pkts(intf, packet, loop_count):
+# Send the same packet in a loop
+def send_l2_pkts_loop(intf, packet, loop_count):
     # Convert to scapy Ether frames
     byte_data = bytes(packet.data_bytes)
     frame = Ether(dst=packet.dst_mac_addr_str, src=packet.src_mac_addr_str, type=packet.ether_len_type)/Raw(load=byte_data)
@@ -22,6 +23,15 @@ def send_l2_pkts(intf, packet, loop_count):
     sendp(frame, iface=intf, count=loop_count, verbose=False, realtime=True)
     #for i in range(loop_count):
     #    sendp(frame, iface=intf, verbose=False)
+    time.sleep(10)
+
+def send_l2_pkt_sequence(intf, packets):
+    frames = []
+    for packet in packets:
+        byte_data = bytes(packet.data_bytes)
+        frame = Ether(dst=packet.dst_mac_addr_str, src=packet.src_mac_addr_str, type=packet.ether_len_type)/Raw(load=byte_data)
+        frames.append(frame)
+    sendp(frames, iface=intf, verbose=False, realtime=True)
     time.sleep(10)
 
 
@@ -40,7 +50,7 @@ def test_hw_mii_rx_only(request, payload_len):
     rand.seed(seed)
 
     if adapter_id == None:
-        test_duration_s = 1 # xrun in a different terminal. Test is more stable (TODO), so test longer duration
+        test_duration_s = 0.5 # xrun in a different terminal. Test is more stable (TODO), so test longer duration
     else:
         test_duration_s = 0.1
 
@@ -68,13 +78,23 @@ def test_hw_mii_rx_only(request, payload_len):
                     dst_mac_addr=mac_address,
                     src_mac_addr=src_mac_address,
                     ether_len_type = ethertype,
-                    num_data_bytes=num_data_bytes
+                    num_data_bytes=num_data_bytes,
+                    create_data_args=['same', (0, num_data_bytes)],
                     )
-    #packet_duration_bits = (14 + num_data_bytes + 4)*8 + 64 + 96 # Assume Min IFG
-    packet_duration_bits = (num_data_bytes)*8 # Assume Min IFG
+    packet_duration_bits = (14 + num_data_bytes + 4)*8 + 64 + 96 # Assume Min IFG
 
     test_duration_bits = test_duration_s * 100e6
     num_packets = int(float(test_duration_bits)/packet_duration_bits)
+
+    packets = []
+    for i in range(num_packets): # Update sequence IDs in payload
+        packet_copy = copy.deepcopy(packet)
+        packet_copy.data_bytes[0] = (i >> 24) & 0xff
+        packet_copy.data_bytes[1] = (i >> 16) & 0xff
+        packet_copy.data_bytes[2] = (i >> 8) & 0xff
+        packet_copy.data_bytes[3] = (i >> 0) & 0xff
+        packets.append(packet_copy)
+
 
     print(f"Going to test {num_packets} packets")
     xe_name = pkg_dir / "hw_test_mii_rx_only" / "bin" / "hw_test_mii_rx_only.xe"
@@ -82,7 +102,9 @@ def test_hw_mii_rx_only(request, payload_len):
     context_manager = XcoreApp(xe_name, adapter_id, attach="xscope") if adapter_id is not None else nullcontext()
 
     with context_manager as xcore_app:
-        thread_send = threading.Thread(target=send_l2_pkts, args=[eth_intf, packet, num_packets])
+        #thread_send = threading.Thread(target=send_l2_pkts_loop, args=[eth_intf, packet, num_packets])
+
+        thread_send = threading.Thread(target=send_l2_pkt_sequence, args=[eth_intf, packets])
 
         thread_send.start()
         thread_send.join()

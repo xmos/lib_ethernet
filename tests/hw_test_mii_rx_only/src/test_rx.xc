@@ -9,7 +9,7 @@
 #include <string.h>
 #include <print.h>
 
-#define NUM_TS_LOGS (42000)
+#define NUM_TS_LOGS (20000)
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
@@ -44,9 +44,10 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   t :> time;
   unsigned test_end_time;
   unsigned done = 0;
-  unsigned dut_timeout_s = 20; // dut timeout in seconds
+  unsigned dut_timeout_s = 10; // dut timeout in seconds
 
   unsigned timestamps[NUM_TS_LOGS];
+  unsigned seq_ids[NUM_TS_LOGS];
   unsigned counter = 0;
 
   while (!done)
@@ -73,7 +74,10 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         }
         if((pkt_count >= 0) && (pkt_count < 0 + NUM_TS_LOGS))
         {
-          timestamps[counter++] = packet_info.timestamp;
+          timestamps[counter] = packet_info.timestamp;
+          unsigned seq_id = ((unsigned)rxbuf[14] << 24) | ((unsigned)rxbuf[15] << 16) | ((unsigned)rxbuf[16] << 8) | (unsigned)rxbuf[17];
+          seq_ids[counter] = seq_id;
+          counter += 1;
         }
 
 
@@ -118,7 +122,12 @@ void test_rx_lp(client ethernet_cfg_if cfg,
       {
         min_ifg = diff;
       }
-      debug_printf("HP client: i=%d, ts_diff=%u, ts=(%u, %u)\n", i, (unsigned)diff, timestamps[i+1], timestamps[i] );
+      unsigned seq_id_diff = seq_ids[i+1] - seq_ids[i];
+      if(seq_id_diff != 1)
+      {
+        debug_printf("ERROR: seq ids %u, %u. %u packets missing!!\n", seq_ids[i+1], seq_ids[i], seq_id_diff);
+      }
+      debug_printf("client: i=%d, ts_diff=%u, seq_ids = (%u, %u), ts=(%u, %u)\n", i, (unsigned)diff, seq_ids[i+1], seq_ids[i], timestamps[i+1], timestamps[i] );
     }
   }
   debug_printf("counter = %u, min_ifg = %u, max_ifg = %u\n", counter, min_ifg, max_ifg);
