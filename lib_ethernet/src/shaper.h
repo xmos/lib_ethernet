@@ -67,14 +67,24 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe h
 
 #if ETHERNET_SUPPORT_TRAFFIC_SHAPER_CREDIT_LIMIT
     int64_t credit64 = (int64_t)elapsed_ticks * (int64_t)port_state->qav_idle_slope + (int64_t)qav_state->credit;
+
     // cast qav_credit_limit as saves a cycle
-    if((unsigned)port_state->qav_credit_limit && (credit64 > port_state->qav_credit_limit))
-    {
-      qav_state->credit = port_state->qav_credit_limit;
-      // printf("credit: %llu limit: %llu\n", credit64, port_state->qav_credit_limit);
+    if((unsigned)port_state->qav_credit_limit){
+      // Apply limit
+      if(credit64 > port_state->qav_credit_limit)
+      {
+        // printf("limited credit: %lld limit: %lld\n", credit64, port_state->qav_credit_limit);
+        credit64 = port_state->qav_credit_limit;
+      }
     } else {
-      qav_state->credit = (int)credit64;
+      // Clip to max_int to avoid overflow
+      const int64_t max_int = 0x7fffffff;
+      if(credit64 > max_int){
+        // printf("clip credit: %lld limit: %lld\n", credit64, port_state->qav_credit_limit);
+        credit64 = max_int;
+      }
     }
+    qav_state->credit = (int)credit64;
 #else
     // This is the old code from <4.0.0
     qav_state->credit += elapsed_ticks * (int)port_state->qav_idle_slope; // add bit budget since last transmission to credit. ticks * bits/tick = bits
