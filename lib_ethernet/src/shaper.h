@@ -28,7 +28,7 @@ typedef struct qav_state_t{
 /** Sets the Qav idle slope in units of bits per second.
  *
  *   \param port_state  Pointer to the port state to be modified
- *   \param limit_bps   The idle slope setting in bits per seconds
+ *   \param limit_bps   The idle slope setting in bits per second
  *
  */
 void set_qav_idle_slope(ethernet_port_state_t * port_state, unsigned limit_bps);
@@ -38,7 +38,7 @@ void set_qav_idle_slope(ethernet_port_state_t * port_state, unsigned limit_bps);
  *
  *   \param port_state    Pointer to the port state to be modified
  *   \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
- *                        not including preamble, CRC and IFG. Set to -1 for no limit (default)
+ *                        not including preamble, CRC and IFG. Set to 0 for no limit (default)
  *
  */
 void set_qav_credit_limit(ethernet_port_state_t * port_state, int payload_limit_bytes);
@@ -67,10 +67,11 @@ static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe h
 
 #if ETHERNET_SUPPORT_TRAFFIC_SHAPER_CREDIT_LIMIT
     int64_t credit64 = (int64_t)elapsed_ticks * (int64_t)port_state->qav_idle_slope + (int64_t)qav_state->credit;
-    if(credit64 > port_state->qav_credit_limit)
+    // cast qav_credit_limit as saves a cycle
+    if((unsigned)port_state->qav_credit_limit && (credit64 > port_state->qav_credit_limit))
     {
       qav_state->credit = port_state->qav_credit_limit;
-      printstrln("clip");
+      // printf("credit: %llu limit: %llu\n", credit64, port_state->qav_credit_limit);
     } else {
       qav_state->credit = (int)credit64;
     }

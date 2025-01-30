@@ -49,12 +49,13 @@ int do_test(int last_time, int current_time, qav_state_t *qav_state, ethernet_po
     }
 }
 
-// For dev only not main test
+// For dev only not main test. This is to observe the shaper behaviour
 void do_characterise(void){unsafe{
     ethernet_port_state_t port_state = {0};
     qav_state_t qav_state = {0, 0, 0};
     set_qav_idle_slope(&port_state, 75000000); // Set to max reservation to test for overflows
-    set_qav_credit_limit(&port_state, ETHERNET_MAX_PACKET_SIZE);
+    // set_qav_credit_limit(&port_state, ETHERNET_MAX_PACKET_SIZE);
+    set_qav_credit_limit(&port_state, 0);
 
     mii_packet_t mii_packet;
     mii_packet_t * unsafe buff = &mii_packet;
@@ -73,7 +74,7 @@ void do_characterise(void){unsafe{
         debug_printf("%d %s credit: %d - ", i, ishp == 0 ? "LP":"HP", qav_state.credit);
         debug_printf("HP Tx: %s\n", buff != 0 ? "True" : "False");
         
-        if(buff){
+        if(ishp && buff){
             debug_printf("do send slope\n");
             shaper_do_send_slope(40, &qav_state);
         }
@@ -87,7 +88,7 @@ void do_characterise(void){unsafe{
 in port p_vol = XS1_PORT_1A;
 
 int main(void){
-    do_characterise();
+    // do_characterise();
 
     unsafe{
         ethernet_port_state_t port_state;

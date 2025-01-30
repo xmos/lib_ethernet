@@ -18,5 +18,12 @@ void set_qav_idle_slope(ethernet_port_state_t * port_state, unsigned limit_bps)
 void set_qav_credit_limit(ethernet_port_state_t * port_state, int payload_limit_bytes)
 {
   int64_t max_interferring_frame_bits = (preamble_bytes + payload_limit_bytes + crc_bytes + ifg_bytes) * 8;
-  port_state->qav_credit_limit = max_interferring_frame_bits;
+  if(payload_limit_bytes > 0){
+    port_state->qav_credit_limit = max_interferring_frame_bits;
+  }
+  else
+  {
+    // No limit
+    port_state->qav_credit_limit = 0;
+  }
 }
