@@ -11,6 +11,13 @@
 
 #include "ports.h"
 
+// Adding these here instead of ports.h since they conflict with
+// test ports (XS1_PORT_1N is the same as p_rx_lp_control[1] used in test_rx_queues and test_avb).
+// These are smi testing specific so okay to not include in the common includes file
+port p_smi_mdio   = on tile[0]: XS1_PORT_1M;
+port p_smi_mdc    = on tile[0]: XS1_PORT_1N;
+port p_smi_mdc_mdio = on tile[0]: XS1_PORT_4B;
+port p_phy_rst_n  = on tile[0]: XS1_PORT_4A;
 #define SMI_SINGLE_PORT_MDC_BIT     0
 #define SMI_SINGLE_PORT_MDIO_BIT    1
 

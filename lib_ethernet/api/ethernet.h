@@ -251,6 +251,12 @@ typedef interface ethernet_cfg_if {
    */
   void disable_link_status_notification(size_t client_num);
 
+  /** When forwarding received packets, put them in the high priority queue,
+   * which the tx pins prioritises when reading packets over the low priority queue
+   *
+   */
+  void forward_packets_as_hp(unsigned forward_as_hp_flag);
+
   /** Exit ethernet MAC. Quits all of the associated sub tasks and frees memory.
    * Allows the resources previously used by the MAC to be re-used by other tasks.
    * Only supported on RMII real-time MACs. This command is ignored for
@@ -282,10 +288,10 @@ typedef interface ethernet_tx_if {
   /** Internal API call. Do not use. */
   void _init_send_packet(size_t n, size_t ifnum);
   /** Internal API call. Do not use. */
-  void _complete_send_packet(char packet[n], unsigned n,
+  unsigned _complete_send_packet(char packet[n], unsigned n,
                              int request_timestamp, size_t ifnum);
   /** Internal API call. Do not use. */
-  unsigned _get_outgoing_timestamp();
+  unsigned _get_outgoing_timestamp(size_t ifnum);
 #ifdef __XC__
 } ethernet_tx_if;
 
@@ -305,7 +311,10 @@ extends client interface ethernet_tx_if : {
   inline void send_packet(CLIENT_INTERFACE(ethernet_tx_if, i), char packet[n], unsigned n,
                           unsigned ifnum) {
     i._init_send_packet(n, ifnum);
-    i._complete_send_packet(packet, n, 0, ifnum);
+    unsigned ready;
+    do {
+        ready = i._complete_send_packet(packet, n, 1, ifnum);
+    }while(!ready);
   }
 
   /** Function to send an Ethernet packet on the specified interface and return a timestamp
@@ -326,8 +335,16 @@ extends client interface ethernet_tx_if : {
                                     unsigned n,
                                     unsigned ifnum) {
     i._init_send_packet(n, ifnum);
-    i._complete_send_packet(packet, n, 1, ifnum);
-    return i._get_outgoing_timestamp();
+    unsigned ready;
+    do {
+        ready = i._complete_send_packet(packet, n, 1, ifnum);
+    }while(!ready);
+    unsigned timestamp = 0;
+    while(!timestamp)
+    {
+      timestamp = i._get_outgoing_timestamp(ifnum);
+    }
+    return timestamp;
   }
 /**@}*/ // END: addtogroup ethernet_tx_if
 #ifdef __XC__
@@ -425,7 +442,17 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
                                     unsigned n,
                                     unsigned ifnum)
 {
+  unsigned ready = 0;
+
   c_tx_hp <: n;
+  c_tx_hp <: ifnum;
+  c_tx_hp :> ready;
+  while(!ready)
+  {
+    c_tx_hp <: n;
+    c_tx_hp <: ifnum;
+    c_tx_hp :> ready;
+  }
   sout_char_array(c_tx_hp, packet, n);
 }
 
@@ -622,7 +649,7 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 
 
-/** ENUM to determine which two bits of a four bit port are to be used as data lines 
+/** ENUM to determine which two bits of a four bit port are to be used as data lines
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
  *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
@@ -704,6 +731,30 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           static_const_unsigned_t rx_bufsize_words,
                           static_const_unsigned_t tx_bufsize_words,
                           enum ethernet_enable_shaper_t shaper_enabled);
+
+
+/** 100 Mbps RT RMII dual mac component.
+ * It creates two MAC instances, with each MAC connected to a separate, dedicated RMII PHY interface.
+ *
+ * Note: This is still WIP and requires additional testing.
+ */
+void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                              SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                              SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                              nullable_streaming_chanend_t c_rx_hp,
+                              nullable_streaming_chanend_t c_tx_hp,
+                              in_port_t p_clk,
+                              rmii_data_port_t * unsafe p_rxd_0, in_port_t p_rxdv_0,
+                              out_port_t p_txen_0, rmii_data_port_t * unsafe p_txd_0,
+                              clock rxclk_0,
+                              clock txclk_0,
+                              rmii_data_port_t * unsafe p_rxd_1, in_port_t p_rxdv_1,
+                              out_port_t p_txen_1, rmii_data_port_t * unsafe p_txd_1,
+                              clock rxclk_1,
+                              clock txclk_1,
+                              static_const_unsigned_t rx_bufsize_words,
+                              static_const_unsigned_t tx_bufsize_words,
+                              enum ethernet_enable_shaper_t enable_shaper);
 
 #endif // __XC__ || __DOXYGEN__
 

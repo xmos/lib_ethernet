@@ -139,7 +139,7 @@ class MiiTransmitter(TxPhy):
 
 class RxPhy(px.SimThread):
 
-    def __init__(self, name, txd, txen, clock, print_packets, packet_fn, verbose, test_ctrl):
+    def __init__(self, name, txd, txen, clock, print_packets, packet_fn, verbose, test_ctrl, id):
         self._name = name
         self._txd = txd
         self._txen = txen
@@ -148,6 +148,7 @@ class RxPhy(px.SimThread):
         self._verbose = verbose
         self._test_ctrl = test_ctrl
         self._packet_fn = packet_fn
+        self._id = id
 
         self.expected_packets = None
         self.expect_packet_index = 0
@@ -163,6 +164,9 @@ class RxPhy(px.SimThread):
     def get_clock(self):
         return self._clock
 
+    def get_id(self):
+        return self._id
+
     def set_expected_packets(self, packets):
         self.expect_packet_index = 0;
         self.expected_packets = packets
@@ -174,9 +178,9 @@ class RxPhy(px.SimThread):
 class MiiReceiver(RxPhy):
 
     def __init__(self, txd, txen, clock, print_packets=False,
-                 packet_fn=None, verbose=False, test_ctrl=None):
+                 packet_fn=None, verbose=False, test_ctrl=None, id=None):
         super(MiiReceiver, self).__init__('mii', txd, txen, clock, print_packets,
-                                          packet_fn, verbose, test_ctrl)
+                                          packet_fn, verbose, test_ctrl, id)
 
     def run(self):
         xsi = self.xsi

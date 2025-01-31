@@ -45,24 +45,34 @@ static unsafe inline int compare_mac(unsigned * unsafe buf,
 }
 
 unsafe void mii_ethernet_filter(chanend c_conf,
-                                mii_packet_queue_t incoming_packets,
-                                mii_packet_queue_t rx_packets_lp,
-                                mii_packet_queue_t rx_packets_hp,
-                                volatile int * unsafe running_flag_ptr)
+                                packet_queue_info_t * unsafe incoming_packets,
+                                packet_queue_info_t * unsafe rx_packets_lp,
+                                packet_queue_info_t * unsafe rx_packets_hp,
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports)
 {
   eth_global_filter_info_t filter_info;
   ethernet_init_filter_table(filter_info);
   debug_printf("Starting filter\n");
+  unsigned current_port;
+  unsigned forward_packets_as_high_priority = 0;
 
   while (*running_flag_ptr) {
     select {
 #pragma xta endpoint "rx_packet"
-    case c_conf :> int:
+    case c_conf :> int i:
       // Give the routing table to the ethernet server to reconfigure
       unsafe {
-        eth_global_filter_info_t * unsafe  p = &filter_info;
-        c_conf <: p;
-        c_conf :> int;
+        if(i == 0) // Add mac addr filter table entry
+        {
+          eth_global_filter_info_t * unsafe  p = &filter_info;
+          c_conf <: p;
+          c_conf :> int;
+        }
+        else if(i == 1) // communicate if forwarding packets need to go in hp queue
+        {
+          c_conf :> forward_packets_as_high_priority;
+        }
       }
       break;
 
@@ -70,12 +80,28 @@ unsafe void mii_ethernet_filter(chanend c_conf,
       break;
     }
 
-    mii_packet_t * unsafe buf = mii_get_next_buf(incoming_packets);
+    mii_packet_t * unsafe buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets[0]);
 
+    current_port = 0;
     if (buf == null)
-      continue;
+    {
+      if(num_mac_ports == 2)
+      {
+        buf = mii_get_next_buf((mii_packet_queue_t)&incoming_packets[1]);
+        if(buf == null)
+        {
+          continue;
+        }
+        current_port = 1;
+      }
+      else
+      {
+        continue;
+      }
+    }
 
-    mii_move_rd_index(incoming_packets);
+
+    mii_move_rd_index((mii_packet_queue_t)&incoming_packets[current_port]);
 
     unsigned length = buf->length; // Number of bytes in the frame minus the CRC
     unsigned crc;
@@ -106,7 +132,7 @@ unsafe void mii_ethernet_filter(chanend c_conf,
       continue;
     }
 
-    buf->src_port = 0;
+    buf->src_port = current_port;
     buf->timestamp_id = 0;
 
     char * unsafe data = (char * unsafe) buf->data;
@@ -117,17 +143,24 @@ unsafe void mii_ethernet_filter(chanend c_conf,
     debug_printf("Filter result: %x\n", filter_result);
     buf->filter_result = filter_result;
 
-    if (ethernet_filter_result_is_hp(filter_result)) {
-      if (!mii_packet_queue_full(rx_packets_hp)) {
-        mii_add_packet(rx_packets_hp, buf);
+    if(!buf->filter_result)
+    {
+      // If none of the clients want the packet, forward it to the other tx port
+      buf->filter_result = ethernet_filter_result_set_forwarding(buf->filter_result, 1);
+    }
+
+    if (ethernet_filter_result_is_hp(buf->filter_result) || forward_packets_as_high_priority)
+    {
+      if (!mii_packet_queue_full((mii_packet_queue_t)&rx_packets_hp[current_port])) {
+        mii_add_packet((mii_packet_queue_t)&rx_packets_hp[current_port], buf);
       } else {
         // Drop the packet because there is no room in the packet buffer
         // pointers
       }
     }
     else {
-      if (!mii_packet_queue_full(rx_packets_lp)) {
-        mii_add_packet(rx_packets_lp, buf);
+      if (!mii_packet_queue_full((mii_packet_queue_t)&rx_packets_lp[current_port])) {
+        mii_add_packet((mii_packet_queue_t)&rx_packets_lp[current_port], buf);
       } else {
         // Drop the packet because there is no room in the packet buffer
         // pointers

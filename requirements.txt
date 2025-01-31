@@ -23,6 +23,7 @@ pytest==8.2.2
 pytest-xdist==3.6.1
 filelock==3.16.1
 bitstring==4.3.0
+numpy==2.2.2
 
 # Development dependencies
 #

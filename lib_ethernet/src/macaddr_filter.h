@@ -34,6 +34,9 @@ void ethernet_del_filter_table_entry(eth_global_filter_info_t table,
 void ethernet_clear_filter_table(eth_global_filter_info_t table,
                                  unsigned client_num, int is_hp);
 
+int ethernet_filter_result_is_forwarding_set(unsigned value);
+unsigned ethernet_filter_result_set_forwarding(unsigned value, int is_forwarding_set);
+
 #ifdef __XC__
 
 unsigned ethernet_do_filtering(eth_global_filter_info_t table,

@@ -52,6 +52,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
                                 mii_packet_queue_t hp_packets,
                                 mii_packet_queue_t lp_packets,
+                                mii_mempool_t * unsafe forwarding_mem,
+                                packet_queue_info_t * unsafe forwarding_packets_lp,
+                                packet_queue_info_t * unsafe forwarding_packets_hp,
                                 mii_ts_queue_t ts_queue_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
@@ -59,18 +62,20 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
-                                volatile int * unsafe running_flag_ptr);
+                                int ifnum,
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports);
 
 
 // This is re-used by RMII as it is abstracted from the MAC pins
-unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
-                               mii_packet_queue_t rx_packets_lp,
-                               mii_packet_queue_t rx_packets_hp,
-                               unsigned * unsafe rx_rdptr,
-                               mii_mempool_t tx_mem_lp,
-                               mii_mempool_t tx_mem_hp,
-                               mii_packet_queue_t tx_packets_lp,
-                               mii_packet_queue_t tx_packets_hp,
+unsafe void mii_ethernet_server(mii_mempool_t * unsafe rx_mem,
+                               packet_queue_info_t * unsafe rx_packets_lp,
+                               packet_queue_info_t * unsafe rx_packets_hp,
+                               mii_rdptr_t * unsafe rx_rdptr,
+                               mii_mempool_t * unsafe tx_mem_lp,
+                               mii_mempool_t * unsafe tx_mem_hp,
+                               packet_queue_info_t * unsafe tx_packets_lp,
+                               packet_queue_info_t * unsafe tx_packets_hp,
                                mii_ts_queue_t ts_queue_lp,
                                server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
                                server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
@@ -80,8 +85,9 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
                                chanend c_macaddr_filter,
                                volatile ethernet_port_state_t * unsafe p_port_state,
                                volatile int * unsafe running_flag_ptr,
-                               chanend c_rx_pins_exit,
-                               phy_100mb_t phy_type);
+                               chanend c_rx_pins_exit[],
+                               phy_100mb_t phy_type,
+                               static const unsigned num_mac_ports);
 
 #endif
 

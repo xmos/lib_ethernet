@@ -235,7 +235,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         // Do nothing
         break;
 
-      case i_tx[int i]._get_outgoing_timestamp() -> unsigned timestamp:
+      case i_tx[int i]._get_outgoing_timestamp(unsigned dst_port) -> unsigned timestamp:
         fail("Outgoing timestamps are not supported in standard MII Ethernet MAC");
         break;
 
@@ -257,6 +257,10 @@ static void mii_ethernet_aux(client mii_if i_mii,
         client_state.status_update_state = STATUS_UPDATE_IGNORING;
         break;
 
+      case i_cfg[int i].forward_packets_as_hp(unsigned forward_packets_in_hp_queue):
+        // Do nothing - not supported on this Mac
+        break;
+
       case i_cfg[int i].exit(void): {
         // Do nothing - exit not supported on this MAC
         break;
@@ -264,7 +268,8 @@ static void mii_ethernet_aux(client mii_if i_mii,
 
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                              int request_timestamp,
-                                             unsigned dst_port):
+                                             unsigned dst_port) -> unsigned ready:
+        ready = 1;
         memcpy(txbuf, data, n);
         i_mii.send_packet(txbuf, n);
         // wait for the packet to be sent

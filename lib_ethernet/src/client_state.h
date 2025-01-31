@@ -24,10 +24,10 @@ enum status_update_state_t {
 typedef struct
 {
   unsigned dropped_pkt_cnt;
-  unsigned rd_index;
-  unsigned wr_index;
-  void *fifo[ETHERNET_RX_CLIENT_QUEUE_SIZE];
-  int status_update_state;
+  unsigned rd_index[MAX_ETHERNET_PORTS];
+  unsigned wr_index[MAX_ETHERNET_PORTS];
+  void *fifo[MAX_ETHERNET_PORTS][ETHERNET_RX_CLIENT_QUEUE_SIZE];
+  int status_update_state[MAX_ETHERNET_PORTS];
   size_t num_etype_filters;
   int strip_vlan_tags;
   uint16_t etype_filters[ETHERNET_MAX_ETHERTYPE_FILTERS];
@@ -37,9 +37,10 @@ typedef struct
 typedef struct
 {
   int requested_send_buffer_size;
-  mii_packet_t *send_buffer;
-  int has_outgoing_timestamp_info;
-  unsigned outgoing_timestamp;
+  mii_packet_t *send_buffer[MAX_ETHERNET_PORTS];
+  int has_outgoing_timestamp_info[MAX_ETHERNET_PORTS];
+  unsigned outgoing_timestamp[MAX_ETHERNET_PORTS];
+  int dst_port;
 } tx_client_state_t;
 
 #ifdef __XC__

@@ -505,7 +505,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         /*    pointers never fill up */
         mii_add_packet(incoming_packets, buf);
     }
-    
+
     // Exit cleanly so we don't leave channels full/in use
     rx_end_disable_interrupt();
     rx_end_drain_and_clear(c_rx_pins_exit);
@@ -682,7 +682,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd_1,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
-    
+
     // Setup ISR to for exiting this task
     int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
     rx_end_isr_ctx_t isr_ctx = {
@@ -980,6 +980,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
                                 mii_packet_queue_t packets_lp,
                                 mii_packet_queue_t packets_hp,
+                                mii_mempool_t * unsafe forwarding_packets_mem,
+                                packet_queue_info_t * unsafe forwarding_packets_lp,
+                                packet_queue_info_t * unsafe forwarding_packets_hp,
                                 mii_ts_queue_t ts_queue_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
@@ -987,8 +990,10 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 rmii_data_4b_pin_assignment_t tx_port_4b_pins,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
-                                volatile int * unsafe running_flag_ptr){
-
+                                int ifnum,
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports)
+{
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
 
@@ -1001,6 +1006,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     unsigned ifg_time = 0;
     unsigned eof_time = 0;
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
+
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
         enable_shaper = 0;
@@ -1015,9 +1021,32 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         mii_packet_t * unsafe buf = null;
         mii_ts_queue_t *p_ts_queue = null;
         mii_mempool_t tx_mem = tx_mem_hp;
+        mii_packet_queue_t pkt_queue = packets_hp;
 
         if (ETHERNET_SUPPORT_HP_QUEUES){
             buf = mii_get_next_buf(packets_hp);
+            if(!buf)
+            {
+                for (unsigned int i=0; i<num_mac_ports; ++i)
+                {
+                    if(i == ifnum)
+                    {
+                        continue;
+                    }
+                    buf = mii_get_next_buf((mii_packet_queue_t)(&forwarding_packets_hp[i]));
+                    if(!buf)
+                    {
+                        continue;
+                    }
+                    if(buf->forwarding)
+                    {
+                        tx_mem = forwarding_packets_mem[i];
+                        pkt_queue = (mii_packet_queue_t)&forwarding_packets_hp[i];
+                        break;
+                    }
+                    buf = 0;
+                }
+            }
         }
 
         if (enable_shaper) {
@@ -1039,9 +1068,32 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         }
 
         if (!buf) {
-            buf = mii_get_next_buf(packets_lp);
-            p_ts_queue = &ts_queue_lp;
             tx_mem = tx_mem_lp;
+            pkt_queue = packets_lp;
+            buf = mii_get_next_buf(packets_lp);
+            if(!buf)
+            {
+                for (unsigned int i=0; i<num_mac_ports; ++i)
+                {
+                    if(i == ifnum)
+                    {
+                        continue;
+                    }
+                    buf = mii_get_next_buf((mii_packet_queue_t)(&forwarding_packets_lp[i]));
+                    if(!buf)
+                    {
+                        continue;
+                    }
+                    if(buf->forwarding)
+                    {
+                        tx_mem = forwarding_packets_mem[i];
+                        pkt_queue = (mii_packet_queue_t)&forwarding_packets_lp[i];
+                        break;
+                    }
+                    buf = 0;
+                }
+            }
+            p_ts_queue = &ts_queue_lp;
         }
 
         if (!buf) {
@@ -1067,8 +1119,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             }
         }
 
-
-
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {
             const int preamble_bytes = 8;
@@ -1085,9 +1135,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                     mii_ts_queue_add_entry(*p_ts_queue, buf->timestamp_id, time);
                 }
 
-                mii_free_current(packets_lp);
+                mii_free_current(pkt_queue);
             } else {
-                mii_free_current(packets_hp);
+                mii_free_current(pkt_queue);
             }
         }
     }

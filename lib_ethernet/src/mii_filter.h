@@ -10,10 +10,11 @@
 #ifdef __XC__
 
 unsafe void mii_ethernet_filter(chanend c_conf,
-                                mii_packet_queue_t incoming_packets,
-                                mii_packet_queue_t rx_packets_lp,
-                                mii_packet_queue_t rx_packets_hp,
-                                volatile int * unsafe running_flag_ptr);
+                                packet_queue_info_t * unsafe incoming_packets,
+                                packet_queue_info_t * unsafe rx_packets_lp,
+                                packet_queue_info_t * unsafe rx_packets_hp,
+                                volatile int * unsafe running_flag_ptr,
+                                static const unsigned num_mac_ports);
 
 #endif
 
