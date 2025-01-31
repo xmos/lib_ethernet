@@ -447,8 +447,8 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
  *  on the egress MAC port.
  */
 enum ethernet_enable_shaper_t {
-  ETHERNET_ENABLE_SHAPER, /**< Enable the credit based shaper */
-  ETHERNET_DISABLE_SHAPER /**< Disable the credit based shaper */
+  ETHERNET_DISABLE_SHAPER = 0, /**< Disable the credit based shaper */
+  ETHERNET_ENABLE_SHAPER       /**< Enable the credit based shaper */
 };
 
 /** Structure representing the port and clock resources required by RGMII
