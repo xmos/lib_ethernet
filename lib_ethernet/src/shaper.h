@@ -31,7 +31,7 @@ typedef struct qav_state_t{
  *   \param limit_bps   The idle slope setting in bits per second
  *
  */
-void set_qav_idle_slope(ethernet_port_state_t * port_state, unsigned limit_bps);
+void set_qav_idle_slope(volatile ethernet_port_state_t * unsafe port_state, unsigned limit_bps);
 
 
 /** Sets the Qav credit limit in units of frame size byte
@@ -41,7 +41,7 @@ void set_qav_idle_slope(ethernet_port_state_t * port_state, unsigned limit_bps);
  *                        not including preamble, CRC and IFG. Set to 0 for no limit (default)
  *
  */
-void set_qav_credit_limit(ethernet_port_state_t * port_state, int payload_limit_bytes);
+void set_qav_credit_limit(volatile ethernet_port_state_t * unsafe port_state, int payload_limit_bytes);
 
 
 /** Performs the idle slope calculation for MII and RMII MACs.
@@ -61,14 +61,16 @@ void set_qav_credit_limit(ethernet_port_state_t * port_state, int payload_limit_
  */
 static inline mii_packet_t * unsafe shaper_do_idle_slope(mii_packet_t * unsafe hp_buf,
                                                          qav_state_t * unsafe qav_state,
-                                                         ethernet_port_state_t * unsafe port_state){
+                                                         volatile ethernet_port_state_t * unsafe port_state){
   unsafe{
+    // Make unsigned so we don't get negative numbers
     uint32_t elapsed_ticks = qav_state->current_time - qav_state->prev_time;
 
 #if ETHERNET_SUPPORT_TRAFFIC_SHAPER_CREDIT_LIMIT
+    // We have to use 64b maths here as we will overflow in just 437 microseconds
     int64_t credit64 = (int64_t)elapsed_ticks * (int64_t)port_state->qav_idle_slope + (int64_t)qav_state->credit;
 
-    // cast qav_credit_limit as saves a cycle
+    // cast qav_credit_limit as saves a cycle. It will never be more that 16b long anyway
     if((unsigned)port_state->qav_credit_limit){
       // Apply limit
       if(credit64 > port_state->qav_credit_limit)

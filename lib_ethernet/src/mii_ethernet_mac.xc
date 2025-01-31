@@ -221,6 +221,16 @@ static void mii_ethernet_aux(client mii_if i_mii,
         fail("Shaper not supported in standard MII Ethernet MAC");
         break;
 
+      case i_cfg[int i].set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second): {
+        fail("Shaper not supported in standard MII Ethernet MAC");
+        break;
+      }
+
+      case i_cfg[int i].set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes): {
+        fail("Shaper not supported in standard MII Ethernet MAC");
+        break;
+      }
+
       case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
         fail("Timestamp correction not supported in standard MII Ethernet MAC");
         break;

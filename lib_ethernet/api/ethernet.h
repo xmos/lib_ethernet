@@ -169,25 +169,36 @@ typedef interface ethernet_cfg_if {
    */
   void get_tile_id_and_timer_value(REFERENCE_PARAM(unsigned, tile_id), REFERENCE_PARAM(unsigned, time_on_tile));
 
-  /** Set the high-priority TX queue's credit based shaper idle slope.
+  /** Set the high-priority TX queue's credit based shaper idle slope value.
+   *  See also set_egress_qav_idle_slope_bps() where the argument is bits per second.
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
-   *  \param ifnum   The index of the MAC interface to set the slope
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
    * 
-   *  To convert from bits-per-second to the MII_CREDIT_FRACTIONAL_BITS format for the parameter 'slope', the
-   *  following helper function may be used:
-   * 
-   *  unsigned calc_idle_slope(unsigned bits_per_second)
-   *  {
-   *      unsigned long long slope = ((unsigned long long) bits_per_second) << (MII_CREDIT_FRACTIONAL_BITS);
-   *      slope = slope / XS1_TIMER_HZ; // bits that should be sent per ref timer tick
-   * 
-   *      return (unsigned) slope;
-   *  }
    * 
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
+
+  /** Set the high-priority TX queue's credit based shaper idle slope in bits per second.
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
+   *
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
+   *  \param slope   The maximum number of bits per second to be set
+   * 
+   * 
+   */
+  void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
+
+
+  /** Sets the the high-priority TX queue's  Qav credit limit in units of frame size bytes
+   *
+   *  \param ifnum         The index of the MAC interface to set the slope (always 0)
+   *  \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
+   *                       not including preamble, CRC and IFG. Set to 0 for no limit (default)
+   *
+   */
+  void set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes);
 
   /** Set the ingress latency to correct for the offset between the timestamp
    *  measurement plane relative to the reference plane. See 802.1AS 8.4.3.

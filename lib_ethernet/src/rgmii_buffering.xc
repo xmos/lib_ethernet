@@ -12,6 +12,7 @@
 #include "xassert.h"
 #include "macaddr_filter_hash.h"
 #include "server_state.h"
+#include "shaper.h"
 
 unsafe void notify_speed_change(int speed_change_ids[6]) {
   for (int i=0; i < 6; i++) {
@@ -544,9 +545,9 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
   int enable_shaper = p_port_state->qav_shaper_enabled;
 
   timer tmr;
-  int credit = 0;
-  int credit_time;
-  tmr :> credit_time;
+  qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
+  tmr :> qav_state.current_time;
+  qav_state.prev_time = qav_state.current_time;
 
   int sender_count = 0;
   int work_pending = 0;
@@ -648,63 +649,52 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         break;
     }
 
-    if (enable_shaper) {
-      int prev_credit_time = credit_time;
-      tmr :> credit_time;
+    // This code handles fetching buffers using HP queues (if enabled) and doing the Qav shaper
+    mii_packet_t * unsafe buf = null;
+    int high_priority_packet = 0;
+    if(ETHERNET_SUPPORT_HP_QUEUES){
+      high_priority_packet = !buffers_used_empty(used_buffers_tx_hp); // See if we have an HP packet ready
+      if(enable_shaper) {
+        if(high_priority_packet){
+          // Cast "True" to mii_packet_t for idle_slope logic. Output will be non-null if enough credit
+          buf = (mii_packet_t * unsafe)high_priority_packet;
+          // Do shaper send sloper. buf will be nulled if there is not enough credit
+          tmr :> qav_state.current_time;
+          buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
+          high_priority_packet = (int) buf; // 0 if no credit, non-zero if credit
+        } // credit check
+      } // Shaper enabled
+    } // Queues enabled
+  
+    // Here, high_priority_packet flag will be set only if HP queues enabled, packet avaialable AND credit is good (if shaper enabled)
 
-      int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * p_port_state->qav_idle_slope;
-
-      if (buffers_used_empty(used_buffers_tx_hp)) {
-        // Keep the credit 0 when there are no high priority buffers
-        if (credit > 0) {
-          credit = 0;
-        }
-      }
-    }
-
+    // Do transmit logic
     if (work_pending && (sender_count < 2)) {
-      int packet_is_high_priority = 1;
-      mii_packet_t * unsafe buf = null;
-
-      if (ETHERNET_SUPPORT_HP_QUEUES) {
-        if (enable_shaper) {
-          if (!buffers_used_empty(used_buffers_tx_hp)) {
-            // Once there is enough credit then take the next buffer
-            if (credit >= 0) {
-              buf = buffers_used_take(used_buffers_tx_hp, RGMII_MAC_BUFFER_COUNT_TX, 0);
-            }
-          }
-        }
-        else {
-          if (!buffers_used_empty(used_buffers_tx_hp)) {
-            buf = buffers_used_take(used_buffers_tx_hp, RGMII_MAC_BUFFER_COUNT_TX, 0);
-          }
+      if(high_priority_packet){
+        // Get the packet
+        buf = buffers_used_take(used_buffers_tx_hp, RGMII_MAC_BUFFER_COUNT_TX, 0);
+      } else {
+        // No HP packet, check for a LP one instead
+        if (!buffers_used_empty(used_buffers_tx_lp)) {
+          buf = buffers_used_take(used_buffers_tx_lp, RGMII_MAC_BUFFER_COUNT_TX, 0);
+          high_priority_packet = 0; // We need this for shaper send slope later
         }
       }
 
-      if (!buf && !buffers_used_empty(used_buffers_tx_lp)) {
-        buf = buffers_used_take(used_buffers_tx_lp, RGMII_MAC_BUFFER_COUNT_TX, 0);
-        packet_is_high_priority = 0;
-      }
-
+      // If we have any valid packet to transmit..
       if (buf) {
-        // Send a pointer out to the outputter
+        // Send a pointer out to the outputter task. Packet en-route
         c_tx_to_mac <: buf;
         work_pending--;
         sender_count++;
 
-        if (enable_shaper && packet_is_high_priority) {
-          const int preamble_bytes = 8;
-          const int ifg_bytes = 96/8;
-          const int crc_bytes = 4;
-          int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
-          credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
-        }
-      }
-    }
+        if (enable_shaper && high_priority_packet) {
+          shaper_do_send_slope(buf->length, &qav_state);
+        } // shaper on and was HP
+      } // Have valid packet
+    } // Work pending and count < 2
 
-    // Ensure there is always a high priority buffer
+    // Ensure there is always a high priority buffer for next loop
     if (!isnull(c_tx_hp) && (tx_buf_hp == null)) {
       tx_buf_hp = buffers_free_take(free_buffers_hp, 0);
     }
@@ -813,6 +803,16 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         unsafe {
           p_port_state->qav_idle_slope = slope;
         }
+        break;
+      }
+
+      case i_cfg[int i].set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second): {
+        set_qav_idle_slope(p_port_state, bits_per_second);
+        break;
+      }
+
+      case i_cfg[int i].set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes): {
+        set_qav_credit_limit(p_port_state, payload_limit_bytes);
         break;
       }
 
