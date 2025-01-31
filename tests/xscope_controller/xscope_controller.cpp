@@ -132,8 +132,6 @@ int main(int argc, char *argv[]) {
 
     xscope_ep_set_record_cb(xscope_record);
 
-    printf("command = %s\n", argv[3]);
-
     if (argc > 3) {
         /* argv[1] = ip address
          * argv[2] = port number
@@ -143,7 +141,6 @@ int main(int argc, char *argv[]) {
 
         if(strcmp(argv[3], "connect") == 0)
         {
-            printf("Wait for device to connect...\n");
             int iters = 0;
             while(1) {
     #ifdef _WIN32
@@ -164,13 +161,11 @@ int main(int argc, char *argv[]) {
         } // if(strcmp(argv[3], "connect") == 0)
         else if(strcmp(argv[3], "shutdown") == 0)
         {
-            printf("Send shutdown cmd to device\n");
             char to_send[1];
             to_send[0] = CMD_DEVICE_SHUTDOWN;
-            fprintf(stderr, "Sending %d\n", to_send[0]);
+            fprintf(stderr, "xscope_controller sending cmd CMD_DEVICE_SHUTDOWN\n");
             while (xscope_ep_request_upload(1, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
-            printf("shutdown response received %d\n", ret);
             if (result != 0)
             {
                 return 1;
