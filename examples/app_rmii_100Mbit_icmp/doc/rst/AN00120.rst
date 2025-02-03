@@ -20,15 +20,7 @@ between the Ethernet PHY (Physical Layer Device or transceiver) and
 the xCORE device. The RMII layer receives packets of data which are
 then routed by an Ethernet MAC layer to multiple processes running on
 the xCORE. SMI provides the management interface between the PHY and
-the xCORE device. :numref:`block_diagram` shows the application block diagram.
-
-.. _block_diagram:
-
-
-.. figure:: images/block_diag.pdf
-   :width: 80%
-
-   Application block diagram
+the xCORE device.
 
 The application communicates with the Ethernet MAC that drives the RMII
 data interface to the PHY. A separate PHY driver configures the PHY
