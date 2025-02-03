@@ -498,8 +498,9 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
     mii_ts_queue_t *p_ts_queue = null;
     mii_mempool_t tx_mem = tx_mem_hp;
 
-    if (ETHERNET_SUPPORT_HP_QUEUES)
+    if (ETHERNET_SUPPORT_HP_QUEUES) {
       buf = mii_get_next_buf(packets_hp);
+    }
 
     if (enable_shaper) {
       credit_tmr :> qav_state.current_time;

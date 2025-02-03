@@ -655,14 +655,12 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
     if(ETHERNET_SUPPORT_HP_QUEUES){
       high_priority_packet = !buffers_used_empty(used_buffers_tx_hp); // See if we have an HP packet ready
       if(enable_shaper) {
-        if(high_priority_packet){
-          // Cast "True" to mii_packet_t for idle_slope logic. Output will be non-null if enough credit
-          buf = (mii_packet_t * unsafe)high_priority_packet;
-          // Do shaper send sloper. buf will be nulled if there is not enough credit
-          tmr :> qav_state.current_time;
-          buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
-          high_priority_packet = (int) buf; // 0 if no credit, non-zero if credit
-        } // credit check
+        // Cast "True" to mii_packet_t for idle_slope logic.
+        buf = (mii_packet_t * unsafe)high_priority_packet;
+        // Do shaper send sloper. buf will be nulled if there is not enough credit
+        tmr :> qav_state.current_time;
+        buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
+        high_priority_packet = (int) buf; // 0 if no credit, non-zero if credit
       } // Shaper enabled
     } // Queues enabled
   
