@@ -9,15 +9,16 @@
 #include <string.h>
 #include <print.h>
 
-#define NUM_TS_LOGS (5000) // Save the first 5000 timestamp logs to get an idea of the general IFG gap
-#define NUM_SEQ_ID_MISMATCH_LOGS (5000) // Save the first few seq id mismatches
+#define NUM_TS_LOGS (1000) // Save the first 5000 timestamp logs to get an idea of the general IFG gap
+#define NUM_SEQ_ID_MISMATCH_LOGS (1000) // Save the first few seq id mismatches
 
-#define PRINT_TS_LOG (0)
+#define PRINT_TS_LOG (1)
 
 typedef struct
 {
   unsigned current_seq_id;
   unsigned prev_seq_id;
+  unsigned ifg;
 }seq_id_pair_t;
 
 void test_rx_lp(client ethernet_cfg_if cfg,
@@ -86,6 +87,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         // Get seq_id of the current packet
         unsigned seq_id = ((unsigned)rxbuf[14] << 24) | ((unsigned)rxbuf[15] << 16) | ((unsigned)rxbuf[16] << 8) | (unsigned)rxbuf[17];
         unsigned timestamp = packet_info.timestamp;
+        //printhexln((unsigned)seq_id);
 
 
         if(pkt_count == 0)
@@ -134,6 +136,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
             {
               seq_id_err_log[count_seq_id_err_log].current_seq_id = seq_id;
               seq_id_err_log[count_seq_id_err_log].prev_seq_id = prev_seq_id;
+              seq_id_err_log[count_seq_id_err_log].ifg = ifg;
               count_seq_id_err_log += 1;
               total_missing += (seq_id - prev_seq_id - 1);
             }
@@ -192,7 +195,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
     for(int i=0; i<count_seq_id_err_log; i++)
     {
       unsigned diff = seq_id_err_log[i].current_seq_id - seq_id_err_log[i].prev_seq_id;
-      debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff);
+      debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets. IFG = %u\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff, seq_id_err_log[i].ifg);
     }
   }
 
