@@ -160,7 +160,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         memcpy(r_mac_address, mac_address, sizeof mac_address);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+      case i_cfg[int i].set_macaddr(size_t ifnum, const uint8_t r_mac_address[MACADDR_NUM_BYTES]):
         memcpy(mac_address, r_mac_address, sizeof r_mac_address);
         break;
 
@@ -220,6 +220,16 @@ static void mii_ethernet_aux(client mii_if i_mii,
       case i_cfg[int i].set_egress_qav_idle_slope(size_t ifnum, unsigned slope):
         fail("Shaper not supported in standard MII Ethernet MAC");
         break;
+
+      case i_cfg[int i].set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second): {
+        fail("Shaper not supported in standard MII Ethernet MAC");
+        break;
+      }
+
+      case i_cfg[int i].set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes): {
+        fail("Shaper not supported in standard MII Ethernet MAC");
+        break;
+      }
 
       case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
         fail("Timestamp correction not supported in standard MII Ethernet MAC");

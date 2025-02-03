@@ -9,10 +9,13 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 
-#define ETHERNET_ALL_INTERFACES  (-1)
-#define ETHERNET_MAX_PACKET_SIZE (1518) /**< MAX packet size in bytes */
+#define ETHERNET_ALL_INTERFACES     (-1)
+#define ETHERNET_MAX_PACKET_SIZE    (1518) /**< MAX packet size in bytes including src, dst, ether/tags but NOT preamble or CRC*/
 
-#define MACADDR_NUM_BYTES 6
+#define MACADDR_NUM_BYTES           (6) /**< Number of octets in MAC address */
+
+#define MII_CREDIT_FRACTIONAL_BITS  (16) /** Fractional bits for Qav credit based shaper setting */
+
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -77,7 +80,7 @@ typedef interface ethernet_cfg_if {
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
    */
-  void set_macaddr(size_t ifnum, uint8_t mac_address[MACADDR_NUM_BYTES]);
+  void set_macaddr(size_t ifnum, const uint8_t mac_address[MACADDR_NUM_BYTES]);
 
   /** Gets the source MAC address of the Ethernet MAC
    *
@@ -166,25 +169,36 @@ typedef interface ethernet_cfg_if {
    */
   void get_tile_id_and_timer_value(REFERENCE_PARAM(unsigned, tile_id), REFERENCE_PARAM(unsigned, time_on_tile));
 
-  /** Set the high-priority TX queue's credit based shaper idle slope.
+  /** Set the high-priority TX queue's credit based shaper idle slope value.
+   *  See also set_egress_qav_idle_slope_bps() where the argument is bits per second.
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
-   *  \param ifnum   The index of the MAC interface to set the slope
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
    * 
-   *  To convert from bits-per-second to the MII_CREDIT_FRACTIONAL_BITS format for the parameter 'slope', the
-   *  following helper function may be used:
-   * 
-   *  unsigned calc_idle_slope(unsigned bits_per_second)
-   *  {
-   *      unsigned long long slope = ((unsigned long long) bits_per_second) << (MII_CREDIT_FRACTIONAL_BITS);
-   *      slope = slope / XS1_TIMER_HZ; // bits that should be sent per ref timer tick
-   * 
-   *      return (unsigned) slope;
-   *  }
    * 
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
+
+  /** Set the high-priority TX queue's credit based shaper idle slope in bits per second.
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
+   *
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
+   *  \param slope   The maximum number of bits per second to be set
+   * 
+   * 
+   */
+  void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
+
+
+  /** Sets the the high-priority TX queue's  Qav credit limit in units of frame size bytes
+   *
+   *  \param ifnum         The index of the MAC interface to set the slope (always 0)
+   *  \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
+   *                       not including preamble, CRC and IFG. Set to 0 for no limit (default)
+   *
+   */
+  void set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes);
 
   /** Set the ingress latency to correct for the offset between the timestamp
    *  measurement plane relative to the reference plane. See 802.1AS 8.4.3.
@@ -433,8 +447,8 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
  *  on the egress MAC port.
  */
 enum ethernet_enable_shaper_t {
-  ETHERNET_ENABLE_SHAPER, /**< Enable the credit based shaper */
-  ETHERNET_DISABLE_SHAPER /**< Disable the credit based shaper */
+  ETHERNET_DISABLE_SHAPER = 0, /**< Disable the credit based shaper */
+  ETHERNET_ENABLE_SHAPER       /**< Enable the credit based shaper */
 };
 
 /** Structure representing the port and clock resources required by RGMII
