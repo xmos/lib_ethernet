@@ -31,6 +31,12 @@ def pytest_addoption(parser):
         default=None,
         help="DUT adapter-id when running HW tests",
     )
+    parser.addoption(
+        "--test-duration",
+        action="store",
+        default=None,
+        help="Test duration in seconds",
+    )
 
 def pytest_configure(config):
     if config.pluginmanager.hasplugin("xdist"):
