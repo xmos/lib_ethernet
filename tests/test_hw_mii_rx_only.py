@@ -5,6 +5,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
+from hw_helpers import mii2scapy, scapy2mii
 import pytest
 from contextlib import nullcontext
 import time
@@ -16,9 +17,7 @@ pkg_dir = Path(__file__).parent
 
 # Send the same packet in a loop
 def send_l2_pkts_loop(intf, packet, loop_count, time_container):
-    # Convert to scapy Ether frames
-    byte_data = bytes(packet.data_bytes)
-    frame = Ether(dst=packet.dst_mac_addr_str, src=packet.src_mac_addr_str, type=packet.ether_len_type)/Raw(load=byte_data)
+    frame = mii2scapy(packet)
     # Send over ethernet
     start = time.perf_counter()
     sendp(frame, iface=intf, count=loop_count, verbose=False, realtime=True)
@@ -28,12 +27,7 @@ def send_l2_pkts_loop(intf, packet, loop_count, time_container):
 
 
 def send_l2_pkt_sequence(intf, packets, time_container):
-    frames = []
-    # Convert to an array of ethernet frames
-    for packet in packets:
-        byte_data = bytes(packet.data_bytes)
-        frame = Ether(dst=packet.dst_mac_addr_str, src=packet.src_mac_addr_str, type=packet.ether_len_type)/Raw(load=byte_data)
-        frames.append(frame)
+    frames = mii2scapy(packets)
     start = time.perf_counter()
     sendp(frames, iface=intf, verbose=False, realtime=True)
     end = time.perf_counter()
@@ -59,7 +53,7 @@ def test_hw_mii_rx_only(request, test_type):
     payload_len = 'max'
     test_duration_s = 0.4
 
-    ethertype = 0x2222
+    ethertype = [0x22, 0x22]
     num_packets = 0
     src_mac_address = [0xdc, 0xa6, 0x32, 0xca, 0xe0, 0x20]
 

@@ -4,6 +4,7 @@ from pathlib import Path
 import random
 import copy
 from mii_packet import MiiPacket
+from hw_helpers import mii2scapy, scapy2mii
 from hardware_test_tools.XcoreApp import XcoreApp
 import pytest
 from contextlib import nullcontext
@@ -12,13 +13,7 @@ from contextlib import nullcontext
 pkg_dir = Path(__file__).parent
 
 def send_l2_pkts(intf, packets):
-    # Convert to scapy Ether frames
-    frames = []
-    for packet in packets:
-        byte_data = bytes(packet.data_bytes)
-        frame = Ether(dst=packet.dst_mac_addr_str, src=packet.src_mac_addr_str, type=packet.ether_len_type)/Raw(load=byte_data)
-        frames.append(frame)
-
+    frames = mii2scapy(packets)
     # Send over ethernet
     sendp(frames, iface=intf, verbose=False)
 
@@ -70,7 +65,7 @@ def test_hw_mii_loopback(request, payload_len):
     else:
         test_duration_s = 0.1
 
-    ethertype = 0x2222
+    ethertype = [0x22, 0x22]
     num_packets = 0
     src_mac_address = [0xdc, 0xa6, 0x32, 0xca, 0xe0, 0x20]
 
