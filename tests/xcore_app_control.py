@@ -11,6 +11,37 @@ class XcoreAppControl(XcoreApp):
 
         super().__init__(xe_name, adapter_id, attach=attach)
 
+        xscope_controller_dir = pkg_dir / "host"/ "xscope_controller"
+
+        assert xscope_controller_dir.exists() and xscope_controller_dir.is_dir(), f"xscope_controller path {xscope_controller_dir} invalid"
+
+        # Build the xscope controller host application
+        ret = subprocess.run(["cmake", "-B", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=xscope_controller_dir)
+
+        assert ret.returncode == 0, (
+            f"xscope controller cmake command failed"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        ret = subprocess.run(["make", "-C", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=xscope_controller_dir)
+
+        assert ret.returncode == 0, (
+            f"xscope controller make command failed"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        self.xscope_controller_app = xscope_controller_dir / "build" / "xscope_controller"
+        assert self.xscope_controller_app.exists(), f"xscope_controller not present at {self.xscope_controller_app}"
+
+
     def xscope_controller_do_command(self, xscope_controller, cmd, timeout):
         ret = subprocess.run(
             [xscope_controller, "localhost", f"{self.xscope_port}", cmd],
@@ -31,24 +62,12 @@ class XcoreAppControl(XcoreApp):
         assert self.attach == "xscope_app"
         assert platform.system() in ["Darwin", "Linux"]
 
-        base_dir = pkg_dir / "xscope_controller" / "build"
-        xscope_controller = base_dir / "xscope_controller"
-
-        assert xscope_controller.exists(), f"xscope_controller not present at {xscope_controller}"
-
-        stdout, stderr = self.xscope_controller_do_command(xscope_controller, "connect", timeout)
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, "connect", timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_shutdown(self, timeout=30):
         assert self.attach == "xscope_app"
         assert platform.system() in ["Darwin", "Linux"]
 
-        base_dir = pkg_dir / "xscope_controller" / "build"
-        xscope_controller = base_dir / "xscope_controller"
-
-        assert xscope_controller.exists(), f"xscope_controller not present at {xscope_controller}"
-
-        stdout, stderr = self.xscope_controller_do_command(xscope_controller, "shutdown", timeout)
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, "shutdown", timeout)
         return stdout, stderr
-
-
