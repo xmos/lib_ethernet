@@ -12,6 +12,7 @@ import time
 from xcore_app_control import XcoreAppControl
 import re
 import subprocess
+import platform
 
 
 pkg_dir = Path(__file__).parent
@@ -103,6 +104,7 @@ def test_hw_mii_rx_only(request, send_method):
                 packet_copy.data_bytes[3] = (i >> 0) & 0xff
                 packets.append(packet_copy)
     elif send_method == "socket":
+        assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
         socket_send_file = pkg_dir / "host" / "af_packet_send" / "af_packet_l2_send.c"
         assert socket_send_file.exists()
