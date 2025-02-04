@@ -11,6 +11,8 @@ from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
 import re
+import subprocess
+import platform
 
 
 pkg_dir = Path(__file__).parent
@@ -37,21 +39,26 @@ def send_l2_pkt_sequence(intf, packets, time_container):
 
 
 
-@pytest.mark.parametrize('test_type', ['seq_id', 'no_seq_id'])
-def test_hw_mii_rx_only(request, test_type):
+@pytest.mark.parametrize('send_method', ['scapy', 'socket'])
+def test_hw_mii_rx_only(request, send_method):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
     eth_intf = request.config.getoption("--eth-intf")
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
+    test_duration_s = request.config.getoption("--test-duration")
+    if not test_duration_s:
+        test_duration_s = 0.4
+
+    test_type = "seq_id"
     verbose = False
     seed = 0
     rand = random.Random()
     rand.seed(seed)
 
     payload_len = 'max'
-    test_duration_s = 0.4
+
 
     ethertype = [0x22, 0x22]
     num_packets = 0
@@ -72,33 +79,49 @@ def test_hw_mii_rx_only(request, test_type):
     else:
         assert False
 
-    packet = MiiPacket(rand,
-                    dst_mac_addr=mac_address,
-                    src_mac_addr=src_mac_address,
-                    ether_len_type = ethertype,
-                    num_data_bytes=num_data_bytes,
-                    create_data_args=['same', (0, num_data_bytes)],
-                    )
+
     packet_duration_bits = (14 + num_data_bytes + 4)*8 + 64 + 96 # Assume Min IFG
 
     test_duration_bits = test_duration_s * 100e6
     num_packets = int(float(test_duration_bits)/packet_duration_bits)
-
-    if test_type == 'seq_id':
-        packets = []
-        for i in range(num_packets): # Update sequence IDs in payload
-            packet_copy = copy.deepcopy(packet)
-            packet_copy.data_bytes[0] = (i >> 24) & 0xff
-            packet_copy.data_bytes[1] = (i >> 16) & 0xff
-            packet_copy.data_bytes[2] = (i >> 8) & 0xff
-            packet_copy.data_bytes[3] = (i >> 0) & 0xff
-            packets.append(packet_copy)
-
-
     print(f"Going to test {num_packets} packets")
+
+    if send_method == "scapy":
+        packet = MiiPacket(rand,
+                        dst_mac_addr=mac_address,
+                        src_mac_addr=src_mac_address,
+                        ether_len_type = ethertype,
+                        num_data_bytes=num_data_bytes,
+                        create_data_args=['same', (0, num_data_bytes)],
+                        )
+        if test_type == 'seq_id':
+            packets = []
+            for i in range(num_packets): # Update sequence IDs in payload
+                packet_copy = copy.deepcopy(packet)
+                packet_copy.data_bytes[0] = (i >> 24) & 0xff
+                packet_copy.data_bytes[1] = (i >> 16) & 0xff
+                packet_copy.data_bytes[2] = (i >> 8) & 0xff
+                packet_copy.data_bytes[3] = (i >> 0) & 0xff
+                packets.append(packet_copy)
+    elif send_method == "socket":
+        assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
+        # build the af_packet_send utility
+        socket_send_file = pkg_dir / "host" / "af_packet_send" / "af_packet_l2_send.c"
+        assert socket_send_file.exists()
+        ret = subprocess.run(["g++", "-o", "send_packets", socket_send_file, "-lpthread"],
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"af_packet_send failed to compile"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+        socket_send_app = pkg_dir / "host" / "af_packet_send" / "send_packets"
+    else:
+        assert False, f"Invalid send_method {send_method}"
+
+
     xe_name = pkg_dir / "hw_test_mii_rx_only" / "bin" / "hw_test_mii_rx_only.xe"
-
-
     xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
     xcoreapp.__enter__()
 
@@ -111,22 +134,31 @@ def test_hw_mii_rx_only(request, test_type):
     print(f"Send {num_packets} packets now")
     send_time = []
 
-    if test_type == 'seq_id':
-        thread_send = threading.Thread(target=send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
-    else:
-        thread_send = threading.Thread(target=send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
+    if send_method == "scapy":
+        if test_type == 'seq_id':
+            thread_send = threading.Thread(target=send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
+        else:
+            thread_send = threading.Thread(target=send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
 
-    thread_send.start()
-    thread_send.join()
+        thread_send.start()
+        thread_send.join()
 
-    print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
+        print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
 
-    sleep_time = 0
-    if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
-        sleep_time += (test_duration_s - send_time[0])
+        sleep_time = 0
+        if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
+            sleep_time += (test_duration_s - send_time[0])
 
-    time.sleep(sleep_time + 10) # Add an extra 10s of buffer
-
+        time.sleep(sleep_time + 10) # Add an extra 10s of buffer
+    elif send_method == "socket":
+        ret = subprocess.run([socket_send_app, eth_intf, num_packets],
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"{socket_send_app} returned runtime error"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
 
     print("Retrive status and shutdown DUT")
     stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
@@ -145,12 +177,6 @@ def test_hw_mii_rx_only(request, test_type):
         errors.append(f"ERROR: DUT logs report errors.")
         for m in matches:
             errors.append(m)
-    """
-    for line in stderr.splitlines():
-        if "ERROR" in line:
-            errors.append(f"ERROR: DUT logs report seq id mismatch.")
-            #assert False, f"DUT logs report error.\nDUT stdout = {stderr}"
-    """
 
     m = re.search(r"DUT: Received (\d+) bytes, (\d+) packets", stderr)
     if not m or len(m.groups()) < 2:
