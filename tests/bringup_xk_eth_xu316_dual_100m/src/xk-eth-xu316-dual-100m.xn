@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Network xmlns="http://www.xmos.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.xmos.com http://www.xmos.com" ManuallySpecifiedRouting="true">
+  <Type>Board</Type>
+  <Name>xk_eth_xu316_dual_100m</Name>
+  <Declarations>
+    <Declaration>tileref tile[2]</Declaration>
+  </Declarations>
+  <Packages>
+    <Package id="0" Type="XS3-UnA-1024-TQ128">
+      <Nodes>
+        <Node Id="0" InPackageId="0" Type="XS3-L16A-1024" Oscillator="24MHz" SystemFrequency="600MHz" ReferenceFrequency="100MHz">
+          <Boot>
+            <Source Location="bootFlash"/>
+          </Boot>
+          <Tile Number="0" Reference="tile[0]">
+            <!-- QSPI flash -->
+            <Port Location="XS1_PORT_1B"  Name="PORT_SQI_CS"/>
+            <Port Location="XS1_PORT_1C"  Name="PORT_SQI_SCLK"/>
+            <Port Location="XS1_PORT_4B"  Name="PORT_SQI_SIO"/>
+            <!-- PHY 1 Uses upper 2 bits of 4b ports -->
+            <Port Location="XS1_PORT_1A" Name="PHY_1_TX_EN"/>
+            <Port Location="XS1_PORT_4F" Name="PHY_1_TXD_4B"/>
+            <Port Location="XS1_PORT_1D" Name="PHY_1_RXDV"/>
+            <Port Location="XS1_PORT_4E" Name="PHY_1_RXD_4B"/>
+            <!-- PHY 2 -->
+            <Port Location="XS1_PORT_1L" Name="PHY_2_TX_EN"/>
+            <Port Location="XS1_PORT_1I" Name="PHY_2_TXD_1B_0"/>
+            <Port Location="XS1_PORT_1J" Name="PHY_2_TXD_1B_1"/>
+            <!-- Bits 6 and 7 of 8b port optionally used for Tx data 0, 1 instead of 1b ports -->
+            <Port Location="XS1_PORT_8D" Name="PHY_2_TXD_8B"/> 
+            <Port Location="XS1_PORT_1M" Name="PHY_2_RXDV"/>
+            <Port Location="XS1_PORT_1N" Name="PHY_2_RXD_1B_0"/>
+            <Port Location="XS1_PORT_1O" Name="PHY_2_RXD_1B_1"/>
+            <!-- PHY Shared -->
+            <Port Location="XS1_PORT_1P" Name="CLK_50M"/>
+          </Tile>
+          <Tile Number="1" Reference="tile[1]">
+            <!-- Shared config pins for both PHYs -->
+            <Port Location="XS1_PORT_1N"  Name="MDC"/>
+            <Port Location="XS1_PORT_1M"  Name="MDIO"/>
+            <!-- Optional 4b port version MDC on bit 2 MDIO on bit 3 -->
+            <Port Location="XS1_PORT_4F"  Name="MDC_MDIO_4B"/>
+            <Port Location="XS1_PORT_4A"  Name="PHY_RST_N"/>
+            <Port Location="XS1_PORT_1O"  Name="PWRDN_INT"/>
+          </Tile>
+        </Node>
+      </Nodes>
+      <Links>
+        <Link Encoding="5wire">
+          <LinkEndpoint NodeId="0" Link="8" Delays="52clk,52clk"/>
+          <LinkEndpoint NodeId="1" Link="XL0" Delays="1clk,1clk"/>
+        </Link>
+      </Links>
+    </Package>
+  </Packages>
+
+  <!-- XTAG4 -->
+  <Nodes>
+    <Node Id="1" Type="device:" RoutingId="0x8000">
+      <Service Id="0" Proto="xscope_host_data(chanend c);">
+        <Chanend Identifier="c" end="3"/>
+      </Service>
+    </Node>
+  </Nodes>
+
+  <!-- XSCOPE LINK -->
+  <Links>
+    <Link Encoding="2wire" Delays="5clk" Flags="XSCOPE">
+      <LinkEndpoint NodeId="0" Link="XL1"/>
+      <LinkEndpoint NodeId="1" Chanend="1"/>
+    </Link>
+  </Links>
+
+  <ExternalDevices>
+    <Device NodeId="0" Tile="0" Class="SQIFlash" Name="bootFlash" Type="W25Q64JV" PageSize="256" SectorSize="4096" NumPages="32768">
+      <Attribute Name="PORT_SQI_CS"   Value="PORT_SQI_CS"/>
+      <Attribute Name="PORT_SQI_SCLK" Value="PORT_SQI_SCLK"/>
+      <Attribute Name="PORT_SQI_SIO"  Value="PORT_SQI_SIO"/>
+    </Device>
+  </ExternalDevices>
+
+  <JTAGChain>
+    <JTAGDevice NodeId="0"/>
+  </JTAGChain>
+</Network>
