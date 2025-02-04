@@ -50,6 +50,7 @@ def test_hw_mii_rx_only(request, send_method):
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
         test_duration_s = 0.4
+    test_duration_s = float(test_duration_s)
 
     test_type = "seq_id"
     verbose = False
@@ -106,17 +107,19 @@ def test_hw_mii_rx_only(request, send_method):
     elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
-        socket_send_file = pkg_dir / "host" / "af_packet_send" / "af_packet_l2_send.c"
+        af_packet_send_dir = pkg_dir / "host" / "af_packet_send"
+        socket_send_file =  af_packet_send_dir / "af_packet_l2_send.c"
         assert socket_send_file.exists()
         ret = subprocess.run(["g++", "-o", "send_packets", socket_send_file, "-lpthread"],
                              capture_output = True,
-                             text = True)
+                             text = True,
+                             cwd = af_packet_send_dir)
         assert ret.returncode == 0, (
             f"af_packet_send failed to compile"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-        socket_send_app = pkg_dir / "host" / "af_packet_send" / "send_packets"
+        socket_send_app = af_packet_send_dir / "send_packets"
     else:
         assert False, f"Invalid send_method {send_method}"
 
@@ -151,7 +154,18 @@ def test_hw_mii_rx_only(request, send_method):
 
         time.sleep(sleep_time + 10) # Add an extra 10s of buffer
     elif send_method == "socket":
-        ret = subprocess.run([socket_send_app, eth_intf, num_packets],
+        cmd = f"sudo /usr/sbin/setcap cap_net_raw=eip {socket_send_app}"
+
+        ret = subprocess.run(cmd.split(),
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"{cmd} returned error"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        ret = subprocess.run([socket_send_app, eth_intf, str(num_packets)],
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (

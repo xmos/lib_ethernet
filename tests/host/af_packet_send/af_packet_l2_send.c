@@ -23,7 +23,7 @@ void send_packets(std::string eth_intf, std::string num_packets_str) {
     sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if (sockfd < 0) {
         perror("Socket creation failed");
-        return;
+	exit(1);
     }
 
     // Get interface index
@@ -33,7 +33,7 @@ void send_packets(std::string eth_intf, std::string num_packets_str) {
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
         perror("Getting interface index failed");
         close(sockfd);
-        return;
+	exit(1);
     }
 
     int ifindex = ifr.ifr_ifindex;
@@ -133,8 +133,8 @@ void send_packets(std::string eth_intf, std::string num_packets_str) {
 }
 
 int main(int argc, char *argv[]) {
-    if(argc != 3)
-    {
+	if(argc != 3)
+	{
 		std::cerr << "Usage: " << argv[0] << " <eth interface> <num packets to send>\n";
 		exit(1);
 	}
