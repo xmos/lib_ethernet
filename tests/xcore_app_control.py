@@ -29,7 +29,7 @@ class XcoreAppControl(XcoreApp):
 
     def xscope_controller_cmd_connect(self, timeout=30):
         assert self.attach == "xscope_app"
-        assert platform.system() in ["Darwin"]
+        assert platform.system() in ["Darwin", "Linux"]
 
         base_dir = pkg_dir / "xscope_controller" / "build"
         xscope_controller = base_dir / "xscope_controller"
@@ -41,7 +41,7 @@ class XcoreAppControl(XcoreApp):
 
     def xscope_controller_cmd_shutdown(self, timeout=30):
         assert self.attach == "xscope_app"
-        assert platform.system() in ["Darwin"]
+        assert platform.system() in ["Darwin", "Linux"]
 
         base_dir = pkg_dir / "xscope_controller" / "build"
         xscope_controller = base_dir / "xscope_controller"
