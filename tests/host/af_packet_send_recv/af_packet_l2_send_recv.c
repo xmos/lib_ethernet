@@ -73,7 +73,7 @@ void receive_packets(std::string eth_intf, const unsigned char *target_mac)
         // Extract Ethernet header
         struct ethhdr *eth = (struct ethhdr *)buffer;
         
-        if (memcmp(eth->h_source, target_mac, 6) == 0)
+        if(memcmp(eth->h_source, target_mac, 6) == 0)
         {
             //std::cout << "[Receiver] Received " << bytes_received << " bytes\n";
             //std::cout << "   Src MAC: ";
