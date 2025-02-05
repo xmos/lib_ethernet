@@ -8,8 +8,7 @@
 #include <netinet/ether.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
-
-extern void send_packets(std::string eth_intf, std::string num_packets_str);
+#include "shared.h"
 
 int main(int argc, char *argv[]) {
 	if(argc != 3)

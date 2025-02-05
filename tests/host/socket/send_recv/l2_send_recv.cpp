@@ -9,13 +9,9 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <atomic>
-
+#include "shared.h"
 
 extern unsigned recvd_packets;
-
-extern void receive_packets(std::string eth_intf, const unsigned char *target_mac);
-extern void send_packets(std::string eth_intf, std::string num_packets_str);
-
 
 int main(int argc, char *argv[])
 {

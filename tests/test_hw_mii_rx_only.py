@@ -107,19 +107,32 @@ def test_hw_mii_rx_only(request, send_method):
     elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
-        af_packet_send_dir = pkg_dir / "host" / "af_packet_send"
-        socket_send_file =  af_packet_send_dir / "af_packet_l2_send.c"
-        assert socket_send_file.exists()
-        ret = subprocess.run(["g++", "-o", "send_packets", socket_send_file, "-lpthread"],
-                             capture_output = True,
-                             text = True,
-                             cwd = af_packet_send_dir)
+        socket_host_dir = pkg_dir / "host" / "socket"
+         # Build the xscope controller host application
+        ret = subprocess.run(["cmake", "-B", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=socket_host_dir)
+
         assert ret.returncode == 0, (
-            f"af_packet_send failed to compile"
+            f"socket host cmake command failed"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-        socket_send_app = af_packet_send_dir / "send_packets"
+
+        ret = subprocess.run(["make", "-C", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=socket_host_dir)
+
+        assert ret.returncode == 0, (
+            f"socket host make command failed"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        socket_send_app = socket_host_dir / "build" / "socket_send"
+        assert socket_send_app.exists(), f"socket host app {socket_send_app} doesn't exist"
     else:
         assert False, f"Invalid send_method {send_method}"
 
