@@ -41,7 +41,7 @@ port p_eth_rxd_1 = PHY_2_RXD_1B_1;
 #define TX8_BIT_1 8
 #define TX_PINS ((TX8_BIT_0 << 16) | (TX8_BIT_1))
 port p_eth_txd_0 = PHY_2_TXD_8B;
-#define p_eth_txd_0 null
+#define p_eth_txd_1 null
 #else
 port p_eth_txd_0 = PHY_2_TXD_1B_0;
 port p_eth_txd_1 = PHY_2_TXD_1B_1;
@@ -63,52 +63,65 @@ static unsigned char ip_address[4] = {192, 168, 1, 178};
 // An enum to manage the array of connections from the ethernet component
 // to its clients.
 enum eth_clients {
-  ETH_TO_ICMP,
-  NUM_ETH_CLIENTS
+    ETH_TO_ICMP,
+    NUM_ETH_CLIENTS
 };
 
 enum cfg_clients {
-  CFG_TO_ICMP,
-  CFG_TO_PHY_DRIVER,
-  NUM_CFG_CLIENTS
+    CFG_TO_ICMP,
+    CFG_TO_PHY_DRIVER,
+    NUM_CFG_CLIENTS
 };
 
+void put_mac_ports_in_hiz(port p_eth_rxd_0, port p_eth_rxd_1, port p_eth_txd_0, port p_eth_txd_1, port p_eth_rxdv, port p_eth_txen){
+    p_eth_rxd_0 :> int _;
+    if(!isnull(p_eth_rxd_1)) p_eth_rxd_1 :> int _;
+    p_eth_txd_0 :> int _;
+    if(!isnull(p_eth_txd_1)) p_eth_txd_1 :> int _;
+    p_eth_rxdv :> int _;
+    p_eth_txen :> int _;
+}
 
 int main()
 {
-  ethernet_cfg_if i_cfg[NUM_CFG_CLIENTS];
-  ethernet_rx_if i_rx[NUM_ETH_CLIENTS];
-  ethernet_tx_if i_tx[NUM_ETH_CLIENTS];
-  smi_if i_smi;
+    ethernet_cfg_if i_cfg[NUM_CFG_CLIENTS];
+    ethernet_rx_if i_rx[NUM_ETH_CLIENTS];
+    ethernet_tx_if i_tx[NUM_ETH_CLIENTS];
+    smi_if i_smi;
 
-  par {
-    on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
-                                      i_rx, NUM_ETH_CLIENTS,
-                                      i_tx, NUM_ETH_CLIENTS,
-                                      null, null,
-                                      p_eth_clk,
-                                      p_eth_rxd_0,
-                                      p_eth_rxd_1,
-                                      RX_PINS,
-                                      p_eth_rxdv,
-                                      p_eth_txen,
-                                      p_eth_txd_0,
-                                      p_eth_txd_1,
-                                      TX_PINS,
-                                      eth_rxclk,
-                                      eth_txclk,
-                                      4000, 4000,
-                                      ETHERNET_DISABLE_SHAPER);
-    on tile[1]: dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], PHY_ADDR);
+    par {
+        on tile[0]: {
+            // To ensure PHY pin boot straps are read correctly at exit from reset
+            put_mac_ports_in_hiz(p_eth_rxd_0, p_eth_rxd_1, p_eth_txd_0, p_eth_txd_1, p_eth_rxdv, p_eth_txen); 
+            delay_milliseconds(5); // Wait until PHY has come out of reset
+            rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
+                              i_rx, NUM_ETH_CLIENTS,
+                              i_tx, NUM_ETH_CLIENTS,
+                              null, null,
+                              p_eth_clk,
+                              p_eth_rxd_0,
+                              p_eth_rxd_1,
+                              RX_PINS,
+                              p_eth_rxdv,
+                              p_eth_txen,
+                              p_eth_txd_0,
+                              p_eth_txd_1,
+                              TX_PINS,
+                              eth_rxclk,
+                              eth_txclk,
+                              4000, 4000,
+                              ETHERNET_DISABLE_SHAPER);
+        }
+        on tile[1]: dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], PHY_ADDR);
 
 #if SINGLE_SMI
-    on tile[1]: smi_singleport(i_smi, p_smi_mdc_mdio, MDIO_BIT, MDC_BIT);
+        on tile[1]: smi_singleport(i_smi, p_smi_mdc_mdio, MDIO_BIT, MDC_BIT);
 #else
-    on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
+        on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 #endif
-    on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
-                            i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
-                            ip_address, otp_ports);
-  }
-  return 0;
+        on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
+                                i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
+                                ip_address, otp_ports);
+    }
+    return 0;
 }
