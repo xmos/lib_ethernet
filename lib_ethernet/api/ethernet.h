@@ -640,33 +640,10 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
  *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
-    USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port */
-    USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port */
+    USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port for data bits 0 and 1*/
+    USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
 } rmii_data_4b_pin_assignment_t;
 
-/** Structure representing a four bit port used for RMII data transmission or reception */
-typedef struct rmii_data_4b_t
-{
-    port data;                              /**< Four bit data port */
-    rmii_data_4b_pin_assignment_t pins_used;/**< Which two bits of the data port to use.
-                                                 Unused Rx pins are ignored and unused
-                                                 Tx pins are driven low. */
-} rmii_data_4b_t;
-
-/** Structure type representing a pair of one bit ports used for RMII data transmission or reception. */
-typedef struct rmii_data_1b_t
-{
-    port data_0;                            /**< One bit data port for lower data line. */
-    port data_1;                            /**< One bit data port for upper data line. */
-} rmii_data_1b_t;
-
-
-/** Union representing a received data or control packet from the Ethernet MAC */
-typedef union rmii_data_port_t
-{
-    rmii_data_4b_t rmii_data_4b;            /**< Four bit data port option */
-    rmii_data_1b_t rmii_data_1b;            /**< One bit data port option */
-} rmii_data_port_t;
 
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
@@ -691,10 +668,14 @@ typedef union rmii_data_port_t
  *  \param c_tx_hp             Streaming channel end for high priority transmit data
  *
  *  \param p_clk               RMII clock input port
- *  \param p_rxd               Pointer to RMII RX data port union
+ *  \param p_rxd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_rxd_1             Port for data bit 1 (1 bit option). Pass null if unused.
+ *  \param rx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param p_rxdv              RMII RX data valid port
  *  \param p_txen              RMII TX enable port
- *  \param p_txd               Pointer to RMII TX data port union
+ *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_txd_1             Port for data bit 1 (1 bit option). Pass null if unused.
+ *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param rxclk               Clock used for RMII receive timing
  *  \param txclk               Clock used for RMII transmit timing
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
@@ -711,8 +692,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
                           nullable_streaming_chanend_t c_rx_hp,
                           nullable_streaming_chanend_t c_tx_hp,
-                          in_port_t p_clk, rmii_data_port_t * unsafe p_rxd, in_port_t p_rxdv,
-                          out_port_t p_txen, rmii_data_port_t * unsafe p_txd,
+                          in_port_t p_clk,
+                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_4b_pin_assignment_t rx_pin_map,
+                          in_port_t p_rxdv,
+                          out_port_t p_txen,
+                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
                           static_const_unsigned_t rx_bufsize_words,
