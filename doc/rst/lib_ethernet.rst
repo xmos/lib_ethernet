@@ -566,11 +566,11 @@ interfaces and connects to it::
 
 
 
-Similarly the RMII real-time MAC may be instantiated::
+Similarly the RMII real-time MAC may be instantiated (four bit port version shown)::
 
     port p_eth_clk = XS1_PORT_1J;
-    rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
-    rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
+    port p_eth_txd = XS1_PORT_4B;
+    port p_eth_rxd = XS1_PORT_4A;
     port p_eth_rxdv = XS1_PORT_1K;
     port p_eth_txen = XS1_PORT_1L;
     clock eth_rxclk = XS1_CLKBLK_1;
@@ -584,21 +584,18 @@ Similarly the RMII real-time MAC may be instantiated::
       streaming chan c_rx_hp;
       streaming chan c_tx_hp;
       par {
-        unsafe{rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
+        rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
                                     c_rx_hp, c_tx_hp,
                                     p_eth_clk,
-                                    &p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txen, &p_eth_txd,
+                                    p_eth_rxd, NULL, USE_UPPER_2B,
+                                    p_eth_rxdv,
+                                    p_eth_txen,
+                                    p_eth_txd, NULL, USE_UPPER_2B,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_ENABLE_SHAPER);}
        application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
       }
     }
-
-
-.. note::
-    The call to rmii_ethernet_rt_mac() needs to be wrapped in  ``unsafe{}`` because the rmii_data_port_t types are sent as references which translate to unsafe (array bounds unchecked) pointers.
-
 
 
 
