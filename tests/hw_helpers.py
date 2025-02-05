@@ -267,6 +267,17 @@ def scapy2mii(scapy_packets):
     else:
         return scapy_to_mii_single(scapy_packets)
 
+
+def get_mac_address(interface):
+    try:
+        output = subprocess.check_output(f"ip link show {interface}", shell=True, text=True)
+        for line in output.splitlines():
+            if "link/ether" in line:
+                return line.split()[1]  # Extract MAC address
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+    return None
+
 # This is just for test
 if __name__ == "__main__":
     # dbg = hw_eth_debugger()

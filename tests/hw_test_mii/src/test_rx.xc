@@ -71,6 +71,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   c_xscope_control <: 1; // Indicate ready
 
   unsigned test_fail=0;
+  uint8_t tx_target_mac[MACADDR_NUM_BYTES] = {0xa4, 0xae, 0x12, 0x77, 0x86, 0x97};
 
   while (!done)
   {
@@ -89,6 +90,14 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         unsigned timestamp = packet_info.timestamp;
         //printhexln((unsigned)seq_id);
 
+#if LOOPBACK
+        uint8_t dst_mac[MACADDR_NUM_BYTES];
+        memcpy(dst_mac, rxbuf, MACADDR_NUM_BYTES);
+        // swap src and dst mac addr
+        memcpy(rxbuf, tx_target_mac, MACADDR_NUM_BYTES);
+        memcpy(rxbuf+MACADDR_NUM_BYTES, dst_mac, MACADDR_NUM_BYTES);
+        tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
+#endif
 
         if(pkt_count == 0)
         {

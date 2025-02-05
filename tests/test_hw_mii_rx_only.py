@@ -5,7 +5,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address
 import pytest
 from contextlib import nullcontext
 import time
@@ -59,18 +59,24 @@ def test_hw_mii_rx_only(request, send_method):
     rand.seed(seed)
 
     payload_len = 'max'
+    
+    host_mac_address_str = get_mac_address(eth_intf)
+    assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
+    print(f"host_mac_address = {host_mac_address_str}")
 
+    dut_mac_address_str = "00:01:02:03:04:05"
+    print(f"dut_mac_address = {dut_mac_address_str}")
+
+    
+    host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
+    dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
     ethertype = [0x22, 0x22]
     num_packets = 0
-    src_mac_address = [0xdc, 0xa6, 0x32, 0xca, 0xe0, 0x20]
-
     packets = []
 
 
     # Create packets
-    mac_address = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]
-
     print(f"Generating {test_duration_s} seconds of packet sequence")
 
     if payload_len == 'max':
@@ -89,8 +95,8 @@ def test_hw_mii_rx_only(request, send_method):
 
     if send_method == "scapy":
         packet = MiiPacket(rand,
-                        dst_mac_addr=mac_address,
-                        src_mac_addr=src_mac_address,
+                        dst_mac_addr=dut_mac_address,
+                        src_mac_addr=host_mac_address,
                         ether_len_type = ethertype,
                         num_data_bytes=num_data_bytes,
                         create_data_args=['same', (0, num_data_bytes)],
@@ -107,24 +113,37 @@ def test_hw_mii_rx_only(request, send_method):
     elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
-        af_packet_send_dir = pkg_dir / "host" / "af_packet_send"
-        socket_send_file =  af_packet_send_dir / "af_packet_l2_send.c"
-        assert socket_send_file.exists()
-        ret = subprocess.run(["g++", "-o", "send_packets", socket_send_file, "-lpthread"],
-                             capture_output = True,
-                             text = True,
-                             cwd = af_packet_send_dir)
+        socket_host_dir = pkg_dir / "host" / "socket"
+         # Build the xscope controller host application
+        ret = subprocess.run(["cmake", "-B", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=socket_host_dir)
+
         assert ret.returncode == 0, (
-            f"af_packet_send failed to compile"
+            f"socket host cmake command failed"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-        socket_send_app = af_packet_send_dir / "send_packets"
+
+        ret = subprocess.run(["make", "-C", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=socket_host_dir)
+
+        assert ret.returncode == 0, (
+            f"socket host make command failed"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        socket_send_app = socket_host_dir / "build" / "socket_send"
+        assert socket_send_app.exists(), f"socket host app {socket_send_app} doesn't exist"
     else:
         assert False, f"Invalid send_method {send_method}"
 
 
-    xe_name = pkg_dir / "hw_test_mii_rx_only" / "bin" / "hw_test_mii_rx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_only" / "hw_test_mii_rx_only.xe"
     xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
     xcoreapp.__enter__()
 
@@ -165,7 +184,7 @@ def test_hw_mii_rx_only(request, send_method):
             + f"\nstderr:\n{ret.stderr}"
         )
 
-        ret = subprocess.run([socket_send_app, eth_intf, str(num_packets)],
+        ret = subprocess.run([socket_send_app, eth_intf, str(num_packets), host_mac_address_str , dut_mac_address_str],
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (
