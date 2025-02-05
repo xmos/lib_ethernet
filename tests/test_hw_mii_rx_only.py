@@ -124,7 +124,7 @@ def test_hw_mii_rx_only(request, send_method):
         assert False, f"Invalid send_method {send_method}"
 
 
-    xe_name = pkg_dir / "hw_test_mii_rx_only" / "bin" / "hw_test_mii_rx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_only" / "hw_test_mii_rx_only.xe"
     xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
     xcoreapp.__enter__()
 
