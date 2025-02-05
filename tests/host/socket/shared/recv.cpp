@@ -9,12 +9,13 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <atomic>
+#include <shared.h>
 
 
 #define BUFFER_SIZE 65536
 unsigned recvd_packets = 0;
 
-void receive_packets(std::string eth_intf, const unsigned char *target_mac)
+void receive_packets(std::string eth_intf, std::vector<unsigned char> target_mac)
 {
     int sockfd;
     unsigned char buffer[BUFFER_SIZE];
@@ -71,7 +72,7 @@ void receive_packets(std::string eth_intf, const unsigned char *target_mac)
         // Extract Ethernet header
         struct ethhdr *eth = (struct ethhdr *)buffer;
 
-        if(memcmp(eth->h_source, target_mac, 6) == 0)
+        if(memcmp(eth->h_source, target_mac.data(), 6) == 0)
         {
             //std::cout << "[Receiver] Received " << bytes_received << " bytes\n";
             //std::cout << "   Src MAC: ";

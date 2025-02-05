@@ -8,8 +8,9 @@ project(l2_socket_host)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable(socket_send ${CMAKE_CURRENT_LIST_DIR}/send/l2_send.cpp
-			   ${CMAKE_CURRENT_LIST_DIR}/shared/send.cpp )
+file(GLOB COMMON_FILES "${CMAKE_CURRENT_LIST_DIR}/shared/*.cpp")
+
+add_executable(socket_send ${CMAKE_CURRENT_LIST_DIR}/send/l2_send.cpp ${COMMON_FILES} )
 
 target_include_directories(socket_send PRIVATE ${CMAKE_CURRENT_LIST_DIR}/shared)
 
@@ -18,9 +19,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(socket_send PRIVATE Threads::Threads)
 
 
-add_executable(socket_send_recv ${CMAKE_CURRENT_LIST_DIR}/send_recv/l2_send_recv.cpp
-			        ${CMAKE_CURRENT_LIST_DIR}/shared/send.cpp
-				${CMAKE_CURRENT_LIST_DIR}/shared/recv.cpp )
+add_executable(socket_send_recv ${CMAKE_CURRENT_LIST_DIR}/send_recv/l2_send_recv.cpp ${COMMON_FILES} )
 
 target_include_directories(socket_send_recv PRIVATE ${CMAKE_CURRENT_LIST_DIR}/shared)
 

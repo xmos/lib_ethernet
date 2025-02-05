@@ -9,12 +9,13 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <atomic>
+#include "shared.h"
 
 #define ETHER_TYPE 0x2222 // IPv4 EtherType
 #define PACKET_SIZE 1514    // Ethernet frame size
 
 // Function to send packets
-void send_packets(std::string eth_intf, std::string num_packets_str) {
+void send_packets(std::string eth_intf, std::string num_packets_str, std::vector<unsigned char> src_mac, std::vector<unsigned char> dest_mac) {
     int sockfd;
     unsigned char packet[PACKET_SIZE];
     struct sockaddr_ll socket_address;
@@ -72,12 +73,10 @@ void send_packets(std::string eth_intf, std::string num_packets_str) {
 
 
     // 4. Construct the Ethernet frame
-    unsigned char dest_mac[6] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05}; // Destination MAC
-    unsigned char src_mac[6]  = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}; // Source MAC
     unsigned short ethertype = htons(ETHER_TYPE); // EtherType
 
-    memcpy(packet, dest_mac, 6);     // Destination MAC
-    memcpy(packet + 6, src_mac, 6);  // Source MAC
+    memcpy(packet, dest_mac.data(), 6);     // Destination MAC
+    memcpy(packet + 6, src_mac.data(), 6);  // Source MAC
     memcpy(packet + 12, &ethertype, 2); // EtherType
     memset(packet + 14, 0xAB, 1500);   // Payload (Dummy Data)
 

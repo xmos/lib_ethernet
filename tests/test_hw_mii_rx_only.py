@@ -5,7 +5,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address
 import pytest
 from contextlib import nullcontext
 import time
@@ -59,18 +59,24 @@ def test_hw_mii_rx_only(request, send_method):
     rand.seed(seed)
 
     payload_len = 'max'
+    
+    host_mac_address_str = get_mac_address(eth_intf)
+    assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
+    print(f"host_mac_address = {host_mac_address_str}")
 
+    dut_mac_address_str = "00:01:02:03:04:05"
+    print(f"dut_mac_address = {dut_mac_address_str}")
+
+    
+    host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
+    dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
     ethertype = [0x22, 0x22]
     num_packets = 0
-    src_mac_address = [0xdc, 0xa6, 0x32, 0xca, 0xe0, 0x20]
-
     packets = []
 
 
     # Create packets
-    mac_address = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]
-
     print(f"Generating {test_duration_s} seconds of packet sequence")
 
     if payload_len == 'max':
@@ -89,8 +95,8 @@ def test_hw_mii_rx_only(request, send_method):
 
     if send_method == "scapy":
         packet = MiiPacket(rand,
-                        dst_mac_addr=mac_address,
-                        src_mac_addr=src_mac_address,
+                        dst_mac_addr=dut_mac_address,
+                        src_mac_addr=host_mac_address,
                         ether_len_type = ethertype,
                         num_data_bytes=num_data_bytes,
                         create_data_args=['same', (0, num_data_bytes)],
@@ -178,7 +184,7 @@ def test_hw_mii_rx_only(request, send_method):
             + f"\nstderr:\n{ret.stderr}"
         )
 
-        ret = subprocess.run([socket_send_app, eth_intf, str(num_packets)],
+        ret = subprocess.run([socket_send_app, eth_intf, str(num_packets), host_mac_address_str , dut_mac_address_str],
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (
