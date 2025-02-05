@@ -73,13 +73,13 @@ enum cfg_clients {
     NUM_CFG_CLIENTS
 };
 
-void put_mac_ports_in_hiz(port p_eth_rxd_0, port p_eth_rxd_1, port p_eth_txd_0, port p_eth_txd_1, port p_eth_rxdv, port p_eth_txen){
-    p_eth_rxd_0 :> int _;
-    if(!isnull(p_eth_rxd_1)) p_eth_rxd_1 :> int _;
-    p_eth_txd_0 :> int _;
-    if(!isnull(p_eth_txd_1)) p_eth_txd_1 :> int _;
-    p_eth_rxdv :> int _;
-    p_eth_txen :> int _;
+void put_mac_ports_in_hiz(port p_rxd_0, port ?p_rxd_1, port p_txd_0, port ?p_txd_1, port p_rxdv, port p_txen){
+    p_rxd_0 :> int _;
+    if(!isnull(p_rxd_1)) p_rxd_1 :> int _;
+    p_txd_0 :> int _;
+    if(!isnull(p_txd_1)) p_txd_1 :> int _;
+    p_rxdv :> int _;
+    p_txen :> int _;
 }
 
 int main()
