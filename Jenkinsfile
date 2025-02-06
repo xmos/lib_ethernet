@@ -34,7 +34,7 @@ pipeline {
   environment {
     REPO = 'lib_ethernet'
     PIP_VERSION = "24.0"
-    PYTHON_VERSION = "3.12.1"
+    PYTHON_VERSION = "3.12.3"
     SEED = "12345"
   }
   stages {
