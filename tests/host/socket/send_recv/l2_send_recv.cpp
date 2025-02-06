@@ -11,11 +11,9 @@
 #include <atomic>
 #include "shared.h"
 
-extern unsigned recvd_packets;
-
 int main(int argc, char *argv[])
 {
-	if(argc != 3)
+	if(argc != 5)
 	{
 		std::cerr << "Usage: " << argv[0] << " <eth interface> <num packets to send> <host mac address> <dut mac address>\n";
 		exit(1);
@@ -37,7 +35,6 @@ int main(int argc, char *argv[])
     sender.join();
     receiver.join();
 
-    std::cout << "Receiver received " << recvd_packets << " packets" << std::endl;
     return 0;
 }
 
