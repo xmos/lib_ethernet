@@ -9,34 +9,14 @@ from hw_helpers import mii2scapy, scapy2mii, get_mac_address
 import pytest
 from contextlib import nullcontext
 import time
-from xcore_app_control import XcoreAppControl
+from xcore_app_control import XcoreAppControl, SocketHost
+from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
 import re
 import subprocess
 import platform
 
 
 pkg_dir = Path(__file__).parent
-
-# Send the same packet in a loop
-def send_l2_pkts_loop(intf, packet, loop_count, time_container):
-    frame = mii2scapy(packet)
-    # Send over ethernet
-    start = time.perf_counter()
-    sendp(frame, iface=intf, count=loop_count, verbose=False, realtime=True)
-    end = time.perf_counter()
-    time_container.append(end-start)
-
-
-
-def send_l2_pkt_sequence(intf, packets, time_container):
-    frames = mii2scapy(packets)
-    start = time.perf_counter()
-    sendp(frames, iface=intf, verbose=False, realtime=True)
-    end = time.perf_counter()
-    time_container.append(end-start)
-
-
-
 
 
 @pytest.mark.parametrize('send_method', ['scapy', 'socket'])
@@ -59,7 +39,7 @@ def test_hw_mii_rx_only(request, send_method):
     rand.seed(seed)
 
     payload_len = 'max'
-    
+
     host_mac_address_str = get_mac_address(eth_intf)
     assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
     print(f"host_mac_address = {host_mac_address_str}")
@@ -67,7 +47,7 @@ def test_hw_mii_rx_only(request, send_method):
     dut_mac_address_str = "00:01:02:03:04:05"
     print(f"dut_mac_address = {dut_mac_address_str}")
 
-    
+
     host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
     dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
@@ -112,33 +92,7 @@ def test_hw_mii_rx_only(request, send_method):
                 packets.append(packet_copy)
     elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
-        # build the af_packet_send utility
-        socket_host_dir = pkg_dir / "host" / "socket"
-         # Build the xscope controller host application
-        ret = subprocess.run(["cmake", "-B", "build"],
-                            capture_output=True,
-                            text=True,
-                            cwd=socket_host_dir)
-
-        assert ret.returncode == 0, (
-            f"socket host cmake command failed"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-
-        ret = subprocess.run(["make", "-C", "build"],
-                            capture_output=True,
-                            text=True,
-                            cwd=socket_host_dir)
-
-        assert ret.returncode == 0, (
-            f"socket host make command failed"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-
-        socket_send_app = socket_host_dir / "build" / "socket_send"
-        assert socket_send_app.exists(), f"socket host app {socket_send_app} doesn't exist"
+        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
     else:
         assert False, f"Invalid send_method {send_method}"
 
@@ -158,9 +112,9 @@ def test_hw_mii_rx_only(request, send_method):
 
     if send_method == "scapy":
         if test_type == 'seq_id':
-            thread_send = threading.Thread(target=send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
+            thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
         else:
-            thread_send = threading.Thread(target=send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
+            thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
 
         thread_send.start()
         thread_send.join()
@@ -173,25 +127,7 @@ def test_hw_mii_rx_only(request, send_method):
 
         time.sleep(sleep_time + 10) # Add an extra 10s of buffer
     elif send_method == "socket":
-        cmd = f"sudo /usr/sbin/setcap cap_net_raw=eip {socket_send_app}"
-
-        ret = subprocess.run(cmd.split(),
-                             capture_output = True,
-                             text = True)
-        assert ret.returncode == 0, (
-            f"{cmd} returned error"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-
-        ret = subprocess.run([socket_send_app, eth_intf, str(num_packets), host_mac_address_str , dut_mac_address_str],
-                             capture_output = True,
-                             text = True)
-        assert ret.returncode == 0, (
-            f"{socket_send_app} returned runtime error"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
+        socket_host.send(num_packets)
 
     print("Retrive status and shutdown DUT")
     stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()

@@ -71,3 +71,99 @@ class XcoreAppControl(XcoreApp):
 
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, "shutdown", timeout)
         return stdout, stderr
+
+
+class SocketHost():
+    def __init__(self, eth_intf, host_mac_addr, dut_mac_addr):
+        self.eth_intf = eth_intf
+        self.host_mac_addr = host_mac_addr
+        self.dut_mac_addr = dut_mac_addr
+
+        assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
+        # build the af_packet_send utility
+        socket_host_dir = pkg_dir / "host" / "socket"
+         # Build the xscope controller host application
+        ret = subprocess.run(["cmake", "-B", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=socket_host_dir)
+
+        assert ret.returncode == 0, (
+            f"socket host cmake command failed"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        ret = subprocess.run(["make", "-C", "build"],
+                            capture_output=True,
+                            text=True,
+                            cwd=socket_host_dir)
+
+        assert ret.returncode == 0, (
+            f"socket host make command failed"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+        self.socket_send_app = socket_host_dir / "build" / "socket_send"
+        assert self.socket_send_app.exists(), f"socket host app {self.socket_send_app} doesn't exist"
+
+        self.socket_send_recv_app = socket_host_dir / "build" / "socket_send_recv"
+        assert self.socket_send_recv_app.exists(), f"socket host app {self.socket_send_recv_app} doesn't exist"
+
+    def set_cap_net_raw(self, app):
+        cmd = f"sudo /usr/sbin/setcap cap_net_raw=eip {app}"
+
+        ret = subprocess.run(cmd.split(),
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"{cmd} returned error"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+    def send(self, num_packets):
+        self.set_cap_net_raw(self.socket_send_app)
+
+        ret = subprocess.run([self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , self.dut_mac_addr],
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"{self.socket_send_app} returned runtime error"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+
+    def send_recv(self, num_packets_to_send):
+        self.set_cap_net_raw(self.socket_send_recv_app)
+
+        ret = subprocess.run([self.socket_send_recv_app, self.eth_intf, str(num_packets_to_send), self.host_mac_addr , self.dut_mac_addr],
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"{self.socket_send_recv_app} returned runtime error"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+        print(f"stdout = {ret.stdout}")
+        print(f"stderr = {ret.stderr}")
+
+
+# Send the same packet in a loop
+def scapy_send_l2_pkts_loop(intf, packet, loop_count, time_container):
+    frame = mii2scapy(packet)
+    # Send over ethernet
+    start = time.perf_counter()
+    sendp(frame, iface=intf, count=loop_count, verbose=False, realtime=True)
+    end = time.perf_counter()
+    time_container.append(end-start)
+
+
+
+def scapy_send_l2_pkt_sequence(intf, packets, time_container):
+    frames = mii2scapy(packets)
+    start = time.perf_counter()
+    sendp(frames, iface=intf, verbose=False, realtime=True)
+    end = time.perf_counter()
+    time_container.append(end-start)
