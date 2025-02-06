@@ -77,6 +77,11 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     socket_address.sll_halen = ETH_ALEN;
     memcpy(socket_address.sll_addr, "\xAA\xBB\xCC\xDD\xEE\xFF", ETH_ALEN); // Destination MAC
 
+    // ensure data is transmitted before close
+    struct linger sl;
+    sl.l_onoff = 1;
+    sl.l_linger = 5; // Allow up to 5 seconds to empty 
+    setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
 
     // 4. Construct the Ethernet frame
     unsigned short ethertype = htons(ETHER_TYPE); // EtherType
