@@ -88,7 +88,7 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
 
     unsigned int num_packets = std::stoi(num_packets_str);
 
-	std::cout << "Sending: " << num_packets << " packets to ethernet interface " << eth_intf << std::endl;
+    printf("Sending %u packets to ethernet interface %s\n", num_packets, eth_intf.c_str());
 
     // Send packets in a loop
     for(unsigned i=0; i<num_packets; i++)
