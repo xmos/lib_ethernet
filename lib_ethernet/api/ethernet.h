@@ -9,10 +9,13 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 
-#define ETHERNET_ALL_INTERFACES  (-1)
-#define ETHERNET_MAX_PACKET_SIZE (1518) /**< MAX packet size in bytes */
+#define ETHERNET_ALL_INTERFACES     (-1)
+#define ETHERNET_MAX_PACKET_SIZE    (1518) /**< MAX packet size in bytes including src, dst, ether/tags but NOT preamble or CRC*/
 
-#define MACADDR_NUM_BYTES 6
+#define MACADDR_NUM_BYTES           (6) /**< Number of octets in MAC address */
+
+#define MII_CREDIT_FRACTIONAL_BITS  (16) /** Fractional bits for Qav credit based shaper setting */
+
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -77,7 +80,7 @@ typedef interface ethernet_cfg_if {
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
    */
-  void set_macaddr(size_t ifnum, uint8_t mac_address[MACADDR_NUM_BYTES]);
+  void set_macaddr(size_t ifnum, const uint8_t mac_address[MACADDR_NUM_BYTES]);
 
   /** Gets the source MAC address of the Ethernet MAC
    *
@@ -166,25 +169,36 @@ typedef interface ethernet_cfg_if {
    */
   void get_tile_id_and_timer_value(REFERENCE_PARAM(unsigned, tile_id), REFERENCE_PARAM(unsigned, time_on_tile));
 
-  /** Set the high-priority TX queue's credit based shaper idle slope.
+  /** Set the high-priority TX queue's credit based shaper idle slope value.
+   *  See also set_egress_qav_idle_slope_bps() where the argument is bits per second.
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
-   *  \param ifnum   The index of the MAC interface to set the slope
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
    * 
-   *  To convert from bits-per-second to the MII_CREDIT_FRACTIONAL_BITS format for the parameter 'slope', the
-   *  following helper function may be used:
-   * 
-   *  unsigned calc_idle_slope(unsigned bits_per_second)
-   *  {
-   *      unsigned long long slope = ((unsigned long long) bits_per_second) << (MII_CREDIT_FRACTIONAL_BITS);
-   *      slope = slope / XS1_TIMER_HZ; // bits that should be sent per ref timer tick
-   * 
-   *      return (unsigned) slope;
-   *  }
    * 
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
+
+  /** Set the high-priority TX queue's credit based shaper idle slope in bits per second.
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
+   *
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
+   *  \param slope   The maximum number of bits per second to be set
+   * 
+   * 
+   */
+  void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
+
+
+  /** Sets the the high-priority TX queue's  Qav credit limit in units of frame size bytes
+   *
+   *  \param ifnum         The index of the MAC interface to set the slope (always 0)
+   *  \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
+   *                       not including preamble, CRC and IFG. Set to 0 for no limit (default)
+   *
+   */
+  void set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes);
 
   /** Set the ingress latency to correct for the offset between the timestamp
    *  measurement plane relative to the reference plane. See 802.1AS 8.4.3.
@@ -433,8 +447,8 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
  *  on the egress MAC port.
  */
 enum ethernet_enable_shaper_t {
-  ETHERNET_ENABLE_SHAPER, /**< Enable the credit based shaper */
-  ETHERNET_DISABLE_SHAPER /**< Disable the credit based shaper */
+  ETHERNET_DISABLE_SHAPER = 0, /**< Disable the credit based shaper */
+  ETHERNET_ENABLE_SHAPER       /**< Enable the credit based shaper */
 };
 
 /** Structure representing the port and clock resources required by RGMII
@@ -626,33 +640,10 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
  *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
-    USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port */
-    USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port */
+    USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port for data bits 0 and 1*/
+    USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
 } rmii_data_4b_pin_assignment_t;
 
-/** Structure representing a four bit port used for RMII data transmission or reception */
-typedef struct rmii_data_4b_t
-{
-    port data;                              /**< Four bit data port */
-    rmii_data_4b_pin_assignment_t pins_used;/**< Which two bits of the data port to use.
-                                                 Unused Rx pins are ignored and unused
-                                                 Tx pins are driven low. */
-} rmii_data_4b_t;
-
-/** Structure type representing a pair of one bit ports used for RMII data transmission or reception. */
-typedef struct rmii_data_1b_t
-{
-    port data_0;                            /**< One bit data port for lower data line. */
-    port data_1;                            /**< One bit data port for upper data line. */
-} rmii_data_1b_t;
-
-
-/** Union representing a received data or control packet from the Ethernet MAC */
-typedef union rmii_data_port_t
-{
-    rmii_data_4b_t rmii_data_4b;            /**< Four bit data port option */
-    rmii_data_1b_t rmii_data_1b;            /**< One bit data port option */
-} rmii_data_port_t;
 
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
@@ -677,10 +668,14 @@ typedef union rmii_data_port_t
  *  \param c_tx_hp             Streaming channel end for high priority transmit data
  *
  *  \param p_clk               RMII clock input port
- *  \param p_rxd               Pointer to RMII RX data port union
+ *  \param p_rxd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_rxd_1             Port for data bit 1 (1 bit option). Pass null if unused.
+ *  \param rx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param p_rxdv              RMII RX data valid port
  *  \param p_txen              RMII TX enable port
- *  \param p_txd               Pointer to RMII TX data port union
+ *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_txd_1             Port for data bit 1 (1 bit option). Pass null if unused.
+ *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param rxclk               Clock used for RMII receive timing
  *  \param txclk               Clock used for RMII transmit timing
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
@@ -697,8 +692,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
                           nullable_streaming_chanend_t c_rx_hp,
                           nullable_streaming_chanend_t c_tx_hp,
-                          in_port_t p_clk, rmii_data_port_t * unsafe p_rxd, in_port_t p_rxdv,
-                          out_port_t p_txen, rmii_data_port_t * unsafe p_txd,
+                          in_port_t p_clk,
+                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_4b_pin_assignment_t rx_pin_map,
+                          in_port_t p_rxdv,
+                          out_port_t p_txen,
+                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
                           static_const_unsigned_t rx_bufsize_words,

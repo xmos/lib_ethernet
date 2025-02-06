@@ -16,6 +16,7 @@
 #include "string.h"
 #include "check_ifg_wait.h"
 #include "rmii_rx_pins_exit.h"
+#include "shaper.h"
 
 
 #define QUOTEAUX(x) #x
@@ -992,21 +993,22 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     // Flag for readability and faster comparison
     const unsigned use_4b = (tx_port_width == 4);
 
-    int credit = 0;
-    int credit_time;
     // Need one timer to be able to read at any time for the shaper
     timer credit_tmr;
     // And a second timer to be enforcing the IFG gap
     hwtimer_t ifg_tmr;
     unsigned ifg_time = 0;
     unsigned eof_time = 0;
+
+    qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
         enable_shaper = 0;
     }
     if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
-        credit_tmr :> credit_time;
+        credit_tmr :> qav_state.current_time;
+        qav_state.prev_time = qav_state.current_time;
     }
 
     ifg_tmr :> ifg_time;
@@ -1021,21 +1023,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         }
 
         if (enable_shaper) {
-            int prev_credit_time = credit_time;
-            credit_tmr :> credit_time;
-
-            int elapsed = credit_time - prev_credit_time;
-            credit += elapsed * p_port_state->qav_idle_slope;
-
-            if (buf) {
-                if (credit < 0) {
-                    buf = 0;
-                }
-            } else {
-                if (credit > 0) {
-                    credit = 0;
-                }
-            }
+            credit_tmr :> qav_state.current_time;
+            buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
         }
 
         if (!buf) {
@@ -1071,11 +1060,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {
-            const int preamble_bytes = 8;
-            const int ifg_bytes = 96/8;
-            const int crc_bytes = 4;
-            int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
-            credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
+            shaper_do_send_slope(buf->length, &qav_state);
         }
 
         if (mii_get_and_dec_transmit_count(buf) == 0) {
