@@ -43,7 +43,6 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     int sndbuf_size = 0;
     socklen_t optlen = sizeof(int);
 
-#if 0
     // Get the current receive buffer size
     if (getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, &optlen) < 0) {
         perror("getsockopt SO_RCVBUF failed");
@@ -61,6 +60,13 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     // Print current buffer sizes
     std::cout << "Current Receive Buffer Size (SO_RCVBUF): " << rcvbuf_size << " bytes\n";
     std::cout << "Current Send Buffer Size (SO_SNDBUF): " << sndbuf_size << " bytes\n";
+
+#if 0
+    int new_rcvbuf_size = 200000;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &new_rcvbuf_size, sizeof(new_rcvbuf_size));
+
+    int new_sndbuf_size = 200000;  // 32 MB
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &new_sndbuf_size, sizeof(new_sndbuf_size));
 #endif
 
     // 3. Set up the sockaddr_ll structure
@@ -82,7 +88,7 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
 
     unsigned int num_packets = std::stoi(num_packets_str);
 
-    printf("Sending %u packets to ethernet interface %s\n", num_packets, eth_intf.c_str());
+	std::cout << "Sending: " << num_packets << " packets to ethernet interface " << eth_intf << std::endl;
 
     // Send packets in a loop
     for(unsigned i=0; i<num_packets; i++)

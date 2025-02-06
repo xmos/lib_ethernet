@@ -130,6 +130,7 @@ class SocketHost():
         ret = subprocess.run([self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , self.dut_mac_addr],
                              capture_output = True,
                              text = True)
+        print(f"stdout = {ret.stdout}")
         assert ret.returncode == 0, (
             f"{self.socket_send_app} returned runtime error"
             + f"\nstdout:\n{ret.stdout}"
@@ -150,9 +151,9 @@ class SocketHost():
         print(f"stdout = {ret.stdout}")
         print(f"stderr = {ret.stderr}")
         m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
-        assert m, "Sniffer doesn't report received packets"
+        assert m, ("Sniffer doesn't report received packets"
         + f"\nstdout:\n{ret.stdout}"
-        + f"\nstderr:\n{ret.stderr}"
+        + f"\nstderr:\n{ret.stderr}")
 
         return int(m.group(1))
 
