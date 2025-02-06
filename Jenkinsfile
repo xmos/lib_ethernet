@@ -99,12 +99,12 @@ pipeline {
                   if(params.TEST_TYPE == 'fixed_seed')
                   {
                     echo "Running tests with fixed seed ${env.SEED}"
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED}"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw' "
                   }
                   else
                   {
                     echo "Running tests with random seed"
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
                   }
                   junit "pytest_result.xml"
                 } // script

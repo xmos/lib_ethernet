@@ -11,7 +11,6 @@
 
 #define CMD_DEVICE_SHUTDOWN (1) // TODO duplicated currently
 
-
 void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients)
 {
     xscope_mode_lossless();
@@ -68,11 +67,6 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 return;
                 break;
-
         }
     }
-
-
-
-
 }
