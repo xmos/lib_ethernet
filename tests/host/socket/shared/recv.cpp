@@ -60,12 +60,10 @@ void receive_packets(std::string eth_intf, std::vector<unsigned char> target_mac
         int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, nullptr, nullptr);
         if (bytes_received < 0) {
 	    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-	    	std::cout << "recvfrom timed out!!\n";
-                // Timeout occurred, check stop flag
+                std::cout << "recvfrom timed out!!\n";
                 break;
             }
-	    std::cout << "recvfrom failed\n";
-            perror("recvfrom failed");
+            std::cout << "recvfrom failed. errno " << errno << std::endl;
             break;
         }
 
@@ -83,7 +81,7 @@ void receive_packets(std::string eth_intf, std::vector<unsigned char> target_mac
         }
 
     }
-    std::cout << "Receiver exiting. Received " << recvd_packets << " packets\n";
+    printf("Receieved %u packets on ethernet interface %s\n", recvd_packets, eth_intf.c_str());
 
     close(sockfd);
 }
