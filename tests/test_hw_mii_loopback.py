@@ -10,6 +10,7 @@ import pytest
 from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl, SocketHost
+from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
 import re
 import subprocess
 import platform
@@ -128,7 +129,27 @@ def test_hw_mii_loopback(request, payload_len):
         assert(recvd_packet_count == num_packets), f"Error: {num_packets} sent but only {recvd_packet_count} looped back"
 """
 
-@pytest.mark.parametrize('send_method', ['socket'])
+recvd_packet_count = 0 # TODO find a better way than using globals
+def sniff_pkt(intf, target_mac_addr, timeout_s, seq_ids):
+    def packet_callback(packet):
+        global recvd_packet_count
+        if Ether in packet and packet[Ether].dst == target_mac_addr:
+            """
+            payload = packet[Raw].load
+            seq_id = 0
+            seq_id |= (int(payload[0]) << 24)
+            seq_id |= (int(payload[1]) << 16)
+            seq_id |= (int(payload[2]) << 8)
+            seq_id |= (int(payload[3]) << 0)
+            seq_ids.append(seq_id)
+            """
+            recvd_packet_count += 1
+
+    sniff(iface=intf, prn=lambda pkt: packet_callback(pkt), timeout=timeout_s)
+    print(f"Sniffer receieved {recvd_packet_count} packets on ethernet interface {intf}")
+
+
+@pytest.mark.parametrize('send_method', ['socket', 'scapy'])
 def test_hw_mii_loopback(request, send_method):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
@@ -181,7 +202,24 @@ def test_hw_mii_loopback(request, send_method):
     num_packets = int(float(test_duration_bits)/packet_duration_bits)
     print(f"Going to test {num_packets} packets")
 
-    if send_method == "socket":
+    if send_method == "scapy":
+        packet = MiiPacket(rand,
+                        dst_mac_addr=dut_mac_address,
+                        src_mac_addr=host_mac_address,
+                        ether_len_type = ethertype,
+                        num_data_bytes=num_data_bytes,
+                        create_data_args=['same', (0, num_data_bytes)],
+                        )
+        if test_type == 'seq_id':
+            packets = []
+            for i in range(num_packets): # Update sequence IDs in payload
+                packet_copy = copy.deepcopy(packet)
+                packet_copy.data_bytes[0] = (i >> 24) & 0xff
+                packet_copy.data_bytes[1] = (i >> 16) & 0xff
+                packet_copy.data_bytes[2] = (i >> 8) & 0xff
+                packet_copy.data_bytes[3] = (i >> 0) & 0xff
+                packets.append(packet_copy)
+    elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
     else:
@@ -199,8 +237,28 @@ def test_hw_mii_loopback(request, send_method):
         print(stderr)
 
     print(f"Send {num_packets} packets now")
-    send_time = []
 
+    if send_method == "scapy":
+        send_time = []
+        seq_ids = []
+        thread_sniff = threading.Thread(target=sniff_pkt, args=[eth_intf, dut_mac_address_str, test_duration_s+5, seq_ids])
+        if test_type == 'seq_id':
+            thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
+        else:
+            thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
+
+        thread_sniff.start()
+        thread_send.start()
+        thread_send.join()
+        thread_sniff.join()
+
+        print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
+
+        sleep_time = 0
+        if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
+            sleep_time += (test_duration_s - send_time[0]) + 1
+        print(f"host recvd seq ids {seq_ids}")
+        host_received_packets = recvd_packet_count
     if send_method == "socket":
         host_received_packets = socket_host.send_recv(num_packets)
 

@@ -2,7 +2,8 @@ import subprocess
 import platform
 from pathlib import Path
 import re
-
+from scapy.all import *
+from hw_helpers import mii2scapy
 from hardware_test_tools.XcoreApp import XcoreApp
 
 pkg_dir = Path(__file__).parent
