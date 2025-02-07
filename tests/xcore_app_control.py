@@ -132,7 +132,7 @@ class SocketHost():
     def send(self, num_packets):
         self.set_cap_net_raw(self.socket_send_app)
 
-        ret = subprocess.run([self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , self.dut_mac_addr],
+        ret = subprocess.run([self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , *(self.dut_mac_addr.split())],
                              capture_output = True,
                              text = True)
         print(f"stdout = {ret.stdout}")
@@ -145,7 +145,7 @@ class SocketHost():
     def send_recv(self, num_packets_to_send):
         self.set_cap_net_raw(self.socket_send_recv_app)
 
-        ret = subprocess.run([self.socket_send_recv_app, self.eth_intf, str(num_packets_to_send), self.host_mac_addr , self.dut_mac_addr],
+        ret = subprocess.run([self.socket_send_recv_app, self.eth_intf, str(num_packets_to_send), self.host_mac_addr , *(self.dut_mac_addr.split())],
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (

@@ -17,8 +17,9 @@ set(COMPILER_FLAGS_COMMON   -g
                             -fxscope
                             )
 
-set(APP_COMPILER_FLAGS_rx_only      ${COMPILER_FLAGS_COMMON})
-set(APP_COMPILER_FLAGS_loopback      ${COMPILER_FLAGS_COMMON} -DLOOPBACK=1)
+set(APP_COMPILER_FLAGS_rx_only                 ${COMPILER_FLAGS_COMMON})
+set(APP_COMPILER_FLAGS_rx_multiple_queues      ${COMPILER_FLAGS_COMMON} -DMULTIPLE_QUEUES=1 -DETHERNET_SUPPORT_HP_QUEUES=1)
+set(APP_COMPILER_FLAGS_loopback                ${COMPILER_FLAGS_COMMON} -DLOOPBACK=1)
 
 set(APP_XSCOPE_SRCS src/config.xscope)
 
