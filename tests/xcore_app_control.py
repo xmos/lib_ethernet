@@ -74,6 +74,10 @@ class XcoreAppControl(XcoreApp):
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_macaddr", str(client_index), str(mac_addr)], timeout)
         return stdout, stderr
 
+    def xscope_controller_cmd_set_host_macaddr(self, mac_addr, timeout=30):
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_macaddr", str(mac_addr)], timeout)
+        return stdout, stderr
+
 
 class SocketHost():
     def __init__(self, eth_intf, host_mac_addr, dut_mac_addr):
