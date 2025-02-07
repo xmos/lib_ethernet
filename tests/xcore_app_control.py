@@ -10,8 +10,10 @@ pkg_dir = Path(__file__).parent
 
 class XcoreAppControl(XcoreApp):
     def __init__(self, adapter_id, xe_name, attach=None):
-
+        assert platform.system() in ["Darwin", "Linux"]
         super().__init__(xe_name, adapter_id, attach=attach)
+
+        assert self.attach == "xscope_app"
 
         xscope_controller_dir = pkg_dir / "host"/ "xscope_controller"
 
@@ -44,15 +46,15 @@ class XcoreAppControl(XcoreApp):
         assert self.xscope_controller_app.exists(), f"xscope_controller not present at {self.xscope_controller_app}"
 
 
-    def xscope_controller_do_command(self, xscope_controller, cmd, timeout):
+    def xscope_controller_do_command(self, xscope_controller, cmds, timeout):
         ret = subprocess.run(
-            [xscope_controller, "localhost", f"{self.xscope_port}", cmd],
+            [xscope_controller, "localhost", f"{self.xscope_port}", *cmds],
             capture_output=True,
             text=True,
             timeout=timeout
         )
         assert ret.returncode == 0, (
-            f"xscope controller command failed on port {self.xscope_port} with commands {cmd}"
+            f"xscope controller command failed on port {self.xscope_port} with commands {cmds}"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
@@ -61,17 +63,15 @@ class XcoreAppControl(XcoreApp):
 
 
     def xscope_controller_cmd_connect(self, timeout=30):
-        assert self.attach == "xscope_app"
-        assert platform.system() in ["Darwin", "Linux"]
-
-        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, "connect", timeout)
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["connect"], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_shutdown(self, timeout=30):
-        assert self.attach == "xscope_app"
-        assert platform.system() in ["Darwin", "Linux"]
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["shutdown"], timeout)
+        return stdout, stderr
 
-        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, "shutdown", timeout)
+    def xscope_controller_cmd_set_dut_macaddr(self, client_index, mac_addr, timeout=30):
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_macaddr", str(client_index), str(mac_addr)], timeout)
         return stdout, stderr
 
 

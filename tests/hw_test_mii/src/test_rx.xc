@@ -8,6 +8,7 @@
 #include <otp_board_info.h>
 #include <string.h>
 #include <print.h>
+#include "test_rx.h"
 
 #define NUM_TS_LOGS (1000) // Save the first 5000 timestamp logs to get an idea of the general IFG gap
 #define NUM_SEQ_ID_MISMATCH_LOGS (1000) // Save the first few seq id mismatches
@@ -71,7 +72,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   c_xscope_control <: 1; // Indicate ready
 
   unsigned test_fail=0;
-  uint8_t tx_target_mac[MACADDR_NUM_BYTES] = {0xa4, 0xae, 0x12, 0x77, 0x86, 0x97};
 
   while (!done)
   {
@@ -91,10 +91,12 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         //printhexln((unsigned)seq_id);
 
 #if LOOPBACK
-        uint8_t dst_mac[MACADDR_NUM_BYTES];
+        uint8_t dst_mac[MACADDR_NUM_BYTES], src_mac[MACADDR_NUM_BYTES];
         memcpy(dst_mac, rxbuf, MACADDR_NUM_BYTES);
+        memcpy(src_mac, rxbuf+MACADDR_NUM_BYTES, MACADDR_NUM_BYTES);
+
         // swap src and dst mac addr
-        memcpy(rxbuf, tx_target_mac, MACADDR_NUM_BYTES);
+        memcpy(rxbuf, src_mac, MACADDR_NUM_BYTES);
         memcpy(rxbuf+MACADDR_NUM_BYTES, dst_mac, MACADDR_NUM_BYTES);
         tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
 #endif
@@ -160,8 +162,21 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         done = 1;
         break;
 #endif
-      case c_xscope_control :> int temp: // Shutdown received over xscope
-        done = 1;
+      case c_xscope_control :> int cmd: // Shutdown received over xscope
+        if(cmd == CMD_DEVICE_SHUTDOWN)
+        {
+          done = 1;
+        }
+        else if(cmd == CMD_SET_DEVICE_MACADDR)
+        {
+          debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
+          for(int i=0; i<6; i++)
+          {
+            c_xscope_control :> macaddr_filter.addr[i];
+            cfg.add_macaddr_filter(index, 0, macaddr_filter);
+          }
+          c_xscope_control <: 1; // Acknowledge
+        }
         break;
     } // select
   }

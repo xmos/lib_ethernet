@@ -5,6 +5,10 @@
 #include <ethernet.h>
 #include <otp_board_info.h>
 
+enum {
+    CMD_DEVICE_SHUTDOWN = 1,
+    CMD_SET_DEVICE_MACADDR
+};
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
