@@ -66,10 +66,10 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 else if(char_ptr[0] == CMD_SET_DEVICE_MACADDR)
                 {
                     unsigned client_index = char_ptr[1];
-                    debug_printf("set macaddr for client index %u\n", client_index);
+                    debug_printf("set mac address for client index %u\n", client_index);
                     for(int i=0; i<6; i++)
                     {
-                        debug_printf("%x ",char_ptr[2+i]);
+                        debug_printf("%2x ",char_ptr[2+i]);
                     }
                     debug_printf("\n");
                     c_clients[1+client_index] <: CMD_SET_DEVICE_MACADDR;
@@ -78,6 +78,29 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                         c_clients[1+client_index] <: char_ptr[2+i];
                     }
                     c_clients[1+client_index] :> int temp;
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
+                }
+                else if(char_ptr[0] == CMD_SET_HOST_MACADDR)
+                {
+                    unsigned client_index = char_ptr[1];
+                    debug_printf("set host mac address\n");
+                    for(int i=0; i<6; i++)
+                    {
+                        debug_printf("%2x ",char_ptr[1+i]);
+                    }
+                    debug_printf("\n");
+                    // send it to all client except the lan8710a_phy_driver
+                    for(int cl=1; cl<num_clients; cl++)
+                    {
+                        c_clients[cl] <: CMD_SET_HOST_MACADDR;
+                        for(int i=0; i<6; i++) // c_clients index is one more than the client_index req by the host, since c_clients[0] is for lan8710a_phy_driver
+                        {
+                            c_clients[cl] <: char_ptr[1+i];
+                        }
+                        c_clients[cl] :> int temp;
+                    }
                     // Acknowledge
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);

@@ -29,6 +29,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
                  chanend c_xscope_control)
 {
   ethernet_macaddr_filter_t macaddr_filter;
+  unsigned char host_mac_addr[MACADDR_NUM_BYTES];
 
   macaddr_filter.appdata = 0;
   for (int i = 0; i < MACADDR_NUM_BYTES; i++)
@@ -174,6 +175,15 @@ void test_rx_lp(client ethernet_cfg_if cfg,
           {
             c_xscope_control :> macaddr_filter.addr[i];
             cfg.add_macaddr_filter(index, 0, macaddr_filter);
+          }
+          c_xscope_control <: 1; // Acknowledge
+        }
+        else if(cmd == CMD_SET_HOST_MACADDR)
+        {
+          debug_printf("Received CMD_SET_HOST_MACADDR command\n");
+          for(int i=0; i<6; i++)
+          {
+            c_xscope_control :> host_mac_addr[i]; // host_mac_addr won't be used since this is an rx/loopback client
           }
           c_xscope_control <: 1; // Acknowledge
         }

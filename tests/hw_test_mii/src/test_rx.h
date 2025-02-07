@@ -7,7 +7,8 @@
 
 enum {
     CMD_DEVICE_SHUTDOWN = 1,
-    CMD_SET_DEVICE_MACADDR
+    CMD_SET_DEVICE_MACADDR,
+    CMD_SET_HOST_MACADDR
 };
 
 void test_rx_lp(client ethernet_cfg_if cfg,
