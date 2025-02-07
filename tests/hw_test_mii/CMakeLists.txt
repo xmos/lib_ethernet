@@ -22,6 +22,8 @@ set(APP_COMPILER_FLAGS_loopback      ${COMPILER_FLAGS_COMMON} -DLOOPBACK=1)
 
 set(APP_XSCOPE_SRCS src/config.xscope)
 
+set(APP_INCLUDES src/xscope_control)
+
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
 XMOS_REGISTER_APP()

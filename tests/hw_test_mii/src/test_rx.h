@@ -5,18 +5,11 @@
 #include <ethernet.h>
 #include <otp_board_info.h>
 
-enum {
-    CMD_DEVICE_SHUTDOWN = 1,
-    CMD_SET_DEVICE_MACADDR,
-    CMD_SET_HOST_MACADDR
-};
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
                  unsigned client_num,
                  chanend c_xscope_control);
-
-void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients);
 
 #endif // __icmp_h__
