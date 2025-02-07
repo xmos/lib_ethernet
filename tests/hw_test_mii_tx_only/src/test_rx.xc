@@ -8,6 +8,7 @@
 #include <otp_board_info.h>
 #include <string.h>
 #include <print.h>
+#include "xscope_control.h"
 
 #define NUM_TS_LOGS (1000) // Save the first 5000 timestamp logs to get an idea of the general IFG gap
 #define NUM_SEQ_ID_MISMATCH_LOGS (1000) // Save the first few seq id mismatches

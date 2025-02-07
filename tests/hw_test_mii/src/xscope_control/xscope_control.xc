@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <xscope.h>
 #include <assert.h>
-#include "test_rx.h"
 #include "debug_print.h"
+#include "xscope_control.h"
 
 #define XSCOPE_ID_CONNECT (0) // TODO duplicated currently
 #define XSCOPE_ID_COMMAND_RETURN (1) // TODO duplicated currently
