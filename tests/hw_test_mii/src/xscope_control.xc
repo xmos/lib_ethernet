@@ -9,8 +9,6 @@
 #define XSCOPE_ID_CONNECT (0) // TODO duplicated currently
 #define XSCOPE_ID_COMMAND_RETURN (1) // TODO duplicated currently
 
-#define CMD_DEVICE_SHUTDOWN (1) // TODO duplicated currently
-
 void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients)
 {
     xscope_mode_lossless();
@@ -57,15 +55,33 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     // Shutdown each client
                     for(int i=0; i<num_clients; i++)
                     {
-                        c_clients[i] <: 1;
+                        c_clients[i] <: CMD_DEVICE_SHUTDOWN;
                         c_clients[i] :> int temp;
                     }
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
+                    return;
                 }
-
-                // Acknowledge
-                unsigned char ret = 0;
-                xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
-                return;
+                else if(char_ptr[0] == CMD_SET_DEVICE_MACADDR)
+                {
+                    unsigned client_index = char_ptr[1];
+                    debug_printf("set macaddr for client index %u\n", client_index);
+                    for(int i=0; i<6; i++)
+                    {
+                        debug_printf("%x ",char_ptr[2+i]);
+                    }
+                    debug_printf("\n");
+                    c_clients[1+client_index] <: CMD_SET_DEVICE_MACADDR;
+                    for(int i=0; i<6; i++) // c_clients index is one more than the client_index req by the host, since c_clients[0] is for lan8710a_phy_driver
+                    {
+                        c_clients[1+client_index] <: char_ptr[2+i];
+                    }
+                    c_clients[1+client_index] :> int temp;
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
+                }
                 break;
         }
     }

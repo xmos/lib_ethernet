@@ -44,7 +44,7 @@ def test_hw_mii_rx_only(request, send_method):
     assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
     print(f"host_mac_address = {host_mac_address_str}")
 
-    dut_mac_address_str = "00:01:02:03:04:05"
+    dut_mac_address_str = "10:11:12:13:14:15"
     print(f"dut_mac_address = {dut_mac_address_str}")
 
 
@@ -103,9 +103,14 @@ def test_hw_mii_rx_only(request, send_method):
 
     print("Wait for DUT to be ready")
     stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-
     if verbose:
         print(stderr)
+
+    print("Set DUT Mac address")
+    stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
+    if verbose:
+        print(f"stdout = {stdout}")
+        print(f"stderr = {stderr}")
 
     print(f"Send {num_packets} packets now")
     send_time = []

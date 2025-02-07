@@ -106,7 +106,7 @@ int main()
 
     // RX threads
     on tile[0]: {
-    test_rx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[1]);
+      test_rx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[1]);
     }
 
     on tile[0]: {
