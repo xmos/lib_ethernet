@@ -43,7 +43,6 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     int sndbuf_size = 0;
     socklen_t optlen = sizeof(int);
 
-#if 0
     // Get the current receive buffer size
     if (getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, &optlen) < 0) {
         perror("getsockopt SO_RCVBUF failed");
@@ -61,6 +60,13 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     // Print current buffer sizes
     std::cout << "Current Receive Buffer Size (SO_RCVBUF): " << rcvbuf_size << " bytes\n";
     std::cout << "Current Send Buffer Size (SO_SNDBUF): " << sndbuf_size << " bytes\n";
+
+#if 0
+    int new_rcvbuf_size = 200000;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &new_rcvbuf_size, sizeof(new_rcvbuf_size));
+
+    int new_sndbuf_size = 200000;  // 32 MB
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &new_sndbuf_size, sizeof(new_sndbuf_size));
 #endif
 
     // 3. Set up the sockaddr_ll structure
@@ -71,6 +77,11 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     socket_address.sll_halen = ETH_ALEN;
     memcpy(socket_address.sll_addr, "\xAA\xBB\xCC\xDD\xEE\xFF", ETH_ALEN); // Destination MAC
 
+    // ensure data is transmitted before close
+    struct linger sl;
+    sl.l_onoff = 1;
+    sl.l_linger = 5; // Allow up to 5 seconds to empty 
+    setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
 
     // 4. Construct the Ethernet frame
     unsigned short ethertype = htons(ETHER_TYPE); // EtherType

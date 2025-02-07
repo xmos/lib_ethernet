@@ -1,0 +1,21 @@
+# This file relates to internal XMOS infrastructure and should be ignored by external users
+---
+an_number: AN00120
+project: '{{an_number}}'
+title: '{{an_number}}: 100Mbit RMII ping example'
+version: 1.0.0
+
+documentation:
+  substitutions_path: doc/substitutions.inc
+  exclude_patterns_path: doc/exclude_patterns.inc
+  root_doc: doc/rst/AN00120.rst
+  linkcheck_ignore_regex: ['.*xmos\.com\/file.*']
+  pdfs:
+    doc/rst/AN00120.rst:
+      pdf_title: '{{title}}'
+      pdf_filename: '{{an_number}}_v{{version}}'
+      pdf_short: yes
+    README.rst:
+      pdf_title: '{{title}} (README)'
+      pdf_filename: '{{an_number}}_v{{version}}_readme'
+      pdf_short: yes

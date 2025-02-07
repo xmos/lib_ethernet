@@ -11,7 +11,6 @@ set(APP_PCA_ENABLE ON)
 set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE=1
-                            -save-temps
                             -Os
                             -Wno-reinterpret-alignment
                             -DENABLE_DUT_TIMEOUT=0

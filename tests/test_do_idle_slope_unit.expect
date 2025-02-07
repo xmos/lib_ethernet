@@ -1,0 +1,11 @@
+Idle_slope: \d+
+credit_limit: \d+
+Ticks: \d+
+Ticks: \d+
+Ticks: \d+
+Ticks: \d+
+Ticks: \d+
+Ticks: \d+
+Ticks: \d+
+Ticks: \d+
+PASS

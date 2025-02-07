@@ -34,7 +34,7 @@ pipeline {
   environment {
     REPO = 'lib_ethernet'
     PIP_VERSION = "24.0"
-    PYTHON_VERSION = "3.12.1"
+    PYTHON_VERSION = "3.12.3"
     SEED = "12345"
   }
   stages {
@@ -76,6 +76,9 @@ pipeline {
         dir("${REPO}") {
           warnError("Docs") {
             buildDocs()
+            dir("examples/app_rmii_100Mbit_icmp") {
+              buildDocs()
+            }
           }
         }
       }
@@ -96,12 +99,12 @@ pipeline {
                   if(params.TEST_TYPE == 'fixed_seed')
                   {
                     echo "Running tests with fixed seed ${env.SEED}"
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED}"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw' "
                   }
                   else
                   {
                     echo "Running tests with random seed"
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml"
+                    sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
                   }
                   junit "pytest_result.xml"
                 } // script

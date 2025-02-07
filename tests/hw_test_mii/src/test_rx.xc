@@ -203,7 +203,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
     debug_printf("printing the first %u mismatches\n", count_seq_id_err_log);
     for(int i=0; i<count_seq_id_err_log; i++)
     {
-      unsigned diff = seq_id_err_log[i].current_seq_id - seq_id_err_log[i].prev_seq_id;
+      unsigned diff = seq_id_err_log[i].current_seq_id - seq_id_err_log[i].prev_seq_id - 1;
       debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets. IFG = %u\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff, seq_id_err_log[i].ifg);
     }
   }

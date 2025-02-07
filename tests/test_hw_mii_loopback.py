@@ -10,6 +10,7 @@ import pytest
 from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl, SocketHost
+from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
 import re
 import subprocess
 import platform
@@ -17,116 +18,25 @@ import platform
 
 pkg_dir = Path(__file__).parent
 
-"""
-def send_l2_pkts(intf, packets):
-    frames = mii2scapy(packets)
-    # Send over ethernet
-    sendp(frames, iface=intf, verbose=False)
-
 recvd_packet_count = 0 # TODO find a better way than using globals
-recvd_bytes = 0
-def sniff_pkt(intf, expected_packets, timeout_s):
-    def packet_callback(packet, expect_packets):
+def sniff_pkt(intf, target_mac_addr, timeout_s, seq_ids):
+    def packet_callback(packet):
         global recvd_packet_count
-        global recvd_bytes
-        if Ether in packet and packet[Ether].dst == expect_packets[0].dst_mac_addr_str:
+        if Ether in packet and packet[Ether].dst == target_mac_addr:
+            """
             payload = packet[Raw].load
-            expected_payload = bytes(expect_packets[recvd_packet_count].data_bytes)
-
-            if payload != expected_payload:
-                print(f"ERROR: mismatch in pkt number {recvd_packet_count}")
-                #print(f"Received: {payload}")
-                #print(f"Expected: {expected_payload}")
-                #assert(False)
-
-            #print("Received ", packet.summary(), len(payload), "packet ", recvd_packet_count)  # Print a summary of each packet
+            seq_id = 0
+            seq_id |= (int(payload[0]) << 24)
+            seq_id |= (int(payload[1]) << 16)
+            seq_id |= (int(payload[2]) << 8)
+            seq_id |= (int(payload[3]) << 0)
+            seq_ids.append(seq_id)
+            """
             recvd_packet_count += 1
-            recvd_bytes += len(payload)
 
-    sniff(iface=intf, prn=lambda pkt: packet_callback(pkt, expected_packets), timeout=timeout_s)
+    sniff(iface=intf, prn=lambda pkt: packet_callback(pkt), timeout=timeout_s)
+    print(f"Sniffer receieved {recvd_packet_count} packets on ethernet interface {intf}")
 
-    print(f"Received {recvd_packet_count} looped back packets, {recvd_bytes} bytes")
-
-
-@pytest.mark.parametrize('payload_len', ['max'])
-def test_hw_mii_loopback(request, payload_len):
-    global recvd_packet_count
-    global recvd_bytes
-
-    recvd_packet_count = 0
-    recvd_bytes = 0
-
-    adapter_id = request.config.getoption("--adapter-id")
-    #assert adapter_id != None, "Error: Specify a valid adapter-id"
-
-    eth_intf = request.config.getoption("--eth-intf")
-    assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
-
-    seed = 0
-    rand = random.Random()
-    rand.seed(seed)
-
-    if adapter_id == None:
-        test_duration_s = 4.0 # xrun in a different terminal. Test is more stable (TODO), so test longer duration
-    else:
-        test_duration_s = 0.1
-
-    ethertype = [0x22, 0x22]
-    num_packets = 0
-    src_mac_address = [0xdc, 0xa6, 0x32, 0xca, 0xe0, 0x20]
-
-    loop_back_packets = []
-    packets = []
-    current_test_duration = 0
-
-    # Create packets
-    mac_address = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]
-
-    print(f"Generating {test_duration_s} seconds of packet sequence")
-
-    while True:
-        if payload_len == 'max':
-            num_data_bytes = 1500
-        elif payload_len == 'random':
-            num_data_bytes = random.randint(46, 1500)
-        else:
-            assert False
-
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=mac_address,
-            src_mac_addr=src_mac_address,
-            ether_len_type = ethertype,
-            num_data_bytes=num_data_bytes
-            ))
-        packet = copy.deepcopy(packets[-1])
-        tmp = packet.dst_mac_addr
-        packet.dst_mac_addr = packet.src_mac_addr
-        packet.src_mac_addr = tmp
-        loop_back_packets.append(packet)
-
-        num_packets += 1
-        packet_duration_bits = (14 + num_data_bytes + 4)*8 # Ignore IFG
-        packet_duration_s = packet_duration_bits / float(100e6)
-        current_test_duration += packet_duration_s
-        if current_test_duration > test_duration_s:
-            break
-
-    print(f"Going to test {num_packets} packets")
-    xe_name = pkg_dir / "hw_test_mii_loopback" / "bin" / "hw_test_mii_loopback.xe"
-
-    context_manager = XcoreApp(xe_name, adapter_id, attach="xscope") if adapter_id is not None else nullcontext()
-
-    with context_manager as xcore_app:
-        thread_send = threading.Thread(target=send_l2_pkts, args=[eth_intf, packets])
-        thread_sniff = threading.Thread(target=sniff_pkt, args=[eth_intf, loop_back_packets, test_duration_s+5])
-
-        thread_sniff.start()
-        thread_send.start()
-        thread_send.join()
-        thread_sniff.join()
-
-        assert(recvd_packet_count == num_packets), f"Error: {num_packets} sent but only {recvd_packet_count} looped back"
-"""
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_mii_loopback(request, send_method):
@@ -181,7 +91,24 @@ def test_hw_mii_loopback(request, send_method):
     num_packets = int(float(test_duration_bits)/packet_duration_bits)
     print(f"Going to test {num_packets} packets")
 
-    if send_method == "socket":
+    if send_method == "scapy":
+        packet = MiiPacket(rand,
+                        dst_mac_addr=dut_mac_address,
+                        src_mac_addr=host_mac_address,
+                        ether_len_type = ethertype,
+                        num_data_bytes=num_data_bytes,
+                        create_data_args=['same', (0, num_data_bytes)],
+                        )
+        if test_type == 'seq_id':
+            packets = []
+            for i in range(num_packets): # Update sequence IDs in payload
+                packet_copy = copy.deepcopy(packet)
+                packet_copy.data_bytes[0] = (i >> 24) & 0xff
+                packet_copy.data_bytes[1] = (i >> 16) & 0xff
+                packet_copy.data_bytes[2] = (i >> 8) & 0xff
+                packet_copy.data_bytes[3] = (i >> 0) & 0xff
+                packets.append(packet_copy)
+    elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
     else:
@@ -199,10 +126,30 @@ def test_hw_mii_loopback(request, send_method):
         print(stderr)
 
     print(f"Send {num_packets} packets now")
-    send_time = []
 
+    if send_method == "scapy":
+        send_time = []
+        seq_ids = []
+        thread_sniff = threading.Thread(target=sniff_pkt, args=[eth_intf, dut_mac_address_str, test_duration_s+5, seq_ids])
+        if test_type == 'seq_id':
+            thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
+        else:
+            thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
+
+        thread_sniff.start()
+        thread_send.start()
+        thread_send.join()
+        thread_sniff.join()
+
+        print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
+
+        sleep_time = 0
+        if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
+            sleep_time += (test_duration_s - send_time[0]) + 1
+        print(f"host recvd seq ids {seq_ids}")
+        host_received_packets = recvd_packet_count
     if send_method == "socket":
-        socket_host.send_recv(num_packets)
+        host_received_packets = socket_host.send_recv(num_packets)
 
     print("Retrive status and shutdown DUT")
     stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
@@ -214,6 +161,8 @@ def test_hw_mii_loopback(request, send_method):
     xcoreapp.terminate()
 
     errors = []
+    if host_received_packets != num_packets:
+        errors.append(f"ERROR: Host received back fewer than it sent. Sent {num_packets}, received back {host_received_packets}")
 
     # Check for any seq id mismatch errors reported by the DUT
     matches = re.findall(r"^DUT ERROR:.*", stderr, re.MULTILINE)
@@ -226,12 +175,13 @@ def test_hw_mii_loopback(request, send_method):
     if not m or len(m.groups()) < 2:
         errors.append(f"ERROR: DUT does not report received bytes and packets")
     else:
-        bytes_received, packets_received = map(int, m.groups())
-        if int(packets_received) != num_packets:
-            errors.append(f"ERROR: Packets dropped. Sent {num_packets}, DUT Received {packets_received}")
+        bytes_received, dut_received_packets = map(int, m.groups())
+        if int(dut_received_packets) != num_packets:
+            errors.append(f"ERROR: Packets dropped during DUT receive. Host sent {num_packets}, DUT Received {dut_received_packets}")
 
     if len(errors):
         error_msg = "\n".join(errors)
         assert False, f"Various errors reported!!\n{error_msg}\n\nDUT stdout = {stderr}"
+
 
 

@@ -26,7 +26,8 @@ class hw_eth_debugger:
             if result.returncode == 0:
                 self.nose_bin_path = Path(result.stdout.strip("\n"))
             else:
-                raise RuntimeError('Nose not found on system path')
+                self.nose_bin_path = self.build_binary()
+                #raise RuntimeError('Nose not found on system path')
         else:
             if not Path(nose_bin_path).isfile():
                 raise RuntimeError(f'Nose not found on supplied path: {nose_bin_path}')
@@ -56,6 +57,32 @@ class hw_eth_debugger:
         self.nose_proc.terminate()
         self.sock.close()
         print("hw_eth_debugger exited")
+
+    def build_binary(self):
+        repo_root = (Path(__file__).parent / "../..").resolve()
+        repo_name = "ethernet-debugger"
+        repo_dir = repo_root / repo_name
+        binary = repo_dir / "build/nose"
+
+        if not repo_dir.is_dir():
+            cmd = f"git clone --recursive git@github.com:intona/{repo_name}.git {repo_dir}"
+            result = subprocess.run(cmd.split(), check=True, text=True)
+            if result.returncode != 0:
+                raise(result.stderr)
+        else:
+            print(f"{repo_dir} exists already, using that")
+
+        if not binary.is_file():
+            cmd = "meson setup build"
+            result = subprocess.run(cmd.split(), check=True, text=True, cwd=repo_dir)
+            if result.returncode != 0:
+                raise(result.stderr)
+            cmd = "ninja -C build"
+            result = subprocess.run(cmd.split(), check=True, text=True, cwd=repo_dir)
+            if result.returncode != 0:
+                raise(result.stderr)
+
+        return repo_dir / "build/nose"
 
     def _send_cmd(self, cmd):
         self.sock.sendall((cmd + "\n").encode('utf-8'))
@@ -280,8 +307,8 @@ def get_mac_address(interface):
 
 # This is just for test
 if __name__ == "__main__":
-    # dbg = hw_eth_debugger()
-    # print(dbg.get_version())
+    dbg = hw_eth_debugger()
+    print(dbg.get_version())
     # print(dbg.inject_packets(1, "deadbeef"))
     # print(dbg.inject_packets_stop())
     # print(dbg.mdio_read(1, 0))

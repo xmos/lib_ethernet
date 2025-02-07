@@ -15,6 +15,7 @@
 #include "print.h"
 #include "server_state.h"
 #include "rmii_rx_pins_exit.h"
+#include "shaper.h"
 
 
 static inline unsigned int get_tile_id_from_chanend(chanend c) {
@@ -323,7 +324,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       memcpy(r_mac_address, mac_address, sizeof mac_address);
       break;
 
-    case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+    case i_cfg[int i].set_macaddr(size_t ifnum, const uint8_t r_mac_address[MACADDR_NUM_BYTES]):
       memcpy(mac_address, r_mac_address, sizeof r_mac_address);
       break;
 
@@ -405,11 +406,21 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       break;
     }
 
+    case i_cfg[int i].set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second): {
+      set_qav_idle_slope(p_port_state, bits_per_second);
+      break;
+    }
+
+    case i_cfg[int i].set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes): {
+      set_qav_credit_limit(p_port_state, payload_limit_bytes);
+      break;
+    }
+
     case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->ingress_ts_latency[speed] = value / 10;
+      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds 
       break;
     }
 

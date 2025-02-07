@@ -18,8 +18,6 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 
 #define VLAN_TAGGED 1
 
-#define MII_CREDIT_FRACTIONAL_BITS 16
-
 static int calc_idle_slope(int bps)
 {
   long long slope = ((long long) bps) << (MII_CREDIT_FRACTIONAL_BITS);
@@ -200,15 +198,23 @@ int main()
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_ENABLE_SHAPER);
   #elif RMII
-    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                            i_rx_lp, NUM_RX_LP_IF,
-                            i_tx_lp, NUM_TX_LP_IF,
-                            null, c_tx_hp,
-                            p_eth_clk,
-                            &p_eth_rxd, p_eth_rxdv,
-                            p_eth_txen, &p_eth_txd,
-                            eth_rxclk, eth_txclk,
-                            4000, 4000, ETHERNET_ENABLE_SHAPER);}
+    on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+                                    i_rx_lp, NUM_RX_LP_IF,
+                                    i_tx_lp, NUM_TX_LP_IF,
+                                    null, c_tx_hp,
+                                    p_eth_clk,
+                                    p_eth_rxd_0,
+                                    p_eth_rxd_1,
+                                    RX_PINS,
+                                    p_eth_rxdv,
+                                    p_eth_txen,
+                                    p_eth_txd_0,
+                                    p_eth_txd_1,
+                                    TX_PINS,
+                                    eth_rxclk,
+                                    eth_txclk,
+                                    4000, 4000,
+                                    ETHERNET_ENABLE_SHAPER);
   #endif
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x3333);
