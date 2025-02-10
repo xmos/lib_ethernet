@@ -20,7 +20,8 @@
 enum {
     CMD_DEVICE_SHUTDOWN = 1,
     CMD_SET_DEVICE_MACADDR,
-    CMD_SET_HOST_MACADDR
+    CMD_SET_HOST_MACADDR,
+    CMD_HOST_READY_TO_RECEIVE
 };
 
 #define LINE_LENGTH 1024
@@ -243,6 +244,23 @@ int main(int argc, char *argv[]) {
                 to_send[1+i] = host_mac_bytes[i];
             }
             while (xscope_ep_request_upload(cmd_bytes, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned char result = wait_for_command_response();
+            if (result != 0)
+            {
+                return 1;
+            }
+        }
+        else if(strcmp(argv[3], "set_host_ready_to_receive") == 0)
+        {
+            if(argc != 4)
+            {
+                fprintf(stderr, "Incorrect usage of set_host_ready command\n");
+                fprintf(stderr, "Usage: host_address port set_host_ready\n");
+                return 1;
+            }
+            unsigned char to_send[1];
+            to_send[0] = CMD_HOST_READY_TO_RECEIVE;
+            while (xscope_ep_request_upload(1, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
             if (result != 0)
             {
