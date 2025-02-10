@@ -11,6 +11,7 @@
 
 
 #define MAX_PACKET_BYTES (6 + 6 + 2 + 1500) 
+#define HOST_READY_TO_RECEIVE_TIME_MS 2000 // how long it takes for host to start capture thread
 
 typedef struct
 {
@@ -49,19 +50,18 @@ void test_tx_lp(client ethernet_cfg_if cfg,
  
 
 
-  int num_packets_to_send = 1000;
+  int num_packets_to_send = 100000;
   int packet_length = MAX_PACKET_BYTES;
   debug_printf("DUT preparing to send %d packets of length %d\n", num_packets_to_send, packet_length);
 
   c_xscope_control <: 1; // Indicate ready
 
-
-
-  delay_milliseconds(4000);
-
+  // wait for all clear from host app
   int cmd;
   c_xscope_control :> cmd;
-  debug_printf("Got OK from host: %d\n", cmd);
+  debug_printf("Got OK from host LP: %d\n", cmd);
+
+  delay_milliseconds(HOST_READY_TO_RECEIVE_TIME_MS);
 
 
   // uint8_t tx_target_mac[MACADDR_NUM_BYTES] = {0xa4, 0xae, 0x12, 0x77, 0x86, 0x97};
@@ -84,6 +84,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   }
 
   c_xscope_control :> int _;
+  debug_printf("Got shutdown from host LP\n");
   c_xscope_control <: 1; // Acknowledge shutdown completion
 }
 
@@ -95,14 +96,15 @@ void test_tx_hp(client ethernet_cfg_if cfg,
                  chanend c_xscope_control){
   c_xscope_control <: 1; // Indicate ready
   debug_printf("test_tx_hp\n");
-  delay_milliseconds(5000);
 
-  
+  // wait for all clear from host app
   int cmd;
   c_xscope_control :> cmd;
-  debug_printf("Got OK from host: %d\n", cmd);
+  debug_printf("Got OK from host HP: %d\n", cmd);
 
+  delay_milliseconds(HOST_READY_TO_RECEIVE_TIME_MS);
 
   c_xscope_control :> int _;
+  debug_printf("Got shutdown from host HP\n");
   c_xscope_control <: 1; // Indicate shutdown
 }

@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    fprintf(stderr, "Shutting down...\n");
+    fprintf(stderr, "Disconnecting xscope controller...\n");
     fflush(stderr);
     xscope_ep_disconnect();
 

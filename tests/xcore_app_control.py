@@ -211,8 +211,8 @@ class SocketHost():
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-        print(f"stdout = {ret.stdout}")
-        print(f"stderr = {ret.stderr}")
+        # print(f"stdout = {ret.stdout}")
+        # print(f"stderr = {ret.stderr}")
         m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
         assert m, ("Sniffer doesn't report received packets"
         + f"\nstdout:\n{ret.stdout}"

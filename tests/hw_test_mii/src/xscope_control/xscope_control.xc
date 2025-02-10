@@ -22,6 +22,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
     {
         select {
             case ( size_t i = 0; i < num_clients; i ++) c_clients[i] :> int r:
+                // debug_printf("Client ready: %d\n", i);
                 assert(r == 1);
                 assert(ready[i] == 0);
                 ready[i] = r;
@@ -56,6 +57,8 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     {
                         c_clients[i] <: CMD_DEVICE_SHUTDOWN;
                         c_clients[i] :> int temp;
+                        debug_printf("shutdown: %d\n", i);
+
                     }
                     // Acknowledge
                     unsigned char ret = 0;
