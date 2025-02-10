@@ -176,7 +176,8 @@ def test_hw_mii_loopback(request, send_method):
         for m in matches:
             errors.append(m)
 
-    m = re.search(r"DUT: Received (\d+) bytes, (\d+) packets", stderr)
+    client_index = 0
+    m = re.search(fr"DUT client index {client_index}: Received (\d+) bytes, (\d+) packets", stderr)
     if not m or len(m.groups()) < 2:
         errors.append(f"ERROR: DUT does not report received bytes and packets")
     else:

@@ -14,7 +14,7 @@
 #define NUM_TS_LOGS (1000) // Save the first 5000 timestamp logs to get an idea of the general IFG gap
 #define NUM_SEQ_ID_MISMATCH_LOGS (1000) // Save the first few seq id mismatches
 
-#define PRINT_TS_LOG (1)
+#define PRINT_TS_LOG (0)
 
 typedef struct
 {
@@ -29,6 +29,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
                  unsigned client_num,
                  chanend c_xscope_control)
 {
+  set_core_fast_mode_on();
   ethernet_macaddr_filter_t macaddr_filter;
   unsigned char host_mac_addr[MACADDR_NUM_BYTES];
 
@@ -208,24 +209,16 @@ void test_rx_lp(client ethernet_cfg_if cfg,
       {
         diff = ((unsigned)(0xffffffff) - timestamps[i]) + timestamps[i+1];
       }
-      /*if(diff > max_ifg)
-      {
-        max_ifg = diff;
-      }
-      else if(diff < min_ifg)
-      {
-        min_ifg = diff;
-      }*/
-      debug_printf("client: i=%d, ts_diff=%u, ts=(%u, %u)\n", i, (unsigned)diff, timestamps[i+1], timestamps[i] );
+      debug_printf("client %u: i=%d, ts_diff=%u, ts=(%u, %u)\n", client_num,  i, (unsigned)diff, timestamps[i+1], timestamps[i] );
     }
   }
 #endif
-  debug_printf("counter = %u, min_ifg = %u, max_ifg = %u\n", counter, min_ifg, max_ifg);
-  debug_printf("DUT: Received %d bytes, %d packets\n", num_rx_bytes, pkt_count);
+  debug_printf("DUT client index %u: counter = %u, min_ifg = %u, max_ifg = %u\n", client_num, counter, min_ifg, max_ifg);
+  debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
 
   if(test_fail)
   {
-    debug_printf("DUT ERROR: Test failed due to sequence ID mismatch. Total %u seq_id mismatches. Total missing %u packets\n", count_seq_id_mismatch, total_missing);
+    debug_printf("DUT client index %u ERROR: Test failed due to sequence ID mismatch. Total %u seq_id mismatches. Total missing %u packets\n", client_num, count_seq_id_mismatch, total_missing);
     debug_printf("printing the first %u mismatches\n", count_seq_id_err_log);
     for(int i=0; i<count_seq_id_err_log; i++)
     {
@@ -233,6 +226,105 @@ void test_rx_lp(client ethernet_cfg_if cfg,
       debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets. IFG = %u\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff, seq_id_err_log[i].ifg);
     }
   }
+  c_xscope_control <: 1; // Acknowledge CMD_DEVICE_SHUTDOWN
+}
 
-  c_xscope_control <: 1; // Acknowledge shutdown completion
+
+
+void test_rx_hp(client ethernet_cfg_if cfg,
+                streaming chanend c_rx_hp,
+                unsigned client_num,
+                chanend c_xscope_control)
+{
+  set_core_fast_mode_on();
+
+  ethernet_macaddr_filter_t macaddr_filter;
+  unsigned char host_mac_addr[MACADDR_NUM_BYTES];
+
+  macaddr_filter.appdata = 0;
+  for (int i = 0; i < 6; i++)
+    macaddr_filter.addr[i] = i+client_num;
+  cfg.add_macaddr_filter(0, 1, macaddr_filter);
+
+  unsigned num_rx_bytes = 0;
+  unsigned pkt_count = 0;
+  int done = 0;
+  unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
+  seq_id_pair_t seq_id_err_log[NUM_SEQ_ID_MISMATCH_LOGS];
+
+  unsigned count_seq_id_err_log = 0;
+  unsigned count_seq_id_mismatch = 0;
+  unsigned total_missing = 0;
+  unsigned prev_seq_id;
+
+  c_xscope_control <: 1; // Indicate ready
+
+  unsigned test_fail=0;
+
+  while (!done) {
+    ethernet_packet_info_t packet_info;
+
+    #pragma ordered
+    select {
+      case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
+        // Check the first byte after the header (which can be VLAN tagged)
+        unsigned seq_id = ((unsigned)rxbuf[14] << 24) | ((unsigned)rxbuf[15] << 16) | ((unsigned)rxbuf[16] << 8) | (unsigned)rxbuf[17];
+        // Check for seq id
+        if(!(seq_id == prev_seq_id + 1) && !(seq_id == prev_seq_id)) // Consider seq_id == prev_seq_id okay in order to test the same frame sent in a loop by the host. No seq id check req in this case
+        {
+          test_fail = 1;
+          // Any debug printing here will mess up timing. also, wouldn't work in case of multiple threads printing. Save a few fail cases to print later
+          if(count_seq_id_err_log < NUM_SEQ_ID_MISMATCH_LOGS)
+          {
+            seq_id_err_log[count_seq_id_err_log].current_seq_id = seq_id;
+            seq_id_err_log[count_seq_id_err_log].prev_seq_id = prev_seq_id;
+            count_seq_id_err_log += 1;
+            total_missing += (seq_id - prev_seq_id - 1);
+          }
+          count_seq_id_mismatch += 1;
+        }
+        pkt_count += 1;
+        num_rx_bytes += packet_info.len;
+        num_rx_bytes += packet_info.len;
+        break;
+
+      case c_xscope_control :> int cmd: // Shutdown received over xscope
+        if(cmd == CMD_DEVICE_SHUTDOWN)
+        {
+          done = 1;
+        }
+        else if(cmd == CMD_SET_DEVICE_MACADDR)
+        {
+          debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
+          for(int i=0; i<6; i++)
+          {
+            c_xscope_control :> macaddr_filter.addr[i];
+            cfg.add_macaddr_filter(0, 1, macaddr_filter);
+          }
+          c_xscope_control <: 1; // Acknowledge
+        }
+        else if(cmd == CMD_SET_HOST_MACADDR)
+        {
+          debug_printf("Received CMD_SET_HOST_MACADDR command\n");
+          for(int i=0; i<6; i++)
+          {
+            c_xscope_control :> host_mac_addr[i]; // host_mac_addr won't be used since this is an rx/loopback client
+          }
+          c_xscope_control <: 1; // Acknowledge
+        }
+        break;
+    }
+  }
+  debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
+  if(test_fail)
+  {
+    debug_printf("DUT client index %u ERROR: Test failed due to sequence ID mismatch. Total %u seq_id mismatches. Total missing %u packets\n", client_num, count_seq_id_mismatch, total_missing);
+    debug_printf("printing the first %u mismatches\n", count_seq_id_err_log);
+    for(int i=0; i<count_seq_id_err_log; i++)
+    {
+      unsigned diff = seq_id_err_log[i].current_seq_id - seq_id_err_log[i].prev_seq_id - 1;
+      debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff);
+    }
+  }
+  c_xscope_control <: 1; // Acknowledge CMD_DEVICE_SHUTDOWN
 }

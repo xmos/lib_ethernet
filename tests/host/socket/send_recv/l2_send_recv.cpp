@@ -22,10 +22,11 @@ int main(int argc, char *argv[])
     std::string dut_mac = std::string(argv[4]);
 
     std::vector<unsigned char> host_mac_bytes = parse_mac_address(host_mac);
-    std::vector<unsigned char> dut_mac_bytes = parse_mac_address(dut_mac);
+    std::vector<std::vector<unsigned char>> dut_mac_bytes;
+    dut_mac_bytes.push_back(parse_mac_address(dut_mac));
 
     // Start sender and receiver threads
-    std::thread receiver(receive_packets, std::string(argv[1]), dut_mac_bytes);
+    std::thread receiver(receive_packets, std::string(argv[1]), dut_mac_bytes[0]);
 
     std::this_thread::sleep_for(std::chrono::seconds(2)); // Give time for receiver thread to start receiving before starting sender
 
