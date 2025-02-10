@@ -98,50 +98,47 @@ def test_hw_mii_rx_only(request, send_method):
 
 
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_only" / "hw_test_mii_rx_only.xe"
-    xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
-    xcoreapp.__enter__()
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
+        print("Wait for DUT to be ready")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+        if verbose:
+            print(stderr)
 
-    print("Wait for DUT to be ready")
-    stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-    if verbose:
-        print(stderr)
+        print("Set DUT Mac address")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
+        if verbose:
+            print(f"stdout = {stdout}")
+            print(f"stderr = {stderr}")
 
-    print("Set DUT Mac address")
-    stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
-    if verbose:
-        print(f"stdout = {stdout}")
-        print(f"stderr = {stderr}")
+        print(f"Send {num_packets} packets now")
+        send_time = []
 
-    print(f"Send {num_packets} packets now")
-    send_time = []
+        if send_method == "scapy":
+            if test_type == 'seq_id':
+                thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
+            else:
+                thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
 
-    if send_method == "scapy":
-        if test_type == 'seq_id':
-            thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
-        else:
-            thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
+            thread_send.start()
+            thread_send.join()
 
-        thread_send.start()
-        thread_send.join()
+            print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
 
-        print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
+            sleep_time = 0
+            if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
+                sleep_time += (test_duration_s - send_time[0])
 
-        sleep_time = 0
-        if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
-            sleep_time += (test_duration_s - send_time[0])
+            time.sleep(sleep_time + 10) # Add an extra 10s of buffer
+        elif send_method == "socket":
+            socket_host.send(num_packets)
 
-        time.sleep(sleep_time + 10) # Add an extra 10s of buffer
-    elif send_method == "socket":
-        socket_host.send(num_packets)
+        print("Retrive status and shutdown DUT")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
-    print("Retrive status and shutdown DUT")
-    stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        if verbose:
+            print(stderr)
+        print("Terminating!!!")
 
-    if verbose:
-        print(stderr)
-
-    print("Terminating!!!")
-    xcoreapp.terminate()
 
     errors = []
 

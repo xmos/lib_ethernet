@@ -32,7 +32,7 @@ def test_hw_mii_rx_only(request, send_method):
         test_duration_s = 0.4
     test_duration_s = float(test_duration_s)
 
-    verbose = True
+    verbose = False
     seed = 0
     rand = random.Random()
     rand.seed(seed)
@@ -86,43 +86,40 @@ def test_hw_mii_rx_only(request, send_method):
 
 
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_multiple_queues" / "hw_test_mii_rx_multiple_queues.xe"
-    xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
-    xcoreapp.__enter__()
-
-    print("Wait for DUT to be ready")
-    stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-    if verbose:
-        print(stderr)
-
-    print("Set DUT Mac address for each RX client")
-    for i,m in enumerate(dut_mac_address_str.split()):
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(i, m)
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
+        print("Wait for DUT to be ready")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
         if verbose:
-            print(f"stdout = {stdout}")
-            print(f"stderr = {stderr}")
+            print(stderr)
 
-    print(f"Send {num_packets} packets now")
+        print("Set DUT Mac address for each RX client")
+        for i,m in enumerate(dut_mac_address_str.split()):
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(i, m)
+            if verbose:
+                print(f"stdout = {stdout}")
+                print(f"stderr = {stderr}")
 
-    if send_method == "socket":
-        # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
-        socket_host.send_non_blocking(num_packets)
-        stopped = [False, False] # The rx clients are receiving by default
-        while socket_host.send_in_progress():
-            client_index = rand.randint(0,1) # client 0 and 1 are LP so toggle receiving for one of them
-            stopped[client_index] = stopped[client_index] ^ 1
-            delay = rand.randint(1, 1000) * 0.0001 # Up to 100 ms wait before toggling 'stopped'
-            time.sleep(delay)
-            xcoreapp.xscope_controller_cmd_set_dut_receive(client_index, stopped[client_index])
+        print(f"Send {num_packets} packets now")
+
+        if send_method == "socket":
+            # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
+            socket_host.send_non_blocking(num_packets)
+            stopped = [False, False] # The rx clients are receiving by default
+            while socket_host.send_in_progress():
+                client_index = rand.randint(0,1) # client 0 and 1 are LP so toggle receiving for one of them
+                stopped[client_index] = stopped[client_index] ^ 1
+                delay = rand.randint(1, 1000) * 0.0001 # Up to 100 ms wait before toggling 'stopped'
+                time.sleep(delay)
+                xcoreapp.xscope_controller_cmd_set_dut_receive(client_index, stopped[client_index])
 
 
-    print("Retrive status and shutdown DUT")
-    stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        print("Retrive status and shutdown DUT")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
-    if verbose:
-        print(stderr)
+        if verbose:
+            print(stderr)
+        print("Terminating!!!")
 
-    print("Terminating!!!")
-    xcoreapp.terminate()
 
     errors = []
 

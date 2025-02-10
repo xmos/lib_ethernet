@@ -28,9 +28,9 @@ target_link_libraries(socket_send_recv PRIVATE Threads::Threads)
 
 
 # RECEIVE
-add_executable(socket_recv ${CMAKE_CURRENT_LIST_DIR}/recv/l2_recv.cpp ${COMMON_FILES} )
-target_include_directories(socket_recv PRIVATE ${CMAKE_CURRENT_LIST_DIR}/shared)
+#add_executable(socket_recv ${CMAKE_CURRENT_LIST_DIR}/recv/l2_recv.cpp ${COMMON_FILES} )
+#target_include_directories(socket_recv PRIVATE ${CMAKE_CURRENT_LIST_DIR}/shared)
 
 # Link the pthread library (needed for multithreading)
-find_package(Threads REQUIRED)
-target_link_libraries(socket_recv PRIVATE Threads::Threads)
+#find_package(Threads REQUIRED)
+#target_link_libraries(socket_recv PRIVATE Threads::Threads)
