@@ -78,6 +78,11 @@ class XcoreAppControl(XcoreApp):
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_macaddr", str(mac_addr)], timeout)
         return stdout, stderr
 
+    def xscope_controller_cmd_set_host_ready_to_receive(self, timeout=30):
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_ready_to_receive"], timeout)
+        return stdout, stderr
+
+
 
 class SocketHost():
     def __init__(self, eth_intf, host_mac_addr, dut_mac_addr):
@@ -169,7 +174,7 @@ class SocketHost():
     def recv(self, capture_file):
         self.set_cap_net_raw(self.socket_recv_app)
 
-        ret = subprocess.run([self.socket_recv_app, self.eth_intf, capture_file, self.host_mac_addr , self.dut_mac_addr],
+        ret = subprocess.run([self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file],
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (

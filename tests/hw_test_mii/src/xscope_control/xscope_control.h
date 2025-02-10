@@ -6,7 +6,8 @@
 enum {
     CMD_DEVICE_SHUTDOWN = 1,
     CMD_SET_DEVICE_MACADDR,
-    CMD_SET_HOST_MACADDR
+    CMD_SET_HOST_MACADDR,
+    CMD_HOST_READY_TO_RECEIVE
 };
 
 void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients);

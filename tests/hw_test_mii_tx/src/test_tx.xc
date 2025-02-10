@@ -40,9 +40,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
 
   cfg.add_ethertype_filter(index, 0x2222);
 
-  debug_printf("Test started\n");
-  unsigned pkt_count = 0;
-  unsigned num_rx_bytes = 0;
+
   uint8_t broadcast[MACADDR_NUM_BYTES];
   for(int i=0; i<MACADDR_NUM_BYTES; i++)
   {
@@ -51,23 +49,19 @@ void test_tx_lp(client ethernet_cfg_if cfg,
  
 
 
-  // unsigned timestamps[NUM_TS_LOGS];
-  // seq_id_pair_t seq_id_err_log[NUM_SEQ_ID_MISMATCH_LOGS];
-
-  unsigned counter = 0;
-  unsigned count_seq_id_err_log = 0;
-  unsigned count_seq_id_mismatch = 0;
-  unsigned total_missing = 0;
-  unsigned prev_seq_id, prev_timestamp;
-  unsigned max_ifg = 0, min_ifg = 10000000; // Max and min observed IFG in reference
+  int num_packets_to_send = 1000;
+  int packet_length = MAX_PACKET_BYTES;
+  debug_printf("DUT preparing to send %d packets of length %d\n", num_packets_to_send, packet_length);
 
   c_xscope_control <: 1; // Indicate ready
 
-  unsigned test_fail = 0;
 
-  debug_printf("test_tx_lp\n");
 
   delay_milliseconds(4000);
+
+  int cmd;
+  c_xscope_control :> cmd;
+  debug_printf("Got OK from host: %d\n", cmd);
 
 
   // uint8_t tx_target_mac[MACADDR_NUM_BYTES] = {0xa4, 0xae, 0x12, 0x77, 0x86, 0x97};
@@ -83,7 +77,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
 
   const int length = MAX_PACKET_BYTES;
 
-  for(int i = 0; i < 100; i++){
+  for(int i = 0; i < num_packets_to_send; i++){
     memcpy(&data[14], &i, sizeof(i));
     tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
     debug_printf("sent: %d\n", i);
@@ -102,6 +96,12 @@ void test_tx_hp(client ethernet_cfg_if cfg,
   c_xscope_control <: 1; // Indicate ready
   debug_printf("test_tx_hp\n");
   delay_milliseconds(5000);
+
+  
+  int cmd;
+  c_xscope_control :> cmd;
+  debug_printf("Got OK from host: %d\n", cmd);
+
 
   c_xscope_control :> int _;
   c_xscope_control <: 1; // Indicate shutdown
