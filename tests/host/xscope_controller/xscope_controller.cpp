@@ -11,6 +11,7 @@
 #endif
 #include <errno.h>
 #include <sstream>
+#include <cstdint>
 #include <vector>
 #include <iostream>
 #include <xscope_endpoint.h>

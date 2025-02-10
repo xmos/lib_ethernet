@@ -21,8 +21,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
     while(!done)
     {
         select {
-            case ( size_t i = 0; i < num_clients; i ++)
-                c_clients[i] :> int r:
+            case ( size_t i = 0; i < num_clients; i ++) c_clients[i] :> int r:
                 assert(r == 1);
                 assert(ready[i] == 0);
                 ready[i] = r;
