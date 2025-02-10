@@ -2,6 +2,7 @@
 #include <platform.h>
 #include <stdlib.h>
 #include <xscope.h>
+#include <string.h>
 #include <assert.h>
 #include "debug_print.h"
 #include "xscope_control.h"
@@ -107,14 +108,21 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 }
-                else if(char_ptr[0] == CMD_HOST_READY_TO_RECEIVE)
+                else if(char_ptr[0] == CMD_HOST_SET_DUT_TX_PACKETS)
                 {
+                    unsigned num, len;
+                    memcpy(&num, &char_ptr[1], sizeof(num));
+                    memcpy(&len, &char_ptr[1 + sizeof(num)], sizeof(len));
+                    debug_printf("set dut tx packets %u %u\n", num, len);
+
                     // Send ready to each client (not phy driver though)
                     for(int i=1; i<num_clients; i++)
                     {
-                        c_clients[i] <: CMD_HOST_READY_TO_RECEIVE;
+                        c_clients[i] <: CMD_HOST_SET_DUT_TX_PACKETS;
+                        c_clients[i] <: num;
+                        c_clients[i] <: len;
                     }
-                    // Acknowledge
+                    // Acknowledge host app
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 }

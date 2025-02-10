@@ -78,8 +78,8 @@ class XcoreAppControl(XcoreApp):
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_macaddr", str(mac_addr)], timeout)
         return stdout, stderr
 
-    def xscope_controller_cmd_set_host_ready_to_receive(self, timeout=30):
-        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_ready_to_receive"], timeout)
+    def xscope_controller_cmd_set_dut_tx_packets(self, num_packets, packet_len, timeout=30):
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_tx_packets", str(num_packets), str(packet_len)], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_set_dut_receive(self, client_index, recv_flag, timeout=30):

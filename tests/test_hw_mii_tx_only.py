@@ -68,6 +68,18 @@ def test_hw_mii_tx_only(request, send_method):
         test_duration_s = 0.4
     test_duration_s = float(test_duration_s)
 
+    expected_packet_len = 1000
+    packet_overhead = 8 + 4 + 12
+    bits_per_packet = 8 * (expected_packet_len + packet_overhead)
+    line_speed = 100e6
+    total_bits = line_speed * test_duration_s
+
+    expected_packet_count = int(total_bits / bits_per_packet)
+
+    # assert test_duration_s <= 5 # Max traffic supported on ed's machine
+
+    print(f"Asking DUT to send {expected_packet_count} packets of size {expected_packet_len}")
+
     test_type = "seq_id"
     verbose = False
     seed = 0
@@ -94,15 +106,6 @@ def test_hw_mii_tx_only(request, send_method):
 
     print("Wait for DUT to be ready")
     stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-    #extract DUT details from stderr
-    regex = r".*DUT preparing to send (\d+) packets of length (\d+).*"
-    match = re.search(regex, stderr)
-    if match:
-        expected_packet_count = int(match.groups()[0])
-        expected_packet_len = int(match.groups()[1])
-    else:
-        assert 0, f"could not find {regex} in {stderr}"
-
     if verbose:
         print(stderr)
 
@@ -114,7 +117,7 @@ def test_hw_mii_tx_only(request, send_method):
 
         thread_sniff.start()
         # now signal to DUT that we are ready to receive
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_host_ready_to_receive()
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(expected_packet_count, expected_packet_len)
         print(f"DUT stdout ready to rx: {stdout} {stderr}")
 
         thread_sniff.join()
@@ -129,8 +132,8 @@ def test_hw_mii_tx_only(request, send_method):
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
         socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
-        # now signal to DUT that we are ready to receive
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_host_ready_to_receive()
+        # now signal to DUT that we are ready to receive and say what we want from it
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(expected_packet_count, expected_packet_len)
         print(f"DUT stdout post ready to rx: {stdout} {stderr}")
         host_received_packets = socket_host.recv(capture_file)
         print(f"Received packets: {host_received_packets}")

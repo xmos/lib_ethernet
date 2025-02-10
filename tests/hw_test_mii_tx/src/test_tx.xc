@@ -50,16 +50,16 @@ void test_tx_lp(client ethernet_cfg_if cfg,
  
 
 
-  int num_packets_to_send = 100000;
-  int packet_length = MAX_PACKET_BYTES;
-  debug_printf("DUT preparing to send %d packets of length %d\n", num_packets_to_send, packet_length);
+  unsigned num_packets_to_send = 0;
+  unsigned packet_length = MAX_PACKET_BYTES;
 
   c_xscope_control <: 1; // Indicate ready
 
   // wait for all clear from host app
-  int cmd;
-  c_xscope_control :> cmd;
-  debug_printf("Got OK from host LP: %d\n", cmd);
+  c_xscope_control :> int _; //cmd
+  c_xscope_control :> num_packets_to_send;
+  c_xscope_control :> packet_length;
+  debug_printf("Got %u %u from host LP\n", num_packets_to_send, packet_length);
 
   delay_milliseconds(HOST_READY_TO_RECEIVE_TIME_MS);
 
@@ -75,11 +75,9 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   memcpy(&data[12], ether_type, sizeof(ether_type));
 
 
-  const int length = MAX_PACKET_BYTES;
-
   for(int i = 0; i < num_packets_to_send; i++){
-    memcpy(&data[14], &i, sizeof(i));
-    tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
+    memcpy(&data[14], &i, sizeof(i)); // sequence ID
+    tx.send_packet(data, packet_length, ETHERNET_ALL_INTERFACES);
     debug_printf("sent: %d\n", i);
   }
 
@@ -97,10 +95,13 @@ void test_tx_hp(client ethernet_cfg_if cfg,
   c_xscope_control <: 1; // Indicate ready
   debug_printf("test_tx_hp\n");
 
-  // wait for all clear from host app
-  int cmd;
-  c_xscope_control :> cmd;
-  debug_printf("Got OK from host HP: %d\n", cmd);
+  // Get commands from host
+  unsigned num_packets_to_send = 0;
+  unsigned packet_length = MAX_PACKET_BYTES;
+  c_xscope_control :> int _; //cmd
+  c_xscope_control :> num_packets_to_send;
+  c_xscope_control :> packet_length;
+  debug_printf("Got %d %d from host HP\n", num_packets_to_send, packet_length);
 
   delay_milliseconds(HOST_READY_TO_RECEIVE_TIME_MS);
 
