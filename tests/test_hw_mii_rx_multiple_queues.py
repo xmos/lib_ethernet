@@ -32,7 +32,7 @@ def test_hw_mii_rx_only(request, send_method):
         test_duration_s = 0.4
     test_duration_s = float(test_duration_s)
 
-    verbose = False
+    verbose = True
     seed = 0
     rand = random.Random()
     rand.seed(seed)
@@ -102,10 +102,18 @@ def test_hw_mii_rx_only(request, send_method):
             print(f"stderr = {stderr}")
 
     print(f"Send {num_packets} packets now")
-    send_time = []
 
     if send_method == "socket":
-        socket_host.send(num_packets)
+        # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
+        socket_host.send_non_blocking(num_packets)
+        stopped = [False, False] # The rx clients are receiving by default
+        while socket_host.send_in_progress():
+            client_index = rand.randint(0,1) # client 0 and 1 are LP so toggle receiving for one of them
+            stopped[client_index] = stopped[client_index] ^ 1
+            delay = rand.randint(1, 1000) * 0.0001 # Up to 100 ms wait before toggling 'stopped'
+            time.sleep(delay)
+            xcoreapp.xscope_controller_cmd_set_dut_receive(client_index, stopped[client_index])
+
 
     print("Retrive status and shutdown DUT")
     stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
@@ -125,7 +133,7 @@ def test_hw_mii_rx_only(request, send_method):
         for m in matches:
             errors.append(m)
 
-    client_index = 0
+    client_index = 2 # We're interested in checking that the HP client (index 2) has received all the packets
     m = re.search(fr"DUT client index {client_index}: Received (\d+) bytes, (\d+) packets", stderr)
 
     if not m or len(m.groups()) < 2:

@@ -98,13 +98,8 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
         memset(pkt_ptr + 14, 0xAB, 1500);   // Payload (Dummy Data)
 
     }
-    //memcpy(packet, dest_mac[0].data(), 6);     // Destination MAC
-    //memcpy(packet + 6, src_mac.data(), 6);  // Source MAC
-    //memcpy(packet + 12, &ethertype, 2); // EtherType
-    //memset(packet + 14, 0xAB, 1500);   // Payload (Dummy Data)
 
     unsigned int num_packets = std::stoi(num_packets_str);
-
     printf("Sending %u packets to ethernet interface %s\n", num_packets, eth_intf.c_str());
 
     // Send packets in a loop

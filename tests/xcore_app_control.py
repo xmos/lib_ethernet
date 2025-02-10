@@ -78,12 +78,17 @@ class XcoreAppControl(XcoreApp):
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_macaddr", str(mac_addr)], timeout)
         return stdout, stderr
 
+    def xscope_controller_cmd_set_dut_receive(self, client_index, recv_flag, timeout=30):
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_receive", str(client_index), str(recv_flag)], timeout)
+        return stdout, stderr
+
 
 class SocketHost():
     def __init__(self, eth_intf, host_mac_addr, dut_mac_addr):
         self.eth_intf = eth_intf
         self.host_mac_addr = host_mac_addr
         self.dut_mac_addr = dut_mac_addr
+        self.send_proc = None
 
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
@@ -145,6 +150,31 @@ class SocketHost():
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
+
+    def send_non_blocking(self, num_packets):
+        self.set_cap_net_raw(self.socket_send_app)
+        self.send_proc = subprocess.Popen(
+                [self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , *(self.dut_mac_addr.split())],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+    def send_in_progress(self):
+        assert self.send_proc
+        running = (self.send_proc.poll() == None)
+        if not running:
+            self.send_proc_stdout, self. send_proc_stderr = self.send_proc.communicate(timeout=60)
+            self.send_proc_returncode = self.send_proc.returncode
+            assert self.send_proc_returncode == 0, (
+                f"{self.socket_send_app} returned error"
+                + f"\nstdout:\n{self.send_proc_stdout}"
+                + f"\nstderr:\n{self. send_proc_stderr}"
+            )
+            self.send_proc = None
+        return running
+
+
 
     def send_recv(self, num_packets_to_send):
         self.set_cap_net_raw(self.socket_send_recv_app)

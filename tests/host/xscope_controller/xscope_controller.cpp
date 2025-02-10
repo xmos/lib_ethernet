@@ -20,7 +20,8 @@
 enum {
     CMD_DEVICE_SHUTDOWN = 1,
     CMD_SET_DEVICE_MACADDR,
-    CMD_SET_HOST_MACADDR
+    CMD_SET_HOST_MACADDR,
+    CMD_SET_DUT_RECEIVE
 };
 
 #define LINE_LENGTH 1024
@@ -242,6 +243,31 @@ int main(int argc, char *argv[]) {
             {
                 to_send[1+i] = host_mac_bytes[i];
             }
+            while (xscope_ep_request_upload(cmd_bytes, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned char result = wait_for_command_response();
+            if (result != 0)
+            {
+                return 1;
+            }
+        }
+        else if(strcmp(argv[3], "set_dut_receive") == 0)
+        {
+            if(argc != 6)
+            {
+                fprintf(stderr, "Incorrect usage of set_dut_receive command\n");
+                fprintf(stderr, "Usage: host_address port set_dut_receive <client_index> <recv_setting 0: don't receive, 1: receive>\n");
+                return 1;
+            }
+
+            unsigned client_id = std::atoi(argv[4]);
+            unsigned recv_flag = std::atoi(argv[5]);
+            assert((recv_flag == 0) || (recv_flag == 1));
+
+            static const int cmd_bytes = 3;
+            unsigned char to_send[cmd_bytes];
+            to_send[0] = CMD_SET_DUT_RECEIVE;
+            to_send[1] = client_id;
+            to_send[1] = recv_flag;
             while (xscope_ep_request_upload(cmd_bytes, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
             if (result != 0)
