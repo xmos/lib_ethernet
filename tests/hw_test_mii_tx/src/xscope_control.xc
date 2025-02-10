@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <xscope.h>
 #include <assert.h>
-#include "test_rx.h"
 #include "debug_print.h"
 
 #define XSCOPE_ID_CONNECT (0) // TODO duplicated currently
@@ -23,8 +22,8 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
     while(!done)
     {
         select {
-            case ( size_t i = 0; i < num_clients; i ++)
-                c_clients[i] :> int r:
+            case ( size_t i = 0; i < num_clients; i ++) c_clients[i] :> int r:
+                debug_printf("XC rcd from client: %d\n", i);
                 assert(r == 1);
                 assert(ready[i] == 0);
                 ready[i] = r;
@@ -57,6 +56,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     // Shutdown each client
                     for(int i=0; i<num_clients; i++)
                     {
+                        debug_printf("Sending shutdown to client: %d\n", i);   
                         c_clients[i] <: 1;
                         c_clients[i] :> int temp;
                     }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
-project(hw_test_mii)
+project(hw_test_mii_tx_only)
 
 set(APP_HW_TARGET           SLICEKIT-ETH-TRIANGLE1.xn)
 
@@ -14,11 +14,12 @@ set(COMPILER_FLAGS_COMMON   -g
                             -Os
                             -Wno-reinterpret-alignment
                             -DENABLE_DUT_TIMEOUT=0
-                            -fxscope
+                            -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1
+							-DETHERNET_SUPPORT_HP_QUEUES=1
+							-fxscope
                             )
 
-set(APP_COMPILER_FLAGS_rx_only      ${COMPILER_FLAGS_COMMON})
-set(APP_COMPILER_FLAGS_loopback      ${COMPILER_FLAGS_COMMON} -DLOOPBACK=1)
+set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
 
 set(APP_XSCOPE_SRCS src/config.xscope)
 

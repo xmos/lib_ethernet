@@ -113,6 +113,10 @@ class SocketHost():
         self.socket_send_recv_app = socket_host_dir / "build" / "socket_send_recv"
         assert self.socket_send_recv_app.exists(), f"socket host app {self.socket_send_recv_app} doesn't exist"
 
+        self.socket_recv_app = socket_host_dir / "build" / "socket_recv"
+        assert self.socket_recv_app.exists(), f"socket host app {self.socket_recv_app} doesn't exist"
+
+
     def set_cap_net_raw(self, app):
         cmd = f"sudo /usr/sbin/setcap cap_net_raw=eip {app}"
 
@@ -158,6 +162,25 @@ class SocketHost():
 
         return int(m.group(1))
 
+    def recv(self, capture_file):
+        self.set_cap_net_raw(self.socket_recv_app)
+
+        ret = subprocess.run([self.socket_recv_app, self.eth_intf, capture_file, self.host_mac_addr , self.dut_mac_addr],
+                             capture_output = True,
+                             text = True)
+        assert ret.returncode == 0, (
+            f"{self.socket_recv_app} returned runtime error"
+            + f"\nstdout:\n{ret.stdout}"
+            + f"\nstderr:\n{ret.stderr}"
+        )
+        print(f"stdout = {ret.stdout}")
+        print(f"stderr = {ret.stderr}")
+        m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
+        assert m, ("Sniffer doesn't report received packets"
+        + f"\nstdout:\n{ret.stdout}"
+        + f"\nstderr:\n{ret.stderr}")
+
+        return int(m.group(1))
 
 # Send the same packet in a loop
 def scapy_send_l2_pkts_loop(intf, packet, loop_count, time_container):
