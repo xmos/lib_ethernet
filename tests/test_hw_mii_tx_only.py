@@ -19,7 +19,7 @@ import platform
 pkg_dir = Path(__file__).parent
 
 
-def parse_packet_file(filename):
+def load_packet_file(filename):
     chunk_size = 6 + 6 + 2 + 4 + 4
     structures = []
     with open(filename, 'rb') as f:
@@ -37,6 +37,20 @@ def parse_packet_file(filename):
 
     return structures
 
+def parse_packet_summary(packet_summary, expect_count, expected_packet_len):
+    errors = ""
+    expected_seqid = 0
+    for packet in packet_summary:
+        seqid = packet[3]
+        length = packet[4]
+        if length != expected_packet_len:
+            errors += f"Incorrect length at seqid: {seqid}, expected: {expected_packet_len} got: {length}\n"
+        if seqid != expected_seqid:
+            errors += f"Missing seqid: {expected_seqid}, got: {seqid}\n"
+            expected_seqid = seqid
+        expected_seqid += 1
+
+    return errors if errors != "" else None
 
 @pytest.mark.parametrize('send_method', ['scapy', 'socket'])
 def test_hw_mii_tx_only(request, send_method):
@@ -80,6 +94,8 @@ def test_hw_mii_tx_only(request, send_method):
 
     capture_file = "packets.bin"
 
+    stdout, stderr = xcoreapp.xscope_controller_cmd_set_host_ready_to_receive()
+
     if verbose:
         print(stderr)
 
@@ -87,7 +103,7 @@ def test_hw_mii_tx_only(request, send_method):
     if send_method == "scapy":
         send_time = []
         seq_ids = []
-        thread_sniff = threading.Thread(target=sniff_pkt, args=[eth_intf, capture_file, dut_mac_address_str, test_duration_s+5, seq_ids])
+        thread_sniff = threading.Thread(target=sniff_pkt, args=[eth_intf, dut_mac_address_str, test_duration_s+5, seq_ids, capture_file])
 
         thread_sniff.start()
         thread_sniff.join()
@@ -106,40 +122,25 @@ def test_hw_mii_tx_only(request, send_method):
         print(f"Received packets: {host_received_packets}")
 
     print("Retrive status and shutdown DUT")
+
+
+    print(f"DUT stdout pre: {stdout} {stderr} {dir(xcoreapp)}")
+
     stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
 
-    errors = []
+    expected_packet_count = 100
+    expected_packet_len = 1514
 
-    packet_summary = parse_packet_file(capture_file)
-    print(packet_summary)
+    packet_summary = load_packet_file(capture_file)
+    errors = parse_packet_summary(packet_summary, expected_packet_count, expected_packet_len)
 
+    print(f"DUT stdout post: {stdout} {stderr}")
 
-    # Check for any seq id mismatch errors reported by the DUT
-    matches = re.findall(r"^DUT ERROR:.*", stderr, re.MULTILINE)
-    if matches:
-        errors.append(f"ERROR: DUT logs report errors.")
-        for m in matches:
-            errors.append(m)
+    if errors:
+        assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stderr}"
 
-    m = re.search(r"DUT: Received (\d+) bytes, (\d+) packets", stderr)
-    if not m or len(m.groups()) < 2:
-        errors.append(f"ERROR: DUT does not report received bytes and packets")
-    else:
-        bytes_received, packets_received = map(int, m.groups())
-        if int(packets_received) != num_packets:
-            errors.append(f"ERROR: Packets dropped. Sent {num_packets}, DUT Received {packets_received}")
-
-    errors = []
-
-
-    if len(errors):
-        error_msg = "\n".join(errors)
-        assert False, f"Various errors reported!!\n{error_msg}\n\nDUT stdout = {stderr}"
-
-
-
+# For local testing only
 if __name__ == "__main__":
-    packet_summary = parse_packet_file("packets.bin")
-    for packet in packet_summary:
-        print(f"{hex(packet[0])} {hex(packet[1])} {hex(packet[2])} {packet[3]} {packet[4]}")
+    packet_summary = load_packet_file("packets.bin")
+    print(parse_packet_summary(packet_summary, 100, 1514))

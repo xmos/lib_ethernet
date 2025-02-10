@@ -103,7 +103,6 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
             memcpy(&buffer[packet_save_len], &bytes_received, sizeof(bytes_received));
             packet_save_len += sizeof(bytes_received); // Add packet length to saved buffer.
             file.write(reinterpret_cast<const char*>(buffer), packet_save_len);
-            printf("wr %d %d\n", recvd_packets, bytes_received);
             if (!file) {
                 std::cerr << "Error: Writing to file failed!" << std::endl;
                 // return;
