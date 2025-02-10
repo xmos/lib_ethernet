@@ -71,6 +71,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned total_missing = 0;
   unsigned prev_seq_id, prev_timestamp;
   unsigned max_ifg = 0, min_ifg = 10000000; // Max and min observed IFG in reference
+  unsigned receiving = 1;
 
   c_xscope_control <: 1; // Indicate ready
 
@@ -79,7 +80,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   while (!done)
   {
     select {
-      case rx.packet_ready():
+      case receiving => rx.packet_ready():
         unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
         ethernet_packet_info_t packet_info;
         rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
@@ -189,6 +190,11 @@ void test_rx_lp(client ethernet_cfg_if cfg,
           }
           c_xscope_control <: 1; // Acknowledge
         }
+        else if(cmd == CMD_SET_DUT_RECEIVE)
+        {
+          c_xscope_control :> receiving;
+          c_xscope_control <: 1; // Acknowledge
+        }
         break;
     } // select
   }
@@ -285,7 +291,6 @@ void test_rx_hp(client ethernet_cfg_if cfg,
         }
         pkt_count += 1;
         num_rx_bytes += packet_info.len;
-        num_rx_bytes += packet_info.len;
         break;
 
       case c_xscope_control :> int cmd: // Shutdown received over xscope
@@ -310,6 +315,11 @@ void test_rx_hp(client ethernet_cfg_if cfg,
           {
             c_xscope_control :> host_mac_addr[i]; // host_mac_addr won't be used since this is an rx/loopback client
           }
+          c_xscope_control <: 1; // Acknowledge
+        }
+        else if(cmd == CMD_SET_DUT_RECEIVE)
+        {
+          c_xscope_control :> int temp; // This shouldn't be sent for a HP client
           c_xscope_control <: 1; // Acknowledge
         }
         break;
