@@ -32,7 +32,6 @@ def test_hw_mii_rx_only(request, send_method):
         test_duration_s = 0.4
     test_duration_s = float(test_duration_s)
 
-    test_type = "seq_id"
     verbose = False
     seed = 0
     rand = random.Random()
@@ -74,6 +73,7 @@ def test_hw_mii_rx_only(request, send_method):
     print(f"Going to test {num_packets} packets")
 
     if send_method == "scapy":
+        test_type = "no_seq_id"
         packet = MiiPacket(rand,
                         dst_mac_addr=dut_mac_address,
                         src_mac_addr=host_mac_address,

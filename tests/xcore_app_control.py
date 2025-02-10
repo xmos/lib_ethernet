@@ -122,8 +122,8 @@ class SocketHost():
         self.socket_send_recv_app = socket_host_dir / "build" / "socket_send_recv"
         assert self.socket_send_recv_app.exists(), f"socket host app {self.socket_send_recv_app} doesn't exist"
 
-        #self.socket_recv_app = socket_host_dir / "build" / "socket_recv"
-        #assert self.socket_recv_app.exists(), f"socket host app {self.socket_recv_app} doesn't exist"
+        self.socket_recv_app = socket_host_dir / "build" / "socket_recv"
+        assert self.socket_recv_app.exists(), f"socket host app {self.socket_recv_app} doesn't exist"
 
 
     def set_cap_net_raw(self, app):
