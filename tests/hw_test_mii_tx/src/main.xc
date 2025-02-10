@@ -5,7 +5,8 @@
 #include <stdlib.h>
 #include "otp_board_info.h"
 #include "ethernet.h"
-#include "test_tx.h"
+#include "test_rx.h"
+#include "xscope_control.h"
 #include "smi.h"
 #include <xscope.h>
 

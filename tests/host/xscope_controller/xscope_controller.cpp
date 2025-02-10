@@ -10,9 +10,17 @@
 #include <unistd.h>
 #endif
 #include <errno.h>
+#include <sstream>
+#include <vector>
+#include <iostream>
 #include <xscope_endpoint.h>
 
-#define CMD_DEVICE_SHUTDOWN (1)
+
+enum {
+    CMD_DEVICE_SHUTDOWN = 1,
+    CMD_SET_DEVICE_MACADDR,
+    CMD_SET_HOST_MACADDR
+};
 
 #define LINE_LENGTH 1024
 
@@ -55,6 +63,25 @@ static int convert_atoi_substr(const char **buffer)
 
     *buffer = ptr;
     return value;
+}
+
+std::vector<unsigned char> parse_mac_address(std::string mac)
+{
+    std::vector<unsigned char> mac_bytes;
+    // Parse a string like "a4:ae:12:77:86:97" into a vector containing the 6 mac address bytes
+    std::stringstream ss(mac);
+    std::string byte;
+
+    while (std::getline(ss, byte, ':')) {  // Split by ':'
+        mac_bytes.push_back(static_cast<uint8_t>(std::stoi(byte, nullptr, 16)));  // Convert hex to int
+    }
+
+    std::cout << "Parsed MAC address bytes: ";
+    for (uint8_t b : mac_bytes) {
+        std::cout << std::hex << static_cast<int>(b) << " ";
+    }
+    std::cout << std::endl;
+    return mac_bytes;
 }
 
 #define COMMAND_RESPONSE_POLL_MS (1)
@@ -161,10 +188,60 @@ int main(int argc, char *argv[]) {
         } // if(strcmp(argv[3], "connect") == 0)
         else if(strcmp(argv[3], "shutdown") == 0)
         {
-            char to_send[1];
+            unsigned char to_send[1];
             to_send[0] = CMD_DEVICE_SHUTDOWN;
             fprintf(stderr, "xscope_controller sending cmd CMD_DEVICE_SHUTDOWN\n");
             while (xscope_ep_request_upload(1, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned char result = wait_for_command_response();
+            if (result != 0)
+            {
+                return 1;
+            }
+        }
+        else if(strcmp(argv[3], "set_dut_macaddr") == 0)
+        {
+            if(argc != 6)
+            {
+                fprintf(stderr, "Incorrect usage of set_dut_macaddr command\n");
+                fprintf(stderr, "Usage: host_address port set_dut_macaddr <client_index> <mac_addr, eg. 00:11:22:33:44:55>\n");
+                return 1;
+            }
+
+            unsigned client_id = std::atoi(argv[4]);
+            std::vector<unsigned char> dut_mac_bytes = parse_mac_address(argv[5]);
+            static const int cmd_bytes = 8;
+            unsigned char to_send[cmd_bytes];
+            to_send[0] = CMD_SET_DEVICE_MACADDR;
+            to_send[1] = client_id;
+            for(int i=0; i<6; i++)
+            {
+                to_send[2+i] = dut_mac_bytes[i];
+            }
+            while (xscope_ep_request_upload(cmd_bytes, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned char result = wait_for_command_response();
+            if (result != 0)
+            {
+                return 1;
+            }
+        }
+        else if(strcmp(argv[3], "set_host_macaddr") == 0)
+        {
+            if(argc != 5)
+            {
+                fprintf(stderr, "Incorrect usage of set_host_macaddr command\n");
+                fprintf(stderr, "Usage: host_address port set_host_macaddr <mac_addr, eg. 62:57:4a:b7:35:c8>\n");
+                return 1;
+            }
+
+            std::vector<unsigned char> host_mac_bytes = parse_mac_address(argv[4]);
+            static const int cmd_bytes = 7;
+            unsigned char to_send[cmd_bytes];
+            to_send[0] = CMD_SET_HOST_MACADDR;
+            for(int i=0; i<6; i++)
+            {
+                to_send[1+i] = host_mac_bytes[i];
+            }
+            while (xscope_ep_request_upload(cmd_bytes, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
             if (result != 0)
             {

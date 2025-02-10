@@ -15,10 +15,14 @@
 #define PACKET_SIZE 1514    // Ethernet frame size
 
 // Function to send packets
-void send_packets(std::string eth_intf, std::string num_packets_str, std::vector<unsigned char> src_mac, std::vector<unsigned char> dest_mac) {
+void send_packets(std::string eth_intf, std::string num_packets_str, std::vector<unsigned char> src_mac, std::vector<std::vector<unsigned char>> dest_mac) {
     int sockfd;
     unsigned char packet[PACKET_SIZE];
+    unsigned num_dest_mac_addresses = dest_mac.size();
     struct sockaddr_ll socket_address;
+
+    // Create one packet per dst mac address
+    std::vector<std::vector<unsigned char>> packets(num_dest_mac_addresses, std::vector<unsigned char>(PACKET_SIZE));
 
     // Create raw socket for sending
     sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -80,16 +84,24 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     // ensure data is transmitted before close
     struct linger sl;
     sl.l_onoff = 1;
-    sl.l_linger = 5; // Allow up to 5 seconds to empty 
+    sl.l_linger = 5; // Allow up to 5 seconds to empty
     setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
 
     // 4. Construct the Ethernet frame
     unsigned short ethertype = htons(ETHER_TYPE); // EtherType
+    for(int i=0; i<num_dest_mac_addresses; i++)
+    {
+        unsigned char *pkt_ptr = packets[i].data();
+        memcpy(pkt_ptr, dest_mac[i].data(), 6);     // Destination MAC
+        memcpy(pkt_ptr + 6, src_mac.data(), 6);  // Source MAC
+        memcpy(pkt_ptr + 12, &ethertype, 2); // EtherType
+        memset(pkt_ptr + 14, 0xAB, 1500);   // Payload (Dummy Data)
 
-    memcpy(packet, dest_mac.data(), 6);     // Destination MAC
-    memcpy(packet + 6, src_mac.data(), 6);  // Source MAC
-    memcpy(packet + 12, &ethertype, 2); // EtherType
-    memset(packet + 14, 0xAB, 1500);   // Payload (Dummy Data)
+    }
+    //memcpy(packet, dest_mac[0].data(), 6);     // Destination MAC
+    //memcpy(packet + 6, src_mac.data(), 6);  // Source MAC
+    //memcpy(packet + 12, &ethertype, 2); // EtherType
+    //memset(packet + 14, 0xAB, 1500);   // Payload (Dummy Data)
 
     unsigned int num_packets = std::stoi(num_packets_str);
 
@@ -98,15 +110,19 @@ void send_packets(std::string eth_intf, std::string num_packets_str, std::vector
     // Send packets in a loop
     for(unsigned i=0; i<num_packets; i++)
     {
-	    packet[14] = (i >> 24) & 0xff;
-	    packet[15] = (i >> 16) & 0xff;
-	    packet[16] = (i >> 8) & 0xff;
-	    packet[17] = (i >> 0) & 0xff;
-        // 5. Send the packet
-        if (sendto(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr*)&socket_address, sizeof(socket_address)) == -1) {
-            perror("sendto");
-            close(sockfd);
-            exit(1);
+        for(int dst=0; dst<num_dest_mac_addresses; dst++)
+        {
+            unsigned char *pkt_ptr = packets[dst].data();
+            pkt_ptr[14] = (i >> 24) & 0xff;
+            pkt_ptr[15] = (i >> 16) & 0xff;
+            pkt_ptr[16] = (i >> 8) & 0xff;
+            pkt_ptr[17] = (i >> 0) & 0xff;
+            // 5. Send the packet
+            if (sendto(sockfd, pkt_ptr, PACKET_SIZE, 0, (struct sockaddr*)&socket_address, sizeof(socket_address)) == -1) {
+                perror("sendto");
+                close(sockfd);
+                exit(1);
+            }
         }
     }
     close(sockfd);
