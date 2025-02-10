@@ -104,7 +104,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 }
-                if(char_ptr[0] == CMD_HOST_READY_TO_RECEIVE)
+                else if(char_ptr[0] == CMD_HOST_READY_TO_RECEIVE)
                 {
                     // Send ready to each client (not phy driver though)
                     for(int i=1; i<num_clients; i++)
@@ -114,7 +114,17 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     // Acknowledge
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
-                    return;
+                }
+                else if(char_ptr[0] == CMD_SET_DUT_RECEIVE)
+                {
+                    unsigned client_index = char_ptr[1];
+                    unsigned recv_flag = char_ptr[2];
+                    c_clients[1+client_index] <: CMD_SET_DUT_RECEIVE;
+                    c_clients[1+client_index] <: recv_flag;
+                    c_clients[1+client_index] :> int temp;
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 }
                 break;
         }
