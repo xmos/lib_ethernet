@@ -26,7 +26,8 @@ int main(int argc, char *argv[])
     dut_mac_bytes.push_back(parse_mac_address(dut_mac));
 
     // Start sender and receiver threads
-    std::thread receiver(receive_packets, std::string(argv[1]), dut_mac_bytes[0]);
+    std::string no_capture_file = "";
+    std::thread receiver(receive_packets, std::string(argv[1]), no_capture_file, dut_mac_bytes[0]);
 
     std::this_thread::sleep_for(std::chrono::seconds(2)); // Give time for receiver thread to start receiving before starting sender
 
