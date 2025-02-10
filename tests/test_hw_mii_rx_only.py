@@ -20,7 +20,8 @@ pkg_dir = Path(__file__).parent
 
 
 @pytest.mark.parametrize('send_method', ['scapy', 'socket'])
-def test_hw_mii_rx_only(request, send_method):
+@pytest.mark.parametrize('payload_len', ['max', 'min', 'random'])
+def test_hw_mii_rx_only(request, send_method, payload_len):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -37,8 +38,6 @@ def test_hw_mii_rx_only(request, send_method):
     rand = random.Random()
     rand.seed(seed)
 
-    payload_len = 'max'
-
     host_mac_address_str = get_mac_address(eth_intf)
     assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
     print(f"host_mac_address = {host_mac_address_str}")
@@ -51,28 +50,25 @@ def test_hw_mii_rx_only(request, send_method):
     dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
     ethertype = [0x22, 0x22]
-    num_packets = 0
+    num_packets_sent = 0
     packets = []
 
 
     # Create packets
-    print(f"Generating {test_duration_s} seconds of packet sequence")
-
-    if payload_len == 'max':
-        num_data_bytes = 1500
-    elif payload_len == 'random':
-        num_data_bytes = random.randint(46, 1500)
-    else:
-        assert False
-
-
-    packet_duration_bits = (14 + num_data_bytes + 4)*8 + 64 + 96 # Assume Min IFG
-
-    test_duration_bits = test_duration_s * 100e6
-    num_packets = int(float(test_duration_bits)/packet_duration_bits)
-    print(f"Going to test {num_packets} packets")
+    print(f"Going to test {test_duration_s} seconds of packets")
 
     if send_method == "scapy":
+        if payload_len == 'max':
+            num_data_bytes = 1500
+        elif payload_len == 'min':
+            num_data_bytes = 46
+        elif payload_len == 'random':
+            num_data_bytes = random.randint(46, 1500)
+        else:
+            assert False
+        packet_duration_bits = (14 + num_data_bytes + 4)*8 + 64 + 96 # Assume Min IFG
+        test_duration_bits = test_duration_s * 100e6
+        num_packets_sent = int(float(test_duration_bits)/packet_duration_bits)
         test_type = "no_seq_id"
         packet = MiiPacket(rand,
                         dst_mac_addr=dut_mac_address,
@@ -83,7 +79,7 @@ def test_hw_mii_rx_only(request, send_method):
                         )
         if test_type == 'seq_id':
             packets = []
-            for i in range(num_packets): # Update sequence IDs in payload
+            for i in range(num_packets_sent): # Update sequence IDs in payload
                 packet_copy = copy.deepcopy(packet)
                 packet_copy.data_bytes[0] = (i >> 24) & 0xff
                 packet_copy.data_bytes[1] = (i >> 16) & 0xff
@@ -110,14 +106,14 @@ def test_hw_mii_rx_only(request, send_method):
             print(f"stdout = {stdout}")
             print(f"stderr = {stderr}")
 
-        print(f"Send {num_packets} packets now")
+        print(f"Send {test_duration_s} seconds of packets now")
         send_time = []
 
         if send_method == "scapy":
             if test_type == 'seq_id':
                 thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
             else:
-                thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets, send_time]) # send the same packet in a loop
+                thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets_sent, send_time]) # send the same packet in a loop
 
             thread_send.start()
             thread_send.join()
@@ -130,7 +126,7 @@ def test_hw_mii_rx_only(request, send_method):
 
             time.sleep(sleep_time + 10) # Add an extra 10s of buffer
         elif send_method == "socket":
-            socket_host.send(num_packets)
+            num_packets_sent = socket_host.send(test_duration_s, payload_len=payload_len)
 
         print("Retrive status and shutdown DUT")
         stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
@@ -156,8 +152,8 @@ def test_hw_mii_rx_only(request, send_method):
         errors.append(f"ERROR: DUT does not report received bytes and packets")
     else:
         bytes_received, packets_received = map(int, m.groups())
-        if int(packets_received) != num_packets:
-            errors.append(f"ERROR: Packets dropped. Sent {num_packets}, DUT Received {packets_received}")
+        if int(packets_received) != num_packets_sent:
+            errors.append(f"ERROR: Packets dropped. Sent {num_packets_sent}, DUT Received {packets_received}")
 
     if len(errors):
         error_msg = "\n".join(errors)

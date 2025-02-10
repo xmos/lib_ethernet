@@ -53,30 +53,9 @@ def test_hw_mii_rx_only(request, send_method):
 
     print(f"dut_mac_addresses = {dut_mac_addresses}")
 
-    host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
-
-
-    ethertype = [0x22, 0x22]
-    num_packets = 0
-    packets = []
-
-
+    num_packets_sent = 0
     # Create packets
-    print(f"Generating {test_duration_s} seconds of packet sequence")
-
-    if payload_len == 'max':
-        num_data_bytes = 1500
-    elif payload_len == 'random':
-        num_data_bytes = random.randint(46, 1500)
-    else:
-        assert False
-
-
-    packet_duration_bits = (14 + num_data_bytes + 4)*8 + 64 + 96 # Assume Min IFG
-
-    test_duration_bits = test_duration_s * 100e6
-    num_packets = int(float(test_duration_bits)/packet_duration_bits)
-    print(f"Going to test {num_packets} packets")
+    print(f"Going to test {test_duration_s} seconds of packets")
 
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
@@ -99,11 +78,9 @@ def test_hw_mii_rx_only(request, send_method):
                 print(f"stdout = {stdout}")
                 print(f"stderr = {stderr}")
 
-        print(f"Send {num_packets} packets now")
-
         if send_method == "socket":
             # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
-            socket_host.send_non_blocking(num_packets)
+            socket_host.send_non_blocking(test_duration_s)
             stopped = [False, False] # The rx clients are receiving by default
             while socket_host.send_in_progress():
                 client_index = rand.randint(0,1) # client 0 and 1 are LP so toggle receiving for one of them
@@ -112,6 +89,7 @@ def test_hw_mii_rx_only(request, send_method):
                 time.sleep(delay)
                 xcoreapp.xscope_controller_cmd_set_dut_receive(client_index, stopped[client_index])
 
+        num_packets_sent = socket_host.num_packets_sent
 
         print("Retrive status and shutdown DUT")
         stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
@@ -137,8 +115,8 @@ def test_hw_mii_rx_only(request, send_method):
         errors.append(f"ERROR: DUT does not report received bytes and packets")
     else:
         bytes_received, packets_received = map(int, m.groups())
-        if int(packets_received) != num_packets:
-            errors.append(f"ERROR: Packets dropped. Sent {num_packets}, DUT Received {packets_received}")
+        if int(packets_received) != num_packets_sent:
+            errors.append(f"ERROR: Packets dropped. Sent {num_packets_sent}, DUT Received {packets_received}")
 
     if len(errors):
         error_msg = "\n".join(errors)
