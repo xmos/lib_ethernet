@@ -29,7 +29,7 @@ pipeline {
         defaultValue: 'v2.0.1',
         description: 'The infr_apps version'
     )
-    choice(name: 'TEST_TYPE', choices: ['fixed_seed', 'random_seed'],
+    choice(name: 'TEST_TYPE', choices: ['smoke', 'nightly'],
           description: 'Run tests with either a fixed seed or a randomly generated seed')
   }
   environment {
@@ -134,7 +134,7 @@ pipeline {
                     unstash 'test_bin'
                     script {
                     // Build all apps in the examples directory
-                      if(params.TEST_TYPE == 'fixed_seed')
+                      if(params.TEST_TYPE == 'smoke')
                       {
                         echo "Running tests with fixed seed ${env.SEED}"
                         sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw' "
@@ -176,16 +176,29 @@ pipeline {
             sh "git clone git@github.com:xmos/hardware_test_tools"
             sh "git -C hardware_test_tools checkout 2f9919c956f0083cdcecb765b47129d846948ed4"
 
+            sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
+            sh "git -C xtagctl checkout v2.0.0"
+
             dir("${REPO}") {
               withVenv {
                 sh "pip install -e ../test_support"
                 sh "pip install -e ../hardware_test_tools"
-                sh "pip install cmake"
+                sh "pip install -e ../xtagctl"
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
                     // Build all apps in the examples directory
                     unstash 'test_bin'
-                    sh "pytest -v -n auto --junitxml=pytest_result.xml --adapter-id JnD5pZ3Q --eth-intf eno1 --test-duration 12 -k 'hw' "
+                    script {
+                        // Set environment variable based on condition
+                        def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
+                        // Use withEnv to pass the variable to the shell
+                        withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
+                          withXTAG(["ethernet_slicekit_xcore200_dut"]) { xtagIds ->
+                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} -k 'hw and (rx or loopback)' "
+                          } // withXTAG
+                        } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
+                    } // script
+
                     junit "pytest_result.xml"
                   } // dir("tests")
                 } // withTools
