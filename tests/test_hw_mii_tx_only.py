@@ -121,11 +121,15 @@ def test_hw_mii_tx_only(request, send_method):
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
         socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
+        socket_host.recv_asynch_start(capture_file)
+
         # now signal to DUT that we are ready to receive and say what we want from it
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len)
         stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp for now
-        print(f"DUT stdout post ready to rx: {stdout} {stderr}")
-        host_received_packets = socket_host.recv(capture_file)
+        print(f"{stdout} {stderr}")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len)
+        print(f"{stdout} {stderr}")
+
+        host_received_packets = socket_host.recv_asynch_wait_complete()
         print(f"Received packets: {host_received_packets}")
 
     print("Retrive status and shutdown DUT")

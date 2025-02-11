@@ -119,6 +119,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     c_clients[1+client_index] <: CMD_HOST_SET_DUT_TX_PACKETS;
                     c_clients[1+client_index] <: arg1;
                     c_clients[1+client_index] <: arg2;
+                    c_clients[1+client_index] :>  int temp;
                     // Acknowledge host app
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
