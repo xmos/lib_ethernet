@@ -140,7 +140,7 @@ void test_tx_hp(client ethernet_cfg_if cfg,
     c_tx_synch :> int _;
   }
 
-  while(!done)
+  while(!hp_finished)
   {
     ethernet_send_hp_packet(c_tx_hp, (char *)data, packet_length, ETHERNET_ALL_INTERFACES);
     select
