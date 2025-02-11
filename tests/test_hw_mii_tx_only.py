@@ -65,7 +65,7 @@ def test_hw_mii_tx_only(request, send_method):
 
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
-        test_duration_s = 0.4
+        test_duration_s = 10
     test_duration_s = float(test_duration_s)
 
     expected_packet_len = 1000

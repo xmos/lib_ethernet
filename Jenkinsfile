@@ -194,7 +194,7 @@ pipeline {
                         // Use withEnv to pass the variable to the shell
                         withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
                           withXTAG(["ethernet_slicekit_xcore200_dut"]) { xtagIds ->
-                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} -k 'hw and (rx or loopback)' "
+                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} -k 'hw' "
                           } // withXTAG
                         } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                     } // script

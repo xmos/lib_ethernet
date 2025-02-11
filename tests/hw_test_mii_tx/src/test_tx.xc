@@ -85,25 +85,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
 
   // get config
   {num_packets_to_send, packet_length} = get_config_from_host(c_xscope_control, tx_source_mac, tx_target_mac);
-  debug_printf("LP got num packets: %u length: %u\n", num_packets_to_send, packet_length);
-
-#if 0
-  // setup mac addresses
-  ethernet_macaddr_filter_t macaddr_filter;
-  macaddr_filter.appdata = 0;
-
-  for (int i = 0; i < MACADDR_NUM_BYTES; i++){
-    macaddr_filter.addr[i] = tx_source_mac[i];
-  }
-
-  size_t index = rx.get_index();
-  cfg.add_macaddr_filter(index, 0, macaddr_filter);
-
-  // Add broadcast filter
-  memset(macaddr_filter.addr, 0xff, MACADDR_NUM_BYTES);
-  cfg.add_macaddr_filter(index, 0, macaddr_filter);
-  cfg.add_ethertype_filter(index, &ether_type);
-#endif
+  debug_printf("LP got commands num packets: %u length: %u\n", num_packets_to_send, packet_length);
 
   // Ethernet packet setup
   char data[MAX_PACKET_BYTES] = {0};
@@ -142,7 +124,7 @@ void test_tx_hp(client ethernet_cfg_if cfg,
 
   // get config
   {bandwidth_bps, packet_length} = get_config_from_host(c_xscope_control, tx_source_mac, tx_target_mac);
-  debug_printf("HP got bandwidth %u packet length %u from host LP\n", bandwidth_bps, packet_length);
+  debug_printf("HP got commands bandwidth %u packet length %u from host LP\n", bandwidth_bps, packet_length);
 
   // Ethernet packet setup
   char data[MAX_PACKET_BYTES] = {0};
