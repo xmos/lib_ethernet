@@ -110,18 +110,15 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 }
                 else if(char_ptr[0] == CMD_HOST_SET_DUT_TX_PACKETS)
                 {
-                    unsigned num, len;
-                    memcpy(&num, &char_ptr[1], sizeof(num));
-                    memcpy(&len, &char_ptr[1 + sizeof(num)], sizeof(len));
-                    debug_printf("set dut tx packets %u %u\n", num, len);
+                    unsigned client_index, arg1, arg2;
+                    memcpy(&client_index, &char_ptr[1], sizeof(client_index));
+                    memcpy(&arg1, &char_ptr[1 + sizeof(client_index)], sizeof(arg1));
+                    memcpy(&arg2, &char_ptr[1 + sizeof(client_index) + sizeof(arg1)], sizeof(arg2));
+                    debug_printf("set dut tx packets client: %u %u %u\n", client_index, arg1, arg2);
 
-                    // Send ready to each client (not phy driver though)
-                    for(int i=1; i<num_clients; i++)
-                    {
-                        c_clients[i] <: CMD_HOST_SET_DUT_TX_PACKETS;
-                        c_clients[i] <: num;
-                        c_clients[i] <: len;
-                    }
+                    c_clients[1+client_index] <: CMD_HOST_SET_DUT_TX_PACKETS;
+                    c_clients[1+client_index] <: arg1;
+                    c_clients[1+client_index] <: arg2;
                     // Acknowledge host app
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);

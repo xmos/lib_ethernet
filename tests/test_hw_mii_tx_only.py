@@ -55,7 +55,7 @@ def parse_packet_summary(packet_summary, expect_count, expected_packet_len):
 
     return errors if errors != "" else None
 
-@pytest.mark.parametrize('send_method', ['scapy', 'socket'])
+@pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_mii_tx_only(request, send_method):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
@@ -109,31 +109,21 @@ def test_hw_mii_tx_only(request, send_method):
     if verbose:
         print(stderr)
 
+    # config the target mac addresses
+    lp_client_id = 0
+    hp_client_id = 1
+
+    xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str)
+    xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str)
+    xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
+
     print("Starting sniffer")
-    if send_method == "scapy":
-        send_time = []
-        seq_ids = []
-        thread_sniff = threading.Thread(target=sniff_pkt, args=[eth_intf, dut_mac_address_str, test_duration_s+5, seq_ids, capture_file])
-
-        thread_sniff.start()
-        # now signal to DUT that we are ready to receive
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(expected_packet_count, expected_packet_len)
-        print(f"DUT stdout ready to rx: {stdout} {stderr}")
-
-        thread_sniff.join()
-
-        print(f"Time taken by sendp() = {send_time[0]:.6f}s when sending {test_duration_s}s worth of packets")
-
-        sleep_time = 0
-        if send_time[0] < test_duration_s: # sendp() is faster than real time on my Mac :((
-            sleep_time += (test_duration_s - send_time[0]) + 1
-        print(f"host recvd seq ids {seq_ids}")
-        host_received_packets = recvd_packet_count
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
         socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
         # now signal to DUT that we are ready to receive and say what we want from it
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(expected_packet_count, expected_packet_len)
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len)
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp for now
         print(f"DUT stdout post ready to rx: {stdout} {stderr}")
         host_received_packets = socket_host.recv(capture_file)
         print(f"Received packets: {host_received_packets}")

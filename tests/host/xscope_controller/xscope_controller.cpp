@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Usage: host_address port set_dut_macaddr <client_index> <mac_addr, eg. 00:11:22:33:44:55>\n");
                 return 1;
             }
-
+#
             unsigned client_id = std::atoi(argv[4]);
             std::vector<unsigned char> dut_mac_bytes = parse_mac_address(argv[5]);
             static const int cmd_bytes = 8;
@@ -253,18 +253,20 @@ int main(int argc, char *argv[]) {
         }
         else if(strcmp(argv[3], "set_dut_tx_packets") == 0)
         {
-            if(argc != 6)
+            if(argc != 7)
             {
                 fprintf(stderr, "Incorrect usage of set_dut_tx_packets command\n");
-                fprintf(stderr, "Usage: host_address port set_dut_tx_packets <num_pkts> <length>\n");
+                fprintf(stderr, "Usage: host_address port set_dut_tx_packets <client_num> <arg1> <arg2>\n");
                 return 1;
             }
-            unsigned num = std::atoi(argv[4]);
-            unsigned len = std::atoi(argv[5]);
-            unsigned char to_send[1 + sizeof(num) + sizeof(len)];
+            unsigned client = std::atoi(argv[4]);
+            unsigned arg1 = std::atoi(argv[5]);
+            unsigned arg2 = std::atoi(argv[6]);
+            unsigned char to_send[1 + sizeof(client) + sizeof(arg1) + sizeof(arg2)];
             to_send[0] = CMD_HOST_SET_DUT_TX_PACKETS;
-            memcpy(&to_send[1], &num, sizeof(num));
-            memcpy(&to_send[1 + sizeof(num)], &len, sizeof(len));
+            memcpy(&to_send[1], &client, sizeof(client));
+            memcpy(&to_send[1 + sizeof(client)], &arg1, sizeof(arg1));
+            memcpy(&to_send[1 + sizeof(client) + sizeof(arg1)], &arg2, sizeof(arg2));
 
             while (xscope_ep_request_upload(sizeof(to_send), (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
