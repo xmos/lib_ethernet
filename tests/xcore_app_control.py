@@ -9,7 +9,20 @@ from hardware_test_tools.XcoreApp import XcoreApp
 pkg_dir = Path(__file__).parent
 
 class XcoreAppControl(XcoreApp):
+    """
+    Class containing host side functions used for communicating with the XMOS device (DUT) over xscope port.
+    These are wrapper functions that run the C++ xscope host application which actually communicates with the DUT over xscope.
+    It is derived from XcoreApp which xruns the DUT application with the --xscope-port option.
+    """
     def __init__(self, adapter_id, xe_name, attach=None):
+        """
+        Initialise the XcoreAppControl class. This compiles the xscope host application (host/xscope_controller).
+        It also calls init for the base class XcoreApp, which xruns the XMOS device application (DUT) such that the host app
+        can communicate to it over xscope port
+
+        Parameter: compiled DUT application binary
+        adapter-id: adapter ID of the XMOS device
+        """
         assert platform.system() in ["Darwin", "Linux"]
         super().__init__(xe_name, adapter_id, attach=attach)
 
@@ -47,6 +60,17 @@ class XcoreAppControl(XcoreApp):
 
 
     def xscope_controller_do_command(self, xscope_controller, cmds, timeout):
+        """
+        Runs the xscope host app to connect to the DUT and execute a command over xscope port
+
+        Parameters:
+        xscope_controller: xscope host application binary
+        cmds: command + arguments for the command that needs to be executed
+        timeout: timeout in seconds for when not able to communicate with the device
+
+        Returns:
+        stdout and stderr from running the host application
+        """
         ret = subprocess.run(
             [xscope_controller, "localhost", f"{self.xscope_port}", *cmds],
             capture_output=True,
@@ -63,32 +87,97 @@ class XcoreAppControl(XcoreApp):
 
 
     def xscope_controller_cmd_connect(self, timeout=30):
+        """
+        Run command to ensure that the xcore device is setup and ready to communicate via ethernet
+
+        Returns:
+        stdout and stderr from running the host application
+        """
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["connect"], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_shutdown(self, timeout=30):
+        """
+        Run command to shutdown the xcore application threads and exit gracefully
+
+        Returns:
+        stdout and stderr from running the host application
+        """
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["shutdown"], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_set_dut_macaddr(self, client_index, mac_addr, timeout=30):
+        """
+        Run command to set the src mac address of a client running on the DUT.
+
+        Parameters:
+        client_index: index of the client.
+        mac_addr: mac address (example, 11:e0:24:df:33:66)
+
+        Returns:
+        stdout and stderr from running the host application
+        """
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_macaddr", str(client_index), str(mac_addr)], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_set_host_macaddr(self, mac_addr, timeout=30):
+        """
+        Run command to inform the DUT of the host's mac address. This is required so that a TX client running on the DUT knows the destination
+        mac address for the ethernet packets it is sending.
+
+        Parameters:
+        mac_addr: mac address (example, 11:e0:24:df:33:66)
+
+        Returns:
+        stdout and stderr from running the host application
+        """
+
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_host_macaddr", str(mac_addr)], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_set_dut_tx_packets(self, client_index, arg1, arg2, timeout=30):
+        """
+        Run command to inform the TX clients on the DUT the number of packets and length of each packet that it needs to transmit
+
+        Parameters:
+        arg1: number of packets to send for LP thread. qav bw in bps for HP thread
+        arg2: packet payload length in bytes
+
+        Returns:
+        stdout and stderr from running the host application
+        """
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_tx_packets", str(client_index), str(arg1), str(arg2)], timeout)
         return stdout, stderr
 
     def xscope_controller_cmd_set_dut_receive(self, client_index, recv_flag, timeout=30):
+        """
+        Run command to a given RX client on the DUT to start or stop receiving packets.
+
+        Parameters:
+        client_index: RX client index on the DUT
+        recv_flag: Flag indicating whether to receive (1) or not receive (0) the packet
+
+        Returns:
+        stdout and stderr from running the host application
+        """
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_receive", str(client_index), str(recv_flag)], timeout)
         return stdout, stderr
 
 
 class SocketHost():
+    """
+    Class containing functions that send and receive L2 ethernet packets over a raw socket.
+    """
     def __init__(self, eth_intf, host_mac_addr, dut_mac_addr):
+        """
+        Constructor for the SocketHost class. It compiles the C++ socket send and receive applications.
+
+        Parameters:
+        eth_intf: ethernet interface on which to send/receive packets
+        host_mac_addr: Mac address of the host. Used as src mac address for packets sent by the host. String of the form '11:22:33:44:55:66'
+        dut_mac_addr: List of mac addresses of the client running on the dut. For example, if the DUT has 3 client running, dut_mac_addr
+        is a string of the form '11:22:33:44:55:66 aa:bb:cc:dd:ee:ff 00:01:02:03:04:05'
+        """
         self.eth_intf = eth_intf
         self.host_mac_addr = host_mac_addr
         self.dut_mac_addr = dut_mac_addr
@@ -150,6 +239,13 @@ class SocketHost():
         return int(m.group(1))
 
     def send(self, test_duration_s, payload_len="max"):
+        """
+        Send L2 packets over a raw socket. This is a wrapper functin that runs the C++ socket send packets application.
+
+        Parameters:
+        test_duration_s: Test duration in seconds
+        payload_len: string. One of 'max', 'min' or 'random'. The socket send app generates max, min or random sized payload packets depending on this argument.
+        """
         assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
 
