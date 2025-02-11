@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <thread>
 #include <cstring>
 #include <unistd.h>
@@ -9,13 +10,14 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <atomic>
+#include <chrono>
 #include <shared.h>
 
 
 #define BUFFER_SIZE 65536
 unsigned recvd_packets = 0;
 
-void receive_packets(std::string eth_intf, std::vector<unsigned char> target_mac)
+void receive_packets(std::string eth_intf, std::string cap_file, std::vector<unsigned char> target_mac)
 {
     int sockfd;
     unsigned char buffer[BUFFER_SIZE];
@@ -53,7 +55,23 @@ void receive_packets(std::string eth_intf, std::vector<unsigned char> target_mac
     timeout.tv_usec = 0;
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
+    // Open cap file if specified
+    std::ofstream file;
+    bool capture_to_file = false;
+
+    if(!cap_file.empty()){
+        capture_to_file = true;
+        file.open(cap_file, std::ios::binary);
+
+        if (!file.is_open()) { // Check if file opened successfully
+            std::cerr << "Error: Could not open file for writing! - " << cap_file << std::endl;
+            return;
+        }
+        std::cout << "Opened file for writing! - " << cap_file << std::endl;
+    }
+
     std::cout << "[Receiver] Listening for packets on " << eth_intf << "...\n";
+    auto datum = std::chrono::high_resolution_clock::now(); // get time
 
     // Receive packets in a loop
     while (true) {
@@ -80,8 +98,22 @@ void receive_packets(std::string eth_intf, std::vector<unsigned char> target_mac
             recvd_packets += 1;
         }
 
+        if(capture_to_file){
+            size_t packet_save_len = 6 + 6 + 2 + 4; // dst, src, etype, seq_id, len
+            memcpy(&buffer[packet_save_len], &bytes_received, sizeof(bytes_received));
+            packet_save_len += sizeof(bytes_received); // Add packet length to saved buffer.
+            file.write(reinterpret_cast<const char*>(buffer), packet_save_len);
+            if (!file) {
+                std::cerr << "Error: Writing to file failed!" << std::endl;
+                // return;
+            }
+        }
+
+
     }
     printf("Receieved %u packets on ethernet interface %s\n", recvd_packets, eth_intf.c_str());
-
+    if(capture_to_file){
+        file.close();
+    }
     close(sockfd);
 }

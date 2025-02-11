@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "otp_board_info.h"
 #include "ethernet.h"
-#include "test_rx.h"
+#include "test_tx.h"
 #include "xscope_control.h"
 #include "smi.h"
 #include <xscope.h>
@@ -75,56 +75,42 @@ void lan8710a_phy_driver(client interface smi_if smi,
   }
 }
 
-#if MULTIPLE_QUEUES
-#define NUM_RX_LP_IF 2
-#define NUM_TX_LP_IF 2
-#define NUM_RX_HP_IF 1
-#else
-#define NUM_RX_LP_IF 1
 #define NUM_TX_LP_IF 1
-#define NUM_RX_HP_IF 0
-#endif
-
-#define NUM_CFG_CLIENTS   NUM_RX_HP_IF + NUM_RX_LP_IF + 1 /*lan8710a_phy_driver*/
+#define NUM_RX_LP_IF 2
+#define NUM_CFG_CLIENTS NUM_RX_LP_IF + 1 /*lan8710a_phy_driver*/
 
 int main()
 {
   ethernet_cfg_if i_cfg[NUM_CFG_CLIENTS];
-  ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
+  ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   smi_if i_smi;
   chan c_xscope;
   chan c_clients[NUM_CFG_CLIENTS];
-#if NUM_RX_HP_IF
-  streaming chan c_rx_hp;
-#else
-  #define c_rx_hp null
-#endif
+  streaming chan c_tx_hp;
 
+	
+
+	
 
   par {
     xscope_host_data(c_xscope);
     on tile[1]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
                                 i_rx_lp, NUM_RX_LP_IF,
                                 i_tx_lp, NUM_TX_LP_IF,
-                                c_rx_hp, null,
+                                null, c_tx_hp,
                                 p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
                                 p_eth_txclk, p_eth_txen, p_eth_txd,
                                 eth_rxclk, eth_txclk,
-                                4000, 4000, ETHERNET_DISABLE_SHAPER);
+                                4000, 4000, ETHERNET_ENABLE_SHAPER);
 
     on tile[1]: lan8710a_phy_driver(i_smi, i_cfg[0], c_clients[0]);
 
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
-    // RX threads
-    par ( size_t i = 0; i < NUM_RX_LP_IF; i ++)
-    {
-      on tile[0]: test_rx_lp(i_cfg[1+i], i_rx_lp[i], i_tx_lp[i], i, c_clients[1+i]);
-    }
-#if NUM_RX_HP_IF
-    on tile[0]: test_rx_hp(i_cfg[1+NUM_RX_LP_IF], c_rx_hp, NUM_RX_LP_IF, c_clients[1+NUM_RX_LP_IF]); // HP is the last client
-#endif
+    // TX threads
+    on tile[0]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[1]);
+    on tile[0]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, c_clients[2]);
 
     on tile[0]: {
       xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS);

@@ -12,6 +12,9 @@ void test_rx_lp(client ethernet_cfg_if cfg,
                  unsigned client_num,
                  chanend c_xscope_control);
 
-void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients);
+void test_rx_hp(client ethernet_cfg_if cfg,
+                streaming chanend c_rx_hp,
+                unsigned client_num,
+                chanend c_xscope_control);
 
 #endif // __icmp_h__

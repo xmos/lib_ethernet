@@ -20,13 +20,13 @@ This class contains helpers for running the Intona 7060-A Ethernet Debugger
 class hw_eth_debugger:
     # No need to pass binary if on the path. Device used to specify debugger if more than one
     def __init__(self, nose_bin_path=None, device=None):
-        # Find the "nose" binary that drives the debugger 
+        # Get the "nose" binary that drives the debugger 
         if nose_bin_path is None:
             result = subprocess.run("which nose".split(), capture_output=True, text=True)
             if result.returncode == 0:
                 self.nose_bin_path = Path(result.stdout.strip("\n"))
             else:
-                raise RuntimeError('Nose not found on system path')
+                self.nose_bin_path = self.build_binary()
         else:
             if not Path(nose_bin_path).isfile():
                 raise RuntimeError(f'Nose not found on supplied path: {nose_bin_path}')
@@ -57,6 +57,34 @@ class hw_eth_debugger:
         self.sock.close()
         print("hw_eth_debugger exited")
 
+    # This is tested as working on Linux and Mac
+    def build_binary(self):
+        repo_root = (Path(__file__).parent / "../..").resolve()
+        repo_name = "ethernet-debugger"
+        repo_dir = repo_root / repo_name
+        binary = repo_dir / "build/nose"
+
+        # Check to see if we have the app repo source
+        if not repo_dir.is_dir():
+            cmd = f"git clone --recursive git@github.com:intona/{repo_name}.git {repo_dir}"
+            result = subprocess.run(cmd.split(), check=True, text=True)
+            if result.returncode != 0:
+                raise(result.stderr)
+        else:
+            print(f"Repo {repo_dir} exists already, using that")
+
+        if not binary.is_file():
+            cmd = "meson setup build"
+            result = subprocess.run(cmd.split(), check=True, text=True, cwd=repo_dir)
+            if result.returncode != 0:
+                raise(result.stderr + "Need to install meson for the build stage")
+            cmd = "ninja -C build"
+            result = subprocess.run(cmd.split(), check=True, text=True, cwd=repo_dir)
+            if result.returncode != 0:
+                raise(result.stderr + "Need to install ninja for the build stage")
+
+        return binary
+
     def _send_cmd(self, cmd):
         self.sock.sendall((cmd + "\n").encode('utf-8'))
         print(f"SENT: {cmd}")
@@ -85,14 +113,12 @@ class hw_eth_debugger:
         json_cmd = dict()
         json_cmd["command"] = elements[0]
         params = elements[1:]
-        # if len(params) % 2 != 0:
-        #     raise RuntimeError(f'Params should be in pairs: {params}')
+        if len(params) % 2 != 0:
+            raise RuntimeError(f'Params should be in pairs: {params}')
     
         if len(params):
-            # for name, val in zip(params[::2], params[1::2]):
-                # json_cmd[name] = val
-            for param in params:
-                pass
+            for name, val in zip(params[::2], params[1::2]):
+                json_cmd[name] = val
 
         print(json_cmd)
         self.sock.sendall((json.dumps(json_cmd) + "\n").encode('utf-8'))
@@ -280,8 +306,8 @@ def get_mac_address(interface):
 
 # This is just for test
 if __name__ == "__main__":
-    # dbg = hw_eth_debugger()
-    # print(dbg.get_version())
+    dbg = hw_eth_debugger()
+    print(dbg.get_version())
     # print(dbg.inject_packets(1, "deadbeef"))
     # print(dbg.inject_packets_stop())
     # print(dbg.mdio_read(1, 0))
