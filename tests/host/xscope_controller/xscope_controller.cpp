@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Usage: host_address port set_dut_macaddr <client_index> <mac_addr, eg. 00:11:22:33:44:55>\n");
                 return 1;
             }
-#
+
             unsigned client_id = std::atoi(argv[4]);
             std::vector<unsigned char> dut_mac_bytes = parse_mac_address(argv[5]);
             static const int cmd_bytes = 8;

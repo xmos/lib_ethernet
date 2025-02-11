@@ -69,14 +69,12 @@ def test_hw_mii_tx_only(request, send_method):
     test_duration_s = float(test_duration_s)
 
     expected_packet_len = 1000
-    packet_overhead = 8 + 4 + 12
+    packet_overhead = 8 + 4 + 12 # preamble, crc and IFG
     bits_per_packet = 8 * (expected_packet_len + packet_overhead)
     line_speed = 100e6
     total_bits = line_speed * test_duration_s
 
     expected_packet_count = int(total_bits / bits_per_packet)
-
-    # assert test_duration_s <= 5 # Max traffic supported on ed's machine
 
     print(f"Asking DUT to send {expected_packet_count} packets of size {expected_packet_len}")
 
@@ -91,12 +89,14 @@ def test_hw_mii_tx_only(request, send_method):
     assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
     print(f"host_mac_address = {host_mac_address_str}")
 
-    dut_mac_address_str = "00:01:02:03:04:05"
-    print(f"dut_mac_address = {dut_mac_address_str}")
-
+    dut_mac_address_str_lp = "00:01:02:03:04:05"
+    dut_mac_address_str_hp = "f0:f1:f2:f3:f4:f5"
+    print(f"dut_mac_address_lp = {dut_mac_address_str_lp}")
+    print(f"dut_mac_address_hp = {dut_mac_address_str_hp}")
 
     host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
-    dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
+    dut_mac_address_lp = [int(i, 16) for i in dut_mac_address_str_lp.split(":")]
+    dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
 
     capture_file = "packets.bin"
    
@@ -109,12 +109,11 @@ def test_hw_mii_tx_only(request, send_method):
     if verbose:
         print(stderr)
 
-    # config the target mac addresses
+    # config contents of Tx packets
     lp_client_id = 0
     hp_client_id = 1
-
-    xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str)
-    xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str)
+    xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
+    xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
     xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
     print("Starting sniffer")
@@ -134,14 +133,13 @@ def test_hw_mii_tx_only(request, send_method):
 
     print("Retrive status and shutdown DUT")
 
+    # TODO fixme!!
     xcoreapp.terminate()
     # for some reason standard shutdown is not happy above 50k packets
     # stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
     packet_summary = load_packet_file(capture_file)
     errors = parse_packet_summary(packet_summary, expected_packet_count, expected_packet_len)
-
-    # print(f"DUT stdout post: {stdout} {stderr}")
 
     if errors:
         assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stderr}"

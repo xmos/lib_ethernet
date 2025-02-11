@@ -27,9 +27,9 @@ typedef struct
                                           uint8_t tx_target_mac[MACADDR_NUM_BYTES])
 {
   unsigned arg1 = 0 , arg2 = 0;
-  int running = 1;
+  int getting_config = 1;
 
-  while(running){
+  while(getting_config){
     select{
       case c_xscope_control :> int cmd: // Shutdown received over xscope
         if(cmd == CMD_SET_DEVICE_MACADDR)
@@ -55,16 +55,13 @@ typedef struct
           c_xscope_control :> arg1;
           c_xscope_control :> arg2;
           c_xscope_control <: 1; // Acknowledge
-          running = 0;
+          getting_config = 0;
         }
         break;
     } // select
-  } // running
+  } // getting_config
   return {arg1, arg2};
 }
-
-
-
 
 
 
@@ -73,7 +70,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
                  client ethernet_tx_if tx,
                  unsigned client_num,
                  chanend c_xscope_control,
-                 chanend c_lp_done)
+                 chanend c_tx_synch)
 {
   c_xscope_control <: 1; // Indicate ready
 
@@ -93,15 +90,18 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
+  // barrier synch with HP so they start at exactly the same time
+  c_tx_synch <: 0;
+
   // Send packets
   for(int i = 0; i < num_packets_to_send; i++){
     memcpy(&data[14], &i, sizeof(i)); // sequence ID
     tx.send_packet(data, packet_length, ETHERNET_ALL_INTERFACES);
   }
 
-  c_lp_done <: 0; // Break HP
+  c_tx_synch <: 0; // Break HP loop
 
-
+  // Wait for quit from xscope_control
   c_xscope_control :> int _;
   debug_printf("Got shutdown from host LP\n");
   c_xscope_control <: 1; // Acknowledge shutdown completion
@@ -113,7 +113,7 @@ void test_tx_hp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  streaming chanend c_tx_hp,
                  chanend c_xscope_control,
-                 chanend c_lp_done){
+                 chanend c_tx_synch){
   c_xscope_control <: 1; // Indicate ready
 
    // data structures needed for packet
@@ -134,23 +134,27 @@ void test_tx_hp(client ethernet_cfg_if cfg,
 
   cfg.set_egress_qav_idle_slope_bps(0, bandwidth_bps);
 
-  int done = 0;
+  int hp_finished = 0;
   if(bandwidth_bps == 0 || packet_length == 0){
-    done = 1;
+    hp_finished = 1;
+    c_tx_synch :> int _;
   }
+
   while(!done)
   {
-
     ethernet_send_hp_packet(c_tx_hp, (char *)data, packet_length, ETHERNET_ALL_INTERFACES);
     select
     {
-      case c_lp_done :> done:
+      // break sending HP when LP done
+      case c_tx_synch :> int _:
+        hp_finished = 1;
         break;
       default:
         break; 
     }
   }
 
+  // Wait for quit from xscope_control
   c_xscope_control :> int _;
   debug_printf("Got shutdown from host HP\n");
   c_xscope_control <: 1; // Indicate shutdown
