@@ -339,7 +339,7 @@ class SocketHost():
                                             stdout=subprocess.PIPE,
                                             stderr=subprocess.PIPE,
                                             text=True)
-        
+
     def recv_asynch_wait_complete(self):
         assert self.recv_proc
         while True:
@@ -349,11 +349,11 @@ class SocketHost():
                 self.recv_proc_returncode = self.recv_proc.returncode
                 assert self.recv_proc_returncode == 0, (
                     f"{self.socket_recv_app} returned runtime error"
-                    + f"\nstdout:\n{ret.stdout}"
-                    + f"\nstderr:\n{ret.stderr}"
+                    + f"\nstdout:\n{self.recv_proc_stdout}"
+                    + f"\nstderr:\n{self.recv_proc_stderr}"
                 )
-                # print(f"stdout = {ret.stdout}")
-                # print(f"stderr = {ret.stderr}")
+                # print(f"stdout = {self.recv_proc_stdout}")
+                # print(f"stderr = {self.recv_proc_stderr}")
                 m = re.search(r"Receieved (\d+) packets on ethernet interface", self.recv_proc_stdout)
                 assert m, ("Sniffer doesn't report received packets"
                 + f"\nstdout:\n{self.recv_proc_stdout}"

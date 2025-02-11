@@ -98,7 +98,7 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
     // Receive packets in a loop
     while (true) {
         //int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, nullptr, nullptr);
-        ssize_t bytes_received = recvmsg(sockfd, &msg, 0);
+        int bytes_received = recvmsg(sockfd, &msg, 0);
         if (bytes_received < 0) {
 	    if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 std::cout << "recvfrom timed out!!\n";
@@ -115,12 +115,25 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
         {
             recvd_packets += 1;
         }
+            // Extract timestamp
+        struct cmsghdr* cmsg;
+        struct timespec ts;
+        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != nullptr; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+            if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMPNS) {
+                memcpy(&ts, CMSG_DATA(cmsg), sizeof(ts));
+                //std::cout << "Packet received at: " << ts.tv_sec << "." << ts.tv_nsec << " seconds\n";
+                break;
+            }
+        }
 
         if(capture_to_file){
             size_t packet_save_len = 6 + 6 + 2 + 4; // dst, src, etype, seq_id, len
             memcpy(&buffer[packet_save_len], &bytes_received, sizeof(bytes_received));
             packet_save_len += sizeof(bytes_received); // Add packet length to saved buffer.
             file.write(reinterpret_cast<const char*>(buffer), packet_save_len);
+            file.write(reinterpret_cast<const char *>(&ts.tv_sec), sizeof(ts.tv_sec));
+            file.write(reinterpret_cast<const char *>(&ts.tv_nsec), sizeof(ts.tv_nsec));
+
             if (!file) {
                 std::cerr << "Error: Writing to file failed!" << std::endl;
                 // return;
