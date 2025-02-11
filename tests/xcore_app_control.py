@@ -333,6 +333,36 @@ class SocketHost():
 
         return int(m.group(1))
 
+    def recv_asynch_start(self, capture_file):
+        self.set_cap_net_raw(self.socket_recv_app)
+        self.recv_proc = subprocess.Popen([self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file],
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE,
+                                            text=True)
+        
+    def recv_asynch_wait_complete(self):
+        assert self.recv_proc
+        while True:
+            running = (self.recv_proc.poll() == None)
+            if not running:
+                self.recv_proc_stdout, self.recv_proc_stderr = self.recv_proc.communicate(timeout=60)
+                self.recv_proc_returncode = self.recv_proc.returncode
+                assert self.recv_proc_returncode == 0, (
+                    f"{self.socket_recv_app} returned runtime error"
+                    + f"\nstdout:\n{ret.stdout}"
+                    + f"\nstderr:\n{ret.stderr}"
+                )
+                # print(f"stdout = {ret.stdout}")
+                # print(f"stderr = {ret.stderr}")
+                m = re.search(r"Receieved (\d+) packets on ethernet interface", self.recv_proc_stdout)
+                assert m, ("Sniffer doesn't report received packets"
+                + f"\nstdout:\n{self.recv_proc_stdout}"
+                + f"\nstderr:\n{self.recv_proc_stderr}")
+
+                return int(m.group(1))
+            time.sleep(0.1)
+
+
 # Send the same packet in a loop
 def scapy_send_l2_pkts_loop(intf, packet, loop_count, time_container):
     frame = mii2scapy(packet)

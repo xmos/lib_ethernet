@@ -111,11 +111,6 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
-
-  // TODO make me asynch
-  delay_milliseconds(HOST_READY_TO_RECEIVE_TIME_MS);
-
-
   // Send packets
   for(int i = 0; i < num_packets_to_send; i++){
     memcpy(&data[14], &i, sizeof(i)); // sequence ID
@@ -156,8 +151,6 @@ void test_tx_hp(client ethernet_cfg_if cfg,
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
   cfg.set_egress_qav_idle_slope_bps(0, bandwidth_bps);
-
-  delay_milliseconds(HOST_READY_TO_RECEIVE_TIME_MS);
 
   int done = 0;
   if(bandwidth_bps == 0 || packet_length == 0){
