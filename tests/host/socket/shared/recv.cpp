@@ -55,6 +55,13 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
     timeout.tv_usec = 0;
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
+    // Enable timestamping
+    int flag = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMPNS, &flag, sizeof(flag)) < 0) {
+        perror("setsockopt SO_TIMESTAMPNS failed");
+        exit(1);
+    }
+
     // Open cap file if specified
     std::ofstream file;
     bool capture_to_file = false;
@@ -73,9 +80,25 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
     std::cout << "[Receiver] Listening for packets on " << eth_intf << "...\n";
     auto datum = std::chrono::high_resolution_clock::now(); // get time
 
+    struct msghdr msg;
+    struct iovec iov;
+    struct sockaddr_ll src_addr;
+    char control[512];  // For timestamp control message
+
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = &src_addr;
+    msg.msg_namelen = sizeof(src_addr);
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    iov.iov_base = buffer;
+    iov.iov_len = sizeof(buffer);
+    msg.msg_control = control;
+    msg.msg_controllen = sizeof(control);
+
     // Receive packets in a loop
     while (true) {
-        int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, nullptr, nullptr);
+        //int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, nullptr, nullptr);
+        int bytes_received = recvmsg(sockfd, &msg, 0);
         if (bytes_received < 0) {
 	    if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 std::cout << "recvfrom timed out!!\n";
@@ -90,12 +113,17 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
 
         if(memcmp(eth->h_source, target_mac.data(), 6) == 0)
         {
-            //std::cout << "[Receiver] Received " << bytes_received << " bytes\n";
-            //std::cout << "   Src MAC: ";
-            //for (int i = 0; i < 6; i++) std::cout << std::hex << (int)eth->h_source[i] << (i < 5 ? ":" : "\n");
-            //std::cout << "   Dst MAC: ";
-            //for (int i = 0; i < 6; i++) std::cout << std::hex << (int)eth->h_dest[i] << (i < 5 ? ":" : "\n");
             recvd_packets += 1;
+        }
+            // Extract timestamp
+        struct cmsghdr* cmsg;
+        struct timespec ts;
+        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != nullptr; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+            if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMPNS) {
+                memcpy(&ts, CMSG_DATA(cmsg), sizeof(ts));
+                //std::cout << "Packet received at: " << ts.tv_sec << "." << ts.tv_nsec << " seconds\n";
+                break;
+            }
         }
 
         if(capture_to_file){
@@ -103,13 +131,14 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
             memcpy(&buffer[packet_save_len], &bytes_received, sizeof(bytes_received));
             packet_save_len += sizeof(bytes_received); // Add packet length to saved buffer.
             file.write(reinterpret_cast<const char*>(buffer), packet_save_len);
+            file.write(reinterpret_cast<const char *>(&ts.tv_sec), sizeof(ts.tv_sec));
+            file.write(reinterpret_cast<const char *>(&ts.tv_nsec), sizeof(ts.tv_nsec));
+
             if (!file) {
                 std::cerr << "Error: Writing to file failed!" << std::endl;
                 // return;
             }
         }
-
-
     }
     printf("Receieved %u packets on ethernet interface %s\n", recvd_packets, eth_intf.c_str());
     if(capture_to_file){

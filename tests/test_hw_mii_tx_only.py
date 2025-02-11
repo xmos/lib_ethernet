@@ -20,7 +20,7 @@ pkg_dir = Path(__file__).parent
 
 
 def load_packet_file(filename):
-    chunk_size = 6 + 6 + 2 + 4 + 4
+    chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
     structures = []
     with open(filename, 'rb') as f:
         while True:
@@ -99,7 +99,7 @@ def test_hw_mii_tx_only(request, send_method):
     dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
 
     capture_file = "packets.bin"
-   
+
     xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
     xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
     xcoreapp.__enter__()
