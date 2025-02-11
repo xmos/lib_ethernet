@@ -93,6 +93,7 @@ class SocketHost():
         self.host_mac_addr = host_mac_addr
         self.dut_mac_addr = dut_mac_addr
         self.send_proc = None
+        self.num_packets_sent = None
 
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
@@ -142,10 +143,17 @@ class SocketHost():
             + f"\nstderr:\n{ret.stderr}"
         )
 
-    def send(self, num_packets):
+    def get_num_pkts_sent_from_stdout(self, stdout):
+        m = re.search(rf"Socket: Sent (\d+) packets to ethernet interface {self.eth_intf}", stdout)
+        assert m, ("Socket send doesn't report num packets sent"
+        + f"\nstdout:\n{stdout}")
+        return int(m.group(1))
+
+    def send(self, test_duration_s, payload_len="max"):
+        assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
 
-        ret = subprocess.run([self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , *(self.dut_mac_addr.split())],
+        ret = subprocess.run([self.socket_send_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())],
                              capture_output = True,
                              text = True)
         print(f"stdout = {ret.stdout}")
@@ -154,15 +162,20 @@ class SocketHost():
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
+        return self.get_num_pkts_sent_from_stdout(ret.stdout)
 
-    def send_non_blocking(self, num_packets):
+
+    def send_non_blocking(self, test_duration_s, payload_len="max"):
+        assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
+        self.num_packets_sent = None
         self.send_proc = subprocess.Popen(
-                [self.socket_send_app, self.eth_intf, str(num_packets), self.host_mac_addr , *(self.dut_mac_addr.split())],
+                [self.socket_send_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
             )
+        # Parse number of sent packets from the stdout
 
     def send_in_progress(self):
         assert self.send_proc
@@ -175,15 +188,17 @@ class SocketHost():
                 + f"\nstdout:\n{self.send_proc_stdout}"
                 + f"\nstderr:\n{self. send_proc_stderr}"
             )
+            print(f"stdout = {self.send_proc_stdout}")
+            self.num_packets_sent = self.get_num_pkts_sent_from_stdout(self.send_proc_stdout)
             self.send_proc = None
         return running
 
 
 
-    def send_recv(self, num_packets_to_send):
+    def send_recv(self, test_duration_s, payload_len="max"):
         self.set_cap_net_raw(self.socket_send_recv_app)
 
-        ret = subprocess.run([self.socket_send_recv_app, self.eth_intf, str(num_packets_to_send), self.host_mac_addr , *(self.dut_mac_addr.split())],
+        ret = subprocess.run([self.socket_send_recv_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())],
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (
@@ -198,7 +213,9 @@ class SocketHost():
         + f"\nstdout:\n{ret.stdout}"
         + f"\nstderr:\n{ret.stderr}")
 
-        return int(m.group(1))
+        num_packets_sent = self.get_num_pkts_sent_from_stdout(ret.stdout)
+
+        return num_packets_sent, int(m.group(1))
 
     def recv(self, capture_file):
         self.set_cap_net_raw(self.socket_recv_app)
