@@ -21,7 +21,7 @@ enum {
     CMD_DEVICE_SHUTDOWN = 1,
     CMD_SET_DEVICE_MACADDR,
     CMD_SET_HOST_MACADDR,
-    CMD_HOST_READY_TO_RECEIVE,
+    CMD_HOST_SET_DUT_TX_PACKETS,
     CMD_SET_DUT_RECEIVE
 };
 
@@ -251,17 +251,22 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
         }
-        else if(strcmp(argv[3], "set_host_ready_to_receive") == 0)
+        else if(strcmp(argv[3], "set_dut_tx_packets") == 0)
         {
-            if(argc != 4)
+            if(argc != 6)
             {
-                fprintf(stderr, "Incorrect usage of set_host_ready_to_receive command\n");
-                fprintf(stderr, "Usage: host_address port set_host_ready_to_receive\n");
+                fprintf(stderr, "Incorrect usage of set_dut_tx_packets command\n");
+                fprintf(stderr, "Usage: host_address port set_dut_tx_packets <num_pkts> <length>\n");
                 return 1;
             }
-            unsigned char to_send[1];
-            to_send[0] = CMD_HOST_READY_TO_RECEIVE;
-            while (xscope_ep_request_upload(1, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned num = std::atoi(argv[4]);
+            unsigned len = std::atoi(argv[5]);
+            unsigned char to_send[1 + sizeof(num) + sizeof(len)];
+            to_send[0] = CMD_HOST_SET_DUT_TX_PACKETS;
+            memcpy(&to_send[1], &num, sizeof(num));
+            memcpy(&to_send[1 + sizeof(num)], &len, sizeof(len));
+
+            while (xscope_ep_request_upload(sizeof(to_send), (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
             if (result != 0)
             {
@@ -298,7 +303,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    fprintf(stderr, "Shutting down...\n");
+    fprintf(stderr, "Disconnecting xscope controller...\n");
     fflush(stderr);
     xscope_ep_disconnect();
 
