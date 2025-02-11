@@ -23,6 +23,7 @@ pytest==8.2.2
 pytest-xdist==3.6.1
 filelock==3.16.1
 bitstring==4.3.0
+scapy==2.6.1
 
 # Development dependencies
 #
