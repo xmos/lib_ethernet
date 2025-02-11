@@ -23,4 +23,5 @@ add_subdirectory(test_rmii_restart)
 add_subdirectory(test_smi)
 add_subdirectory(hw_test_mii)
 add_subdirectory(test_do_idle_slope_unit)
+add_subdirectory(hw_test_mii_tx)
 
