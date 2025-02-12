@@ -114,7 +114,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     memcpy(&client_index, &char_ptr[1], sizeof(client_index));
                     memcpy(&arg1, &char_ptr[1 + sizeof(client_index)], sizeof(arg1));
                     memcpy(&arg2, &char_ptr[1 + sizeof(client_index) + sizeof(arg1)], sizeof(arg2));
-                    debug_printf("set dut tx packets client: %u %u %u\n", client_index, arg1, arg2);
+                    debug_printf("set dut tx packets client %u: %u %u\n", client_index, arg1, arg2);
 
                     c_clients[1+client_index] <: CMD_HOST_SET_DUT_TX_PACKETS;
                     c_clients[1+client_index] <: arg1;

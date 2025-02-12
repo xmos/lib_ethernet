@@ -5,7 +5,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff
 import pytest
 from contextlib import nullcontext
 import time
@@ -14,12 +14,13 @@ from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequenc
 import re
 import subprocess
 import platform
+import struct
 
 
 pkg_dir = Path(__file__).parent
 packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
 
-
+TIMESPEC_FORMAT = "qq" # 'q' means int64_t (8 bytes), little-endian by default
 def load_packet_file(filename):
     chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
     structures = []
@@ -177,7 +178,8 @@ def test_hw_mii_tx_only(request, send_method):
     print("Starting sniffer")
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
-        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str_lp) # The DUT MAC arg is for counting packets only
+        # socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str_lp) # The DUT MAC arg is for counting packets only
+        socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}")
         socket_host.recv_asynch_start(capture_file)
 
         # now signal to DUT that we are ready to receive and say what we want from it
