@@ -22,6 +22,7 @@
             <Port Location="XS1_PORT_4F" Name="PHY_1_TXD_4B"/>
             <Port Location="XS1_PORT_1D" Name="PHY_1_RXDV"/>
             <Port Location="XS1_PORT_4E" Name="PHY_1_RXD_4B"/>
+            <Port Location="XS1_PORT_1K" Name="PHY_1_CLK_50M"/>
             <!-- PHY 2 Uses 1b ports optionally 8b port for Tx-->
             <Port Location="XS1_PORT_1L" Name="PHY_2_TX_EN"/>
             <Port Location="XS1_PORT_1I" Name="PHY_2_TXD_1B_0"/>
@@ -31,8 +32,7 @@
             <Port Location="XS1_PORT_1M" Name="PHY_2_RXDV"/>
             <Port Location="XS1_PORT_1N" Name="PHY_2_RXD_1B_0"/>
             <Port Location="XS1_PORT_1O" Name="PHY_2_RXD_1B_1"/>
-            <!-- PHY Shared -->
-            <Port Location="XS1_PORT_1P" Name="CLK_50M"/>
+            <Port Location="XS1_PORT_1P" Name="PHY_2_CLK_50M"/>
           </Tile>
           <Tile Number="1" Reference="tile[1]">
             <!-- Shared config pins for both PHYs -->

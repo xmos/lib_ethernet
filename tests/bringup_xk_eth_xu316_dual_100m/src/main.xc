@@ -10,7 +10,6 @@
 #include "debug_print.h"
 
 // Shared
-port p_eth_clk = CLK_50M;
 port p_smi_mdio = MDIO;
 port p_smi_mdc = MDC;
 #define MDC_BIT     2
@@ -29,6 +28,7 @@ port p_eth_rxdv = PHY_1_RXDV;
 port p_eth_txen = PHY_1_TX_EN;
 clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
+port p_eth_clk = PHY_1_CLK_50M;
 #define PHY_ADDR 0x05
 #endif
 
@@ -52,6 +52,7 @@ port p_eth_rxdv = PHY_2_RXDV;
 port p_eth_txen = PHY_2_TX_EN;
 clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
+port p_eth_clk = PHY_2_CLK_50M;
 #endif
 
 
