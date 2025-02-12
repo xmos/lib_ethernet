@@ -20,7 +20,7 @@ This class contains helpers for running the Intona 7060-A Ethernet Debugger
 class hw_eth_debugger:
     # No need to pass binary if on the path. Device used to specify debugger if more than one
     def __init__(self, nose_bin_path=None, device=None):
-        # Get the "nose" binary that drives the debugger 
+        # Get the "nose" binary that drives the debugger
         if nose_bin_path is None:
             result = subprocess.run("which nose".split(), capture_output=True, text=True)
             if result.returncode == 0:
@@ -48,9 +48,9 @@ class hw_eth_debugger:
         self.sock.connect(socket_path)
 
         self.capture_file = None # For packet capture
-        self.disrupting = False # For disrupting packets  
+        self.disrupting = False # For disrupting packets
 
-    # Destructor     
+    # Destructor
     def __del__(self):
         self._send_cmd("exit")
         self.nose_proc.terminate()
@@ -115,7 +115,7 @@ class hw_eth_debugger:
         params = elements[1:]
         if len(params) % 2 != 0:
             raise RuntimeError(f'Params should be in pairs: {params}')
-    
+
         if len(params):
             for name, val in zip(params[::2], params[1::2]):
                 json_cmd[name] = val
@@ -178,7 +178,7 @@ class hw_eth_debugger:
         cmd = f"inject {phy_num} {data} {raw} {num} {ifg_bytes} {append} {append} {gen_error} {file} {loop_repeat_count}"
         self._send_cmd(cmd)
         return self._get_response()
-    
+
     def inject_packets_stop(self):
         cmd = f"inject_stop"
         self.capture_file = None
@@ -256,7 +256,7 @@ class hw_eth_debugger:
         success, message = self._get_response()
         self.disrupting = False
         return success, message
-        
+
 
 # Convert MII packets to scapy ethernet packets
 # Can take a single packet or a list of packets
@@ -265,7 +265,7 @@ def mii2scapy(mii_packets):
         byte_data = bytes(mii_packet.data_bytes)
         ethertype = mii_packet.ether_len_type[0] + (mii_packet.ether_len_type[1] << 8)
         return Ether(dst=mii_packet.dst_mac_addr_str, src=mii_packet.src_mac_addr_str, type=ethertype)/Raw(load=byte_data)
-    
+
     if isinstance(mii_packets, list):
         frames = []
         for mii_packet in mii_packets:
@@ -303,6 +303,18 @@ def get_mac_address(interface):
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
     return None
+
+def calc_time_diff(start_s, start_ns, end_s, end_ns):
+    """
+    Returns: time difference in nanoseconds
+    """
+    diff_s = end_s - start_s
+    diff_ns = end_ns - start_ns
+    if(diff_ns < 0):
+        diff_s -= 1
+        diff_ns += 1000000000
+
+    return (diff_s*1000000000 + diff_ns)
 
 # This is just for test
 if __name__ == "__main__":
