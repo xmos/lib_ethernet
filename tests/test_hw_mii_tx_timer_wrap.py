@@ -1,0 +1,149 @@
+from scapy.all import *
+import threading
+from pathlib import Path
+import random
+import copy
+from mii_packet import MiiPacket
+from hardware_test_tools.XcoreApp import XcoreApp
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff
+import pytest
+from contextlib import nullcontext
+import time
+from xcore_app_control import XcoreAppControl, SocketHost
+from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
+import re
+import subprocess
+import platform
+import struct
+
+
+pkg_dir = Path(__file__).parent
+
+def load_packet_file(filename):
+    TIMESPEC_FORMAT = "qq" # 'q' means int64_t (8 bytes), little-endian by default
+    chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
+    structures = []
+    with open(filename, 'rb') as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+
+            dst = int.from_bytes(chunk[:6], byteorder='big')
+            src = int.from_bytes(chunk[6:12], byteorder='big')
+            etype = int.from_bytes(chunk[12:14], byteorder='big')
+            seqid = int.from_bytes(chunk[14:18], byteorder='little')
+            length = int.from_bytes(chunk[18:22], byteorder='little')
+            tv_sec, tv_nsec = struct.unpack(TIMESPEC_FORMAT, chunk[22:])
+            structures.append([dst, src, etype, seqid, length, tv_sec, tv_nsec])
+
+    return structures
+
+def parse_packet_summary(packet_summary, expect_count, expected_packet_len):
+    errors = ""
+    expected_seqid = 0
+    for packet in packet_summary:
+        seqid = packet[3]
+        length = packet[4]
+        if length != expected_packet_len:
+            errors += f"Incorrect length at seqid: {seqid}, expected: {expected_packet_len} got: {length}\n"
+        if seqid != expected_seqid:
+            errors += f"Missing seqid: {expected_seqid}, got: {seqid}\n"
+            expected_seqid = seqid
+        expected_seqid += 1
+
+    if expected_seqid != expect_count:
+        errors += f"Did not get {expect_count} packets, got only {len(packet_summary)}"
+
+    return errors if errors != "" else None
+
+@pytest.mark.parametrize('send_method', ['socket'])
+def test_hw_mii_tx_timer_wrap(request, send_method):
+    adapter_id = request.config.getoption("--adapter-id")
+    assert adapter_id != None, "Error: Specify a valid adapter-id"
+
+    eth_intf = request.config.getoption("--eth-intf")
+    assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
+
+    expected_packet_len = 1500
+    verbose = False
+    seed = 0
+    rand = random.Random()
+    rand.seed(seed)
+
+
+    host_mac_address_str = get_mac_address(eth_intf)
+    assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
+    print(f"host_mac_address = {host_mac_address_str}")
+
+    dut_mac_address_str_lp = "00:01:02:03:04:05"
+    dut_mac_address_str_hp = "f0:f1:f2:f3:f4:f5"
+    print(f"dut_mac_address_lp = {dut_mac_address_str_lp}")
+    print(f"dut_mac_address_hp = {dut_mac_address_str_hp}")
+
+    host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
+    dut_mac_address_lp = [int(i, 16) for i in dut_mac_address_str_lp.split(":")]
+    dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
+
+    capture_file_1 = "packets_1.bin"
+    capture_file_2 = "packets_2.bin"
+
+    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
+    print(f"Asking DUT to send the first packet")
+
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
+        print("Wait for DUT to be ready")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+        if verbose:
+            print(stderr)
+
+        # config contents of Tx packets
+        lp_client_id = 0
+        hp_client_id = 1
+        xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
+        xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
+        xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
+
+        print("Starting sniffer")
+        if send_method == "socket":
+            assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
+            socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}")
+            socket_host.recv_asynch_start(capture_file_1)
+
+            # now signal to DUT that we are ready to receive and say what we want from it
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
+
+            host_received_packets = socket_host.recv_asynch_wait_complete()
+            print(f"Received packets: {host_received_packets}")
+
+            socket_host.recv_asynch_start(capture_file_2)
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
+
+            host_received_packets = socket_host.recv_asynch_wait_complete()
+            print(f"Received packets: {host_received_packets}")
+
+
+        print("Retrive status and shutdown DUT")
+
+    # TODO fixme!!
+    # for some reason standard shutdown is not happy above 50k packets
+    # stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+    """
+    packet_summary = load_packet_file(capture_file)
+
+    # calculate difference between first and last packet
+    start_sec, start_nsec =  packet_summary[0][5], packet_summary[0][6]
+    end_sec, end_nsec =  packet_summary[-1][5], packet_summary[-1][6]
+
+    print(f"total_tx_time = {calc_time_diff(start_sec, start_nsec, end_sec, end_nsec)} ns")
+
+    errors = parse_packet_summary(packet_summary, expected_packet_count, expected_packet_len)
+
+    if errors:
+        assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stderr}"
+    else:
+        print("TEST PASS")
+    """
+
