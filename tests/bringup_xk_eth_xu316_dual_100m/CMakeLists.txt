@@ -5,7 +5,7 @@ project(app_bringup_xk_eth_xu316_dual_100m)
 set(APP_HW_TARGET                   xk-eth-xu316-dual-100m.xn)
 
 set(APP_DEPENDENT_MODULES           lib_ethernet
-                                    lib_otpinfo
+                                    "lib_otpinfo(feature/xccm)"
                                     "lib_board_support(feature/xk_eth_xu316_dual_100m)")
 set(APP_PCA_ENABLE ON)
 
