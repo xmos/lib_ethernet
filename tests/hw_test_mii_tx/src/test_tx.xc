@@ -12,7 +12,7 @@
 #include "xscope_control.h"
 
 
-#define MAX_PACKET_BYTES (6 + 6 + 2 + 1500) 
+#define MAX_PACKET_BYTES (6 + 6 + 2 + 1500)
 #define HOST_READY_TO_RECEIVE_TIME_MS 2000 // how long it takes for host to start capture thread
 
 typedef struct
@@ -155,7 +155,7 @@ void test_tx_hp(client ethernet_cfg_if cfg,
         hp_finished = 1;
         break;
       default:
-        break; 
+        break;
     }
   }
 

@@ -18,6 +18,11 @@ import struct
 
 
 pkg_dir = Path(__file__).parent
+"""
+Time it takes for the socket receiver to get ready to receive a packet.
+After starting the socket receiver process, wait this long before asking the DUT to transmit
+"""
+SOCKET_RECEIVER_SETUP_TIME = 1
 
 def load_packet_file(filename):
     TIMESPEC_FORMAT = "qq" # 'q' means int64_t (8 bytes), little-endian by default
@@ -39,23 +44,25 @@ def load_packet_file(filename):
 
     return structures
 
-def parse_packet_summary(packet_summary, expect_count, expected_packet_len):
-    errors = ""
-    expected_seqid = 0
-    for packet in packet_summary:
-        seqid = packet[3]
-        length = packet[4]
-        if length != expected_packet_len:
-            errors += f"Incorrect length at seqid: {seqid}, expected: {expected_packet_len} got: {length}\n"
-        if seqid != expected_seqid:
-            errors += f"Missing seqid: {expected_seqid}, got: {seqid}\n"
-            expected_seqid = seqid
-        expected_seqid += 1
+def recv_packet_from_dut(socket_host, xcoreapp, verbose):
+    expected_packet_len = 1500
+    capture_file = "packets.bin"
+    socket_host.recv_asynch_start(capture_file)
+    time.sleep(SOCKET_RECEIVER_SETUP_TIME) # Wait for the socket receiver to be ready
 
-    if expected_seqid != expect_count:
-        errors += f"Did not get {expect_count} packets, got only {len(packet_summary)}"
+    # now signal to DUT that we are ready to receive and say what we want from it
+    #stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
+    stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(0, 1, expected_packet_len)
 
-    return errors if errors != "" else None
+    host_received_packets = socket_host.recv_asynch_wait_complete()
+    if verbose:
+        print(f"Host Received packets: {host_received_packets}")
+    """
+    Socket receiver times out after 5s of inactivity. So just receiving a packet at this point indicates that the dut didn't have a > 5s latency in sending
+    """
+    assert(host_received_packets == 1)
+    packet_summary = load_packet_file(capture_file)
+    return packet_summary[0][5], packet_summary[0][6]
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_mii_tx_timer_wrap(request, send_method):
@@ -65,7 +72,6 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     eth_intf = request.config.getoption("--eth-intf")
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
-    expected_packet_len = 1500
     verbose = False
     seed = 0
     rand = random.Random()
@@ -85,12 +91,12 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     dut_mac_address_lp = [int(i, 16) for i in dut_mac_address_str_lp.split(":")]
     dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
 
-    capture_file_1 = "packets_1.bin"
-    capture_file_2 = "packets_2.bin"
-
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii_tx_loop" / "bin" / "hw_test_mii_tx_loop.xe"
     print(f"Asking DUT to send the first packet")
 
+    nanoseconds_in_a_second = 1000000000
+    packet_recv_times = []
+    wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
         print("Wait for DUT to be ready")
         stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
@@ -100,50 +106,68 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
         # config contents of Tx packets
         lp_client_id = 0
         hp_client_id = 1
-        xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
-        xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
-        xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
+        #xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
         print("Starting sniffer")
         if send_method == "socket":
             assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
             socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}")
-            socket_host.recv_asynch_start(capture_file_1)
 
-            # now signal to DUT that we are ready to receive and say what we want from it
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
+            tv_sec, tv_nsec = recv_packet_from_dut(socket_host, xcoreapp, verbose)
+            packet_recv_times.append((tv_sec, tv_nsec))
+            if verbose:
+                print(f"recv time = {packet_recv_times[-1][0] + (packet_recv_times[-1][1]*nanoseconds_in_a_second)} ns")
 
-            host_received_packets = socket_host.recv_asynch_wait_complete()
-            print(f"Received packets: {host_received_packets}")
+            # Do a long wait ensuring timer wraparound.
+            # Wait for a random number of seconds between 20 and 40 seconds
+            wait_times_s.append(rand.randint(20, 40))
+            if verbose:
+                print(f"wait_time = {wait_times_s[-1]} s")
+            time.sleep(wait_times_s[-1])
 
-            socket_host.recv_asynch_start(capture_file_2)
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
+            tv_sec, tv_nsec = recv_packet_from_dut(socket_host, xcoreapp, verbose)
+            packet_recv_times.append((tv_sec, tv_nsec))
+            if verbose:
+                print(f"recv time = {packet_recv_times[-1][0] + (packet_recv_times[-1][1]*nanoseconds_in_a_second)} ns")
 
-            host_received_packets = socket_host.recv_asynch_wait_complete()
-            print(f"Received packets: {host_received_packets}")
+            # Do a long wait ensuring timer wraparound
+            wait_times_s.append(rand.randint(20, 40))
+            if verbose:
+                print(f"wait_time = {wait_times_s[-1]} s")
+            time.sleep(wait_times_s[-1])
 
+            tv_sec, tv_nsec = recv_packet_from_dut(socket_host, xcoreapp, verbose)
+            packet_recv_times.append((tv_sec, tv_nsec))
+            if verbose:
+                print(f"recv time = {packet_recv_times[-1][0] + (packet_recv_times[-1][1]*nanoseconds_in_a_second)} ns")
 
-        print("Retrive status and shutdown DUT")
+            # Do a long wait ensuring timer wraparound
+            wait_times_s.append(rand.randint(20, 40))
+            if verbose:
+                print(f"wait_time = {wait_times_s[-1]} s")
+            time.sleep(wait_times_s[-1])
 
-    # TODO fixme!!
-    # for some reason standard shutdown is not happy above 50k packets
-    # stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
-    """
-    packet_summary = load_packet_file(capture_file)
+            tv_sec, tv_nsec = recv_packet_from_dut(socket_host, xcoreapp, verbose)
+            packet_recv_times.append((tv_sec, tv_nsec))
+            if verbose:
+                print(f"recv time = {packet_recv_times[-1][0] + (packet_recv_times[-1][1]*nanoseconds_in_a_second)} ns")
 
-    # calculate difference between first and last packet
-    start_sec, start_nsec =  packet_summary[0][5], packet_summary[0][6]
-    end_sec, end_nsec =  packet_summary[-1][5], packet_summary[-1][6]
+            print("Retrive status and shutdown DUT")
+            stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
-    print(f"total_tx_time = {calc_time_diff(start_sec, start_nsec, end_sec, end_nsec)} ns")
+        for i in range(len(packet_recv_times) - 1):
+            # Check recv time diff for consecutive packets
+            packet_receive_time_diff_ns = calc_time_diff(packet_recv_times[i][0], packet_recv_times[i][1], packet_recv_times[i+1][0], packet_recv_times[i+1][1])
 
-    errors = parse_packet_summary(packet_summary, expected_packet_count, expected_packet_len)
-
-    if errors:
-        assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stderr}"
-    else:
-        print("TEST PASS")
-    """
-
+            """
+            Adding 5 + SOCKET_RECEIVER_SETUP_TIME seconds to the interpacket wait time that was introduced between packets
+            5s is the inactivity time after receiving a packet that the socket recv waits for before exiting.
+            """
+            wait_time_ns = (wait_times_s[i] + 5 + SOCKET_RECEIVER_SETUP_TIME) * nanoseconds_in_a_second
+            diff = packet_receive_time_diff_ns - wait_time_ns
+            print(f"packet_receive_time_diff_ns = {packet_receive_time_diff_ns}, wait_time_ns = {wait_time_ns}")
+            print(f"diff = {diff}")
+            # Allow 1s of extra delay
+            assert diff < nanoseconds_in_a_second, f"DUT inter packet delay later than expected. Delay between received packets {packet_receive_time_diff_ns/nanoseconds_in_a_second : .4f}, Expected delay {wait_time_ns/nanoseconds_in_a_second : .4f} "
