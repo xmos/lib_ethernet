@@ -5,7 +5,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff
 import pytest
 from contextlib import nullcontext
 import time
@@ -14,11 +14,12 @@ from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequenc
 import re
 import subprocess
 import platform
+import struct
 
 
 pkg_dir = Path(__file__).parent
 
-
+TIMESPEC_FORMAT = "qq" # 'q' means int64_t (8 bytes), little-endian by default
 def load_packet_file(filename):
     chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
     structures = []
@@ -33,7 +34,8 @@ def load_packet_file(filename):
             etype = int.from_bytes(chunk[12:14], byteorder='big')
             seqid = int.from_bytes(chunk[14:18], byteorder='little')
             length = int.from_bytes(chunk[18:22], byteorder='little')
-            structures.append([dst, src, etype, seqid, length])
+            tv_sec, tv_nsec = struct.unpack(TIMESPEC_FORMAT, chunk[22:])
+            structures.append([dst, src, etype, seqid, length, tv_sec, tv_nsec])
 
     return structures
 
@@ -119,7 +121,7 @@ def test_hw_mii_tx_only(request, send_method):
     print("Starting sniffer")
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
-        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
+        socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}")
         socket_host.recv_asynch_start(capture_file)
 
         # now signal to DUT that we are ready to receive and say what we want from it
@@ -139,6 +141,13 @@ def test_hw_mii_tx_only(request, send_method):
     # stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
     packet_summary = load_packet_file(capture_file)
+
+    # calculate difference between first and last packet
+    start_sec, start_nsec =  packet_summary[0][5], packet_summary[0][6]
+    end_sec, end_nsec =  packet_summary[-1][5], packet_summary[-1][6]
+
+    print(f"total_tx_time = {calc_time_diff(start_sec, start_nsec, end_sec, end_nsec)} ns")
+
     errors = parse_packet_summary(packet_summary, expected_packet_count, expected_packet_len)
 
     if errors:
