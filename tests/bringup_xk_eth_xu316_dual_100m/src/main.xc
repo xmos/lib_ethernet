@@ -116,9 +116,16 @@ int main()
         on tile[1]: dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], PHY_ADDR);
 
 #if SINGLE_SMI
-        on tile[1]: smi_singleport(i_smi, p_smi_mdc_mdio, MDIO_BIT, MDC_BIT);
+        on tile[1]: {
+            p_smi_mdio :> void; // Make 1B MDIO pin Hi-Z
+            p_smi_mdc :> void; // Make 1B MDC pin Hi-Z
+            smi_singleport(i_smi, p_smi_mdc_mdio, MDIO_BIT, MDC_BIT);
+        }
 #else
-        on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
+        on tile[1]: {
+            p_smi_mdc_mdio :> void; // Make 4B MDIO/MDC pins Hi-Z
+            smi(i_smi, p_smi_mdio, p_smi_mdc);
+        }
 #endif
         on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
                                 i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
