@@ -124,7 +124,7 @@ void test_tx_hp(client ethernet_cfg_if cfg,
 
   // get config
   {bandwidth_bps, packet_length} = get_config_from_host(c_xscope_control, tx_source_mac, tx_target_mac);
-  debug_printf("HP got commands bandwidth %u packet length %u from host LP\n", bandwidth_bps, packet_length);
+  debug_printf("HP got commands bandwidth: %u packet length: %u from host\n", bandwidth_bps, packet_length);
 
   // Ethernet packet setup
   char data[MAX_PACKET_BYTES] = {0};
@@ -134,15 +134,20 @@ void test_tx_hp(client ethernet_cfg_if cfg,
 
   cfg.set_egress_qav_idle_slope_bps(0, bandwidth_bps);
 
+  c_tx_synch :> int _; // synch with LP
+
   int hp_finished = 0;
   if(bandwidth_bps == 0 || packet_length == 0){
     hp_finished = 1;
-    c_tx_synch :> int _;
+    c_tx_synch :> int _; // receive break
   }
 
+  unsigned seq_id = 0;
   while(!hp_finished)
   {
+    memcpy(&data[14], &seq_id, sizeof(seq_id)); // sequence ID
     ethernet_send_hp_packet(c_tx_hp, (char *)data, packet_length, ETHERNET_ALL_INTERFACES);
+    seq_id++;
     select
     {
       // break sending HP when LP done

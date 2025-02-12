@@ -17,6 +17,7 @@ import platform
 
 
 pkg_dir = Path(__file__).parent
+packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
 
 
 def load_packet_file(filename):
@@ -33,25 +34,75 @@ def load_packet_file(filename):
             etype = int.from_bytes(chunk[12:14], byteorder='big')
             seqid = int.from_bytes(chunk[14:18], byteorder='little')
             length = int.from_bytes(chunk[18:22], byteorder='little')
-            structures.append([dst, src, etype, seqid, length])
+            time_s = int.from_bytes(chunk[22:30], byteorder='little')
+            time_ns = int.from_bytes(chunk[30:38], byteorder='little')
+
+            structures.append([dst, src, etype, seqid, length, time_s, time_ns])
 
     return structures
 
-def parse_packet_summary(packet_summary, expect_count, expected_packet_len):
+def parse_packet_summary(packet_summary,
+                        expected_count_lp,
+                        expected_packet_len_lp,
+                        dut_mac_address_lp,
+                        expected_packet_len_hp = None,
+                        dut_mac_address_hp = None,
+                        expeced_bandwidth_hp = None,
+                        verbose = False):
+    # some checks when using HP
+    if expected_packet_len_hp or dut_mac_address_hp:
+        assert expected_packet_len_hp and dut_mac_address_hp, "Need to specify expected_packet_len_hp AND dut_mac_address_hp"
+
+    # get first packet time
+    datum = int(packet_summary[0][5] * 1e9 + packet_summary[0][6])
+
     errors = ""
-    expected_seqid = 0
+    expected_seqid_lp = 0
+    expected_seqid_hp = 0
+    counted_lp = 0
+    counted_hp = 0
     for packet in packet_summary:
+        dst = packet[0]
+        src = packet[1]
         seqid = packet[3]
         length = packet[4]
-        if length != expected_packet_len:
-            errors += f"Incorrect length at seqid: {seqid}, expected: {expected_packet_len} got: {length}\n"
-        if seqid != expected_seqid:
-            errors += f"Missing seqid: {expected_seqid}, got: {seqid}\n"
-            expected_seqid = seqid
-        expected_seqid += 1
+        packet_time = int(packet[5] * 1e9 + packet[6]) - datum
 
-    if expected_seqid != expect_count:
-        errors += f"Did not get {expect_count} packets, got only {len(packet_summary)}"
+        if src == dut_mac_address_lp:
+            if length != expected_packet_len_lp:
+                errors += f"Incorrect LP length at seqid: {seqid}, expected: {expected_packet_len_lp} got: {length}\n"
+            if seqid != expected_seqid_lp:
+                errors += f"Missing LP seqid: {expected_seqid_lp}, got: {seqid}\n"
+                expected_seqid_lp = seqid
+            expected_seqid_lp += 1
+            counted_lp += 1
+        if src == dut_mac_address_hp:
+            if length != expected_packet_len_hp:
+                errors += f"Incorrect HP length at seqid: {seqid}, expected: {expected_packet_len_hp} got: {length}\n"
+            if seqid != expected_seqid_hp:
+                errors += f"Missing HP seqid: {expected_seqid_hp}, got: {seqid}\n"
+                expected_seqid_hp = seqid
+            expected_seqid_hp += 1
+            counted_hp += 1
+
+    if expeced_bandwidth_hp:
+        total_time_ns = packet_time # Last packet time
+        num_bits_hp = counted_hp * (expected_packet_len_hp + packet_overhead) * 8
+        bits_per_second = num_bits_hp / (total_time_ns / 1e9)
+        difference_pc = abs(expeced_bandwidth_hp - bits_per_second) / abs(expeced_bandwidth_hp) * 100
+        allowed_tolerance_pc = 1.0 # How close for test pass
+        text = f"Calculated HP thoughput: {bits_per_second:.1f}, expected throughput: {expeced_bandwidth_hp:.1f}, diff: {difference_pc:.2f}% (max: {allowed_tolerance_pc:.2f}%)"
+        if difference_pc > allowed_tolerance_pc:
+            errors += text
+        if verbose:
+            print(text)
+
+
+    if counted_lp != expected_count_lp:
+        errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp}"
+
+    if verbose:
+        print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {packet_time/1e9:.2f}s")
 
     return errors if errors != "" else None
 
@@ -68,15 +119,23 @@ def test_hw_mii_tx_only(request, send_method):
         test_duration_s = 10
     test_duration_s = float(test_duration_s)
 
-    expected_packet_len = 1000
-    packet_overhead = 8 + 4 + 12 # preamble, crc and IFG
-    bits_per_packet = 8 * (expected_packet_len + packet_overhead)
+    # Common packet configuration
     line_speed = 100e6
-    total_bits = line_speed * test_duration_s
 
+    # HP packet configuration
+    hp_packet_len = 345
+    hp_packet_bandwidth_bps = 500 * 1000 * 1
+
+    # LP packet configuration
+    expected_packet_len_lp = 1000
+    bits_per_packet = 8 * (expected_packet_len_lp + packet_overhead)
+    total_bits = line_speed * test_duration_s
+    total_bits *= (line_speed - hp_packet_bandwidth_bps) / line_speed # Subtract expected HP bandwidth
     expected_packet_count = int(total_bits / bits_per_packet)
 
-    print(f"Asking DUT to send {expected_packet_count} packets of size {expected_packet_len}")
+    print()
+    print(f"Setting DUT to send {expected_packet_count} LP packets of size {expected_packet_len_lp}")
+    print(f"Setting DUT to send {hp_packet_bandwidth_bps} bps HP packets of size {hp_packet_len}")
 
     test_type = "seq_id"
     verbose = False
@@ -91,12 +150,11 @@ def test_hw_mii_tx_only(request, send_method):
 
     dut_mac_address_str_lp = "00:01:02:03:04:05"
     dut_mac_address_str_hp = "f0:f1:f2:f3:f4:f5"
-    print(f"dut_mac_address_lp = {dut_mac_address_str_lp}")
-    print(f"dut_mac_address_hp = {dut_mac_address_str_hp}")
-
-    host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
-    dut_mac_address_lp = [int(i, 16) for i in dut_mac_address_str_lp.split(":")]
-    dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
+    host_mac_address = int(host_mac_address_str.replace(":", ""), 16)
+    dut_mac_address_lp = int(dut_mac_address_str_lp.replace(":", ""), 16)
+    dut_mac_address_hp = int(dut_mac_address_str_hp.replace(":", ""), 16)
+    print(f"dut_mac_address_lp = 0x{dut_mac_address_lp:012x}")
+    print(f"dut_mac_address_hp = 0x{dut_mac_address_hp:012x}")
 
     capture_file = "packets.bin"
 
@@ -119,27 +177,32 @@ def test_hw_mii_tx_only(request, send_method):
     print("Starting sniffer")
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
-        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
+        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str_lp) # The DUT MAC arg is for counting packets only
         socket_host.recv_asynch_start(capture_file)
 
         # now signal to DUT that we are ready to receive and say what we want from it
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp for now
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
         print(f"{stdout} {stderr}")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len)
+        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
         print(f"{stdout} {stderr}")
 
         host_received_packets = socket_host.recv_asynch_wait_complete()
-        print(f"Received packets: {host_received_packets}")
+    else:
+        assert 0, f"Send method {send_method} not yet supported"
 
     print("Retrive status and shutdown DUT")
 
-    # TODO fixme!!
-    xcoreapp.terminate()
-    # for some reason standard shutdown is not happy above 50k packets
-    # stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+    stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
     packet_summary = load_packet_file(capture_file)
-    errors = parse_packet_summary(packet_summary, expected_packet_count, expected_packet_len)
+    errors = parse_packet_summary(  packet_summary,
+                                    expected_packet_count,
+                                    expected_packet_len_lp,
+                                    dut_mac_address_lp,
+                                    expected_packet_len_hp = hp_packet_len,
+                                    dut_mac_address_hp = dut_mac_address_hp,
+                                    expeced_bandwidth_hp = hp_packet_bandwidth_bps,
+                                    verbose = True)
 
     if errors:
         assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stderr}"
@@ -149,4 +212,7 @@ def test_hw_mii_tx_only(request, send_method):
 # For local testing only
 if __name__ == "__main__":
     packet_summary = load_packet_file("packets.bin")
-    print(parse_packet_summary(packet_summary, 100, 1514))
+    num_lp = 231701
+    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405))
+    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405, expected_packet_len_hp = 200, dut_mac_address_hp = 0xf0f1f2f3f4f5, expeced_bandwidth_hp = None))
+    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405, expected_packet_len_hp = 200, dut_mac_address_hp = 0xf0f1f2f3f4f5, expeced_bandwidth_hp = 100000))
