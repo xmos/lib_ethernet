@@ -46,14 +46,10 @@ def parse_packet_summary(packet_summary,
                         expected_count_lp,
                         expected_packet_len_lp,
                         dut_mac_address_lp,
-                        expected_packet_len_hp = None,
-                        dut_mac_address_hp = None,
-                        expeced_bandwidth_hp = None,
+                        expected_packet_len_hp = 0,
+                        dut_mac_address_hp = 0,
+                        expected_bandwidth_hp = 0,
                         verbose = False):
-    # some checks when using HP
-    if expected_packet_len_hp or dut_mac_address_hp:
-        assert expected_packet_len_hp and dut_mac_address_hp, "Need to specify expected_packet_len_hp AND dut_mac_address_hp"
-
     # get first packet time
     datum = int(packet_summary[0][5] * 1e9 + packet_summary[0][6])
 
@@ -67,7 +63,9 @@ def parse_packet_summary(packet_summary,
         src = packet[1]
         seqid = packet[3]
         length = packet[4]
-        packet_time = int(packet[5] * 1e9 + packet[6]) - datum
+        tv_s = packet[5]
+        tv_ns = packet[6]
+        packet_time = int(tv_s * 1e9 + tv_ns) - datum
 
         if src == dut_mac_address_lp:
             if length != expected_packet_len_lp:
@@ -86,13 +84,13 @@ def parse_packet_summary(packet_summary,
             expected_seqid_hp += 1
             counted_hp += 1
 
-    if expeced_bandwidth_hp:
+    if expected_bandwidth_hp:
         total_time_ns = packet_time # Last packet time
         num_bits_hp = counted_hp * (expected_packet_len_hp + packet_overhead) * 8
         bits_per_second = num_bits_hp / (total_time_ns / 1e9)
-        difference_pc = abs(expeced_bandwidth_hp - bits_per_second) / abs(expeced_bandwidth_hp) * 100
-        allowed_tolerance_pc = 1.0 # How close for test pass
-        text = f"Calculated HP thoughput: {bits_per_second:.1f}, expected throughput: {expeced_bandwidth_hp:.1f}, diff: {difference_pc:.2f}% (max: {allowed_tolerance_pc:.2f}%)"
+        difference_pc = abs(expected_bandwidth_hp - bits_per_second) / abs(expected_bandwidth_hp) * 100
+        allowed_tolerance_pc = 0.1 # How close HP bandwidth should be for test pass in %
+        text = f"Calculated HP thoughput: {bits_per_second:.1f}, expected throughput: {expected_bandwidth_hp:.1f}, diff: {difference_pc:.2f}% (max: {allowed_tolerance_pc:.2f}%)"
         if difference_pc > allowed_tolerance_pc:
             errors += text
         if verbose:
@@ -100,7 +98,7 @@ def parse_packet_summary(packet_summary,
 
 
     if counted_lp != expected_count_lp:
-        errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp}"
+        errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp} (dropped: {expected_count_lp-counted_lp})"
 
     if verbose:
         print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {packet_time/1e9:.2f}s")
@@ -108,7 +106,12 @@ def parse_packet_summary(packet_summary,
     return errors if errors != "" else None
 
 @pytest.mark.parametrize('send_method', ['socket'])
-def test_hw_mii_tx_only(request, send_method):
+                                        # Format is LP packet size, HP packet size, Qav bandwidth bps 
+@pytest.mark.parametrize('tx_config', [ [1000, 0, 0],
+                                        [1000, 345, 1000000],
+                                        [1514, 1514, 5000000],
+                                        [128, 128, 25000000]])
+def test_hw_mii_tx_only(request, send_method, tx_config):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -124,15 +127,16 @@ def test_hw_mii_tx_only(request, send_method):
     line_speed = 100e6
 
     # HP packet configuration
-    hp_packet_len = 345
-    hp_packet_bandwidth_bps = 500 * 1000 * 1
+    hp_packet_len = tx_config[1]
+    hp_packet_bandwidth_bps = tx_config[2]
 
     # LP packet configuration
-    expected_packet_len_lp = 1000
+    expected_packet_len_lp = tx_config[0]
     bits_per_packet = 8 * (expected_packet_len_lp + packet_overhead)
     total_bits = line_speed * test_duration_s
     total_bits *= (line_speed - hp_packet_bandwidth_bps) / line_speed # Subtract expected HP bandwidth
     expected_packet_count = int(total_bits / bits_per_packet)
+
 
     print()
     print(f"Setting DUT to send {expected_packet_count} LP packets of size {expected_packet_len_lp}")
@@ -187,6 +191,7 @@ def test_hw_mii_tx_only(request, send_method):
         print(f"{stdout} {stderr}")
         stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
         print(f"{stdout} {stderr}")
+        print(f"DUT sending packets for {test_duration_s}s..")
 
         host_received_packets = socket_host.recv_asynch_wait_complete()
     else:
@@ -203,7 +208,7 @@ def test_hw_mii_tx_only(request, send_method):
                                     dut_mac_address_lp,
                                     expected_packet_len_hp = hp_packet_len,
                                     dut_mac_address_hp = dut_mac_address_hp,
-                                    expeced_bandwidth_hp = hp_packet_bandwidth_bps,
+                                    expected_bandwidth_hp = hp_packet_bandwidth_bps,
                                     verbose = True)
 
     if errors:
@@ -216,5 +221,5 @@ if __name__ == "__main__":
     packet_summary = load_packet_file("packets.bin")
     num_lp = 231701
     print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405))
-    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405, expected_packet_len_hp = 200, dut_mac_address_hp = 0xf0f1f2f3f4f5, expeced_bandwidth_hp = None))
-    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405, expected_packet_len_hp = 200, dut_mac_address_hp = 0xf0f1f2f3f4f5, expeced_bandwidth_hp = 100000))
+    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405, expected_packet_len_hp = 200, dut_mac_address_hp = 0xf0f1f2f3f4f5, expected_bandwidth_hp = None))
+    print(parse_packet_summary(packet_summary, 231701, 1000, 0x0102030405, expected_packet_len_hp = 200, dut_mac_address_hp = 0xf0f1f2f3f4f5, expected_bandwidth_hp = 100000))

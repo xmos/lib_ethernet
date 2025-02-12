@@ -82,7 +82,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
 
   // get config
   {num_packets_to_send, packet_length} = get_config_from_host(c_xscope_control, tx_source_mac, tx_target_mac);
-  debug_printf("LP got commands num packets: %u length: %u\n", num_packets_to_send, packet_length);
+  debug_printf("LP got commands num packets: %u, length: %u\n", num_packets_to_send, packet_length);
 
   // Ethernet packet setup
   char data[MAX_PACKET_BYTES] = {0};
@@ -124,7 +124,7 @@ void test_tx_hp(client ethernet_cfg_if cfg,
 
   // get config
   {bandwidth_bps, packet_length} = get_config_from_host(c_xscope_control, tx_source_mac, tx_target_mac);
-  debug_printf("HP got commands bandwidth: %u packet length: %u from host\n", bandwidth_bps, packet_length);
+  debug_printf("HP got commands bandwidth: %u, packet length: %u from host\n", bandwidth_bps, packet_length);
 
   // Ethernet packet setup
   char data[MAX_PACKET_BYTES] = {0};
