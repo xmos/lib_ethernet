@@ -110,7 +110,7 @@ def parse_packet_summary(packet_summary,
 @pytest.mark.parametrize('tx_config', [ [1000, 0, 0],
                                         [1000, 345, 1000000],
                                         [1514, 1514, 5000000],
-                                        [128, 128, 25000000]])
+                                        [1000, 1000, 25000000]]) # Restricting payload length to 1000 since the host cannot keep up with receiving small packets. Packet drops noticed for anything below 500 bytes.
 def test_hw_mii_tx_only(request, send_method, tx_config):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
