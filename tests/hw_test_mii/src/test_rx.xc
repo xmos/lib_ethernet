@@ -73,8 +73,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned max_ifg = 0, min_ifg = 10000000; // Max and min observed IFG in reference
   unsigned receiving = 1;
 
-  c_xscope_control <: 1; // Indicate ready
-
   unsigned test_fail=0;
 
   while (!done)
@@ -167,7 +165,11 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         break;
 #endif
       case c_xscope_control :> int cmd: // Shutdown received over xscope
-        if(cmd == CMD_DEVICE_SHUTDOWN)
+        if(cmd == CMD_DEVICE_CONNECT)
+        {
+            c_xscope_control <: 1; // Indicate ready
+        }
+        else if(cmd == CMD_DEVICE_SHUTDOWN)
         {
           done = 1;
         }
@@ -263,8 +265,6 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   unsigned total_missing = 0;
   unsigned prev_seq_id;
 
-  c_xscope_control <: 1; // Indicate ready
-
   unsigned test_fail=0;
 
   while (!done) {
@@ -294,7 +294,11 @@ void test_rx_hp(client ethernet_cfg_if cfg,
         break;
 
       case c_xscope_control :> int cmd: // Shutdown received over xscope
-        if(cmd == CMD_DEVICE_SHUTDOWN)
+        if(cmd == CMD_DEVICE_CONNECT)
+        {
+            c_xscope_control <: 1; // Indicate ready
+        }
+        else if(cmd == CMD_DEVICE_SHUTDOWN)
         {
           done = 1;
         }

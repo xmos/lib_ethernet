@@ -8,7 +8,8 @@ enum {
     CMD_SET_DEVICE_MACADDR,
     CMD_SET_HOST_MACADDR,
     CMD_HOST_SET_DUT_TX_PACKETS,
-    CMD_SET_DUT_RECEIVE
+    CMD_SET_DUT_RECEIVE,
+    CMD_DEVICE_CONNECT
 };
 
 void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients);

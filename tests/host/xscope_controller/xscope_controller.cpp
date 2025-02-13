@@ -22,15 +22,13 @@ enum {
     CMD_SET_DEVICE_MACADDR,
     CMD_SET_HOST_MACADDR,
     CMD_HOST_SET_DUT_TX_PACKETS,
-    CMD_SET_DUT_RECEIVE
+    CMD_SET_DUT_RECEIVE,
+    CMD_DEVICE_CONNECT
 };
 
 #define LINE_LENGTH 1024
 
-#define XSCOPE_ID_CONNECT (0)
 #define XSCOPE_ID_COMMAND_RETURN (1)
-
-int connected = 0;
 
 #define RET_NO_RESULT (255)
 unsigned char ret = RET_NO_RESULT;
@@ -88,7 +86,7 @@ std::vector<unsigned char> parse_mac_address(std::string mac)
 }
 
 #define COMMAND_RESPONSE_POLL_MS (1)
-#define COMMAND_RESPONSE_TIMEOUT_MS (3000)
+#define COMMAND_RESPONSE_TIMEOUT_MS (10000)
 #define COMMAND_RESPONSE_ITERS (COMMAND_RESPONSE_TIMEOUT_MS / COMMAND_RESPONSE_POLL_MS)
 unsigned char wait_for_command_response()
 {
@@ -128,14 +126,6 @@ void xscope_record(unsigned int id,
                    unsigned char *databytes)
 {
     switch(id) {
-    case XSCOPE_ID_CONNECT:
-        if (length != 1) {
-            fprintf(stderr, "unexpected length %u in connection response\n", length);
-            return;
-        }
-        connected = 1;
-        return;
-
     case XSCOPE_ID_COMMAND_RETURN:
         if (length != 1) {
             fprintf(stderr, "unexpected length %u in command response\n", length);
@@ -149,10 +139,6 @@ void xscope_record(unsigned int id,
        return;
    }
 }
-
-#define CONNECT_POLL_MS (1)
-#define CONNECT_TIMEOUT_MS (10000)
-#define CONNECT_ITERS (CONNECT_TIMEOUT_MS / CONNECT_POLL_MS)
 
 int main(int argc, char *argv[]) {
     /* Having run with the xscope-port argument all prints from the xCORE
@@ -171,24 +157,16 @@ int main(int argc, char *argv[]) {
 
         if(strcmp(argv[3], "connect") == 0)
         {
-            int iters = 0;
-            while(1) {
-    #ifdef _WIN32
-                Sleep(CONNECT_POLL_MS);
-    #else
-                usleep(CONNECT_POLL_MS * 1000);
-    #endif
-
-                if (connected)
-                    break;
-
-                ++iters;
-                if (iters == CONNECT_ITERS) {
-                    fprintf(stderr, "Timed out waiting for xSCOPE connection handshake\n");
-                    return 1;
-                }
+            unsigned char to_send[1];
+            to_send[0] = CMD_DEVICE_CONNECT;
+            fprintf(stderr, "xscope_controller sending cmd CMD_DEVICE_CONNECT\n");
+            while (xscope_ep_request_upload(1, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned char result = wait_for_command_response();
+            if (result != 0)
+            {
+                return 1;
             }
-        } // if(strcmp(argv[3], "connect") == 0)
+        }
         else if(strcmp(argv[3], "shutdown") == 0)
         {
             unsigned char to_send[1];

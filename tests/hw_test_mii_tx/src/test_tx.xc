@@ -34,13 +34,15 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
-  c_xscope_control <: 1; // Indicate ready
-
   while(!done)
   {
     select{
       case c_xscope_control :> int cmd: // Command received over xscope
-        if(cmd == CMD_SET_DEVICE_MACADDR)
+        if(cmd == CMD_DEVICE_CONNECT)
+        {
+            c_xscope_control <: 1; // Indicate ready
+        }
+        else if(cmd == CMD_SET_DEVICE_MACADDR)
         {
           debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
           for(int i=0; i<MACADDR_NUM_BYTES; i++)
@@ -118,12 +120,15 @@ void test_tx_hp(client ethernet_cfg_if cfg,
   memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
-  c_xscope_control <: 1; // Indicate ready
   while(!done)
   {
     select{
       case c_xscope_control :> int cmd: // Command received over xscope
-        if(cmd == CMD_SET_DEVICE_MACADDR)
+        if(cmd == CMD_DEVICE_CONNECT)
+        {
+            c_xscope_control <: 1; // Indicate ready
+        }
+        else if(cmd == CMD_SET_DEVICE_MACADDR)
         {
           debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
           for(int i=0; i<MACADDR_NUM_BYTES; i++)

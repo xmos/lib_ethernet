@@ -36,7 +36,6 @@ void lan8710a_phy_driver(client interface smi_if smi,
   ethernet_speed_t link_speed = LINK_100_MBPS_FULL_DUPLEX;
   const int link_poll_period_ms = 1000;
   const int phy_address = 0x0;
-  unsigned send_ready = 0;
   timer tmr;
   int t;
   tmr :> t;
@@ -59,16 +58,26 @@ void lan8710a_phy_driver(client interface smi_if smi,
       if (new_state != link_state) {
         link_state = new_state;
         eth.set_link_state(0, new_state, link_speed);
-        if(!send_ready)
-        {
-          c_xscope_control <: 1;
-        }
       }
       t += link_poll_period_ms * XS1_TIMER_KHZ;
       break;
-    case c_xscope_control :> int temp: // Shutdown received over xscope
-        c_xscope_control <: 1; // Acknowledge shutdown completion
-        return;
+    case c_xscope_control :> int temp: // cmd received over xscope
+        if(temp == CMD_DEVICE_SHUTDOWN)
+        {
+          c_xscope_control <: 1; // Acknowledge shutdown completion
+          return;
+        }
+        else if(temp == CMD_DEVICE_CONNECT)
+        {
+          if(link_state == ETHERNET_LINK_UP)
+          {
+            c_xscope_control <: 1;
+          }
+          else
+          {
+            c_xscope_control <: 0;
+          }
+        }
         break;
     }
 

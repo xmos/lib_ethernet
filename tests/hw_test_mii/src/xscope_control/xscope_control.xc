@@ -7,37 +7,21 @@
 #include "debug_print.h"
 #include "xscope_control.h"
 
-#define XSCOPE_ID_CONNECT (0) // TODO duplicated currently
 #define XSCOPE_ID_COMMAND_RETURN (1) // TODO duplicated currently
+
+static void wait_us(int microseconds)
+{
+    timer t;
+    unsigned time;
+
+    t :> time;
+    t when timerafter(time + (microseconds * 100)) :> void;
+}
 
 void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static const unsigned num_clients)
 {
     xscope_mode_lossless();
     xscope_connect_data_from_host(c_xscope);
-    //wait for a ready from all clients
-    unsigned ready[num_clients] = {0};
-    unsigned num_ready = 0;
-    unsigned done = 0;
-
-    while(!done)
-    {
-        select {
-            case ( size_t i = 0; i < num_clients; i ++) c_clients[i] :> int r:
-                // debug_printf("Client ready: %d\n", i);
-                assert(r == 1);
-                assert(ready[i] == 0);
-                ready[i] = r;
-                num_ready += 1;
-                if(num_ready == num_clients)
-                {
-                    done = 1;
-                }
-                break;
-        }
-    }
-    unsigned char connect = 1;
-    debug_printf("Indicate ready to host\n");
-    xscope_bytes(XSCOPE_ID_CONNECT, 1, &connect);
 
     unsigned int buffer[256/4]; // The maximum read size is 256 bytes
     unsigned char *char_ptr = (unsigned char *)buffer;
@@ -50,6 +34,28 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 if (bytes_read < 1) {
                     debug_printf("ERROR: Received '%d' bytes\n", bytes_read);
                     break;
+                }
+                if(char_ptr[0] == CMD_DEVICE_CONNECT)
+                {
+                    debug_printf("Received CMD_DEVICE_CONNECT\n");
+                    // Shutdown each client
+                    int ready = 0;
+                    for(int i=0; i<num_clients; i++)
+                    {
+                        debug_printf("Check client %d ready\n", i);
+                        c_clients[i] <: CMD_DEVICE_CONNECT;
+                        c_clients[i] :> ready;
+                        while(!ready)
+                        {
+                            wait_us(1000);
+                            c_clients[i] <: CMD_DEVICE_CONNECT;
+                            c_clients[i] :> ready;
+                        };
+                        debug_printf("Client %d ready\n", i);
+                    }
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 }
                 if(char_ptr[0] == CMD_DEVICE_SHUTDOWN)
                 {
