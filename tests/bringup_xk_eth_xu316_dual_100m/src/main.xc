@@ -33,8 +33,8 @@ port p_eth_clk = PHY_0_CLK_50M;
 #endif
 
 #if PHY1
-port p_eth_rxd_0 = PHY_1_RXD_1BIT_0;
-port p_eth_rxd_1 = PHY_1_RXD_1BIT_1;
+port p_eth_rxd_0 = PHY_1_RXD_0;
+port p_eth_rxd_1 = PHY_1_RXD_1;
 #define RX_PINS 0
 #if PHY1_USE_8B
 #define TX8_BIT_0 7
@@ -43,8 +43,8 @@ port p_eth_rxd_1 = PHY_1_RXD_1BIT_1;
 port p_eth_txd_0 = PHY_1_TXD_8BIT;
 #define p_eth_txd_1 null
 #else
-port p_eth_txd_0 = PHY_1_TXD_1BIT_0;
-port p_eth_txd_1 = PHY_1_TXD_1BIT_1;
+port p_eth_txd_0 = PHY_1_TXD_0;
+port p_eth_txd_1 = PHY_1_TXD_1;
 #define TX_PINS 0
 #endif
 #define PHY_ADDR 0x07

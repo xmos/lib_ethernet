@@ -27,12 +27,12 @@
             
             <!-- PHY 1 Uses 1b ports optionally 8b port for Tx instead of 1b ports-->
             <Port Location="XS1_PORT_1L" Name="PHY_1_TX_EN"/>
-            <Port Location="XS1_PORT_1I" Name="PHY_1_TXD_1BIT_0"/>
-            <Port Location="XS1_PORT_1J" Name="PHY_1_TXD_1BIT_1"/>
+            <Port Location="XS1_PORT_1I" Name="PHY_1_TXD_0"/>
+            <Port Location="XS1_PORT_1J" Name="PHY_1_TXD_1"/>
             <Port Location="XS1_PORT_8D" Name="PHY_1_TXD_8BIT"/> 
             <Port Location="XS1_PORT_1M" Name="PHY_1_RXDV"/>
-            <Port Location="XS1_PORT_1N" Name="PHY_1_RXD_1BIT_0"/>
-            <Port Location="XS1_PORT_1O" Name="PHY_1_RXD_1BIT_1"/>
+            <Port Location="XS1_PORT_1N" Name="PHY_1_RXD_0"/>
+            <Port Location="XS1_PORT_1O" Name="PHY_1_RXD_1"/>
             <Port Location="XS1_PORT_1P" Name="PHY_1_CLK_50M"/>
           </Tile>
           <Tile Number="1" Reference="tile[1]">
