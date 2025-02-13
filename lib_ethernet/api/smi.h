@@ -16,7 +16,9 @@
 #define AUTONEG_LINK_REG                    0x5
 #define AUTONEG_EXP_REG                     0x6
 #define GIGE_CONTROL_REG                    0x9
+// Only up to 0xf are IEEE-compliant. Above this they are vendor specific
 #define RMII_AND_STATUS_REG                 0x17
+
 #define IO_CONFIG_1_REG                     0x302
 
 #define BASIC_CONTROL_LOOPBACK_BIT          14
