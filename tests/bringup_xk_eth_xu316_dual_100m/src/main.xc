@@ -2,11 +2,11 @@
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
+#include "xk_eth_xu316_dual_100m/board.h"
 #include "otp_board_info.h"
 #include "ethernet.h"
 #include "icmp.h"
 #include "smi.h"
-#include "xk_eth_xu316_dual_100m/board.h"
 #include "debug_print.h"
 
 // Shared
@@ -17,42 +17,43 @@ port p_smi_mdc = MDC;
 port p_smi_mdc_mdio = MDC_MDIO_4B;
 
 
-#if PHY1
-port p_eth_rxd_0 = PHY_1_RXD_4B;
+#if PHY0
+port p_eth_rxd_0 = PHY_0_RXD_4B;
 #define p_eth_rxd_1 null
 #define RX_PINS USE_UPPER_2B
-port p_eth_txd_0 = PHY_1_TXD_4B;
+port p_eth_txd_0 = PHY_0_TXD_4B;
 #define p_eth_txd_1 null
 #define TX_PINS USE_UPPER_2B
+port p_eth_rxdv = PHY_0_RXDV;
+port p_eth_txen = PHY_0_TX_EN;
+clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
+clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
+port p_eth_clk = PHY_1_CLK_50M;
+#define PHY_USED USE_PHY_0
+#endif
+
+#if PHY1
+port p_eth_rxd_0 = PHY_1_RXD_1B_0;
+port p_eth_rxd_1 = PHY_1_RXD_1B_1;
+#define RX_PINS 0
+#if PHY1_USE_8B
+#define TX8_BIT_0 7
+#define TX8_BIT_1 8
+#define TX_PINS ((TX8_BIT_0 << 16) | (TX8_BIT_1))
+port p_eth_txd_0 = PHY_1_TXD_8B;
+#define p_eth_txd_1 null
+#else
+port p_eth_txd_0 = PHY_1_TXD_1B_0;
+port p_eth_txd_1 = PHY_1_TXD_1B_1;
+#define TX_PINS 0
+#endif
+#define PHY_ADDR 0x07
 port p_eth_rxdv = PHY_1_RXDV;
 port p_eth_txen = PHY_1_TX_EN;
 clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
 port p_eth_clk = PHY_1_CLK_50M;
-#define PHY_ADDR 0x05
-#endif
-
-#if PHY2
-port p_eth_rxd_0 = PHY_2_RXD_1B_0;
-port p_eth_rxd_1 = PHY_2_RXD_1B_1;
-#define RX_PINS 0
-#if PHY2_USE_8B
-#define TX8_BIT_0 7
-#define TX8_BIT_1 8
-#define TX_PINS ((TX8_BIT_0 << 16) | (TX8_BIT_1))
-port p_eth_txd_0 = PHY_2_TXD_8B;
-#define p_eth_txd_1 null
-#else
-port p_eth_txd_0 = PHY_2_TXD_1B_0;
-port p_eth_txd_1 = PHY_2_TXD_1B_1;
-#define TX_PINS 0
-#endif
-#define PHY_ADDR 0x07
-port p_eth_rxdv = PHY_2_RXDV;
-port p_eth_txen = PHY_2_TX_EN;
-clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
-clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
-port p_eth_clk = PHY_2_CLK_50M;
+#define PHY_USED USE_PHY_1
 #endif
 
 
@@ -93,7 +94,8 @@ int main()
     par {
         on tile[0]: {
             // To ensure PHY pin boot straps are read correctly at exit from reset
-            put_mac_ports_in_hiz(p_eth_rxd_0, p_eth_rxd_1, p_eth_txd_0, p_eth_txd_1, p_eth_rxdv, p_eth_txen); 
+            put_mac_ports_in_hiz(p_eth_rxd_0, p_eth_rxd_1, p_eth_txd_0, p_eth_txd_1, p_eth_rxdv, p_eth_txen);
+            debug_printf("Starting MII RT MAC\n");
             delay_milliseconds(5); // Wait until PHY has come out of reset
             rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
                               i_rx, NUM_ETH_CLIENTS,
@@ -113,17 +115,19 @@ int main()
                               4000, 4000,
                               ETHERNET_DISABLE_SHAPER);
         }
-        on tile[1]: dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], PHY_ADDR);
+        on tile[1]: dp83826e_phy_driver(i_smi, PHY_USED, i_cfg[CFG_TO_PHY_DRIVER], null);
 
 #if SINGLE_SMI
         on tile[1]: {
-            p_smi_mdio :> void; // Make 1B MDIO pin Hi-Z
-            p_smi_mdc :> void; // Make 1B MDC pin Hi-Z
+            p_smi_mdio :> void; // Make 1b MDIO pin Hi-Z
+            p_smi_mdc :> void; // Make 1b MDC pin Hi-Z
+            debug_printf("Starting smi_singleport\n");
             smi_singleport(i_smi, p_smi_mdc_mdio, MDIO_BIT, MDC_BIT);
         }
 #else
         on tile[1]: {
-            p_smi_mdc_mdio :> void; // Make 4B MDIO/MDC pins Hi-Z
+            p_smi_mdc_mdio :> void; // Make 4b MDIO/MDC pins Hi-Z
+            debug_printf("Starting smi_one-bit port\n");
             smi(i_smi, p_smi_mdio, p_smi_mdc);
         }
 #endif
