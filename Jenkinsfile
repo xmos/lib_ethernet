@@ -141,6 +141,7 @@ pipeline {
             dir("${REPO}") {
               withVenv {
                 sh "pip install -e ../test_support"
+                sh "pip install -e ../hardware_test_tools"
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
                     unstash 'test_bin'
