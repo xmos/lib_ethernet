@@ -20,19 +20,19 @@
             
             <!-- PHY 0 Uses upper 2 bits of 4b ports -->
             <Port Location="XS1_PORT_1A" Name="PHY_0_TX_EN"/>
-            <Port Location="XS1_PORT_4F" Name="PHY_0_TXD_4B"/>
+            <Port Location="XS1_PORT_4F" Name="PHY_0_TXD_4BIT"/>
             <Port Location="XS1_PORT_1D" Name="PHY_0_RXDV"/>
-            <Port Location="XS1_PORT_4E" Name="PHY_0_RXD_4B"/>
+            <Port Location="XS1_PORT_4E" Name="PHY_0_RXD_4BIT"/>
             <Port Location="XS1_PORT_1K" Name="PHY_0_CLK_50M"/>
             
             <!-- PHY 1 Uses 1b ports optionally 8b port for Tx instead of 1b ports-->
             <Port Location="XS1_PORT_1L" Name="PHY_1_TX_EN"/>
-            <Port Location="XS1_PORT_1I" Name="PHY_1_TXD_1B_0"/>
-            <Port Location="XS1_PORT_1J" Name="PHY_1_TXD_1B_1"/>
-            <Port Location="XS1_PORT_8D" Name="PHY_1_TXD_8B"/> 
+            <Port Location="XS1_PORT_1I" Name="PHY_1_TXD_1BIT_0"/>
+            <Port Location="XS1_PORT_1J" Name="PHY_1_TXD_1BIT_1"/>
+            <Port Location="XS1_PORT_8D" Name="PHY_1_TXD_8BIT"/> 
             <Port Location="XS1_PORT_1M" Name="PHY_1_RXDV"/>
-            <Port Location="XS1_PORT_1N" Name="PHY_1_RXD_1B_0"/>
-            <Port Location="XS1_PORT_1O" Name="PHY_1_RXD_1B_1"/>
+            <Port Location="XS1_PORT_1N" Name="PHY_1_RXD_1BIT_0"/>
+            <Port Location="XS1_PORT_1O" Name="PHY_1_RXD_1BIT_1"/>
             <Port Location="XS1_PORT_1P" Name="PHY_1_CLK_50M"/>
           </Tile>
           <Tile Number="1" Reference="tile[1]">
@@ -41,7 +41,7 @@
             <Port Location="XS1_PORT_1M"  Name="MDIO"/>
             
             <!-- Optional 4b port version MDC on bit 2 MDIO on bit 3 -->
-            <Port Location="XS1_PORT_4F"  Name="MDC_MDIO_4B"/>
+            <Port Location="XS1_PORT_4F"  Name="MDC_MDIO_4BIT"/>
             
             <!-- PHY control ines -->
             <Port Location="XS1_PORT_4A"  Name="PHY_RST_N"/>

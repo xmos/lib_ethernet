@@ -14,37 +14,37 @@ port p_smi_mdio = MDIO;
 port p_smi_mdc = MDC;
 #define MDC_BIT     2
 #define MDIO_BIT    3
-port p_smi_mdc_mdio = MDC_MDIO_4B;
+port p_smi_mdc_mdio = MDC_MDIO_4BIT;
 
 
 #if PHY0
-port p_eth_rxd_0 = PHY_0_RXD_4B;
+port p_eth_rxd_0 = PHY_0_RXD_4BIT;
 #define p_eth_rxd_1 null
 #define RX_PINS USE_UPPER_2B
-port p_eth_txd_0 = PHY_0_TXD_4B;
+port p_eth_txd_0 = PHY_0_TXD_4BIT;
 #define p_eth_txd_1 null
 #define TX_PINS USE_UPPER_2B
 port p_eth_rxdv = PHY_0_RXDV;
 port p_eth_txen = PHY_0_TX_EN;
 clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
-port p_eth_clk = PHY_1_CLK_50M;
+port p_eth_clk = PHY_0_CLK_50M;
 #define PHY_USED USE_PHY_0
 #endif
 
 #if PHY1
-port p_eth_rxd_0 = PHY_1_RXD_1B_0;
-port p_eth_rxd_1 = PHY_1_RXD_1B_1;
+port p_eth_rxd_0 = PHY_1_RXD_1BIT_0;
+port p_eth_rxd_1 = PHY_1_RXD_1BIT_1;
 #define RX_PINS 0
 #if PHY1_USE_8B
 #define TX8_BIT_0 7
 #define TX8_BIT_1 8
 #define TX_PINS ((TX8_BIT_0 << 16) | (TX8_BIT_1))
-port p_eth_txd_0 = PHY_1_TXD_8B;
+port p_eth_txd_0 = PHY_1_TXD_8BIT;
 #define p_eth_txd_1 null
 #else
-port p_eth_txd_0 = PHY_1_TXD_1B_0;
-port p_eth_txd_1 = PHY_1_TXD_1B_1;
+port p_eth_txd_0 = PHY_1_TXD_1BIT_0;
+port p_eth_txd_1 = PHY_1_TXD_1BIT_1;
 #define TX_PINS 0
 #endif
 #define PHY_ADDR 0x07
@@ -121,13 +121,13 @@ int main()
         on tile[1]: {
             p_smi_mdio :> void; // Make 1b MDIO pin Hi-Z
             p_smi_mdc :> void; // Make 1b MDC pin Hi-Z
-            debug_printf("Starting smi_singleport\n");
+            debug_printf("Starting SMI singleport\n");
             smi_singleport(i_smi, p_smi_mdc_mdio, MDIO_BIT, MDC_BIT);
         }
 #else
         on tile[1]: {
             p_smi_mdc_mdio :> void; // Make 4b MDIO/MDC pins Hi-Z
-            debug_printf("Starting smi_one-bit port\n");
+            debug_printf("Starting SMI one-bit port\n");
             smi(i_smi, p_smi_mdio, p_smi_mdc);
         }
 #endif
