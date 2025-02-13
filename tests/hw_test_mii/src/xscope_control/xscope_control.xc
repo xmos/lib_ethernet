@@ -141,6 +141,13 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
                 }
+                else if(char_ptr[0] == CMD_EXIT_DEVICE_MAC)
+                {
+                    c_clients[1] <: CMD_EXIT_DEVICE_MAC; // Send to the first client.
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
+                }
                 break;
         }
     }

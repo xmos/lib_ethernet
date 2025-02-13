@@ -197,6 +197,13 @@ void test_rx_lp(client ethernet_cfg_if cfg,
           c_xscope_control :> receiving;
           c_xscope_control <: 1; // Acknowledge
         }
+        else if(cmd == CMD_EXIT_DEVICE_MAC)
+        {
+          debug_printf("Received CMD_EXIT_DEVICE_MAC command\n");
+          cfg.exit();
+          // the client is expected to exit after signalling the Mac to exit
+          done = 1;
+        }
         break;
     } // select
   }
@@ -325,6 +332,12 @@ void test_rx_hp(client ethernet_cfg_if cfg,
         {
           c_xscope_control :> int temp; // This shouldn't be sent for a HP client
           c_xscope_control <: 1; // Acknowledge
+        }
+        else if(cmd == CMD_EXIT_DEVICE_MAC)
+        {
+          cfg.exit();
+          // the client is expected to exit after signalling the Mac to exit
+          done = 1;
         }
         break;
     }
