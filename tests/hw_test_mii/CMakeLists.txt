@@ -23,7 +23,7 @@ set(APP_COMPILER_FLAGS_loopback                ${COMPILER_FLAGS_COMMON} -DLOOPBA
 
 set(APP_XSCOPE_SRCS src/config.xscope)
 
-set(APP_INCLUDES src/xscope_control)
+set(APP_INCLUDES src/xscope_control src/phy_driver)
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
