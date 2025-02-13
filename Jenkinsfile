@@ -2,6 +2,19 @@
 
 @Library('xmos_jenkins_shared_library@v0.36.0') _
 
+def clone_test_deps() {
+  dir("${WORKSPACE}") {
+    sh "git clone git@github.com:xmos/test_support"
+    sh "git -C test_support checkout e62b73a1260069c188a7d8fb0d91e1ef80a3c4e1"
+
+    sh "git clone git@github.com:xmos/hardware_test_tools"
+    sh "git -C hardware_test_tools checkout 2f9919c956f0083cdcecb765b47129d846948ed4"
+
+    sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
+    sh "git -C xtagctl checkout v2.0.0"
+  }
+}
+
 getApproval()
 
 pipeline {
@@ -124,8 +137,7 @@ pipeline {
               createVenv()
               installPipfile(false)
             }
-            sh "git clone git@github.com:xmos/test_support"
-            sh "git -C test_support checkout e62b73a1260069c188a7d8fb0d91e1ef80a3c4e1"
+            clone_test_deps()
             dir("${REPO}") {
               withVenv {
                 sh "pip install -e ../test_support"
@@ -170,14 +182,8 @@ pipeline {
               createVenv()
               installPipfile(false)
             }
-            sh "git clone git@github.com:xmos/test_support"
-            sh "git -C test_support checkout e62b73a1260069c188a7d8fb0d91e1ef80a3c4e1"
 
-            sh "git clone git@github.com:xmos/hardware_test_tools"
-            sh "git -C hardware_test_tools checkout 2f9919c956f0083cdcecb765b47129d846948ed4"
-
-            sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
-            sh "git -C xtagctl checkout v2.0.0"
+            clone_test_deps()
 
             dir("${REPO}") {
               withVenv {

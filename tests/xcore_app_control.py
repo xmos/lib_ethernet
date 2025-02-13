@@ -5,6 +5,7 @@ import re
 from scapy.all import *
 from hw_helpers import mii2scapy
 from hardware_test_tools.XcoreApp import XcoreApp
+from conftest import build_xcope_control_host, build_socket_host
 
 pkg_dir = Path(__file__).parent
 
@@ -32,32 +33,10 @@ class XcoreAppControl(XcoreApp):
 
         assert xscope_controller_dir.exists() and xscope_controller_dir.is_dir(), f"xscope_controller path {xscope_controller_dir} invalid"
 
-        # Build the xscope controller host application
-        ret = subprocess.run(["cmake", "-B", "build"],
-                            capture_output=True,
-                            text=True,
-                            cwd=xscope_controller_dir)
-
-        assert ret.returncode == 0, (
-            f"xscope controller cmake command failed"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-
-        ret = subprocess.run(["make", "-C", "build"],
-                            capture_output=True,
-                            text=True,
-                            cwd=xscope_controller_dir)
-
-        assert ret.returncode == 0, (
-            f"xscope controller make command failed"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-
         self.xscope_controller_app = xscope_controller_dir / "build" / "xscope_controller"
-        assert self.xscope_controller_app.exists(), f"xscope_controller not present at {self.xscope_controller_app}"
-
+        if not self.xscope_controller_app.exists():
+            # Build the xscope controller host application if missing
+            build_xcope_control_host()
 
     def xscope_controller_do_command(self, xscope_controller, cmds, timeout):
         """
@@ -187,38 +166,16 @@ class SocketHost():
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
         socket_host_dir = pkg_dir / "host" / "socket"
-         # Build the xscope controller host application
-        ret = subprocess.run(["cmake", "-B", "build"],
-                            capture_output=True,
-                            text=True,
-                            cwd=socket_host_dir)
 
-        assert ret.returncode == 0, (
-            f"socket host cmake command failed"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-
-        ret = subprocess.run(["make", "-C", "build"],
-                            capture_output=True,
-                            text=True,
-                            cwd=socket_host_dir)
-
-        assert ret.returncode == 0, (
-            f"socket host make command failed"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
+        assert socket_host_dir.exists() and socket_host_dir.is_dir(), f"socket_host path {socket_host_dir} invalid"
 
         self.socket_send_app = socket_host_dir / "build" / "socket_send"
-        assert self.socket_send_app.exists(), f"socket host app {self.socket_send_app} doesn't exist"
-
         self.socket_send_recv_app = socket_host_dir / "build" / "socket_send_recv"
-        assert self.socket_send_recv_app.exists(), f"socket host app {self.socket_send_recv_app} doesn't exist"
-
         self.socket_recv_app = socket_host_dir / "build" / "socket_recv"
-        assert self.socket_recv_app.exists(), f"socket host app {self.socket_recv_app} doesn't exist"
 
+        if not (self.socket_send_app.exists() and self.socket_send_app.exists() and self.socket_recv_app.exists()):
+            # Build the xscope controller host application if missing
+            build_socket_host()
 
     def set_cap_net_raw(self, app):
         cmd = f"sudo /usr/sbin/setcap cap_net_raw=eip {app}"
