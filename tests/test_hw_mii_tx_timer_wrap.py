@@ -22,7 +22,6 @@ pkg_dir = Path(__file__).parent
 Time it takes for the socket receiver to get ready to receive a packet.
 After starting the socket receiver process, wait this long before asking the DUT to transmit
 """
-SOCKET_RECEIVER_SETUP_TIME = 1
 
 def load_packet_file(filename):
     TIMESPEC_FORMAT = "qq" # 'q' means int64_t (8 bytes), little-endian by default
@@ -48,8 +47,6 @@ def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verb
     expected_packet_len = 1500
     capture_file = "packets.bin"
     socket_host.recv_asynch_start(capture_file)
-    time.sleep(SOCKET_RECEIVER_SETUP_TIME) # Wait for the socket receiver to be ready
-
     # now signal to DUT that we are ready to receive and say what we want from it
     stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
     stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
@@ -162,10 +159,11 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
             packet_receive_time_diff_ns = calc_time_diff(packet_recv_times[i][0], packet_recv_times[i][1], packet_recv_times[i+1][0], packet_recv_times[i+1][1])
 
             """
-            Adding 5 + SOCKET_RECEIVER_SETUP_TIME seconds to the interpacket wait time that was introduced between packets
+            Adding 5 + 1 seconds to the interpacket wait time that was introduced between packets
             5s is the inactivity time after receiving a packet that the socket recv waits for before exiting.
+            1s for the overhead of CMD_HOST_SET_DUT_TX_PACKETS cmd to both clients + socket receiver setup time
             """
-            wait_time_ns = (wait_times_s[i] + 5 + SOCKET_RECEIVER_SETUP_TIME) * nanoseconds_in_a_second
+            wait_time_ns = (wait_times_s[i] + 5 + 1) * nanoseconds_in_a_second
             diff = packet_receive_time_diff_ns - wait_time_ns
             print(f"packet_receive_time_diff_ns = {packet_receive_time_diff_ns}, wait_time_ns = {wait_time_ns}")
             print(f"diff = {diff}")
