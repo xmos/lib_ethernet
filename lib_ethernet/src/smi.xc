@@ -11,6 +11,7 @@
 #define SMI_READ                    1
 #define SMI_WRITE                   0
 
+// These are for MMD which can access registers beyond the 5b normal range
 #define MMD_ACCESS_CONTROL          0xD
 #define MMD_ACCESS_DATA             0xE
 
@@ -263,12 +264,21 @@ unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
 
 void smi_mmd_write(client smi_if smi, uint8_t phy_address,
                    uint16_t mmd_dev, uint16_t mmd_reg,
-		   uint16_t value)
+		               uint16_t value)
 {
   smi.write_reg(phy_address, MMD_ACCESS_CONTROL, mmd_dev);
   smi.write_reg(phy_address, MMD_ACCESS_DATA, mmd_reg);
   smi.write_reg(phy_address, MMD_ACCESS_CONTROL, (1 << 14) | mmd_dev); 
   smi.write_reg(phy_address, MMD_ACCESS_DATA, value);
+}
+
+uint16_t smi_mmd_read(client smi_if smi, uint8_t phy_address,
+                      uint16_t mmd_dev, uint16_t mmd_reg)
+{
+  smi.write_reg(phy_address, MMD_ACCESS_CONTROL, mmd_dev);
+  smi.write_reg(phy_address, MMD_ACCESS_DATA, mmd_reg);
+  smi.write_reg(phy_address, MMD_ACCESS_CONTROL, (1 << 14) | mmd_dev); 
+  return smi.read_reg(phy_address, MMD_ACCESS_DATA);
 }
 
 void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t speed_mbps, smi_autoneg_t auto_neg)
