@@ -31,7 +31,7 @@
 
 #define BASIC_STATUS_LINK_BIT               2
 
-#define IO_CFG_CRS_RX_DV_BIT                4
+#define IO_CFG_CRS_RX_DV_BIT                8
 
 #define AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX             9
 #define AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX             8
