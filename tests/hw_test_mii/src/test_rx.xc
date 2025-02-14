@@ -23,6 +23,15 @@ typedef struct
   unsigned ifg;
 }seq_id_pair_t;
 
+static void wait_us(int microseconds)
+{
+    timer t;
+    unsigned time;
+
+    t :> time;
+    t when timerafter(time + (microseconds * 100)) :> void;
+}
+
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
@@ -43,8 +52,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   // Add broadcast filter
   memset(macaddr_filter.addr, 0xff, MACADDR_NUM_BYTES);
   cfg.add_macaddr_filter(index, 0, macaddr_filter);
-
-  cfg.add_ethertype_filter(index, 0x2222);
 
   debug_printf("Test started\n");
   unsigned pkt_count = 0;
@@ -242,6 +249,8 @@ void test_rx_lp(client ethernet_cfg_if cfg,
     }
   }
   c_xscope_control <: 1; // Acknowledge CMD_DEVICE_SHUTDOWN
+  wait_us(2000); // Since this task might be scheduled in a while(1), wait sometime before exiting so that xscope_control exits first in case of a shutdown command.
+                 // Shutdown fails occasionally (To be debugged) otherwise.
 }
 
 

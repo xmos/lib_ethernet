@@ -64,7 +64,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     {
                         c_clients[i] <: CMD_DEVICE_SHUTDOWN;
                         c_clients[i] :> int temp;
-                        debug_printf("shutdown: %d\n", i);
+                        debug_printf("shutdown: client %d\n", i);
 
                     }
                     // Acknowledge
@@ -145,6 +145,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 {
                     debug_printf("xscope_control received CMD_EXIT_DEVICE_MAC\n");
                     c_clients[1] <: CMD_EXIT_DEVICE_MAC; // Send to the first client.
+                    c_clients[1] :> int temp;
                     // Acknowledge
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
