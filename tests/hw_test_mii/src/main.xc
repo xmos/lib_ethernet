@@ -10,6 +10,7 @@
 #include "smi.h"
 #include "lan8710a_phy_driver.h"
 #include <xscope.h>
+#include "debug_print.h"
 
 
 
@@ -57,33 +58,44 @@ int main()
 
   par {
     xscope_host_data(c_xscope);
-    on tile[1]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
-                                i_rx_lp, NUM_RX_LP_IF,
-                                i_tx_lp, NUM_TX_LP_IF,
-                                c_rx_hp, null,
-                                p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                p_eth_txclk, p_eth_txen, p_eth_txd,
-                                eth_rxclk, eth_txclk,
-                                4000, 4000, ETHERNET_DISABLE_SHAPER);
 
-    on tile[1]: lan8710a_phy_driver(i_smi, i_cfg[0], c_clients[0]);
+    on tile[1]:
+    {
+      par {
+        while(1) // To allow re-starting the mac+client threads after a restart
+        {
+          par {
+            mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        c_rx_hp, null,
+                                        p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                        p_eth_txclk, p_eth_txen, p_eth_txd,
+                                        eth_rxclk, eth_txclk,
+                                        4000, 4000, ETHERNET_DISABLE_SHAPER);
 
-    on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
+            test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[1]);
+          }
+        }
 
+        {
+          xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS);
+          _Exit(0);
+        }
+
+        lan8710a_phy_driver(i_smi, i_cfg[0], c_clients[0]);
+        smi(i_smi, p_smi_mdio, p_smi_mdc);
+      }
+    }
+#if MULTIPLE_QUEUES
     // RX threads
-    par ( size_t i = 0; i < NUM_RX_LP_IF; i ++)
+    par ( size_t i = 1; i < NUM_RX_LP_IF; i ++)
     {
       on tile[0]: test_rx_lp(i_cfg[1+i], i_rx_lp[i], i_tx_lp[i], i, c_clients[1+i]);
     }
-#if NUM_RX_HP_IF
     on tile[0]: test_rx_hp(i_cfg[1+NUM_RX_LP_IF], c_rx_hp, NUM_RX_LP_IF, c_clients[1+NUM_RX_LP_IF]); // HP is the last client
 #endif
-
-    on tile[0]: {
-      xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS);
-      _Exit(0);
-    }
-
   }
   return 0;
 }
+
