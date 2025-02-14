@@ -143,6 +143,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 }
                 else if(char_ptr[0] == CMD_EXIT_DEVICE_MAC)
                 {
+                    debug_printf("xscope_control received CMD_EXIT_DEVICE_MAC\n");
                     c_clients[1] <: CMD_EXIT_DEVICE_MAC; // Send to the first client.
                     // Acknowledge
                     unsigned char ret = 0;

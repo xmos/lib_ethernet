@@ -335,6 +335,7 @@ void test_rx_hp(client ethernet_cfg_if cfg,
         }
         else if(cmd == CMD_EXIT_DEVICE_MAC)
         {
+          debug_printf("Received CMD_EXIT_DEVICE_MAC command\n");
           cfg.exit();
           // the client is expected to exit after signalling the Mac to exit
           done = 1;
