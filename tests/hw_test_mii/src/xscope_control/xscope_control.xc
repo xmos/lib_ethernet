@@ -40,7 +40,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     debug_printf("Received CMD_DEVICE_CONNECT\n");
                     // Shutdown each client
                     int ready = 0;
-                    for(int i=0; i<num_clients; i++)
+                    for(int i=1; i<num_clients; i++)
                     {
                         debug_printf("Check client %d ready\n", i);
                         c_clients[i] <: CMD_DEVICE_CONNECT;
@@ -60,7 +60,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 if(char_ptr[0] == CMD_DEVICE_SHUTDOWN)
                 {
                     // Shutdown each client
-                    for(int i=0; i<num_clients; i++)
+                    for(int i=1; i<num_clients; i++)
                     {
                         c_clients[i] <: CMD_DEVICE_SHUTDOWN;
                         c_clients[i] :> int temp;

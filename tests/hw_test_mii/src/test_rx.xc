@@ -174,7 +174,18 @@ void test_rx_lp(client ethernet_cfg_if cfg,
       case c_xscope_control :> int cmd: // Shutdown received over xscope
         if(cmd == CMD_DEVICE_CONNECT)
         {
-            c_xscope_control <: 1; // Indicate ready
+          if(client_num == 0)
+          {
+            // The first client needs to ensure link is up when returning ready status
+            unsigned link_state, link_speed;
+            cfg.get_link_state(0, link_state, link_speed);
+            while(link_state != ETHERNET_LINK_UP)
+            {
+              wait_us(1000); // Check every 1ms
+              cfg.get_link_state(0, link_state, link_speed);
+            }
+          }
+          c_xscope_control <: 1; // Indicate ready
         }
         else if(cmd == CMD_DEVICE_SHUTDOWN)
         {
@@ -312,7 +323,18 @@ void test_rx_hp(client ethernet_cfg_if cfg,
       case c_xscope_control :> int cmd: // Shutdown received over xscope
         if(cmd == CMD_DEVICE_CONNECT)
         {
-            c_xscope_control <: 1; // Indicate ready
+          if(client_num == 0)
+          {
+            // The first client needs to ensure link is up when returning ready status
+            unsigned link_state, link_speed;
+            cfg.get_link_state(0, link_state, link_speed);
+            while(link_state != ETHERNET_LINK_UP)
+            {
+              wait_us(1000); // Check every 1ms
+              cfg.get_link_state(0, link_state, link_speed);
+            }
+          }
+          c_xscope_control <: 1; // Indicate ready
         }
         else if(cmd == CMD_DEVICE_SHUTDOWN)
         {

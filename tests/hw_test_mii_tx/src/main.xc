@@ -63,7 +63,7 @@ int main()
 
     // TX threads
     on tile[0]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[1], c_tx_synch);
-    on tile[0]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, c_clients[2], c_tx_synch);
+    on tile[0]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, 1, c_clients[2], c_tx_synch);
 
     on tile[0]: {
       xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS);
