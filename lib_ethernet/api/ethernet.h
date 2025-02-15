@@ -39,6 +39,11 @@ typedef enum ethernet_link_state_t {
   ETHERNET_LINK_UP       /**< Ethernet link up event. */
 } ethernet_link_state_t;
 
+typedef struct {
+  ethernet_link_state_t state;
+  ethernet_speed_t speed;
+}ethernet_link_t;
+
 /** Structure representing a received data or control packet from the Ethernet MAC */
 typedef struct ethernet_packet_info_t {
   eth_packet_type_t type; /**< Type representing the type of packet from the MAC */
@@ -79,6 +84,9 @@ typedef interface ethernet_cfg_if {
    *
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
+   * Warning: The mac address set through this function is not used anywhere in the Mac. The client is expected
+   * to create the full packet including src and dest mac address for transmission.
+   * For setting a mac address filter when receiving packets, use add_macaddr_filter
    */
   void set_macaddr(size_t ifnum, const uint8_t mac_address[MACADDR_NUM_BYTES]);
 
@@ -98,6 +106,16 @@ typedef interface ethernet_cfg_if {
    *  \param speed      The active link speed and duplex of the PHY.
    */
   void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
+
+  /** Get the current link state.
+   *
+   *  This function Gets the current link state and speed of the PHY to the MAC.
+   *
+   *  \param ifnum      The index of the MAC interface to ge the link state for
+   *
+   *  \returns Ethernet link state and speed
+   */
+  void get_link_state(int ifnum, REFERENCE_PARAM(unsigned, link_state), REFERENCE_PARAM(unsigned, link_speed));
 
   /** Add MAC addresses to the filter. Only packets with the specified MAC address will be
    *  forwarded to the client.
@@ -175,8 +193,8 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
-   * 
-   * 
+   *
+   *
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
 
@@ -185,8 +203,8 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The maximum number of bits per second to be set
-   * 
-   * 
+   *
+   *
    */
   void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
 
@@ -636,7 +654,7 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 
 
-/** ENUM to determine which two bits of a four bit port are to be used as data lines 
+/** ENUM to determine which two bits of a four bit port are to be used as data lines
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
  *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{

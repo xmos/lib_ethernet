@@ -336,6 +336,11 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       }
       break;
 
+    case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+      link_state = p_port_state->link_state;
+      link_speed = p_port_state->link_speed;
+      break;
+
     case i_cfg[int i].add_macaddr_filter(size_t client_num, int is_hp,
                                          ethernet_macaddr_filter_t entry) ->
                                            ethernet_macaddr_filter_result_t result:
@@ -420,7 +425,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds 
+      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds
       break;
     }
 
