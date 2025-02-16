@@ -8,8 +8,7 @@
 
 [[combinable]]
 void lan8710a_phy_driver(client interface smi_if smi,
-                         client interface ethernet_cfg_if eth,
-                         chanend c_xscope_control) {
+                         client interface ethernet_cfg_if eth) {
   ethernet_link_state_t link_state = ETHERNET_LINK_DOWN;
   ethernet_speed_t link_speed = LINK_100_MBPS_FULL_DUPLEX;
   const int link_poll_period_ms = 1000;
@@ -39,24 +38,6 @@ void lan8710a_phy_driver(client interface smi_if smi,
       }
       t += link_poll_period_ms * XS1_TIMER_KHZ;
       break;
-    case c_xscope_control :> int temp: // cmd received over xscope
-        if(temp == CMD_DEVICE_SHUTDOWN)
-        {
-          c_xscope_control <: 1; // Acknowledge shutdown completion
-          return;
-        }
-        else if(temp == CMD_DEVICE_CONNECT)
-        {
-          if(link_state == ETHERNET_LINK_UP)
-          {
-            c_xscope_control <: 1;
-          }
-          else
-          {
-            c_xscope_control <: 0;
-          }
-        }
-        break;
     }
 
   }

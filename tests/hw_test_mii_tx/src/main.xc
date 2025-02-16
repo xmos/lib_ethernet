@@ -39,7 +39,7 @@ int main()
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   smi_if i_smi;
   chan c_xscope;
-  chan c_clients[NUM_CFG_CLIENTS];
+  chan c_clients[NUM_CFG_CLIENTS - 1]; // Exclude lan8710a_phy_driver
   streaming chan c_tx_hp;
   chan c_tx_synch;
 
@@ -57,16 +57,16 @@ int main()
                                 eth_rxclk, eth_txclk,
                                 4000, 4000, ETHERNET_ENABLE_SHAPER);
 
-    on tile[1]: lan8710a_phy_driver(i_smi, i_cfg[0], c_clients[0]);
+    on tile[1]: lan8710a_phy_driver(i_smi, i_cfg[0]);
 
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
     // TX threads
-    on tile[0]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[1], c_tx_synch);
-    on tile[0]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, c_clients[2], c_tx_synch);
+    on tile[0]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], c_tx_synch);
+    on tile[0]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, 1, c_clients[1], c_tx_synch);
 
     on tile[0]: {
-      xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS);
+      xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
       _Exit(0);
     }
 

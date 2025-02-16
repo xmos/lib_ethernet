@@ -11,6 +11,14 @@
 #include <print.h>
 #include "xscope_control.h"
 
+static void wait_us(int microseconds)
+{
+    timer t;
+    unsigned time;
+
+    t :> time;
+    t when timerafter(time + (microseconds * 100)) :> void;
+}
 
 #define MAX_PACKET_BYTES (6 + 6 + 2 + 1500)
 
@@ -40,7 +48,18 @@ void test_tx_lp(client ethernet_cfg_if cfg,
       case c_xscope_control :> int cmd: // Command received over xscope
         if(cmd == CMD_DEVICE_CONNECT)
         {
-            c_xscope_control <: 1; // Indicate ready
+          if(client_num == 0)
+          {
+            // The first client needs to ensure link is up when returning ready status
+            unsigned link_state, link_speed;
+            cfg.get_link_state(0, link_state, link_speed);
+            while(link_state != ETHERNET_LINK_UP)
+            {
+              wait_us(1000); // Check every 1ms
+              cfg.get_link_state(0, link_state, link_speed);
+            }
+          }
+          c_xscope_control <: 1; // Indicate ready
         }
         else if(cmd == CMD_SET_DEVICE_MACADDR)
         {
@@ -102,6 +121,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
 void test_tx_hp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  streaming chanend c_tx_hp,
+                 unsigned client_num,
                  chanend c_xscope_control,
                  chanend c_tx_synch)
 {
@@ -126,7 +146,18 @@ void test_tx_hp(client ethernet_cfg_if cfg,
       case c_xscope_control :> int cmd: // Command received over xscope
         if(cmd == CMD_DEVICE_CONNECT)
         {
-            c_xscope_control <: 1; // Indicate ready
+          if(client_num == 0)
+          {
+            // The first client needs to ensure link is up when returning ready status
+            unsigned link_state, link_speed;
+            cfg.get_link_state(0, link_state, link_speed);
+            while(link_state != ETHERNET_LINK_UP)
+            {
+              wait_us(1000); // Check every 1ms
+              cfg.get_link_state(0, link_state, link_speed);
+            }
+          }
+          c_xscope_control <: 1; // Indicate ready
         }
         else if(cmd == CMD_SET_DEVICE_MACADDR)
         {

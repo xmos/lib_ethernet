@@ -16,6 +16,7 @@ void test_tx_lp(client ethernet_cfg_if cfg,
 void test_tx_hp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  streaming chanend c_tx_hp,
+                 unsigned client_num,
                  chanend c_xscope_control,
                  chanend c_tx_synch);
 

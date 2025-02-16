@@ -23,7 +23,8 @@ enum {
     CMD_SET_HOST_MACADDR,
     CMD_HOST_SET_DUT_TX_PACKETS,
     CMD_SET_DUT_RECEIVE,
-    CMD_DEVICE_CONNECT
+    CMD_DEVICE_CONNECT,
+    CMD_EXIT_DEVICE_MAC
 };
 
 #define LINE_LENGTH 1024
@@ -272,6 +273,18 @@ int main(int argc, char *argv[]) {
             to_send[1] = client_id;
             to_send[1] = recv_flag;
             while (xscope_ep_request_upload(cmd_bytes, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
+            unsigned char result = wait_for_command_response();
+            if (result != 0)
+            {
+                return 1;
+            }
+        }
+        else if(strcmp(argv[3], "exit_dut_mac") == 0)
+        {
+            unsigned char to_send[1];
+            to_send[0] = CMD_EXIT_DEVICE_MAC;
+            fprintf(stderr, "xscope_controller sending cmd CMD_EXIT_DEVICE_MAC\n");
+            while (xscope_ep_request_upload(1, (unsigned char *)&to_send) != XSCOPE_EP_SUCCESS);
             unsigned char result = wait_for_command_response();
             if (result != 0)
             {

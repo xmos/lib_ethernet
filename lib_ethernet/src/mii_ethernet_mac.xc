@@ -288,6 +288,12 @@ static void mii_ethernet_aux(client mii_if i_mii,
           update_client_state(client_state, i_rx, n_rx);
         }
         break;
+
+      case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+        link_state = link_status;
+        link_speed = link_speed;
+        break;
+
       case mii_incoming_packet(mii_info):
         int * unsafe data;
         int nbytes;

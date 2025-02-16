@@ -3,7 +3,6 @@
 
 [[combinable]]
 void lan8710a_phy_driver(client interface smi_if smi,
-                         client interface ethernet_cfg_if eth,
-                         chanend c_xscope_control);
+                         client interface ethernet_cfg_if eth);
 
 #endif

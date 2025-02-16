@@ -64,7 +64,7 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     {
                         c_clients[i] <: CMD_DEVICE_SHUTDOWN;
                         c_clients[i] :> int temp;
-                        debug_printf("shutdown: %d\n", i);
+                        debug_printf("shutdown: client %d\n", i);
 
                     }
                     // Acknowledge
@@ -81,12 +81,12 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                         debug_printf("%2x ",char_ptr[2+i]);
                     }
                     debug_printf("\n");
-                    c_clients[1+client_index] <: CMD_SET_DEVICE_MACADDR;
-                    for(int i=0; i<6; i++) // c_clients index is one more than the client_index req by the host, since c_clients[0] is for lan8710a_phy_driver
+                    c_clients[client_index] <: CMD_SET_DEVICE_MACADDR;
+                    for(int i=0; i<6; i++)
                     {
-                        c_clients[1+client_index] <: char_ptr[2+i];
+                        c_clients[client_index] <: char_ptr[2+i];
                     }
-                    c_clients[1+client_index] :> int temp;
+                    c_clients[client_index] :> int temp;
                     // Acknowledge
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
@@ -101,10 +101,10 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     }
                     debug_printf("\n");
                     // send it to all client except the lan8710a_phy_driver
-                    for(int cl=1; cl<num_clients; cl++)
+                    for(int cl=0; cl<num_clients; cl++)
                     {
                         c_clients[cl] <: CMD_SET_HOST_MACADDR;
-                        for(int i=0; i<6; i++) // c_clients index is one more than the client_index req by the host, since c_clients[0] is for lan8710a_phy_driver
+                        for(int i=0; i<6; i++)
                         {
                             c_clients[cl] <: char_ptr[1+i];
                         }
@@ -122,10 +122,10 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     memcpy(&arg2, &char_ptr[1 + sizeof(client_index) + sizeof(arg1)], sizeof(arg2));
                     debug_printf("set dut tx packets client %u: %u %u\n", client_index, arg1, arg2);
 
-                    c_clients[1+client_index] <: CMD_HOST_SET_DUT_TX_PACKETS;
-                    c_clients[1+client_index] <: arg1;
-                    c_clients[1+client_index] <: arg2;
-                    c_clients[1+client_index] :>  int temp;
+                    c_clients[client_index] <: CMD_HOST_SET_DUT_TX_PACKETS;
+                    c_clients[client_index] <: arg1;
+                    c_clients[client_index] <: arg2;
+                    c_clients[client_index] :>  int temp;
                     // Acknowledge host app
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
@@ -134,9 +134,18 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 {
                     unsigned client_index = char_ptr[1];
                     unsigned recv_flag = char_ptr[2];
-                    c_clients[1+client_index] <: CMD_SET_DUT_RECEIVE;
-                    c_clients[1+client_index] <: recv_flag;
-                    c_clients[1+client_index] :> int temp;
+                    c_clients[client_index] <: CMD_SET_DUT_RECEIVE;
+                    c_clients[client_index] <: recv_flag;
+                    c_clients[client_index] :> int temp;
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
+                }
+                else if(char_ptr[0] == CMD_EXIT_DEVICE_MAC)
+                {
+                    debug_printf("xscope_control received CMD_EXIT_DEVICE_MAC\n");
+                    c_clients[0] <: CMD_EXIT_DEVICE_MAC; // Send to the first client.
+                    c_clients[0] :> int temp;
                     // Acknowledge
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
