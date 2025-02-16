@@ -6,6 +6,7 @@ from scapy.all import *
 from hw_helpers import mii2scapy
 from hardware_test_tools.XcoreApp import XcoreApp
 from conftest import build_xcope_control_host, build_socket_host
+import time
 
 pkg_dir = Path(__file__).parent
 
@@ -15,7 +16,7 @@ class XcoreAppControl(XcoreApp):
     These are wrapper functions that run the C++ xscope host application which actually communicates with the DUT over xscope.
     It is derived from XcoreApp which xruns the DUT application with the --xscope-port option.
     """
-    def __init__(self, adapter_id, xe_name, attach=None):
+    def __init__(self, adapter_id, xe_name, attach=None, verbose=False):
         """
         Initialise the XcoreAppControl class. This compiles the xscope host application (host/xscope_controller).
         It also calls init for the base class XcoreApp, which xruns the XMOS device application (DUT) such that the host app
@@ -24,6 +25,7 @@ class XcoreAppControl(XcoreApp):
         Parameter: compiled DUT application binary
         adapter-id: adapter ID of the XMOS device
         """
+        self.verbose = verbose
         assert platform.system() in ["Darwin", "Linux"]
         super().__init__(xe_name, adapter_id, attach=attach)
 
@@ -50,18 +52,22 @@ class XcoreAppControl(XcoreApp):
         Returns:
         stdout and stderr from running the host application
         """
+        cmd = [xscope_controller, "localhost", f"{self.xscope_port}", *cmds]
         ret = subprocess.run(
-            [xscope_controller, "localhost", f"{self.xscope_port}", *cmds],
+            cmd,
             capture_output=True,
             text=True,
             timeout=timeout
         )
         assert ret.returncode == 0, (
-            f"xscope controller command failed on port {self.xscope_port} with commands {cmds}"
+            f"Subprocess run of cmd failed: {' '.join([str(c) for c in cmd])}"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-
+        if self.verbose:
+            print(f"After running cmd {' '.join([str(c) for c in cmd])}")
+            print(f"stdout = {ret.stdout}")
+            print(f"stderr = {ret.stderr}")
         return ret.stdout, ret.stderr
 
 
@@ -157,7 +163,7 @@ class SocketHost():
     """
     Class containing functions that send and receive L2 ethernet packets over a raw socket.
     """
-    def __init__(self, eth_intf, host_mac_addr, dut_mac_addr):
+    def __init__(self, eth_intf, host_mac_addr, dut_mac_addr, verbose=False):
         """
         Constructor for the SocketHost class. It compiles the C++ socket send and receive applications.
 
@@ -172,6 +178,7 @@ class SocketHost():
         self.dut_mac_addr = dut_mac_addr
         self.send_proc = None
         self.num_packets_sent = None
+        self.verbose = verbose
 
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
         # build the af_packet_send utility
@@ -215,13 +222,17 @@ class SocketHost():
         """
         assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
-
-        ret = subprocess.run([self.socket_send_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())],
+        cmd = [self.socket_send_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())]
+        ret = subprocess.run(cmd,
                              capture_output = True,
                              text = True)
-        print(f"stdout = {ret.stdout}")
+
+        if self.verbose:
+            print(f"After running cmd {' '.join([str(c) for c in cmd])}\n")
+            print(f"stdout = {ret.stdout}\n")
+            print(f"stderr = {ret.stderr}\n")
         assert ret.returncode == 0, (
-            f"{self.socket_send_app} returned runtime error"
+            f"Subprocess run of cmd failed: {' '.join([str(c) for c in cmd])}"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
@@ -232,8 +243,12 @@ class SocketHost():
         assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
         self.num_packets_sent = None
+        self.send_cmd = [self.socket_send_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())]
+        if self.verbose:
+            print(f"subprocess Popen: {' '.join([str(c) for c in self.send_cmd])}")
+
         self.send_proc = subprocess.Popen(
-                [self.socket_send_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())],
+                self.send_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
@@ -246,12 +261,18 @@ class SocketHost():
         if not running:
             self.send_proc_stdout, self. send_proc_stderr = self.send_proc.communicate(timeout=60)
             self.send_proc_returncode = self.send_proc.returncode
+
+            if self.verbose:
+                print(f"Process ended: {' '.join([str(c) for c in self.send_cmd])}\n")
+                print(f"stdout = {self.send_proc_stdout}")
+                print(f"stderr = {self.send_proc_stderr}")
+
             assert self.send_proc_returncode == 0, (
-                f"{self.socket_send_app} returned error"
+                f"Subprocess run of cmd failed: {' '.join([str(c) for c in self.send_cmd])}"
                 + f"\nstdout:\n{self.send_proc_stdout}"
                 + f"\nstderr:\n{self. send_proc_stderr}"
             )
-            print(f"stdout = {self.send_proc_stdout}")
+
             self.num_packets_sent = self.get_num_pkts_sent_from_stdout(self.send_proc_stdout)
             self.send_proc = None
         return running
@@ -261,16 +282,21 @@ class SocketHost():
     def send_recv(self, test_duration_s, payload_len="max"):
         self.set_cap_net_raw(self.socket_send_recv_app)
 
-        ret = subprocess.run([self.socket_send_recv_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())],
+        cmd = [self.socket_send_recv_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())]
+        ret = subprocess.run(cmd,
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (
-            f"{self.socket_send_recv_app} returned runtime error"
+            f"Subprocess run of cmd failed: {' '.join([str(c) for c in cmd])}"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-        print(f"stdout = {ret.stdout}")
-        print(f"stderr = {ret.stderr}")
+
+        if self.verbose:
+            print(f"After running cmd {' '.join([str(c) for c in cmd])}")
+            print(f"stdout = {ret.stdout}")
+            print(f"stderr = {ret.stderr}")
+
         m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
         assert m, ("Sniffer doesn't report received packets"
         + f"\nstdout:\n{ret.stdout}"
@@ -282,17 +308,20 @@ class SocketHost():
 
     def recv(self, capture_file):
         self.set_cap_net_raw(self.socket_recv_app)
-
-        ret = subprocess.run([self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file],
+        cmd = [self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file]
+        ret = subprocess.run(cmd,
                              capture_output = True,
                              text = True)
         assert ret.returncode == 0, (
-            f"{self.socket_recv_app} returned runtime error"
+            f"Subprocess run of cmd failed: {' '.join([str(c) for c in cmd])}"
             + f"\nstdout:\n{ret.stdout}"
             + f"\nstderr:\n{ret.stderr}"
         )
-        # print(f"stdout = {ret.stdout}")
-        # print(f"stderr = {ret.stderr}")
+        if self.verbose:
+            print(f"After running cmd {' '.join([str(c) for c in cmd])}")
+            print(f"stdout = {ret.stdout}")
+            print(f"stderr = {ret.stderr}")
+
         m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
         assert m, ("Sniffer doesn't report received packets"
         + f"\nstdout:\n{ret.stdout}"
@@ -302,7 +331,10 @@ class SocketHost():
 
     def recv_asynch_start(self, capture_file):
         self.set_cap_net_raw(self.socket_recv_app)
-        self.recv_proc = subprocess.Popen([self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file],
+        self.recv_cmd = [self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file]
+        if self.verbose:
+            print(f"subprocess Popen: {' '.join([str(c) for c in self.recv_cmd])}")
+        self.recv_proc = subprocess.Popen(self.recv_cmd,
                                             stdout=subprocess.PIPE,
                                             stderr=subprocess.PIPE,
                                             text=True)
@@ -315,12 +347,16 @@ class SocketHost():
                 self.recv_proc_stdout, self.recv_proc_stderr = self.recv_proc.communicate(timeout=60)
                 self.recv_proc_returncode = self.recv_proc.returncode
                 assert self.recv_proc_returncode == 0, (
-                    f"{self.socket_recv_app} returned runtime error"
+                    f"Subprocess run of cmd failed: {' '.join([str(c) for c in self.recv_cmd])}"
                     + f"\nstdout:\n{self.recv_proc_stdout}"
                     + f"\nstderr:\n{self.recv_proc_stderr}"
                 )
-                # print(f"stdout = {self.recv_proc_stdout}")
-                # print(f"stderr = {self.recv_proc_stderr}")
+
+                if self.verbose:
+                    print(f"Process ended: {' '.join([str(c) for c in self.recv_cmd])}\n")
+                    print(f"stderr = {self.recv_proc_stderr}")
+                    print(f"stdout = {self.recv_proc_stdout}")
+
                 m = re.search(r"Receieved (\d+) packets on ethernet interface", self.recv_proc_stdout)
                 assert m, ("Sniffer doesn't report received packets"
                 + f"\nstdout:\n{self.recv_proc_stdout}"

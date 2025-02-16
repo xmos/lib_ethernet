@@ -94,11 +94,9 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     nanoseconds_in_a_second = 1000000000
     packet_recv_times = []
     wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-        if verbose:
-            print(stderr)
 
         # config contents of Tx packets
         lp_client_id = 0
@@ -110,7 +108,7 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
         print("Starting sniffer")
         if send_method == "socket":
             assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
-            socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}")
+            socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}", verbose=verbose)
 
             tv_sec, tv_nsec = recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verbose)
             packet_recv_times.append((tv_sec, tv_nsec))

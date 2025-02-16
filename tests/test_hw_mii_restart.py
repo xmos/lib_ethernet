@@ -48,24 +48,18 @@ def test_hw_mii_restart(request, send_method):
 
     if send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
-        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
+        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str, verbose=verbose)
     else:
         assert False, f"Invalid send_method {send_method}"
 
 
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "loopback" / "hw_test_mii_loopback.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-        if verbose:
-            print(stderr)
-
 
         print("Set DUT Mac address")
         stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
-        if verbose:
-            print(f"stdout = {stdout}")
-            print(f"stderr = {stderr}")
 
         if send_method == "socket":
             num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
@@ -75,15 +69,10 @@ def test_hw_mii_restart(request, send_method):
             # restart the mac
             print("Restart DUT Mac")
             stdout, stderr = xcoreapp.xscope_controller_cmd_restart_dut_mac()
-            if verbose:
-                print(f"stdout = {stdout}")
-                print(f"stderr = {stderr}")
 
             # wait to connect again
             print("Connect to the DUT again")
             stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-            if verbose:
-                print(stderr)
 
             if send_method == "socket":
                 num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
@@ -103,8 +92,6 @@ def test_hw_mii_restart(request, send_method):
         print("Retrive status and shutdown DUT")
         stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
-        if verbose:
-            print(stderr)
         print("Terminating!!!")
 
 

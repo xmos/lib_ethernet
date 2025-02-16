@@ -88,23 +88,19 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
                 packets.append(packet_copy)
     elif send_method == "socket":
         assert platform.system() in ["Linux"], f"Sending using sockets only supported on Linux"
-        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str)
+        socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str, verbose=verbose)
     else:
         assert False, f"Invalid send_method {send_method}"
 
 
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_only" / "hw_test_mii_rx_only.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app") as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-        if verbose:
-            print(stderr)
 
         print("Set DUT Mac address")
         stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
-        if verbose:
-            print(f"stdout = {stdout}")
-            print(f"stderr = {stderr}")
+
 
         print(f"Send {test_duration_s} seconds of packets now")
         send_time = []
@@ -131,8 +127,6 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
         print("Retrive status and shutdown DUT")
         stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
-        if verbose:
-            print(stderr)
         print("Terminating!!!")
 
 

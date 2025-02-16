@@ -106,7 +106,7 @@ def parse_packet_summary(packet_summary,
     return errors if errors != "" else None
 
 @pytest.mark.parametrize('send_method', ['socket'])
-                                        # Format is LP packet size, HP packet size, Qav bandwidth bps 
+                                        # Format is LP packet size, HP packet size, Qav bandwidth bps
 @pytest.mark.parametrize('tx_config', [ [1000, 0, 0],
                                         [1000, 345, 1000000],
                                         [1514, 1514, 5000000],
@@ -164,42 +164,39 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
     capture_file = "packets.bin"
 
     xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
-    xcoreapp = XcoreAppControl(adapter_id, xe_name, attach="xscope_app")
-    xcoreapp.__enter__()
+    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+        print("Wait for DUT to be ready")
+        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+        if verbose:
+            print(stderr)
 
-    print("Wait for DUT to be ready")
-    stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-    if verbose:
-        print(stderr)
+        # config contents of Tx packets
+        lp_client_id = 0
+        hp_client_id = 1
+        xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
+        xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
+        xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
-    # config contents of Tx packets
-    lp_client_id = 0
-    hp_client_id = 1
-    xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
-    xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
-    xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
+        print("Starting sniffer")
+        if send_method == "socket":
+            assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
+            socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}", verbose=verbose)
+            socket_host.recv_asynch_start(capture_file)
 
-    print("Starting sniffer")
-    if send_method == "socket":
-        assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
-        # socket_host = SocketHost(eth_intf, host_mac_address_str, dut_mac_address_str_lp) # The DUT MAC arg is for counting packets only
-        socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}")
-        socket_host.recv_asynch_start(capture_file)
+            # now signal to DUT that we are ready to receive and say what we want from it
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
 
-        # now signal to DUT that we are ready to receive and say what we want from it
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
-        print(f"{stdout} {stderr}")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
-        print(f"{stdout} {stderr}")
-        print(f"DUT sending packets for {test_duration_s}s..")
+            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
 
-        host_received_packets = socket_host.recv_asynch_wait_complete()
-    else:
-        assert 0, f"Send method {send_method} not yet supported"
+            print(f"DUT sending packets for {test_duration_s}s..")
 
-    print("Retrive status and shutdown DUT")
+            host_received_packets = socket_host.recv_asynch_wait_complete()
+        else:
+            assert 0, f"Send method {send_method} not yet supported"
 
-    stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        print("Retrive status and shutdown DUT")
+
+        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
 
     packet_summary = load_packet_file(capture_file)
     errors = parse_packet_summary(  packet_summary,
