@@ -142,6 +142,16 @@ class XcoreAppControl(XcoreApp):
         stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["set_dut_receive", str(client_index), str(recv_flag)], timeout)
         return stdout, stderr
 
+    def xscope_controller_cmd_restart_dut_mac(self, timeout=30):
+        """
+        Run command to restart the DUT Mac.
+
+        Returns:
+        stdout and stderr from running the host application
+        """
+        stdout, stderr = self.xscope_controller_do_command(self.xscope_controller_app, ["exit_dut_mac"], timeout)
+        return stdout, stderr
+
 
 class SocketHost():
     """
