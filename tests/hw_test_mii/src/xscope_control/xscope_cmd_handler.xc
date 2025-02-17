@@ -48,7 +48,15 @@ select xscope_cmd_handler(chanend c_xscope_control, client_cfg_t &client_cfg, cl
       {
         c_xscope_control :> macaddr_filter.addr[i];
         client_state.source_mac_addr[i] = macaddr_filter.addr[i];
-        cfg.add_macaddr_filter(client_cfg.client_index, 0, macaddr_filter); // TODO - Do this only for RX
+        if(client_cfg.is_hp)
+        {
+            cfg.add_macaddr_filter(0, 1, macaddr_filter); // TODO - Do this only for RX. Maybe CMD_SET_DEVICE_MACADDR and CMD_SET_DEVICE_MACADDR_FILTER need to be separate commands??
+        }
+        else
+        {
+            cfg.add_macaddr_filter(client_cfg.client_index, 0, macaddr_filter); // TODO - Do this only for RX
+        }
+
       }
       c_xscope_control <: 1; // Acknowledge
     }
