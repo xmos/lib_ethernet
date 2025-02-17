@@ -10,15 +10,7 @@
 #include <string.h>
 #include <print.h>
 #include "xscope_control.h"
-
-static void wait_us(int microseconds)
-{
-    timer t;
-    unsigned time;
-
-    t :> time;
-    t when timerafter(time + (microseconds * 100)) :> void;
-}
+#include "xscope_cmd_handler.h"
 
 #define MAX_PACKET_BYTES (6 + 6 + 2 + 1500)
 
@@ -30,83 +22,51 @@ void test_tx_lp(client ethernet_cfg_if cfg,
                  chanend c_tx_synch
                  )
 {
-  unsigned done = 0;
   unsigned seq_id = 0;
-  uint8_t tx_source_mac[MACADDR_NUM_BYTES] = {0, 1, 2, 3, 4, 5};
-  uint8_t tx_target_mac[MACADDR_NUM_BYTES] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-  unsigned num_packets = 0, packet_length = 1500;
-  uint16_t ether_type = 0x2222;
+
+  // Initialise client_state
+  client_state_t client_state;
+  memset(&client_state, 0, sizeof(client_state));
+  client_state.tx_packet_len = 1500;
+  for(int i=0; i<MACADDR_NUM_BYTES; i++)
+  {
+    client_state.target_mac_addr[i] = 0xff;
+    client_state.source_mac_addr[i] = i+client_num;
+  }
+
+  // Initialise client cfg
+  client_cfg_t client_cfg;
+  client_cfg.client_num = client_num;
+  client_cfg.is_hp = 0;
+
   // Ethernet packet setup
   unsigned char data[MAX_PACKET_BYTES] = {0};
-  memcpy(&data[0], tx_target_mac, sizeof(tx_target_mac));
-  memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
+  uint16_t ether_type = 0x2222;
+  memcpy(&data[0], client_state.target_mac_addr, sizeof(client_state.target_mac_addr));
+  memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
-  while(!done)
+
+  while(!client_state.done)
   {
     select{
-      case c_xscope_control :> int cmd: // Command received over xscope
-        if(cmd == CMD_DEVICE_CONNECT)
-        {
-          if(client_num == 0)
-          {
-            // The first client needs to ensure link is up when returning ready status
-            unsigned link_state, link_speed;
-            cfg.get_link_state(0, link_state, link_speed);
-            while(link_state != ETHERNET_LINK_UP)
-            {
-              wait_us(1000); // Check every 1ms
-              cfg.get_link_state(0, link_state, link_speed);
-            }
-          }
-          c_xscope_control <: 1; // Indicate ready
-        }
-        else if(cmd == CMD_SET_DEVICE_MACADDR)
-        {
-          debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
-          for(int i=0; i<MACADDR_NUM_BYTES; i++)
-          {
-            c_xscope_control :> tx_source_mac[i];
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_SET_HOST_MACADDR)
-        {
-          debug_printf("Received CMD_SET_HOST_MACADDR command\n");
-          for(int i=0; i<MACADDR_NUM_BYTES; i++)
-          {
-            c_xscope_control :> tx_target_mac[i];
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_HOST_SET_DUT_TX_PACKETS)
-        {
-          c_xscope_control :> num_packets;
-          c_xscope_control :> packet_length;
-          debug_printf("Received CMD_HOST_SET_DUT_TX_PACKETS command. num_packets = %d\n", num_packets);
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_DEVICE_SHUTDOWN)
-        {
-          debug_printf("Received CMD_DEVICE_SHUTDOWN command\n");
-          done = 1;
-        }
-        break;
+      case xscope_cmd_handler (c_xscope_control, client_cfg, cfg, client_state );
+
       default:
-        if(num_packets)
+        if(client_state.num_tx_packets)
         {
-          memcpy(&data[0], tx_target_mac, sizeof(tx_target_mac));
-          memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
+          memcpy(&data[0], client_state.target_mac_addr, sizeof(client_state.target_mac_addr));
+          memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
           memcpy(&data[12], &ether_type, sizeof(ether_type));
           // barrier synch with HP so they start at exactly the same time
           c_tx_synch <: 0;
-          for(int i=0; i<num_packets; i++)
+          for(int i=0; i<client_state.num_tx_packets; i++)
           {
             memcpy(&data[14], &seq_id, sizeof(i)); // sequence ID
-            tx.send_packet(data, packet_length, ETHERNET_ALL_INTERFACES);
+            tx.send_packet(data, client_state.tx_packet_len, ETHERNET_ALL_INTERFACES);
             seq_id++;
           }
-          num_packets = 0;
+          client_state.num_tx_packets = 0;
           c_tx_synch <: 0; // Break HP loop
 
         }
@@ -126,89 +86,52 @@ void test_tx_hp(client ethernet_cfg_if cfg,
                  chanend c_tx_synch)
 {
   #define INVALID_BW_AND_LEN (0xffffffff)
-   // data structures needed for packet
-  uint8_t tx_source_mac[MACADDR_NUM_BYTES] = {0, 1, 2, 3, 4, 5};
-  uint8_t tx_target_mac[MACADDR_NUM_BYTES] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-  unsigned bandwidth_bps = INVALID_BW_AND_LEN, packet_length = INVALID_BW_AND_LEN;
-  uint16_t ether_type = 0x2222;
   unsigned seq_id = 0;
-  unsigned done = 0;
   unsigned hp_finished = 0;
 
-  char data[MAX_PACKET_BYTES] = {0};
-  memcpy(&data[0], tx_target_mac, sizeof(tx_target_mac));
-  memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
+  // Initialise client_state
+  client_state_t client_state;
+  memset(&client_state, 0, sizeof(client_state));
+  client_state.tx_packet_len = INVALID_BW_AND_LEN;
+  client_state.qav_bw_bps = INVALID_BW_AND_LEN;
+  for(int i=0; i<MACADDR_NUM_BYTES; i++)
+  {
+    client_state.target_mac_addr[i] = 0xff;
+    client_state.source_mac_addr[i] = i+client_num;
+  }
+
+  // Initialise client cfg
+  client_cfg_t client_cfg;
+  client_cfg.client_num = client_num;
+  client_cfg.is_hp = 1;
+
+  // Ethernet packet setup
+  unsigned char data[MAX_PACKET_BYTES] = {0};
+  uint16_t ether_type = 0x2222;
+  memcpy(&data[0], client_state.target_mac_addr, sizeof(client_state.target_mac_addr));
+  memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
-  while(!done)
+  while(!client_state.done)
   {
     select{
-      case c_xscope_control :> int cmd: // Command received over xscope
-        if(cmd == CMD_DEVICE_CONNECT)
-        {
-          if(client_num == 0)
-          {
-            // The first client needs to ensure link is up when returning ready status
-            unsigned link_state, link_speed;
-            cfg.get_link_state(0, link_state, link_speed);
-            while(link_state != ETHERNET_LINK_UP)
-            {
-              wait_us(1000); // Check every 1ms
-              cfg.get_link_state(0, link_state, link_speed);
-            }
-          }
-          c_xscope_control <: 1; // Indicate ready
-        }
-        else if(cmd == CMD_SET_DEVICE_MACADDR)
-        {
-          debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
-          for(int i=0; i<MACADDR_NUM_BYTES; i++)
-          {
-            c_xscope_control :> tx_source_mac[i];
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_SET_HOST_MACADDR)
-        {
-          debug_printf("Received CMD_SET_HOST_MACADDR command\n");
-          for(int i=0; i<MACADDR_NUM_BYTES; i++)
-          {
-            c_xscope_control :> tx_target_mac[i];
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_HOST_SET_DUT_TX_PACKETS)
-        {
-          c_xscope_control :> bandwidth_bps;
-          c_xscope_control :> packet_length;
-          debug_printf("Received CMD_HOST_SET_DUT_TX_PACKETS command. bandwidth_bps = %d\n", bandwidth_bps);
-          if(bandwidth_bps)
-          {
-            cfg.set_egress_qav_idle_slope_bps(0, bandwidth_bps);
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_DEVICE_SHUTDOWN)
-        {
-          debug_printf("Received CMD_DEVICE_SHUTDOWN command\n");
-          done = 1;
-        }
-        break;
+      case xscope_cmd_handler (c_xscope_control, client_cfg, cfg, client_state );
+
       default:
-        if((bandwidth_bps != INVALID_BW_AND_LEN) && (packet_length != INVALID_BW_AND_LEN)) // CMD_HOST_SET_DUT_TX_PACKETS cmd has been received
+        if((client_state.qav_bw_bps != INVALID_BW_AND_LEN) && (client_state.tx_packet_len != INVALID_BW_AND_LEN)) // CMD_HOST_SET_DUT_TX_PACKETS cmd has been received
         {
           c_tx_synch :> int _; // synch with LP
 
-          if((bandwidth_bps != 0) && (packet_length != 0)) // Send packets
+          if((client_state.qav_bw_bps != 0) && (client_state.tx_packet_len != 0)) // Send packets
           {
-            memcpy(&data[0], tx_target_mac, sizeof(tx_target_mac));
-            memcpy(&data[6], tx_source_mac, sizeof(tx_source_mac));
+            memcpy(&data[0], client_state.target_mac_addr, sizeof(client_state.target_mac_addr));
+            memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
             memcpy(&data[12], &ether_type, sizeof(ether_type));
 
             while(!hp_finished)
             {
               memcpy(&data[14], &seq_id, sizeof(seq_id)); // sequence ID
-              ethernet_send_hp_packet(c_tx_hp, (char *)data, packet_length, ETHERNET_ALL_INTERFACES);
+              ethernet_send_hp_packet(c_tx_hp, (char *)data, client_state.tx_packet_len, ETHERNET_ALL_INTERFACES);
               seq_id++;
               select
               {
@@ -226,8 +149,8 @@ void test_tx_hp(client ethernet_cfg_if cfg,
           {
             c_tx_synch :> int _; // receive break
           }
-          bandwidth_bps = INVALID_BW_AND_LEN;
-          packet_length = INVALID_BW_AND_LEN;
+          client_state.qav_bw_bps = INVALID_BW_AND_LEN;
+          client_state.tx_packet_len = INVALID_BW_AND_LEN;
         }
         break;
     } //select

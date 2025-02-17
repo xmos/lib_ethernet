@@ -10,6 +10,7 @@
 #include <print.h>
 #include "test_rx.h"
 #include "xscope_control.h"
+#include "xscope_cmd_handler.h"
 
 #define NUM_TS_LOGS (1000) // Save the first 5000 timestamp logs to get an idea of the general IFG gap
 #define NUM_SEQ_ID_MISMATCH_LOGS (1000) // Save the first few seq id mismatches
@@ -40,7 +41,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 {
   set_core_fast_mode_on();
   ethernet_macaddr_filter_t macaddr_filter;
-  unsigned char host_mac_addr[MACADDR_NUM_BYTES];
 
   macaddr_filter.appdata = 0;
   for (int i = 0; i < MACADDR_NUM_BYTES; i++)
@@ -66,7 +66,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned time;
   t :> time;
   unsigned test_end_time;
-  unsigned done = 0;
   unsigned dut_timeout_s = 10; // dut timeout in seconds
 
   unsigned timestamps[NUM_TS_LOGS];
@@ -78,14 +77,25 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned total_missing = 0;
   unsigned prev_seq_id, prev_timestamp;
   unsigned max_ifg = 0, min_ifg = 10000000; // Max and min observed IFG in reference
-  unsigned receiving = 1;
 
   unsigned test_fail=0;
 
-  while (!done)
+  // Initialise client_state
+  client_state_t client_state;
+  memset(&client_state, 0, sizeof(client_state));
+  client_state.receiving = 1; // Set to start receiving by default
+
+  // Initialise client cfg
+  client_cfg_t client_cfg;
+  client_cfg.client_num = client_num;
+  client_cfg.client_index = index;
+  client_cfg.is_hp = 0;
+
+
+  while (!client_state.done)
   {
     select {
-      case receiving => rx.packet_ready():
+      case client_state.receiving => rx.packet_ready():
         unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
         ethernet_packet_info_t packet_info;
         rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
@@ -168,61 +178,11 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         break;
 #if ENABLE_DUT_TIMEOUT
       case (enable_time_based_check == 1) => t when timerafter(test_end_time) :> test_end_time:
-        done = 1;
+        client_state.done = 1;
         break;
 #endif
-      case c_xscope_control :> int cmd: // Shutdown received over xscope
-        if(cmd == CMD_DEVICE_CONNECT)
-        {
-          if(client_num == 0)
-          {
-            // The first client needs to ensure link is up when returning ready status
-            unsigned link_state, link_speed;
-            cfg.get_link_state(0, link_state, link_speed);
-            while(link_state != ETHERNET_LINK_UP)
-            {
-              wait_us(1000); // Check every 1ms
-              cfg.get_link_state(0, link_state, link_speed);
-            }
-          }
-          c_xscope_control <: 1; // Indicate ready
-        }
-        else if(cmd == CMD_DEVICE_SHUTDOWN)
-        {
-          done = 1;
-        }
-        else if(cmd == CMD_SET_DEVICE_MACADDR)
-        {
-          debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
-          for(int i=0; i<6; i++)
-          {
-            c_xscope_control :> macaddr_filter.addr[i];
-            cfg.add_macaddr_filter(index, 0, macaddr_filter);
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_SET_HOST_MACADDR)
-        {
-          debug_printf("Received CMD_SET_HOST_MACADDR command\n");
-          for(int i=0; i<6; i++)
-          {
-            c_xscope_control :> host_mac_addr[i]; // host_mac_addr won't be used since this is an rx/loopback client
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_SET_DUT_RECEIVE)
-        {
-          c_xscope_control :> receiving;
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_EXIT_DEVICE_MAC)
-        {
-          debug_printf("Received CMD_EXIT_DEVICE_MAC command\n");
-          cfg.exit();
-          // the client is expected to exit after signalling the Mac to exit
-          done = 1;
-        }
-        break;
+      case xscope_cmd_handler (c_xscope_control, client_cfg, cfg, client_state );
+
     } // select
   }
 
@@ -274,7 +234,6 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   set_core_fast_mode_on();
 
   ethernet_macaddr_filter_t macaddr_filter;
-  unsigned char host_mac_addr[MACADDR_NUM_BYTES];
 
   macaddr_filter.appdata = 0;
   for (int i = 0; i < 6; i++)
@@ -283,7 +242,6 @@ void test_rx_hp(client ethernet_cfg_if cfg,
 
   unsigned num_rx_bytes = 0;
   unsigned pkt_count = 0;
-  int done = 0;
   unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
   seq_id_pair_t seq_id_err_log[NUM_SEQ_ID_MISMATCH_LOGS];
 
@@ -293,8 +251,18 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   unsigned prev_seq_id;
 
   unsigned test_fail=0;
+  // Initialise client_state
+  client_state_t client_state;
+  memset(&client_state, 0, sizeof(client_state));
+  client_state.receiving = 1; // Set to start receiving by default
 
-  while (!done) {
+  // Initialise client cfg
+  client_cfg_t client_cfg;
+  client_cfg.client_num = client_num;
+  client_cfg.client_index = 0;
+  client_cfg.is_hp = 1;
+
+  while (!client_state.done) {
     ethernet_packet_info_t packet_info;
 
     #pragma ordered
@@ -320,58 +288,7 @@ void test_rx_hp(client ethernet_cfg_if cfg,
         num_rx_bytes += packet_info.len;
         break;
 
-      case c_xscope_control :> int cmd: // Shutdown received over xscope
-        if(cmd == CMD_DEVICE_CONNECT)
-        {
-          if(client_num == 0)
-          {
-            // The first client needs to ensure link is up when returning ready status
-            unsigned link_state, link_speed;
-            cfg.get_link_state(0, link_state, link_speed);
-            while(link_state != ETHERNET_LINK_UP)
-            {
-              wait_us(1000); // Check every 1ms
-              cfg.get_link_state(0, link_state, link_speed);
-            }
-          }
-          c_xscope_control <: 1; // Indicate ready
-        }
-        else if(cmd == CMD_DEVICE_SHUTDOWN)
-        {
-          done = 1;
-        }
-        else if(cmd == CMD_SET_DEVICE_MACADDR)
-        {
-          debug_printf("Received CMD_SET_DEVICE_MACADDR command\n");
-          for(int i=0; i<6; i++)
-          {
-            c_xscope_control :> macaddr_filter.addr[i];
-            cfg.add_macaddr_filter(0, 1, macaddr_filter);
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_SET_HOST_MACADDR)
-        {
-          debug_printf("Received CMD_SET_HOST_MACADDR command\n");
-          for(int i=0; i<6; i++)
-          {
-            c_xscope_control :> host_mac_addr[i]; // host_mac_addr won't be used since this is an rx/loopback client
-          }
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_SET_DUT_RECEIVE)
-        {
-          c_xscope_control :> int temp; // This shouldn't be sent for a HP client
-          c_xscope_control <: 1; // Acknowledge
-        }
-        else if(cmd == CMD_EXIT_DEVICE_MAC)
-        {
-          debug_printf("Received CMD_EXIT_DEVICE_MAC command\n");
-          cfg.exit();
-          // the client is expected to exit after signalling the Mac to exit
-          done = 1;
-        }
-        break;
+      case xscope_cmd_handler (c_xscope_control, client_cfg, cfg, client_state );
     }
   }
   debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
