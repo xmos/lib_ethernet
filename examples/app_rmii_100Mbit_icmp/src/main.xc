@@ -10,7 +10,7 @@
 #include "debug_print.h"
 
 rmii_data_port_t p_eth_rxd = {{PHY_0_RXD_4B, USE_UPPER_2B}};
-rmii_data_port_t p_eth_txd = {{PHY_0_TXD_4B, USE_LOWER_2B}};
+rmii_data_port_t p_eth_txd = {{PHY_0_TXD_4B, USE_UPPER_2B}};
 
 port p_eth_clk = CLK_50M;
 port p_eth_rxdv = PHY_0_RXDV;
