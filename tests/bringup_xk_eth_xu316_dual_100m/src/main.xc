@@ -90,60 +90,70 @@ int main()
     smi_if i_smi;
 
     par {
+        on tile[0]: unsafe{
+            // This will be used for cases where we want the same input clock for both PHYs
+            unsafe port p_eth_clk = p_phy1_clk;
+            par{
 #if PHY0
-        on tile[0]: {
-            // To ensure PHY pin boot straps are read correctly at exit from reset
-            put_mac_ports_in_hiz(p_phy0_rxd_0, null, p_phy0_txd_0, null, p_phy0_rxdv, p_phy0_txen);
-            delay_milliseconds(5); // Wait until PHY has come out of reset
-            debug_printf("Starting RMII RT MAC on PHY 0\n");
-            rmii_ethernet_rt_mac( i_cfg_0, NUM_CFG_CLIENTS,
-                                  i_rx[0], NUM_ETH_CLIENTS,
-                                  i_tx[0], NUM_ETH_CLIENTS,
-                                  null, null,
-                                  p_phy0_clk,
-                                  p_phy0_rxd_0,
-                                  null,
-                                  USE_UPPER_2B,
-                                  p_phy0_rxdv,
-                                  p_phy0_txen,
-                                  p_phy0_txd_0,
-                                  null,
-                                  USE_UPPER_2B,
-                                  phy0_rxclk,
-                                  phy0_txclk,
-                                  4000, 4000,
-                                  ETHERNET_DISABLE_SHAPER);
-            (void*)mac_address_phy1; // Remove unused var warning
-        }
+                {// To ensure PHY pin boot straps are read correctly at exit from reset
+                    put_mac_ports_in_hiz(p_phy0_rxd_0, null, p_phy0_txd_0, null, p_phy0_rxdv, p_phy0_txen);
+                    delay_milliseconds(5); // Wait until PHY has come out of reset
+                    debug_printf("Starting RMII RT MAC on PHY 0\n");
+                    rmii_ethernet_rt_mac( i_cfg_0, NUM_CFG_CLIENTS,
+                                          i_rx[0], NUM_ETH_CLIENTS,
+                                          i_tx[0], NUM_ETH_CLIENTS,
+                                          null, null,
+                                          (port)p_eth_clk, //p_phy0_clk
+                                          p_phy0_rxd_0,
+                                          null,
+                                          USE_UPPER_2B,
+                                          p_phy0_rxdv,
+                                          p_phy0_txen,
+                                          p_phy0_txd_0,
+                                          null,
+                                          USE_UPPER_2B,
+                                          phy0_rxclk,
+                                          phy0_txclk,
+                                          4000, 4000,
+                                          ETHERNET_DISABLE_SHAPER);
+                    (void*)mac_address_phy1; // Remove unused var warning
+                }
+#endif
+#if PHY1
+                {
+                    // To ensure PHY pin boot straps are read correctly at exit from reset
+                    put_mac_ports_in_hiz(p_phy1_rxd_0, p_phy1_rxd_1, p_phy1_txd_0, p_phy1_txd_1, p_phy1_rxdv, p_phy1_txen);
+                    delay_milliseconds(5); // Wait until PHY has come out of reset
+                    debug_printf("Starting RMII RT MAC on PHY 1\n");
+                    rmii_ethernet_rt_mac( i_cfg_1, NUM_CFG_CLIENTS,
+                                          i_rx[1], NUM_ETH_CLIENTS,
+                                          i_tx[1], NUM_ETH_CLIENTS,
+                                          null, null,
+                                          (port)p_eth_clk, //p_phy1_clk,
+                                          p_phy1_rxd_0,
+                                          p_phy1_rxd_1,
+                                          0,
+                                          p_phy1_rxdv,
+                                          p_phy1_txen,
+                                          p_phy1_txd_0,
+                                          p_phy1_txd_1,
+                                          TX_PINS,
+                                          phy1_rxclk,
+                                          phy1_txclk,
+                                          4000, 4000,
+                                          ETHERNET_DISABLE_SHAPER);
+                    (void*)mac_address_phy0; // Remove unused var warning
+                }
+#endif
+            } // par
+        } // on unsafe tile[0]
+
+#if PHY0
         on tile[1]: icmp_server(i_cfg_0[CFG_TO_ICMP],
                                 i_rx[0][ETH_TO_ICMP], i_tx[0][ETH_TO_ICMP],
                                 ip_address, mac_address_phy0);
 #endif
 #if PHY1
-        on tile[0]: {
-            // To ensure PHY pin boot straps are read correctly at exit from reset
-            put_mac_ports_in_hiz(p_phy1_rxd_0, p_phy1_rxd_1, p_phy1_txd_0, p_phy1_txd_1, p_phy1_rxdv, p_phy1_txen);
-            delay_milliseconds(5); // Wait until PHY has come out of reset
-            debug_printf("Starting RMII RT MAC on PHY 1\n");
-            rmii_ethernet_rt_mac( i_cfg_1, NUM_CFG_CLIENTS,
-                                  i_rx[1], NUM_ETH_CLIENTS,
-                                  i_tx[1], NUM_ETH_CLIENTS,
-                                  null, null,
-                                  p_phy1_clk,
-                                  p_phy1_rxd_0,
-                                  p_phy1_rxd_1,
-                                  0,
-                                  p_phy1_rxdv,
-                                  p_phy1_txen,
-                                  p_phy1_txd_0,
-                                  p_phy1_txd_1,
-                                  TX_PINS,
-                                  phy1_rxclk,
-                                  phy1_txclk,
-                                  4000, 4000,
-                                  ETHERNET_DISABLE_SHAPER);
-            (void*)mac_address_phy0; // Remove unused var warning
-        }
         on tile[1]: icmp_server(i_cfg_1[CFG_TO_ICMP],
                                 i_rx[1][ETH_TO_ICMP], i_tx[1][ETH_TO_ICMP],
                                 ip_address, mac_address_phy1);
