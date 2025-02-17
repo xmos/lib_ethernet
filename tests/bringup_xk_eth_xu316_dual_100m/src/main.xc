@@ -8,6 +8,8 @@
 #include "smi.h"
 #include "debug_print.h"
 
+#define NUM_PHY_BOARDS_FITTED   2 // 1 if PHY0 only fitted, 2 if both fitted
+
 // Shared
 port p_smi_mdio = MDIO;
 port p_smi_mdc = MDC;
@@ -29,6 +31,8 @@ port p_phy1_rxd_0 = PHY_1_RXD_0;
 port p_phy1_rxd_1 = PHY_1_RXD_1;
 #if PHY1_USE_8B
     port p_phy1_txd_0 = PHY_1_TXD_8BIT;
+    in port p_unused_0 = PHY_1_TXD_0; // set to Hi-Z
+    in port p_unused_1 = PHY_1_TXD_1;
     #define TX8_BIT_0 6
     #define TX8_BIT_1 7
     #define TX_PINS ((TX8_BIT_0 << 16) | (TX8_BIT_1))
@@ -36,7 +40,8 @@ port p_phy1_rxd_1 = PHY_1_RXD_1;
 #else
     port p_phy1_txd_0 = PHY_1_TXD_0;
     port p_phy1_txd_1 = PHY_1_TXD_1;
-#define TX_PINS 0
+    in port p_unused = PHY_1_TXD_8BIT; // set to Hi-Z
+    #define TX_PINS 0
 #endif
 port p_phy1_rxdv = PHY_1_RXDV;
 port p_phy1_txen = PHY_1_TX_EN;
@@ -45,7 +50,7 @@ clock phy1_txclk = on tile[0]: XS1_CLKBLK_4;
 port p_phy1_clk = PHY_1_CLK_50M;
 
 
-static unsigned char ip_address[4] = {192, 168, 1, 178};
+static unsigned char ip_address[4] = {192, 168, 2, 178};
 static unsigned char mac_address_phy0[MACADDR_NUM_BYTES] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 static unsigned char mac_address_phy1[MACADDR_NUM_BYTES] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16};
 
@@ -92,7 +97,12 @@ int main()
     par {
         on tile[0]: unsafe{
             // This will be used for cases where we want the same input clock for both PHYs
-            unsafe port p_eth_clk = p_phy1_clk;
+            unsafe port p_eth_clk;
+            if(NUM_PHY_BOARDS_FITTED == 2){
+                p_eth_clk = p_phy1_clk;
+            } else {
+                p_eth_clk = p_phy0_clk;
+            }
             par{
 #if PHY0
                 {// To ensure PHY pin boot straps are read correctly at exit from reset
@@ -121,6 +131,13 @@ int main()
 #endif
 #if PHY1
                 {
+                    // If Tx pins for 8b and 1b commoned, then ensure unused ports are Hi-Z
+#if PHY1_USE_8B
+                    p_unused_0 :> void;
+                    p_unused_1 :> void;
+#else
+                    p_unused :> void;
+#endif
                     // To ensure PHY pin boot straps are read correctly at exit from reset
                     put_mac_ports_in_hiz(p_phy1_rxd_0, p_phy1_rxd_1, p_phy1_txd_0, p_phy1_txd_1, p_phy1_rxdv, p_phy1_txen);
                     delay_milliseconds(5); // Wait until PHY has come out of reset
