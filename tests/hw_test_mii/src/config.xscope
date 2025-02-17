@@ -1,4 +1,4 @@
 <xSCOPEconfig ioMode="basic" enabled="true">
   <Probe name="ready" type="CONTINUOUS" datatype="UINT" units="Value" enabled="true"/>
-  <Probe name="shutdown_ack" type="CONTINUOUS" datatype="UINT" units="Value" enabled="true"/>
+  <Probe name="command_ack" type="CONTINUOUS" datatype="UINT" units="Value" enabled="true"/>
 </xSCOPEconfig>

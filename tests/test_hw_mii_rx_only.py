@@ -33,7 +33,7 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
         test_duration_s = 0.4
     test_duration_s = float(test_duration_s)
 
-    verbose = False
+    verbose = True
     seed = 0
     rand = random.Random()
     rand.seed(seed)
@@ -96,10 +96,10 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_only" / "hw_test_mii_rx_only.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
 
 
         print(f"Send {test_duration_s} seconds of packets now")
@@ -125,7 +125,7 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
             num_packets_sent = socket_host.send(test_duration_s, payload_len=payload_len)
 
         print("Retrive status and shutdown DUT")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
 
         print("Terminating!!!")
 
@@ -133,14 +133,14 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
     errors = []
 
     # Check for any seq id mismatch errors reported by the DUT
-    matches = re.findall(r"^DUT ERROR:.*", stderr, re.MULTILINE)
+    matches = re.findall(r"^DUT ERROR:.*", stdout, re.MULTILINE)
     if matches:
         errors.append(f"ERROR: DUT logs report errors.")
         for m in matches:
             errors.append(m)
 
     client_index = 0
-    m = re.search(fr"DUT client index {client_index}: Received (\d+) bytes, (\d+) packets", stderr)
+    m = re.search(fr"DUT client index {client_index}: Received (\d+) bytes, (\d+) packets", stdout)
 
     if not m or len(m.groups()) < 2:
         errors.append(f"ERROR: DUT does not report received bytes and packets")
@@ -151,7 +151,7 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
 
     if len(errors):
         error_msg = "\n".join(errors)
-        assert False, f"Various errors reported!!\n{error_msg}\n\nDUT stdout = {stderr}"
+        assert False, f"Various errors reported!!\n{error_msg}\n\nDUT stdout = {stdout}"
 
 
 
