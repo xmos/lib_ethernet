@@ -644,7 +644,16 @@ typedef enum rmii_data_4b_pin_assignment_t{
     USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
 } rmii_data_4b_pin_assignment_t;
 
-
+/** Struct containing the clock delay settings for the Rx and Tx pins. This is needed to adjust 
+ *  port timings to ensure that the data is captured with sufficient setup and hold margin.
+ *  This is required due to the relatively fast 50 MHz clock. 
+ *  Please consult the documentation for further details and suggested settings. */ 
+typedef struct rmii_port_timing_t{
+    unsigned clk_delay_tx_rising;
+    unsigned clk_delay_tx_falling;
+    unsigned clk_delay_rx_rising;
+    unsigned clk_delay_rx_falling;
+}rmii_port_timing_t;
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
  *
@@ -678,6 +687,8 @@ typedef enum rmii_data_4b_pin_assignment_t{
  *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param rxclk               Clock used for RMII receive timing
  *  \param txclk               Clock used for RMII transmit timing
+ *  \param port_timing         Struct used for initialising the clock blocks to ensure setup and hold times are met
+ * 
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
  *                             This should be at least 500 long words.
  *  \param tx_bufsize_words    The number of words to used for a transmit buffer.
@@ -699,6 +710,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
+                          rmii_port_timing_t port_timing,
                           static_const_unsigned_t rx_bufsize_words,
                           static_const_unsigned_t tx_bufsize_words,
                           enum ethernet_enable_shaper_t shaper_enabled);

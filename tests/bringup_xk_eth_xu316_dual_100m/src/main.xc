@@ -114,6 +114,7 @@ int main()
                                           USE_UPPER_2B,
                                           phy0_rxclk,
                                           phy0_txclk,
+                                          port_timing,
                                           4000, 4000,
                                           ETHERNET_DISABLE_SHAPER);
                     (void*)mac_address_phy1; // Remove unused var warning
@@ -140,6 +141,7 @@ int main()
                                           TX_PINS,
                                           phy1_rxclk,
                                           phy1_txclk,
+                                          port_timing,
                                           4000, 4000,
                                           ETHERNET_DISABLE_SHAPER);
                     (void*)mac_address_phy0; // Remove unused var warning

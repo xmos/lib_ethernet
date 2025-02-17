@@ -146,6 +146,7 @@ int main()
                                       TX_PINS,
                                       eth_rxclk,
                                       eth_txclk,
+                                      port_timing,
                                       4000, 4000,
                                       ETHERNET_DISABLE_SHAPER);
     #endif

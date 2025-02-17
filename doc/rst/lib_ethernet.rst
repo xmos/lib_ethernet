@@ -592,6 +592,7 @@ Similarly the RMII real-time MAC may be instantiated (four bit port version show
                              p_eth_txen,
                              p_eth_txd, NULL, USE_UPPER_2B,
                              eth_rxclk, eth_txclk,
+                             port_timing,
                              4000, 4000, ETHERNET_ENABLE_SHAPER);
        application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
       }
