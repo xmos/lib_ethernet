@@ -134,6 +134,9 @@ unsafe void rmii_master_init_rx_4b( in port p_clk,
     set_port_strobed(*rx_data);      // Strobed slave (only accept data when valid asserted)
     set_port_slave(*rx_data);
 
+    set_pad_delay(*rx_data, port_timing.pad_delay_rx);
+    set_pad_delay(p_rxdv, port_timing.pad_delay_rx);
+
     clearbuf(*rx_data);
 
     start_clock(rxclk);
@@ -154,6 +157,10 @@ unsafe void rmii_master_init_rx_1b(in port p_clk,
     set_port_clock(*rx_data_1, rxclk);  // Same for second data port
     set_port_strobed(*rx_data_1);
     set_port_slave(*rx_data_1);
+
+    set_pad_delay(*rx_data_0, port_timing.pad_delay_rx);
+    set_pad_delay(*rx_data_1, port_timing.pad_delay_rx);
+    set_pad_delay(p_rxdv, port_timing.pad_delay_rx);
 
     clearbuf(*rx_data_0);
     clearbuf(*rx_data_1);

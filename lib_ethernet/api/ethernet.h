@@ -653,6 +653,7 @@ typedef struct rmii_port_timing_t{
     unsigned clk_delay_tx_falling;
     unsigned clk_delay_rx_rising;
     unsigned clk_delay_rx_falling;
+    unsigned pad_delay_rx;
 }rmii_port_timing_t;
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
