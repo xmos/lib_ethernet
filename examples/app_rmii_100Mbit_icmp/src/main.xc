@@ -10,7 +10,7 @@
 #include "debug_print.h"
 
 rmii_data_port_t p_eth_rxd = {{PHY_0_RXD_4B, USE_UPPER_2B}};
-rmii_data_port_t p_eth_txd = {{PHY_0_TXD_4B, USE_LOWER_2B}};
+rmii_data_port_t p_eth_txd = {{PHY_0_TXD_4B, USE_UPPER_2B}};
 
 port p_eth_clk = CLK_50M;
 port p_eth_rxdv = PHY_0_RXDV;
@@ -59,6 +59,7 @@ int main()
                                           &p_eth_rxd, p_eth_rxdv,
                                           p_eth_txen, &p_eth_txd,
                                           eth_rxclk, eth_txclk,
+                                          port_timing,
                                           4000, 4000, ETHERNET_DISABLE_SHAPER);}
 
     on tile[1]: dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], phy_address);
