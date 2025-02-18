@@ -8,26 +8,22 @@
 #include "test_rx.h"
 #include "xscope_control.h"
 #include "smi.h"
-#include "lan8710a_phy_driver.h"
+#include "xk_eth_xu316_dual_100m/board.h"
 #include <xscope.h>
 #include "debug_print.h"
 
 
+port p_smi_mdio = MDIO;
+port p_smi_mdc = MDC;
 
-port p_eth_rxclk  = PORT_ETH_RXCLK;
-port p_eth_rxd    = PORT_ETH_RXD;
-port p_eth_txd    = PORT_ETH_TXD;
-port p_eth_rxdv   = PORT_ETH_RXDV;
-port p_eth_txen   = PORT_ETH_TXEN;
-port p_eth_txclk  = PORT_ETH_TXCLK;
-port p_eth_rxerr  = PORT_ETH_RXER;
-port p_eth_dummy  = on tile[1]: XS1_PORT_8C;
+port p_phy_rxd = PHY_0_RXD_4BIT;
+port p_phy_txd = PHY_0_TXD_4BIT;
+port p_phy_rxdv = PHY_0_RXDV;
+port p_phy_txen = PHY_0_TX_EN;
+clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
+clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
+port p_phy_clk = PHY_1_CLK_50M;
 
-clock eth_rxclk   = on tile[1]: XS1_CLKBLK_1;
-clock eth_txclk   = on tile[1]: XS1_CLKBLK_2;
-
-port p_smi_mdio   = PORT_SMI_MDIO;
-port p_smi_mdc    = PORT_SMI_MDC;
 
 #if MULTIPLE_QUEUES
 #define NUM_RX_LP_IF 2
@@ -39,7 +35,8 @@ port p_smi_mdc    = PORT_SMI_MDC;
 #define NUM_RX_HP_IF 0
 #endif
 
-#define NUM_CFG_CLIENTS   NUM_RX_HP_IF + NUM_RX_LP_IF + 1 /*lan8710a_phy_driver*/
+#define NUM_CFG_CLIENTS   NUM_RX_HP_IF + NUM_RX_LP_IF + 1 /*phy_driver*/
+#define ETH_RX_BUFFER_SIZE_WORDS 4000
 
 int main()
 {
@@ -48,7 +45,7 @@ int main()
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   smi_if i_smi;
   chan c_xscope;
-  chan c_clients[NUM_CFG_CLIENTS - 1]; // Exclude lan8710a_phy_driver
+  chan c_clients[NUM_CFG_CLIENTS - 1]; // Exclude phy_driver
 #if NUM_RX_HP_IF
   streaming chan c_rx_hp;
 #else
@@ -59,19 +56,30 @@ int main()
   par {
     xscope_host_data(c_xscope);
 
-    on tile[1]:
+    on tile[0]:
     {
       par {
 
         par {
-          mii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
+          rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
                                       i_rx_lp, NUM_RX_LP_IF,
                                       i_tx_lp, NUM_TX_LP_IF,
                                       c_rx_hp, null,
-                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                      p_eth_txclk, p_eth_txen, p_eth_txd,
-                                      eth_rxclk, eth_txclk,
-                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+                                      p_phy_clk,
+                                      p_phy_rxd,
+                                      null,
+                                      USE_UPPER_2B,
+                                      p_phy_rxdv,
+                                      p_phy_txen,
+                                      p_phy_txd,
+                                      null,
+                                      USE_UPPER_2B,
+                                      phy_rxclk,
+                                      phy_txclk,
+                                      get_port_timings(0),
+                                      ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
+                                      ETHERNET_DISABLE_SHAPER);
+
           while(1) // To allow re-starting the mac+client threads after a restart
           {
             test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0]);
@@ -82,11 +90,17 @@ int main()
           xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
           _Exit(0);
         }
-
-        lan8710a_phy_driver(i_smi, i_cfg[0]);
+      }
+    }
+    on tile[1]:
+    {
+      par {
+        dual_dp83826e_phy_driver(i_smi, i_cfg[0], null);
         smi(i_smi, p_smi_mdio, p_smi_mdc);
       }
     }
+
+
 #if MULTIPLE_QUEUES
     // RX threads
     par ( size_t i = 1; i < NUM_RX_LP_IF; i ++)

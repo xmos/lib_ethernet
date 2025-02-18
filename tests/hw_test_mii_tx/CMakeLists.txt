@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
 project(hw_test_mii_tx_only)
 
-set(APP_HW_TARGET           SLICEKIT-ETH-TRIANGLE1.xn)
+set(APP_HW_TARGET           xk-eth-xu316-dual-100m.xn)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../examples/deps.cmake)
 
@@ -17,6 +17,7 @@ set(COMPILER_FLAGS_COMMON   -g
                             -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1
 							-DETHERNET_SUPPORT_HP_QUEUES=1
 							-fxscope
+                            -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
                             )
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
