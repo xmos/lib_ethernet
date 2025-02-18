@@ -67,13 +67,11 @@ def test_hw_mii_rx_only(request, send_method):
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_multiple_queues" / "hw_test_mii_rx_multiple_queues.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-        if verbose:
-            print(stderr)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address for each RX client")
         for i,m in enumerate(dut_mac_address_str.split()):
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(i, m)
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(i, m)
 
         if send_method == "socket":
             # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
@@ -84,12 +82,12 @@ def test_hw_mii_rx_only(request, send_method):
                 stopped[client_index] = stopped[client_index] ^ 1
                 delay = rand.randint(1, 1000) * 0.0001 # Up to 100 ms wait before toggling 'stopped'
                 time.sleep(delay)
-                xcoreapp.xscope_controller_cmd_set_dut_receive(client_index, stopped[client_index])
+                stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_receive(client_index, stopped[client_index])
 
         num_packets_sent = socket_host.num_packets_sent
 
         print("Retrive status and shutdown DUT")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
 
         print("Terminating!!!")
 
@@ -97,14 +95,14 @@ def test_hw_mii_rx_only(request, send_method):
     errors = []
 
     # Check for any seq id mismatch errors reported by the DUT
-    matches = re.findall(r"^DUT ERROR:.*", stderr, re.MULTILINE)
+    matches = re.findall(r"^DUT ERROR:.*", stdout, re.MULTILINE)
     if matches:
         errors.append(f"ERROR: DUT logs report errors.")
         for m in matches:
             errors.append(m)
 
     client_index = 2 # We're interested in checking that the HP client (index 2) has received all the packets
-    m = re.search(fr"DUT client index {client_index}: Received (\d+) bytes, (\d+) packets", stderr)
+    m = re.search(fr"DUT client index {client_index}: Received (\d+) bytes, (\d+) packets", stdout)
 
     if not m or len(m.groups()) < 2:
         errors.append(f"ERROR: DUT does not report received bytes and packets")
@@ -115,7 +113,7 @@ def test_hw_mii_rx_only(request, send_method):
 
     if len(errors):
         error_msg = "\n".join(errors)
-        assert False, f"Various errors reported!!\n{error_msg}\n\nDUT stdout = {stderr}"
+        assert False, f"Various errors reported!!\n{error_msg}\n\nDUT stdout = {stdout}"
 
 
 
