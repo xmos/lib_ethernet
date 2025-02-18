@@ -51,6 +51,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
+                          rmii_port_timing_t port_timing,
                           static_const_unsigned_t rx_bufsize_words,
                           static_const_unsigned_t tx_bufsize_words,
                           enum ethernet_enable_shaper_t shaper_enabled)
@@ -113,12 +114,12 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     switch(rx_port_width){
       case 4:
         rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd_0), 32);
-        rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk);
+        rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk, port_timing);
         break;
       case 1:
         rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd_0, 32);
         rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd_1, 32);
-        rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk);
+        rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk, port_timing);
         break;
       default:
         fail("Invald port width for RMII Rx");
@@ -134,12 +135,12 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     switch(tx_port_width){
       case 4:
         tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd_0), 32);
-        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk);
+        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk, port_timing);
         break;
       case 1:
         tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd_0, 32);
         tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd_1, 32);
-        rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk);
+        rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk, port_timing);
         break;
       default:
         fail("Invald port width for RMII Tx");
