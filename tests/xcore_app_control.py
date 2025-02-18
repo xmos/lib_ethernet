@@ -59,8 +59,6 @@ class XscopeControl():
             print(device_stdout)
 
         ep.disconnect()
-
-
         return device_stdout
 
 
@@ -179,7 +177,7 @@ class XcoreAppControl(XcoreApp):
 
     def __enter__(self):
         super().__enter__()
-        # self.xscope_port is only set in XcoreApp.__enter__(), so xscope_host can only be created now and not in XcoreAppControl's constructor
+        # self.xscope_port is only set in XcoreApp.__enter__(), so xscope_host can only be created here and not in XcoreAppControl's constructor
         self.xscope_host = XscopeControl("localhost", f"{self.xscope_port}", verbose=self.verbose)
         return self
 

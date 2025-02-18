@@ -122,11 +122,13 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
 
             time.sleep(sleep_time + 10) # Add an extra 10s of buffer
         elif send_method == "socket":
+            time.sleep(5) # To allow link up on the debugger phys. TODO
             num_packets_sent = socket_host.send(test_duration_s, payload_len=payload_len)
 
         print("Retrive status and shutdown DUT")
-        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
 
+        time.sleep(0.1) # To allow all packets to be sent out of the debugger before terminating the xcore app. TODO
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
         print("Terminating!!!")
 
 
