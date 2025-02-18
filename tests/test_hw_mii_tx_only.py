@@ -166,16 +166,14 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
     xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
-        if verbose:
-            print(stderr)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         # config contents of Tx packets
         lp_client_id = 0
         hp_client_id = 1
-        xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
-        xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
-        xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
+        xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
+        xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
+        xcoreapp.xscope_host.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
         print("Starting sniffer")
         if send_method == "socket":
@@ -184,9 +182,9 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
             socket_host.recv_asynch_start(capture_file)
 
             # now signal to DUT that we are ready to receive and say what we want from it
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
 
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
 
             print(f"DUT sending packets for {test_duration_s}s..")
 
@@ -196,7 +194,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
 
         print("Retrive status and shutdown DUT")
 
-        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
 
     packet_summary = load_packet_file(capture_file)
     errors = parse_packet_summary(  packet_summary,
@@ -209,7 +207,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
                                     verbose = True)
 
     if errors:
-        assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stderr}"
+        assert False, f"Various errors reported!!\n{errors}\n\nDUT stdout = {stdout}"
     else:
         print("TEST PASS")
 

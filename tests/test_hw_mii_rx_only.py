@@ -33,7 +33,7 @@ def test_hw_mii_rx_only(request, send_method, payload_len):
         test_duration_s = 0.4
     test_duration_s = float(test_duration_s)
 
-    verbose = True
+    verbose = False
     seed = 0
     rand = random.Random()
     rand.seed(seed)

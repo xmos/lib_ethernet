@@ -27,4 +27,6 @@ set(APP_INCLUDES src/xscope_control src/phy_driver)
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
+message(STATUS "CMAKE_CURRENT_BINARY_DIR = ${CMAKE_CURRENT_BINARY_DIR}")
+
 XMOS_REGISTER_APP()

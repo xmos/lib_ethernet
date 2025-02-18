@@ -104,7 +104,7 @@ class Endpoint(object):
                 'unit': unit,
                 'data_type': data_type
             }
-            self.on_register(id_, type_, name, unit, data_type)
+            self.on_register(id_, type_, name, unit, data_type, self._captured_output)
         return REGISTER_CALLBACK(func)
 
     def _record_callback_func(self):
@@ -126,11 +126,13 @@ class Endpoint(object):
             output_stream = sys.stdout  # Default to printing to stdout
         print("DEV: " + data.decode().rstrip(), file=output_stream)
 
-    def on_register(self, id_, type_, name, unit, data_type):
+    def on_register(self, id_, type_, name, unit, data_type, output_stream=None):
         """Server probe registration handler.
            Override this to method to implement your own registration or to silence the printout.
         """
-        print('Probe registered: id={}, type={}, name={}, unit={}, data_type={}'.format(id_, type_, name, unit, data_type))
+        if output_stream is None:
+            output_stream = sys.stdout
+        print('Probe registered: id={}, type={}, name={}, unit={}, data_type={}'.format(id_, type_, name, unit, data_type), file=output_stream)
 
     def on_record(self, id_, timestamp, length, data_val, data_bytes):
         """Server record handler.  Will dispatch to probe consumer callback.

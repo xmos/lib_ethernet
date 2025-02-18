@@ -56,10 +56,10 @@ def test_hw_mii_restart(request, send_method):
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "loopback" / "hw_test_mii_loopback.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
 
         if send_method == "socket":
             num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
@@ -68,11 +68,11 @@ def test_hw_mii_restart(request, send_method):
         for _ in range(num_restarts):
             # restart the mac
             print("Restart DUT Mac")
-            stdout, stderr = xcoreapp.xscope_controller_cmd_restart_dut_mac()
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_restart_dut_mac()
 
             # wait to connect again
             print("Connect to the DUT again")
-            stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
             if send_method == "socket":
                 num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
@@ -80,7 +80,7 @@ def test_hw_mii_restart(request, send_method):
                 #assert host_received_packets == 0
                 assert host_received_packets == num_packets_sent, f"ERROR: Host received back fewer than it sent. Sent {num_packets_sent}, received back {host_received_packets}"
 
-            stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
 
             # Now the RX client should receive packets
             if send_method == "socket":
@@ -90,7 +90,7 @@ def test_hw_mii_restart(request, send_method):
 
 
         print("Retrive status and shutdown DUT")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
 
         print("Terminating!!!")
 

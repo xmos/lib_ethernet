@@ -12,16 +12,33 @@ from xscope import Endpoint, QueueConsumer
 
 pkg_dir = Path(__file__).parent
 
-class XscopeCommands(Enum):
-    CMD_DEVICE_SHUTDOWN = auto()
-    CMD_SET_DEVICE_MACADDR = auto()
-    CMD_SET_HOST_MACADDR = auto()
-    CMD_HOST_SET_DUT_TX_PACKETS = auto()
-    CMD_SET_DUT_RECEIVE = auto()
-    CMD_DEVICE_CONNECT = auto()
-    CMD_EXIT_DEVICE_MAC = auto()
-
 class XscopeControl():
+    class XscopeCommands(Enum):
+        CMD_DEVICE_SHUTDOWN = auto()
+        CMD_SET_DEVICE_MACADDR = auto()
+        CMD_SET_HOST_MACADDR = auto()
+        CMD_HOST_SET_DUT_TX_PACKETS = auto()
+        CMD_SET_DUT_RECEIVE = auto()
+        CMD_DEVICE_CONNECT = auto()
+        CMD_EXIT_DEVICE_MAC = auto()
+
+        @classmethod
+        def write_to_h_file(cls, filename):
+            filename = Path(filename)
+            dir_path = filename.parent
+            dir_path.mkdir(parents=True, exist_ok=True)
+
+            with open(filename, "w") as fp:
+                name = filename.name
+                name = name.replace(".", "_")
+                fp.write(f"#ifndef __{name}__\n")
+                fp.write(f"#define __{name}__\n\n")
+                fp.write("typedef enum {\n")
+                for member in cls:
+                    fp.write(f"\t{member.name} = {member.value},\n")
+                fp.write("}xscope_cmds_t;\n\n")
+                fp.write("#endif\n")
+
     def __init__(self, host, port, timeout=30, verbose=False):
         self.host = host
         self.port = port
@@ -69,7 +86,7 @@ class XscopeControl():
         Returns:
         stdout and stderr from running the host application
         """
-        return self.xscope_controller_do_command([XscopeCommands['CMD_DEVICE_CONNECT'].value])
+        return self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_DEVICE_CONNECT'].value])
 
 
     def xscope_controller_cmd_shutdown(self):
@@ -79,7 +96,7 @@ class XscopeControl():
         Returns:
         stdout and stderr from running the host application
         """
-        return self.xscope_controller_do_command([XscopeCommands['CMD_DEVICE_SHUTDOWN'].value])
+        return self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_DEVICE_SHUTDOWN'].value])
 
     def xscope_controller_cmd_set_dut_macaddr(self, client_index, mac_addr):
         """
@@ -93,7 +110,7 @@ class XscopeControl():
         stdout and stderr from running the host application
         """
         mac_addr_bytes = [int(i, 16) for i in mac_addr.split(":")]
-        cmd_plus_args = [XscopeCommands['CMD_SET_DEVICE_MACADDR'].value, client_index]
+        cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_DEVICE_MACADDR'].value, client_index]
         cmd_plus_args.extend(mac_addr_bytes)
         return self.xscope_controller_do_command(cmd_plus_args)
 
@@ -109,7 +126,7 @@ class XscopeControl():
         stdout and stderr from running the host application
         """
         mac_addr_bytes = [int(i, 16) for i in mac_addr.split(":")]
-        cmd_plus_args = [XscopeCommands['CMD_SET_HOST_MACADDR'].value]
+        cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_HOST_MACADDR'].value]
         cmd_plus_args.extend(mac_addr_bytes)
         return self.xscope_controller_do_command(cmd_plus_args)
 
@@ -124,7 +141,7 @@ class XscopeControl():
         Returns:
         stdout and stderr from running the host application
         """
-        cmd_plus_args = [XscopeCommands['CMD_HOST_SET_DUT_TX_PACKETS'].value]
+        cmd_plus_args = [XscopeControl.XscopeCommands['CMD_HOST_SET_DUT_TX_PACKETS'].value]
         for a in [client_index, arg1, arg2]: # client_index, arg1 and arg2 are int32
             bytes_to_append = [(a >> (8 * i)) & 0xFF for i in range(4)]
             cmd_plus_args.extend(bytes_to_append)
@@ -142,7 +159,7 @@ class XscopeControl():
         Returns:
         stdout and stderr from running the host application
         """
-        cmd_plus_args = [XscopeCommands['CMD_SET_DUT_RECEIVE'].value, client_index, recv_flag]
+        cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_DUT_RECEIVE'].value, client_index, recv_flag]
         return self.xscope_controller_do_command(cmd_plus_args)
 
     def xscope_controller_cmd_restart_dut_mac(self):
@@ -152,7 +169,7 @@ class XscopeControl():
         Returns:
         stdout and stderr from running the host application
         """
-        return self.xscope_controller_do_command([XscopeCommands['CMD_EXIT_DEVICE_MAC'].value])
+        return self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_EXIT_DEVICE_MAC'].value])
 
 class XcoreAppControl(XcoreApp):
     """
@@ -409,9 +426,7 @@ def scapy_send_l2_pkt_sequence(intf, packets, time_container):
 
 # To test the host app standalone
 if __name__ == "__main__":
-    xscope_controller_cmd_connect()
-    xscope_controller_cmd_set_dut_tx_packets(0, 10000, 1500)
-    xscope_controller_cmd_set_dut_tx_packets(1, 25000000, 1500)
-
-
-
+    xscope_host = XscopeControl("localhost", "12340", verbose=True)
+    xscope_host.xscope_controller_cmd_connect()
+    xscope_host.xscope_controller_cmd_set_dut_tx_packets(0, 10000, 1500)
+    xscope_host.xscope_controller_cmd_set_dut_tx_packets(1, 25000000, 1500)

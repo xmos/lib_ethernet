@@ -48,8 +48,8 @@ def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verb
     capture_file = "packets.bin"
     socket_host.recv_asynch_start(capture_file)
     # now signal to DUT that we are ready to receive and say what we want from it
-    stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
-    stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
+    stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, 0, 0) # no tx hp
+    stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len)
 
     host_received_packets = socket_host.recv_asynch_wait_complete()
     if verbose:
@@ -96,14 +96,14 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
-        stdout, stderr = xcoreapp.xscope_controller_cmd_connect()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         # config contents of Tx packets
         lp_client_id = 0
         hp_client_id = 1
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
-        stdout, stderr = xcoreapp.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(lp_client_id, dut_mac_address_str_lp)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(hp_client_id, dut_mac_address_str_hp)
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
         print("Starting sniffer")
         if send_method == "socket":
@@ -150,7 +150,7 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
                 print(f"recv time = {packet_recv_times[-1][0] + (packet_recv_times[-1][1]*nanoseconds_in_a_second)} ns")
 
             print("Retrive status and shutdown DUT")
-            stdout, stderr = xcoreapp.xscope_controller_cmd_shutdown()
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
 
         for i in range(len(packet_recv_times) - 1):
             # Check recv time diff for consecutive packets
