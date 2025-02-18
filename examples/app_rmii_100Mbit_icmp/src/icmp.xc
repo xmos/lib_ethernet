@@ -243,13 +243,9 @@ void icmp_server(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
                  const unsigned char ip_address[4],
-                 otp_ports_t &otp_ports)
+                 const unsigned char mac_address[MACADDR_NUM_BYTES])
 {
-  unsigned char mac_address[MACADDR_NUM_BYTES];
   ethernet_macaddr_filter_t macaddr_filter;
-
-  // Get the mac address from OTP and set it in the ethernet component
-  otp_board_info_get_mac(otp_ports, 0, mac_address);
 
   size_t index = rx.get_index();
   cfg.set_macaddr(0, mac_address);
