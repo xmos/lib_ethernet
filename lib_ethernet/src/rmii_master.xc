@@ -82,7 +82,7 @@
 // These are overridable defines and can be overriden if the processor is running faster than what these were measured for.
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b
-    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (8) // In reference timer ticks
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (7) // In reference timer ticks
 #endif
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b
