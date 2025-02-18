@@ -16,7 +16,9 @@
 #define AUTONEG_LINK_REG                    0x5
 #define AUTONEG_EXP_REG                     0x6
 #define GIGE_CONTROL_REG                    0x9
+// Only up to 0xf are IEEE-compliant. Above this they are vendor specific
 #define RMII_AND_STATUS_REG                 0x17
+
 #define IO_CONFIG_1_REG                     0x302
 
 #define BASIC_CONTROL_LOOPBACK_BIT          14
@@ -172,6 +174,23 @@ unsigned smi_phy_is_powered_down(CLIENT_INTERFACE(smi_if, smi), uint8_t phy_addr
  */
 void smi_mmd_write(CLIENT_INTERFACE(smi_if, smi), uint8_t phy_address,
                    uint16_t mmd_dev, uint16_t mmd_reg, uint16_t value);
+
+/** SMI MMD read
+ *
+ *  Some PHYs expose additional registers to basic SMI through MMD,
+ *  MDIO Manageable Device, annex 22D.
+ *
+ *  There is a suggested set of MMD registers in clause 45, but vendors
+ *  don't necessarily follow it. It's best to refer to your PHY datasheet.
+ *
+ *  \param smi          An interface connection to the SMI component
+ *  \param phy_address  The 5-bit SMI address of the PHY
+ *  \param mmd_dev      16-bit MMD device address
+ *  \param mmd_reg      16-bit MMD register number
+ *  \returns            16-bit value read from register
+ */
+uint16_t smi_mmd_read(client smi_if smi, uint8_t phy_address,
+                      uint16_t mmd_dev, uint16_t mmd_reg);
 
 /** Function to retrieve the link up/down status.
  *
