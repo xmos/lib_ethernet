@@ -76,4 +76,7 @@ port p_test_ctrl = on tile[0]: XS1_PORT_1M;
 clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
 
+//TODO tune me
+rmii_port_timing_t port_timing = {0, 0, 0, 0, 0};
+
 #endif
