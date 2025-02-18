@@ -8,7 +8,7 @@
 #include "smi.h"
 #include "debug_print.h"
 
-#define NUM_PHY_BOARDS_FITTED   2 // 1 if PHY0 only fitted, 2 if both fitted
+#define NUM_PHY_BOARDS_FITTED   2 // 1 if PHY0 only fitted, 2 if both fitted. Just PHY1 is not possible
 
 // Shared
 port p_smi_mdio = MDIO;
@@ -124,6 +124,7 @@ int main()
                                           USE_UPPER_2B,
                                           phy0_rxclk,
                                           phy0_txclk,
+                                          get_port_timings(0),
                                           4000, 4000,
                                           ETHERNET_DISABLE_SHAPER);
                     (void*)mac_address_phy1; // Remove unused var warning
@@ -157,6 +158,7 @@ int main()
                                           TX_PINS,
                                           phy1_rxclk,
                                           phy1_txclk,
+                                          get_port_timings(0),
                                           4000, 4000,
                                           ETHERNET_DISABLE_SHAPER);
                     (void*)mac_address_phy0; // Remove unused var warning
