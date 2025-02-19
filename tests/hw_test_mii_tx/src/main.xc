@@ -63,7 +63,7 @@ int main()
                                       phy_txclk,
                                       get_port_timings(0),
                                       ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
-                                      ETHERNET_DISABLE_SHAPER);
+                                      ETHERNET_ENABLE_SHAPER);
 
     on tile[1]: dual_dp83826e_phy_driver(i_smi, i_cfg[0], null);
 
