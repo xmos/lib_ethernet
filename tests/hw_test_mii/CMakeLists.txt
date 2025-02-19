@@ -23,7 +23,7 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(xscope_cmds_enum_gen DEPENDS ${XSCOPE_CMDS_ENUM_FILE})
+add_custom_target(xscope_cmds_enum_gen_rx DEPENDS ${XSCOPE_CMDS_ENUM_FILE})
 
 set(COMPILER_FLAGS_COMMON   -g
                             -report
@@ -48,5 +48,5 @@ set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 XMOS_REGISTER_APP()
 
 foreach(target ${APP_BUILD_TARGETS})
-    add_dependencies(${target} xscope_cmds_enum_gen)
+    add_dependencies(${target} xscope_cmds_enum_gen_rx)
 endforeach()
