@@ -33,6 +33,7 @@ set(COMPILER_FLAGS_COMMON   -g
                             -DENABLE_DUT_TIMEOUT=0
                             -fxscope
                             -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
+                            -DENABLE_MAC_START_NOTIFICATION=1
                             )
 
 set(APP_COMPILER_FLAGS_rx_only                 ${COMPILER_FLAGS_COMMON})
