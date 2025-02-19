@@ -8,6 +8,23 @@ include(${CMAKE_CURRENT_LIST_DIR}/../../examples/deps.cmake)
 
 set(APP_PCA_ENABLE ON)
 
+set( AUTOGEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/src.autogen )
+file(RELATIVE_PATH REL_AUTOGEN_DIR ${CMAKE_CURRENT_LIST_DIR} ${AUTOGEN_DIR})
+
+set(XSCOPE_CMDS_ENUM_GEN_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/../xscope_host.py)
+set(XSCOPE_CMDS_ENUM_FILE "${AUTOGEN_DIR}/xscope_cmds_enum.h")
+message(STATUS "args = ${XSCOPE_CMDS_ENUM_FILE}")
+
+add_custom_command(
+    OUTPUT ${XSCOPE_CMDS_ENUM_FILE}
+    COMMAND python ${XSCOPE_CMDS_ENUM_GEN_SCRIPT} ${XSCOPE_CMDS_ENUM_FILE}
+    DEPENDS ${XSCOPE_CMDS_ENUM_GEN_SCRIPT}
+    COMMENT "Generate xscope cmds enum file"
+    VERBATIM
+)
+
+add_custom_target(xscope_cmds_enum_gen DEPENDS ${XSCOPE_CMDS_ENUM_FILE})
+
 set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE=1
@@ -32,8 +49,12 @@ file(GLOB COMMON_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR}
 list(APPEND XC_SOURCES ${COMMON_SOURCES})
 
 set(APP_XC_SRCS ${XC_SOURCES})
-set(APP_INCLUDES src ../hw_test_mii/src/xscope_control ../hw_test_mii/src/phy_driver)
+set(APP_INCLUDES src ../hw_test_mii/src/xscope_control ../hw_test_mii/src/phy_driver ${REL_AUTOGEN_DIR})
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
 XMOS_REGISTER_APP()
+
+foreach(target ${APP_BUILD_TARGETS})
+    add_dependencies(${target} xscope_cmds_enum_gen)
+endforeach()
