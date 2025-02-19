@@ -46,17 +46,18 @@ class hw_eth_debugger:
         # ensure is running
         while self.nose_proc.poll() is not None:
             time.sleep(0.01)
-        print(f"Nose proc running, {self.nose_proc}, cmd={cmd}")
+        # print(f"Nose proc running, {self.nose_proc}, cmd={cmd}")
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.timeout_s = 2 # normal timeout for command response
         self.sock.settimeout(self.timeout_s)
+        print("Connecting to debugger..", end="")
         while True:
             try:
                 self.sock.connect(socket_path)
                 print("Connected!")
                 break
             except (socket.error, ConnectionRefusedError):
-                print("Connection failed, retrying...")
+                print(".", end="")
                 time.sleep(.01)
 
         self.last_cmd = None
@@ -167,7 +168,7 @@ class hw_eth_debugger:
         return self.link_state_a, self.link_state_b
 
     def wait_for_links_up(self, speed_mbps=100, timeout_s=5):
-        print(f"Polling for both links to be: {speed_mbps} for {timeout_s}s")
+        print(f"Polling for both links for {timeout_s}s to be: {speed_mbps}Mbps")
         time_left = timeout_s
         time_true = 0 #Links sometimes start up and then go down so ensure we get up for a while
         min_time_up = 2
@@ -246,7 +247,7 @@ class hw_eth_debugger:
         if filename != "":
             cmd = f'inject {phy} "" {raw} {num} {ifg_bytes} {append_rand} {append_zero} {gen_error} {filename}'
 
-        print(f"cmd: {cmd}")
+        # print(f"cmd: {cmd}")
         self._send_cmd(cmd)
         # Note inject does not normally respond with anythin so set short timeout and ignore timeout warning
         ok, msg = self._get_response(timeout_s=0.001)
@@ -260,8 +261,6 @@ class hw_eth_debugger:
     def inject_packet_MiiPacket(self, phy, packet, num=1, ifg_bytes=12):
         data_bytes = packet.get_packet_bytes()
         hex_string = ''.join(format(x, '02x') for x in data_bytes)
-        print(data_bytes)
-        print(hex_string)
         self.inject_packets(phy, data=hex_string, num=num, ifg_bytes=ifg_bytes)
 
     # Only needed if we need to interrupt a long repeating inject command
@@ -447,7 +446,8 @@ if __name__ == "__main__":
     print(dbg.mdio_write(1, 0x1, 0x7400))
     print(dbg.mdio_read(1, 0x1))
     print(dbg.capture_start())
-    print(dbg.capture_stop())
+    packets = dbg.capture_stop() 
+    print(packets, packets.summary(), dir(packets))
     print(dbg.set_speed(100))
     print(dbg.get_info())
     print(dbg.wait_for_links_up())
@@ -474,6 +474,7 @@ if __name__ == "__main__":
 
     print(dbg.inject_packet_MiiPacket("AB", packet, num=3))
 
+    sys.exit(0)
 
     packets = [packet, packet]
     print(packet.dump())
