@@ -66,9 +66,15 @@ def parse_packet_summary(packet_summary,
                         dut_mac_address_hp = 0,
                         expected_bandwidth_hp = 0,
                         verbose = False):
-    # get first packet time
     print("Parsing packet file")
-    datum = int(packet_summary[0][5] * 1e9 + packet_summary[0][6])
+    # get first packet time with valid source addr
+    datum = 0
+    for packet in packet_summary:
+        if packet[1] == dut_mac_address_lp:
+            datum = int(packet[5] * 1e9 + packet[6])
+            break
+    last_valid_packet_time = 0
+
 
     errors = ""
     expected_seqid_lp = 0
@@ -92,6 +98,7 @@ def parse_packet_summary(packet_summary,
                 expected_seqid_lp = seqid
             expected_seqid_lp += 1
             counted_lp += 1
+            last_valid_packet_time = packet_time
         if src == dut_mac_address_hp:
             if length != expected_packet_len_hp:
                 errors += f"Incorrect HP length at seqid: {seqid}, expected: {expected_packet_len_hp} got: {length}\n"
@@ -100,9 +107,11 @@ def parse_packet_summary(packet_summary,
                 expected_seqid_hp = seqid
             expected_seqid_hp += 1
             counted_hp += 1
+            last_valid_packet_time = packet_time
+
 
     if expected_bandwidth_hp:
-        total_time_ns = packet_time # Last packet time
+        total_time_ns = last_valid_packet_time # Last packet time
         num_bits_hp = counted_hp * (expected_packet_len_hp + packet_overhead) * 8
         bits_per_second = num_bits_hp / (total_time_ns / 1e9)
         difference_pc = abs(expected_bandwidth_hp - bits_per_second) / abs(expected_bandwidth_hp) * 100
