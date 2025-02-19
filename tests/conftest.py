@@ -43,35 +43,6 @@ def pytest_addoption(parser):
         help="Test duration in seconds",
     )
 
-def build_xcope_control_host():
-    print("In build_xcope_control_host()")
-    xscope_controller_dir = pkg_dir / "host"/ "xscope_controller"
-    assert xscope_controller_dir.exists() and xscope_controller_dir.is_dir(), f"xscope_controller path {xscope_controller_dir} invalid"
-    # Build the xscope controller host application
-    ret = subprocess.run(["cmake", "-B", "build"],
-                        capture_output=True,
-                        text=True,
-                        cwd=xscope_controller_dir)
-
-    assert ret.returncode == 0, (
-        f"xscope controller cmake command failed"
-        + f"\nstdout:\n{ret.stdout}"
-        + f"\nstderr:\n{ret.stderr}"
-    )
-
-    ret = subprocess.run(["make", "-C", "build"],
-                        capture_output=True,
-                        text=True,
-                        cwd=xscope_controller_dir)
-
-    assert ret.returncode == 0, (
-        f"xscope controller make command failed"
-        + f"\nstdout:\n{ret.stdout}"
-        + f"\nstderr:\n{ret.stderr}"
-    )
-    xscope_controller_app = xscope_controller_dir / "build" / "xscope_controller"
-    assert xscope_controller_app.exists(), f"xscope_controller not present at {xscope_controller_app}"
-
 def build_socket_host():
     print("In build_socket_host()")
     if platform.system() in ["Linux"]:
@@ -124,7 +95,6 @@ def pytest_configure(config):
     print(f"Set seed to {config.seed}")
 
     # Build the host applications used in HW testing
-    build_xcope_control_host()
     build_socket_host()
 
 

@@ -91,7 +91,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   client_cfg.client_index = index;
   client_cfg.is_hp = 0;
 
-
   while (!client_state.done)
   {
     select {

@@ -9,8 +9,8 @@ from hw_helpers import mii2scapy, scapy2mii, get_mac_address
 import pytest
 from contextlib import nullcontext
 import time
-from xcore_app_control import XcoreAppControl, SocketHost
-from xcore_app_control import scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
+from xscope_host import XcoreAppControl
+from socket_host import SocketHost
 import re
 import subprocess
 import platform
@@ -32,7 +32,7 @@ def test_hw_mii_restart(request, send_method):
     seed = 0
     rand = random.Random()
     rand.seed(seed)
-    test_duration_s = 1.0
+    test_duration_s = 5.0
     payload_len = 'max'
     num_restarts = 4
 
@@ -76,9 +76,8 @@ def test_hw_mii_restart(request, send_method):
 
             if send_method == "socket":
                 num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
-                # TODO When actually testing RMII restart, at this point, host should receive back 0 packets since the MAC has restarted and there are no mac address filters set.
-                #assert host_received_packets == 0
-                assert host_received_packets == num_packets_sent, f"ERROR: Host received back fewer than it sent. Sent {num_packets_sent}, received back {host_received_packets}"
+                assert host_received_packets == 0, f"After mac restart and before setting macaddr filters, host expected to receive 0 packets. Received {host_received_packets} packets instead"
+
 
             stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
 
