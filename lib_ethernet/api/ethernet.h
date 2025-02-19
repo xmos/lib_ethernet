@@ -105,7 +105,9 @@ typedef interface ethernet_cfg_if {
    *  \param new_state  The new link state for the port.
    *  \param speed      The active link speed and duplex of the PHY.
    */
-  void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
+  XC_CLEARS_NOTIFICATION void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
+
+  XC_NOTIFICATION slave void mac_started(); // Notify the phy driver that the mac has started
 
   /** Get the current link state.
    *
@@ -662,10 +664,10 @@ typedef enum rmii_data_4b_pin_assignment_t{
     USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
 } rmii_data_4b_pin_assignment_t;
 
-/** Struct containing the clock delay settings for the Rx and Tx pins. This is needed to adjust 
+/** Struct containing the clock delay settings for the Rx and Tx pins. This is needed to adjust
  *  port timings to ensure that the data is captured with sufficient setup and hold margin.
- *  This is required due to the relatively fast 50 MHz clock. 
- *  Please consult the documentation for further details and suggested settings. */ 
+ *  This is required due to the relatively fast 50 MHz clock.
+ *  Please consult the documentation for further details and suggested settings. */
 typedef struct rmii_port_timing_t{
     unsigned clk_delay_tx_rising;
     unsigned clk_delay_tx_falling;
@@ -707,7 +709,7 @@ typedef struct rmii_port_timing_t{
  *  \param rxclk               Clock used for RMII receive timing
  *  \param txclk               Clock used for RMII transmit timing
  *  \param port_timing         Struct used for initialising the clock blocks to ensure setup and hold times are met
- * 
+ *
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
  *                             This should be at least 500 long words.
  *  \param tx_bufsize_words    The number of words to used for a transmit buffer.
