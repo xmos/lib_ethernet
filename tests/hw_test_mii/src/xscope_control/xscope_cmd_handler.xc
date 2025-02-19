@@ -23,6 +23,7 @@ select xscope_cmd_handler(chanend c_xscope_control, client_cfg_t &client_cfg, cl
   case c_xscope_control :> int cmd: // Shutdown received over xscope
     if(cmd == CMD_DEVICE_CONNECT)
     {
+      debug_printf("client %d received command CMD_DEVICE_CONNECT\n", client_cfg.client_num);
       if(client_cfg.client_num == 0)
       {
         // The first client needs to ensure link is up when returning ready status
@@ -33,6 +34,7 @@ select xscope_cmd_handler(chanend c_xscope_control, client_cfg_t &client_cfg, cl
           wait_us(1000); // Check every 1ms
           cfg.get_link_state(0, link_state, link_speed);
         }
+        debug_printf("Ethernet link up\n");
       }
       c_xscope_control <: 1; // Indicate ready
     }

@@ -202,7 +202,7 @@ class Endpoint(object):
 
 class QueueConsumer(object):
 
-  def __init__(self, ep, probe, /, probe_timeout=10.0):
+  def __init__(self, ep, probe, /, probe_timeout=20.0):
     self.ep = ep
     self.probe_timeout = probe_timeout
     self.ep.consume(self._consume, probe)
