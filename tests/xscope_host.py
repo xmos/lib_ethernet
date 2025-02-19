@@ -2,7 +2,6 @@ from enum import Enum, auto
 import sys
 import platform
 from pathlib import Path
-from hardware_test_tools.XcoreApp import XcoreApp
 from xscope_endpoint import Endpoint, QueueConsumer
 
 class XscopeControl():
@@ -195,6 +194,18 @@ class XscopeControl():
         """
         return self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_EXIT_DEVICE_MAC'].value])
 
+"""
+Do not change the main function since it's called from CMakeLists.txt to autogenerate the xscope commands enum .h file
+"""
+if __name__ == "__main__":
+    print("Generate xscope cmds enum .h file")
+    assert len(sys.argv) == 2, ("Error: filename not provided" +
+                    "\nUsage: python generate_xscope_cmds_enum_h_file.py <.h file name, eg. enum.h>\n")
+
+    XscopeControl.XscopeCommands.write_to_h_file(sys.argv[1])
+
+
+from hardware_test_tools.XcoreApp import XcoreApp
 class XcoreAppControl(XcoreApp):
     """
     Class containing host side functions used for communicating with the XMOS device (DUT) over xscope port.
@@ -222,12 +233,3 @@ class XcoreAppControl(XcoreApp):
         self.xscope_host = XscopeControl("localhost", f"{self.xscope_port}", verbose=self.verbose)
         return self
 
-"""
-Do not change the main function since it's called from CMakeLists.txt to autogenerate the xscope commands enum .h file
-"""
-if __name__ == "__main__":
-    print("Generate xscope cmds enum .h file")
-    assert len(sys.argv) == 2, ("Error: filename not provided" +
-                    "\nUsage: python generate_xscope_cmds_enum_h_file.py <.h file name, eg. enum.h>\n")
-
-    XscopeControl.XscopeCommands.write_to_h_file(sys.argv[1])
