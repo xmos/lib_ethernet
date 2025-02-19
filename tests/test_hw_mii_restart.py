@@ -28,7 +28,7 @@ def test_hw_mii_restart(request, send_method):
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
 
-    verbose = False
+    verbose = True
     seed = 0
     rand = random.Random()
     rand.seed(seed)
