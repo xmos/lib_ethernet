@@ -9,7 +9,7 @@ from hw_helpers import mii2scapy, scapy2mii, get_mac_address
 import pytest
 from contextlib import nullcontext
 import time
-from xscope_host import XcoreAppControl
+from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost, scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
 import re
 import subprocess
