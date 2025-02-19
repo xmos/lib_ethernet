@@ -35,6 +35,7 @@ set(COMPILER_FLAGS_COMMON   -g
 							-DETHERNET_SUPPORT_HP_QUEUES=1
 							-fxscope
                             -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
+                            -DENABLE_MAC_START_NOTIFICATION=1
                             )
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})

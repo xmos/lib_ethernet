@@ -107,7 +107,9 @@ typedef interface ethernet_cfg_if {
    */
   XC_CLEARS_NOTIFICATION void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
 
+#if ENABLE_MAC_START_NOTIFICATION
   XC_NOTIFICATION slave void mac_started(); // Notify the phy driver that the mac has started
+#endif
 
   /** Get the current link state.
    *
