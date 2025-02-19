@@ -59,32 +59,31 @@ int main()
     on tile[0]:
     {
       par {
-
-        par {
-          rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
-                                      i_rx_lp, NUM_RX_LP_IF,
-                                      i_tx_lp, NUM_TX_LP_IF,
-                                      c_rx_hp, null,
-                                      p_phy_clk,
-                                      p_phy_rxd,
-                                      null,
-                                      USE_UPPER_2B,
-                                      p_phy_rxdv,
-                                      p_phy_txen,
-                                      p_phy_txd,
-                                      null,
-                                      USE_UPPER_2B,
-                                      phy_rxclk,
-                                      phy_txclk,
-                                      get_port_timings(0),
-                                      ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
-                                      ETHERNET_DISABLE_SHAPER);
-
-          while(1) // To allow re-starting the mac+client threads after a restart
-          {
+        while(1) // To allow re-starting the mac+client threads after a restart
+        {
+          par {
+            rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        c_rx_hp, null,
+                                        p_phy_clk,
+                                        p_phy_rxd,
+                                        null,
+                                        USE_UPPER_2B,
+                                        p_phy_rxdv,
+                                        p_phy_txen,
+                                        p_phy_txd,
+                                        null,
+                                        USE_UPPER_2B,
+                                        phy_rxclk,
+                                        phy_txclk,
+                                        get_port_timings(0),
+                                        ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
+                                        ETHERNET_DISABLE_SHAPER);
             test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0]);
           }
         }
+
 
         {
           xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);

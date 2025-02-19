@@ -76,6 +76,10 @@ class XscopeControl():
             print(device_stdout)
 
         ep.disconnect()
+        if ack == None:
+            print("Xscope host received no response from device")
+            print(f"device stdout: {device_stdout}")
+            assert False
         return device_stdout
 
 
