@@ -105,10 +105,11 @@ typedef interface ethernet_cfg_if {
    *  \param new_state  The new link state for the port.
    *  \param speed      The active link speed and duplex of the PHY.
    */
-  XC_CLEARS_NOTIFICATION void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
+  void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
 
 #if ENABLE_MAC_START_NOTIFICATION
   XC_NOTIFICATION slave void mac_started(); // Notify the phy driver that the mac has started
+  XC_CLEARS_NOTIFICATION void ack_mac_start();   // Ack mac restart. Implement only if the client requires to be notified of mac restarts
 #endif
 
   /** Get the current link state.
