@@ -336,6 +336,10 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       memcpy(mac_address, r_mac_address, sizeof r_mac_address);
       break;
 
+#if ENABLE_MAC_START_NOTIFICATION
+    case i_cfg[int i].ack_mac_start():
+      break;
+#endif
     case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
       if (p_port_state->link_state != status) {
         p_port_state->link_state = status;
