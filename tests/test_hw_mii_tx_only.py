@@ -16,9 +16,12 @@ import subprocess
 import platform
 import struct
 from decimal import Decimal
+import statistics
+
 
 pkg_dir = Path(__file__).parent
 packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
+line_speed = 100e6
 
 def load_packet_file(filename):
     chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
@@ -65,22 +68,25 @@ def parse_packet_summary(packet_summary,
                         expected_packet_len_hp = 0,
                         dut_mac_address_hp = 0,
                         expected_bandwidth_hp = 0,
-                        verbose = False):
+                        verbose = False,
+                        check_ifg = False):
     print("Parsing packet file")
     # get first packet time with valid source addr
     datum = 0
     for packet in packet_summary:
-        if packet[1] == dut_mac_address_lp:
+        if packet[1] == dut_mac_address_lp or packet[1] == dut_mac_address_hp:
             datum = int(packet[5] * 1e9 + packet[6])
             break
-    last_valid_packet_time = 0
-
 
     errors = ""
     expected_seqid_lp = 0
     expected_seqid_hp = 0
     counted_lp = 0
     counted_hp = 0
+    last_valid_packet_time = 0
+    last_length = 0 # We need this for checking IFG
+    ifgs = []
+
     for packet in packet_summary:
         dst = packet[0]
         src = packet[1]
@@ -98,7 +104,7 @@ def parse_packet_summary(packet_summary,
                 expected_seqid_lp = seqid
             expected_seqid_lp += 1
             counted_lp += 1
-            last_valid_packet_time = packet_time
+
         if src == dut_mac_address_hp:
             if length != expected_packet_len_hp:
                 errors += f"Incorrect HP length at seqid: {seqid}, expected: {expected_packet_len_hp} got: {length}\n"
@@ -107,7 +113,16 @@ def parse_packet_summary(packet_summary,
                 expected_seqid_hp = seqid
             expected_seqid_hp += 1
             counted_hp += 1
+
+        if src == dut_mac_address_lp or src == dut_mac_address_hp:
+            if check_ifg:
+                packet_time_diff_ns = packet_time - last_valid_packet_time
+                packet_time_ns = 1e9 / line_speed * 8 * (last_length + 4 + 8) #preamble and CRC only
+                ifg_ns = packet_time_diff_ns - packet_time_ns
+                ifgs.append(ifg_ns)
+            # ensure we only count valid packets for bandwidth calc
             last_valid_packet_time = packet_time
+            last_length = length
 
 
     if expected_bandwidth_hp:
@@ -122,12 +137,23 @@ def parse_packet_summary(packet_summary,
         if verbose:
             print(text)
 
+    if check_ifg:
+        ifgs = ifgs[1:-10] # The first is always wrong as is the datum and last few are HP dominared with gaps as LP tx shuts down first
+        min_ifg = min(ifgs)
+        max_ifg = max(ifgs)
+        std_dev_ifg = statistics.stdev(ifgs)
+        mean_ifg = statistics.mean(ifgs)
+        counter_dict = {}
+        for ifg in ifgs:
+            counter_dict[ifg] = counter_dict.get(ifg, 0) + 1
+        print(f"IFG stats min: {min_ifg:.2f} max: {max_ifg:.2f} mean: {mean_ifg:.2f} std_dev: {std_dev_ifg:.2f}")
+        print(f"IFG instances: {counter_dict}")
 
     if counted_lp != expected_count_lp:
         errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp} (dropped: {expected_count_lp-counted_lp})"
 
     if verbose:
-        print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {packet_time/1e9:.2f}s")
+        print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {last_valid_packet_time/1e9:.2f}s")
 
     return errors if errors != "" else None
 
@@ -142,6 +168,7 @@ def parse_packet_summary(packet_summary,
                                         [1000, 1000, 25000000]]
                                         , ids=["LP_only", "LP_1Mbps_HP_small", "LP_max_len_2Mbps_HP_max", "LP_25Mbps_HP"]) 
 def test_hw_mii_tx_only(request, send_method, tx_config):
+    print()
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -162,9 +189,6 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
         test_duration_s = 10
     test_duration_s = float(test_duration_s)
 
-    # Common packet configuration
-    line_speed = 100e6
-
     # HP packet configuration
     hp_packet_len = tx_config[1]
     hp_packet_bandwidth_bps = tx_config[2]
@@ -176,8 +200,6 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
     total_bits *= (line_speed - hp_packet_bandwidth_bps) / line_speed # Subtract expected HP bandwidth
     expected_packet_count = int(total_bits / bits_per_packet)
 
-
-    print()
     print(f"Setting DUT to send {expected_packet_count} LP packets of size {expected_packet_len_lp}")
     print(f"Setting DUT to send {hp_packet_bandwidth_bps} bps HP packets of size {hp_packet_len}")
 
@@ -258,7 +280,8 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
                                             expected_packet_len_hp = hp_packet_len,
                                             dut_mac_address_hp = dut_mac_address_hp,
                                             expected_bandwidth_hp = hp_packet_bandwidth_bps,
-                                            verbose = True)
+                                            verbose = True,
+                                            check_ifg = True)
 
         else:
             assert 0, f"Send method {send_method} not yet supported"

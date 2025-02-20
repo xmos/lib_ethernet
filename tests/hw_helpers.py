@@ -168,7 +168,7 @@ class hw_eth_debugger:
         return self.link_state_a, self.link_state_b
 
     def wait_for_links_up(self, speed_mbps=100, timeout_s=5):
-        print(f"Polling for both links for {timeout_s}s to be: {speed_mbps}Mbps")
+        print(f"Waiting up to {timeout_s}s for both links to be up at {speed_mbps}Mbps")
         time_left = timeout_s
         time_true = 0 #Links sometimes start up and then go down so ensure we get up for a while
         min_time_up = 2
@@ -310,7 +310,7 @@ class hw_eth_debugger:
         else:
             self.capture_file = None
             print(msg, file=sys.stderr)
-            return success, message
+            return msg
 
     """Trash packets that are passing through the debugger
     phy             Port/PHY
