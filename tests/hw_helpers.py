@@ -21,7 +21,7 @@ This class contains helpers for running the Intona 7060-A Ethernet Debugger
 """
 class hw_eth_debugger:
     # No need to pass binary if on the path. Device used to specify debugger if more than one
-    def __init__(self, nose_bin_path=None, device=None):
+    def __init__(self, nose_bin_path=None, device=None, verbose=False):
         # Get the "nose" binary that drives the debugger
         if nose_bin_path is None:
             result = subprocess.run("which nose".split(), capture_output=True, text=True)
@@ -64,6 +64,7 @@ class hw_eth_debugger:
 
         self.capture_file = None # For packet capture
         self.disrupting = False # For disrupting packets
+        self.verbose = verbose
 
         # These are fixed in the test harness
         self.debugger_phy_to_dut = "A"
@@ -88,7 +89,7 @@ class hw_eth_debugger:
     # Destructor
     def __del__(self):
         self._send_cmd("exit")
-        if self.nose_proc.poll() is None: 
+        if self.nose_proc.poll() is None:
             self.nose_proc.terminate()
         self.sock.close()
         print("hw_eth_debugger exited")
@@ -169,6 +170,74 @@ class hw_eth_debugger:
         self._get_response(timeout_s=0.01)
 
         return self.link_state_a, self.link_state_b
+
+    def power_cycle_phy(self, phy='AB', delay_s=0):
+        """
+        Power cycle one or both of the debugger PHYs.
+        Note, this function doesn't check if the link is back up after power cycle
+        Args:
+            phy (str): Which PHYs to power cycle. Optional. If not specified, default behaviour is
+            to power down both PHYs.
+            Allowed values: 'A' - power cycle PHY A, 'B' - power cycle PHY B, 'AB' - power cycle both PHY A and B
+
+            delay_s (float): Optional. Delay between powering the phy down and back up.
+
+        Returns:
+            bool : True if successfully power cycled the PHYs, False otherwise
+        """
+        allowed_phy_args = ['A', 'B', 'AB']
+        if phy not in allowed_phy_args:
+            print(f"Invalid 'phy' argument provided to power_cycle_phy(). Provide one of {allowed_phy_args}")
+            return False
+
+        self._get_response(timeout_s=0.01) # Drain any existing responses. The first mdio_read() fails otherwise since the response returned is 'Starting capture thread succeeded.'
+        bmcr_reg_index = 0 # basic mode control reg
+        power_down_bit = 11 # Power Down bit offset in BMCR register
+        control_val = self.mdio_read(phy, bmcr_reg_index)
+        if not control_val:
+            print(f"mdio_read({phy}, {bmcr_reg_index}) returned error")
+            return False
+        if self.verbose:
+            print(f"MDIO read of reg {bmcr_reg_index} for phy {phy} returned {control_val:x}")
+
+        # Power down the PHY
+        control_val |= (1 << power_down_bit)
+        if self.verbose:
+            print(f"write control_val = {control_val:x}")
+        ret = self.mdio_write(phy, bmcr_reg_index, control_val)
+        if ret:
+            control_val = self.mdio_read(phy, bmcr_reg_index)
+            if not control_val:
+                print(f"mdio_read({phy}, {bmcr_reg_index}) returned error")
+                return False
+            if self.verbose:
+                print(f"MDIO read of reg {bmcr_reg_index} for phy {phy} returned {control_val:x}")
+        else:
+            print(f"mdio_write({phy}, {bmcr_reg_index}, {control_val}) returned False")
+            return False
+
+        # Wait before powering up
+        if self.verbose:
+            print(f"Sleeping {delay_s} s")
+        time.sleep(delay_s)
+
+        # Power up the PHY
+        control_val &= (~(1 << power_down_bit))
+        if self.verbose:
+            print(f"write control_val = {control_val:x}")
+        ret = self.mdio_write('A', bmcr_reg_index, control_val)
+        if ret:
+            control_val = self.mdio_read('A', bmcr_reg_index)
+            if not control_val:
+                print(f"mdio_read(A, {bmcr_reg_index}) returned error")
+                return False
+            if self.verbose:
+                print(f"MDIO read of reg {bmcr_reg_index} for phy A returned {control_val:x}")
+        else:
+            print(f"mdio_write(A, {bmcr_reg_index}, {control_val}) returned False")
+            return False
+
+
 
     def wait_for_links_up(self, speed_mbps=100, timeout_s=5):
         print(f"Waiting up to {timeout_s}s for both links to be up at {speed_mbps}Mbps")
@@ -258,7 +327,7 @@ class hw_eth_debugger:
             pass #This is expected
         return True
 
-    """ 
+    """
     This converts from MiiPacket to expected format and sends num times
     Only works for properly formed packets
     """
@@ -274,12 +343,15 @@ class hw_eth_debugger:
         self._send_cmd(f"inject_stop")
         # Note inject_stop does not normally respond with anythin so set short timeout and ignore timeout warning
         ok, msg = self._get_response(timeout_s=0.001)
-        
+
         return True
 
     def mdio_read(self, phy_num, addr):
         self._send_cmd(f"mdio_read {phy_num} {addr}")
         ok, msg = self._get_response()
+        if self.verbose:
+            print(f"mdio_read {phy_num} {addr} returned ok {ok}, msg {msg}")
+
         if ok and 'value' in msg:
             return int(msg.split('=0x')[1].strip(), 16)
         return False
@@ -298,6 +370,8 @@ class hw_eth_debugger:
         self.capture_file = filename
         self._send_cmd(f"capture_start {filename}")
         ok, msg = self._get_response()
+        if self.verbose:
+            print(f"cmd: capture_start {filename}, returned ok {ok}, msg {msg}")
         if ok and 'succeeded' in msg:
             return True
         return False
@@ -472,7 +546,7 @@ if __name__ == "__main__":
     print(dbg.mdio_write(1, 0x1, 0x7400))
     print(dbg.mdio_read(1, 0x1))
     print(dbg.capture_start())
-    packets = dbg.capture_stop() 
+    packets = dbg.capture_stop()
     print(packets, packets.summary(), dir(packets))
     print(dbg.set_speed(100))
     print(dbg.get_info())
