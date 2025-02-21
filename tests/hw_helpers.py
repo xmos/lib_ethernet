@@ -65,6 +65,10 @@ class hw_eth_debugger:
         self.capture_file = None # For packet capture
         self.disrupting = False # For disrupting packets
 
+        # These are fixed in the test harness
+        self.debugger_phy_to_dut = "A"
+        self.debugger_phy_to_host = "B"
+
         # Will be a number in Mbit
         # This state is asynchronously reported by the debugger and so we pick these messages up
         # whenever they come during normal command responses or specifically with a blocking command
@@ -75,6 +79,7 @@ class hw_eth_debugger:
         self._get_response()
         self._send_cmd(f"device_open")
         self._get_response()
+        time.sleep(0.1) # Ensure debugger is up. Previously we got to next cmd before it was up.
 
         # Ensure everything is reset from previous sessions
         self._send_cmd("reset_device_settings")
@@ -103,8 +108,6 @@ class hw_eth_debugger:
             result = subprocess.run(cmd.split(), check=True, text=True)
             if result.returncode != 0:
                 raise(result.stderr)
-        else:
-            print(f"Repo {repo_dir} exists already, using that")
 
         if not binary.is_file():
             cmd = "meson setup build"
@@ -235,13 +238,13 @@ class hw_eth_debugger:
     Repeats num times.
     Packets shorter than 60 bytes will be zero padded to 60 bytes
     """
-    def inject_packets(self, phy, data=None, num=1, ifg_bytes=12, filename=""):
-        raw = "false" # false means add preamble and CRC
+    def inject_packets(self, phy, data=None, num=1, append_preamble_crc=True, ifg_bytes=12, filename=""):
+        raw = "false" if append_preamble_crc else "true"
         append_rand = 0
         append_zero = 0
         gen_error = -1
         if data is None and filename == "":
-            raise RuntimeError("Must pass either file or data to inject")
+            raise RuntimeError("Must pass either file or data string to inject")
         if data:
             cmd = f'inject {phy} {data} {raw} {num} {ifg_bytes} {append_rand} {append_zero} {gen_error} ""'
         if filename != "":
@@ -249,7 +252,7 @@ class hw_eth_debugger:
 
         # print(f"cmd: {cmd}")
         self._send_cmd(cmd)
-        # Note inject does not normally respond with anythin so set short timeout and ignore timeout warning
+        # Note inject start does not normally respond with anything so set short timeout and ignore timeout warning
         ok, msg = self._get_response(timeout_s=0.001)
         if "Timeout" in msg:
             pass #This is expected
@@ -257,8 +260,10 @@ class hw_eth_debugger:
 
     """ 
     This converts from MiiPacket to expected format and sends num times
+    Only works for properly formed packets
     """
     def inject_packet_MiiPacket(self, phy, packet, num=1, ifg_bytes=12):
+        # Need to add dst,src,etype?
         data_bytes = packet.get_packet_bytes()
         hex_string = ''.join(format(x, '02x') for x in data_bytes)
         self.inject_packets(phy, data=hex_string, num=num, ifg_bytes=ifg_bytes)
@@ -406,7 +411,7 @@ def mii2scapy(mii_packets):
         if len(nibbles) % 2 != 0:
             print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to scapy limitations")
             nibbles.append(0)
-        byte_list = [(nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2)]
+        byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
         return Raw(bytes(byte_list))
 
     if isinstance(mii_packets, list):
