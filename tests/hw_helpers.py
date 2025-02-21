@@ -11,7 +11,7 @@ from pathlib import Path
 import socket
 import time
 import json
-from scapy.all import rdpcap, Ether, Raw, wrpcap
+from scapy.all import rdpcap, Ether, Raw, wrpcap, PcapWriter
 from mii_packet import MiiPacket
 import re
 
@@ -379,14 +379,35 @@ class hw_eth_debugger:
             return info
         return False
 
+# Convert MII packets to a pcap file
+# Can take a single packet or a list of packets
+def mii2pcapfile(mii_packets, pcapfile="packets.pcapng"):
+    def mii2pcapfile_single(mii_packet, pcap_writer):
+        nibbles = mii_packet.get_nibbles()
+        if len(nibbles) % 2 != 0:
+            print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to pcap writer limitations")
+            nibbles.append(0)
+        byte_list = [(nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2)]
+        pcap_writer.write(bytes(byte_list))
+
+    with PcapWriter(pcapfile, linktype=1) as pcap_writer: 
+        if isinstance(mii_packets, list):
+            frames = []
+            for mii_packet in mii_packets:
+                mii2pcapfile_single(mii_packet, pcap_writer)
+        else:
+            mii2pcapfile_single(mii_packets, pcap_writer)
 
 # Convert MII packets to scapy ethernet packets
 # Can take a single packet or a list of packets
 def mii2scapy(mii_packets):
     def mii_to_scapy_single(mii_packet):
-        byte_data = bytes(mii_packet.data_bytes)
-        ethertype = mii_packet.ether_len_type[0] + (mii_packet.ether_len_type[1] << 8)
-        return Ether(dst=mii_packet.dst_mac_addr_str, src=mii_packet.src_mac_addr_str, type=ethertype)/Raw(load=byte_data)
+        nibbles = mii_packet.get_nibbles()
+        if len(nibbles) % 2 != 0:
+            print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to scapy limitations")
+            nibbles.append(0)
+        byte_list = [(nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2)]
+        return Raw(bytes(byte_list))
 
     if isinstance(mii_packets, list):
         frames = []
