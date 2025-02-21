@@ -12,7 +12,6 @@ import time
 from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost
 import re
-import subprocess
 import platform
 import struct
 from decimal import Decimal
