@@ -22,6 +22,7 @@ def do_rx_test(mac, arch, packets_to_send):
     payload_len = ['max', 'min', 'random'][0]
     # hw_mii_rx_only(requests, 'debugger', payload_len)
 
+    # I will modify test_hw_mii_rx_only once this works reliably
     ###############################################
     import threading
     from pathlib import Path
@@ -63,7 +64,8 @@ def do_rx_test(mac, arch, packets_to_send):
     assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
     print(f"host_mac_address = {host_mac_address_str}")
 
-    dut_mac_address_str = "10:11:12:13:14:15"
+    # TODO get from get_dut_mac_address()
+    dut_mac_address_str = "00:01:02:03:04:05"
     print(f"dut_mac_address = {dut_mac_address_str}")
 
 
@@ -88,7 +90,7 @@ def do_rx_test(mac, arch, packets_to_send):
         assert False, f"Invalid send_method {send_method}"
 
 
-    xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_only" / "hw_test_mii_rx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii" / "bin" / "loopback" / "hw_test_mii_loopback.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
@@ -113,7 +115,7 @@ def do_rx_test(mac, arch, packets_to_send):
                 print(packet_to_send)
                 nibbles = packet_to_send.get_nibbles()
                 if len(nibbles) % 2 != 0:
-                    print(f"Warning: padding packet {packet_idx} by{len(nibbles)} nibbles to {len(nibbles)+1} due to debugger inject limitations")
+                    print(f"Warning: padding packet {packet_idx} by {len(nibbles)} nibbles to {len(nibbles)+1} due to debugger inject limitations")
                     nibbles.append(0)
                 byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
                 hex_string = bytes(byte_list).hex()
