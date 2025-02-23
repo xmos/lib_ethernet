@@ -6,6 +6,7 @@ import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
 from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff
+from hw_helpers import load_packet_file
 import pytest
 from contextlib import nullcontext
 import time
@@ -22,26 +23,6 @@ pkg_dir = Path(__file__).parent
 Time it takes for the socket receiver to get ready to receive a packet.
 After starting the socket receiver process, wait this long before asking the DUT to transmit
 """
-
-def load_packet_file(filename):
-    TIMESPEC_FORMAT = "qq" # 'q' means int64_t (8 bytes), little-endian by default
-    chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
-    structures = []
-    with open(filename, 'rb') as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
-
-            dst = int.from_bytes(chunk[:6], byteorder='big')
-            src = int.from_bytes(chunk[6:12], byteorder='big')
-            etype = int.from_bytes(chunk[12:14], byteorder='big')
-            seqid = int.from_bytes(chunk[14:18], byteorder='little')
-            length = int.from_bytes(chunk[18:22], byteorder='little')
-            tv_sec, tv_nsec = struct.unpack(TIMESPEC_FORMAT, chunk[22:])
-            structures.append([dst, src, etype, seqid, length, tv_sec, tv_nsec])
-
-    return structures
 
 def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verbose):
     expected_packet_len = 1500

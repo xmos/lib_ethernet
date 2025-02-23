@@ -6,6 +6,8 @@ import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
 from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
+from hw_helpers import load_packet_file, rdpcap_to_packet_summary, parse_packet_summary
+from hw_helpers import packet_overhead, line_speed
 import pytest
 from contextlib import nullcontext
 import time
@@ -14,149 +16,8 @@ from socket_host import SocketHost
 import re
 import platform
 import struct
-from decimal import Decimal
-import statistics
-
 
 pkg_dir = Path(__file__).parent
-packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
-line_speed = 100e6
-
-def load_packet_file(filename):
-    chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
-    structures = []
-    with open(filename, 'rb') as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
-
-            dst = int.from_bytes(chunk[:6], byteorder='big')
-            src = int.from_bytes(chunk[6:12], byteorder='big')
-            etype = int.from_bytes(chunk[12:14], byteorder='big')
-            seqid = int.from_bytes(chunk[14:18], byteorder='little')
-            length = int.from_bytes(chunk[18:22], byteorder='little')
-            time_s = int.from_bytes(chunk[22:30], byteorder='little')
-            time_ns = int.from_bytes(chunk[30:38], byteorder='little')
-
-            structures.append([dst, src, etype, seqid, length, time_s, time_ns])
-
-    return structures
-
-def rdpcap_to_packet_summary(packets):
-    structures = []
-    for packet in packets:
-        raw_payload = bytes(packet.payload)
-        dst = int.from_bytes(raw_payload[:6], byteorder='big')
-        src = int.from_bytes(raw_payload[6:12], byteorder='big')
-        etype = int.from_bytes(raw_payload[12:14], byteorder='big')
-        seqid = int.from_bytes(raw_payload[14:18], byteorder='little')
-        length = len(raw_payload)
-        time_s, fraction = divmod(packet.time, 1)  # provided in 'Decimal' python format
-        time_s = int(time_s)
-        time_ns = int(fraction * Decimal('1e9'))
-
-        structures.append([dst, src, etype, seqid, length, time_s, time_ns])
-
-    return structures
-
-def parse_packet_summary(packet_summary,
-                        expected_count_lp,
-                        expected_packet_len_lp,
-                        dut_mac_address_lp,
-                        expected_packet_len_hp = 0,
-                        dut_mac_address_hp = 0,
-                        expected_bandwidth_hp = 0,
-                        verbose = False,
-                        check_ifg = False):
-    print("Parsing packet file")
-    # get first packet time with valid source addr
-    datum = 0
-    for packet in packet_summary:
-        if packet[1] == dut_mac_address_lp or packet[1] == dut_mac_address_hp:
-            datum = int(packet[5] * 1e9 + packet[6])
-            break
-
-    errors = ""
-    expected_seqid_lp = 0
-    expected_seqid_hp = 0
-    counted_lp = 0
-    counted_hp = 0
-    last_valid_packet_time = 0
-    last_length = 0 # We need this for checking IFG
-    ifgs = []
-
-    for packet in packet_summary:
-        dst = packet[0]
-        src = packet[1]
-        seqid = packet[3]
-        length = packet[4]
-        tv_s = packet[5]
-        tv_ns = packet[6]
-        packet_time = int(tv_s * 1e9 + tv_ns) - datum
-
-        if src == dut_mac_address_lp:
-            if length != expected_packet_len_lp:
-                errors += f"Incorrect LP length at seqid: {seqid}, expected: {expected_packet_len_lp} got: {length}\n"
-            if seqid != expected_seqid_lp:
-                errors += f"Missing LP seqid: {expected_seqid_lp}, got: {seqid}\n"
-                expected_seqid_lp = seqid
-            expected_seqid_lp += 1
-            counted_lp += 1
-
-        if src == dut_mac_address_hp:
-            if length != expected_packet_len_hp:
-                errors += f"Incorrect HP length at seqid: {seqid}, expected: {expected_packet_len_hp} got: {length}\n"
-            if seqid != expected_seqid_hp:
-                errors += f"Missing HP seqid: {expected_seqid_hp}, got: {seqid}\n"
-                expected_seqid_hp = seqid
-            expected_seqid_hp += 1
-            counted_hp += 1
-
-        if src == dut_mac_address_lp or src == dut_mac_address_hp:
-            if check_ifg:
-                packet_time_diff_ns = packet_time - last_valid_packet_time
-                packet_time_ns = 1e9 / line_speed * 8 * (last_length + 4 + 8) #preamble and CRC only
-                ifg_ns = packet_time_diff_ns - packet_time_ns
-                ifgs.append(ifg_ns)
-            # ensure we only count valid packets for bandwidth calc
-            last_valid_packet_time = packet_time
-            last_length = length
-
-
-    if expected_bandwidth_hp:
-        total_time_ns = last_valid_packet_time # Last packet time
-        num_bits_hp = counted_hp * (expected_packet_len_hp + packet_overhead) * 8
-        bits_per_second = num_bits_hp / (total_time_ns / 1e9)
-        difference_pc = abs(expected_bandwidth_hp - bits_per_second) / abs(expected_bandwidth_hp) * 100
-        allowed_tolerance_pc = 0.1 # How close HP bandwidth should be for test pass in %
-        text = f"Calculated HP thoughput: {bits_per_second:.1f}, expected throughput: {expected_bandwidth_hp:.1f}, diff: {difference_pc:.2f}% (max: {allowed_tolerance_pc:.2f}%)"
-        if difference_pc > allowed_tolerance_pc:
-            errors += text
-        if verbose:
-            print(text)
-
-    if check_ifg:
-        ifgs = ifgs[1:-10] # The first is always wrong as is the datum and last few are HP dominared with gaps as LP tx shuts down first
-        min_ifg = min(ifgs)
-        max_ifg = max(ifgs)
-        std_dev_ifg = statistics.stdev(ifgs)
-        mean_ifg = statistics.mean(ifgs)
-        counter_dict = {}
-        for ifg in ifgs:
-            counter_dict[ifg] = counter_dict.get(ifg, 0) + 1
-        print(f"IFG stats min: {min_ifg:.2f} max: {max_ifg:.2f} mean: {mean_ifg:.2f} std_dev: {std_dev_ifg:.2f}")
-        print(f"IFG instances: {counter_dict}")
-
-    if counted_lp != expected_count_lp:
-        errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp} (dropped: {expected_count_lp-counted_lp})"
-
-    if verbose:
-        print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {last_valid_packet_time/1e9:.2f}s")
-
-    return errors if errors != "" else None
-
-
 
 @pytest.mark.parametrize('send_method', ['socket', 'debugger'])
                                         # Format is LP packet size, HP packet size, Qav bandwidth bps
@@ -165,7 +26,7 @@ def parse_packet_summary(packet_summary,
                                         [1000, 345, 1000000],
                                         [1514, 1514, 5000000],
                                         [1000, 1000, 25000000]]
-                                        , ids=["LP_only", "LP_1Mbps_HP_small", "LP_max_len_2Mbps_HP_max", "LP_25Mbps_HP"]) 
+                                        , ids=["LP_only", "LP_1Mbps_HP_small", "LP_max_len_2Mbps_HP_max", "LP_25Mbps_HP"])
 def test_hw_mii_tx_only(request, send_method, tx_config):
     print()
     adapter_id = request.config.getoption("--adapter-id")
@@ -178,7 +39,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
         assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
         print(f"host_mac_address = {host_mac_address_str}")
         host_mac_address = int(host_mac_address_str.replace(":", ""), 16)
-    
+
     elif send_method == "debugger":
         dbg = hw_eth_debugger()
         host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
@@ -244,7 +105,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
             host_received_packets = socket_host.recv_asynch_wait_complete()
 
             packet_summary = load_packet_file(capture_file)
-            errors = parse_packet_summary(  packet_summary,
+            errors, _, _ = parse_packet_summary(  packet_summary,
                                             expected_packet_count,
                                             expected_packet_len_lp,
                                             dut_mac_address_lp,
@@ -272,7 +133,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
             filtered_packets = [pkt for pkt in packets if Ether in pkt and pkt[Ether].dst == host_mac_address_str]
 
             packet_summary = rdpcap_to_packet_summary(filtered_packets)
-            errors = parse_packet_summary(  packet_summary,
+            errors, _, _ = parse_packet_summary(  packet_summary,
                                             expected_packet_count,
                                             expected_packet_len_lp,
                                             dut_mac_address_lp,
