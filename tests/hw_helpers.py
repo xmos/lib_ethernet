@@ -11,10 +11,16 @@ from pathlib import Path
 import socket
 import time
 import json
+from decimal import Decimal
+import statistics
 from scapy.all import rdpcap, Ether, Raw, wrpcap, PcapWriter
 from mii_packet import MiiPacket
 import re
 import random
+
+# Constants used in the tests
+packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
+line_speed = 100e6
 
 
 """
@@ -22,7 +28,7 @@ This class contains helpers for running the Intona 7060-A Ethernet Debugger
 """
 class hw_eth_debugger:
     # No need to pass binary if on the path. Device used to specify debugger if more than one
-    def __init__(self, nose_bin_path=None, device=None):
+    def __init__(self, nose_bin_path=None, device=None, verbose=False):
         # Get the "nose" binary that drives the debugger
         if nose_bin_path is None:
             result = subprocess.run("which nose".split(), capture_output=True, text=True)
@@ -66,6 +72,7 @@ class hw_eth_debugger:
 
         self.capture_file = None # For packet capture
         self.disrupting = False # For disrupting packets
+        self.verbose = verbose
 
         # These are fixed in the test harness
         self.debugger_phy_to_dut = "A"
@@ -90,7 +97,7 @@ class hw_eth_debugger:
     # Destructor
     def __del__(self):
         self._send_cmd("exit")
-        if self.nose_proc.poll() is None: 
+        if self.nose_proc.poll() is None:
             self.nose_proc.terminate()
         self.sock.close()
         print("hw_eth_debugger exited")
@@ -171,6 +178,74 @@ class hw_eth_debugger:
         self._get_response(timeout_s=0.01)
 
         return self.link_state_a, self.link_state_b
+
+    def power_cycle_phy(self, phy='AB', delay_s=0):
+        """
+        Power cycle one or both of the debugger PHYs.
+        Note, this function doesn't check if the link is back up after power cycle
+        Args:
+            phy (str): Which PHYs to power cycle. Optional. If not specified, default behaviour is
+            to power down both PHYs.
+            Allowed values: 'A' - power cycle PHY A, 'B' - power cycle PHY B, 'AB' - power cycle both PHY A and B
+
+            delay_s (float): Optional. Delay between powering the phy down and back up.
+
+        Returns:
+            bool : True if successfully power cycled the PHYs, False otherwise
+        """
+        allowed_phy_args = ['A', 'B', 'AB']
+        if phy not in allowed_phy_args:
+            print(f"Invalid 'phy' argument provided to power_cycle_phy(). Provide one of {allowed_phy_args}")
+            return False
+
+        self._get_response(timeout_s=0.01) # Drain any existing responses. The first mdio_read() fails otherwise since the response returned is 'Starting capture thread succeeded.'
+        bmcr_reg_index = 0 # basic mode control reg
+        power_down_bit = 11 # Power Down bit offset in BMCR register
+        control_val = self.mdio_read(phy, bmcr_reg_index)
+        if not control_val:
+            print(f"mdio_read({phy}, {bmcr_reg_index}) returned error")
+            return False
+        if self.verbose:
+            print(f"MDIO read of reg {bmcr_reg_index} for phy {phy} returned {control_val:x}")
+
+        # Power down the PHY
+        control_val |= (1 << power_down_bit)
+        if self.verbose:
+            print(f"write control_val = {control_val:x}")
+        ret = self.mdio_write(phy, bmcr_reg_index, control_val)
+        if ret:
+            control_val = self.mdio_read(phy, bmcr_reg_index)
+            if not control_val:
+                print(f"mdio_read({phy}, {bmcr_reg_index}) returned error")
+                return False
+            if self.verbose:
+                print(f"MDIO read of reg {bmcr_reg_index} for phy {phy} returned {control_val:x}")
+        else:
+            print(f"mdio_write({phy}, {bmcr_reg_index}, {control_val}) returned False")
+            return False
+
+        # Wait before powering up
+        if self.verbose:
+            print(f"Sleeping {delay_s} s")
+        time.sleep(delay_s)
+
+        # Power up the PHY
+        control_val &= (~(1 << power_down_bit))
+        if self.verbose:
+            print(f"write control_val = {control_val:x}")
+        ret = self.mdio_write('A', bmcr_reg_index, control_val)
+        if ret:
+            control_val = self.mdio_read('A', bmcr_reg_index)
+            if not control_val:
+                print(f"mdio_read(A, {bmcr_reg_index}) returned error")
+                return False
+            if self.verbose:
+                print(f"MDIO read of reg {bmcr_reg_index} for phy A returned {control_val:x}")
+        else:
+            print(f"mdio_write(A, {bmcr_reg_index}, {control_val}) returned False")
+            return False
+
+
 
     def wait_for_links_up(self, speed_mbps=100, timeout_s=5):
         print(f"Waiting up to {timeout_s}s for both links to be up at {speed_mbps}Mbps")
@@ -260,7 +335,7 @@ class hw_eth_debugger:
             pass #This is expected
         return True
 
-    """ 
+    """
     This converts from MiiPacket to expected format and sends num times
     Only works for properly formed packets
     """
@@ -280,12 +355,15 @@ class hw_eth_debugger:
         self._send_cmd(f"inject_stop")
         # Note inject_stop does not normally respond with anythin so set short timeout and ignore timeout warning
         ok, msg = self._get_response(timeout_s=0.001)
-        
+
         return True
 
     def mdio_read(self, phy_num, addr):
         self._send_cmd(f"mdio_read {phy_num} {addr}")
         ok, msg = self._get_response()
+        if self.verbose:
+            print(f"mdio_read {phy_num} {addr} returned ok {ok}, msg {msg}")
+
         if ok and 'value' in msg:
             return int(msg.split('=0x')[1].strip(), 16)
         return False
@@ -304,6 +382,8 @@ class hw_eth_debugger:
         self.capture_file = filename
         self._send_cmd(f"capture_start {filename}")
         ok, msg = self._get_response()
+        if self.verbose:
+            print(f"cmd: capture_start {filename}, returned ok {ok}, msg {msg}")
         if ok and 'succeeded' in msg:
             return True
         return False
@@ -401,7 +481,7 @@ def mii2pcapfile(mii_packets, pcapfile="packets.pcapng"):
         byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
         pcap_writer.write(bytes(byte_list))
 
-    with PcapWriter(pcapfile, linktype=1) as pcap_writer: 
+    with PcapWriter(pcapfile, linktype=1) as pcap_writer:
         if isinstance(mii_packets, list):
             frames = []
             for mii_packet in mii_packets:
@@ -507,6 +587,142 @@ def calc_time_diff(start_s, start_ns, end_s, end_ns):
 
     return (diff_s*1000000000 + diff_ns)
 
+
+def load_packet_file(filename):
+    chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
+    structures = []
+    with open(filename, 'rb') as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+
+            dst = int.from_bytes(chunk[:6], byteorder='big')
+            src = int.from_bytes(chunk[6:12], byteorder='big')
+            etype = int.from_bytes(chunk[12:14], byteorder='big')
+            seqid = int.from_bytes(chunk[14:18], byteorder='little')
+            length = int.from_bytes(chunk[18:22], byteorder='little')
+            time_s = int.from_bytes(chunk[22:30], byteorder='little')
+            time_ns = int.from_bytes(chunk[30:38], byteorder='little')
+
+            structures.append([dst, src, etype, seqid, length, time_s, time_ns])
+
+    return structures
+
+def rdpcap_to_packet_summary(packets):
+    structures = []
+    for packet in packets:
+        raw_payload = bytes(packet.payload)
+        dst = int.from_bytes(raw_payload[:6], byteorder='big')
+        src = int.from_bytes(raw_payload[6:12], byteorder='big')
+        etype = int.from_bytes(raw_payload[12:14], byteorder='big')
+        seqid = int.from_bytes(raw_payload[14:18], byteorder='little')
+        length = len(raw_payload)
+        time_s, fraction = divmod(packet.time, 1)  # provided in 'Decimal' python format
+        time_s = int(time_s)
+        time_ns = int(fraction * Decimal('1e9'))
+
+        structures.append([dst, src, etype, seqid, length, time_s, time_ns])
+    return structures
+
+def parse_packet_summary(packet_summary,
+                        expected_count_lp,
+                        expected_packet_len_lp,
+                        dut_mac_address_lp,
+                        expected_packet_len_hp = 0,
+                        dut_mac_address_hp = 0,
+                        expected_bandwidth_hp = 0,
+                        start_seq_id_lp = 0,
+                        verbose = False,
+                        check_ifg = False):
+    print("Parsing packet file")
+    # get first packet time with valid source addr
+    datum = 0
+    for packet in packet_summary:
+        if packet[1] == dut_mac_address_lp or packet[1] == dut_mac_address_hp:
+            datum = int(packet[5] * 1e9 + packet[6])
+            break
+
+    errors = ""
+    expected_seqid_lp = start_seq_id_lp
+    expected_seqid_hp = 0
+    counted_lp = 0
+    counted_hp = 0
+    last_valid_packet_time = 0
+    last_length = 0 # We need this for checking IFG
+    ifgs = []
+
+    for packet in packet_summary:
+        dst = packet[0]
+        src = packet[1]
+        seqid = packet[3]
+        length = packet[4]
+        tv_s = packet[5]
+        tv_ns = packet[6]
+        packet_time = int(tv_s * 1e9 + tv_ns) - datum
+
+        if src == dut_mac_address_lp:
+            if length != expected_packet_len_lp:
+                errors += f"Incorrect LP length at seqid: {seqid}, expected: {expected_packet_len_lp} got: {length}\n"
+            if seqid != expected_seqid_lp:
+                errors += f"Missing LP seqid: {expected_seqid_lp}, got: {seqid}\n"
+                expected_seqid_lp = seqid
+            expected_seqid_lp += 1
+            counted_lp += 1
+
+        if src == dut_mac_address_hp:
+            if length != expected_packet_len_hp:
+                errors += f"Incorrect HP length at seqid: {seqid}, expected: {expected_packet_len_hp} got: {length}\n"
+            if seqid != expected_seqid_hp:
+                errors += f"Missing HP seqid: {expected_seqid_hp}, got: {seqid}\n"
+                expected_seqid_hp = seqid
+            expected_seqid_hp += 1
+            counted_hp += 1
+
+        if src == dut_mac_address_lp or src == dut_mac_address_hp:
+            if check_ifg:
+                packet_time_diff_ns = packet_time - last_valid_packet_time
+                packet_time_ns = 1e9 / line_speed * 8 * (last_length + 4 + 8) #preamble and CRC only
+                ifg_ns = packet_time_diff_ns - packet_time_ns
+                ifgs.append(ifg_ns)
+            # ensure we only count valid packets for bandwidth calc
+            last_valid_packet_time = packet_time
+            last_length = length
+
+    if expected_bandwidth_hp:
+        total_time_ns = last_valid_packet_time # Last packet time
+        num_bits_hp = counted_hp * (expected_packet_len_hp + packet_overhead) * 8
+        bits_per_second = num_bits_hp / (total_time_ns / 1e9)
+        difference_pc = abs(expected_bandwidth_hp - bits_per_second) / abs(expected_bandwidth_hp) * 100
+        allowed_tolerance_pc = 0.1 # How close HP bandwidth should be for test pass in %
+        text = f"Calculated HP thoughput: {bits_per_second:.1f}, expected throughput: {expected_bandwidth_hp:.1f}, diff: {difference_pc:.2f}% (max: {allowed_tolerance_pc:.2f}%)"
+        if difference_pc > allowed_tolerance_pc:
+            errors += text
+        if verbose:
+            print(text)
+
+    if check_ifg:
+        ifgs = ifgs[1:-10] # The first is always wrong as is the datum and last few are HP dominared with gaps as LP tx shuts down first
+        min_ifg = min(ifgs)
+        max_ifg = max(ifgs)
+        std_dev_ifg = statistics.stdev(ifgs)
+        mean_ifg = statistics.mean(ifgs)
+        counter_dict = {}
+        for ifg in ifgs:
+            counter_dict[ifg] = counter_dict.get(ifg, 0) + 1
+        print(f"IFG stats min: {min_ifg:.2f} max: {max_ifg:.2f} mean: {mean_ifg:.2f} std_dev: {std_dev_ifg:.2f}")
+        print(f"IFG instances: {counter_dict}")
+
+    if counted_lp != expected_count_lp:
+        errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp} (dropped: {expected_count_lp-counted_lp})"
+
+    if verbose:
+        print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {last_valid_packet_time/1e9:.2f}s")
+
+    return errors if errors != "" else None, counted_lp, counted_hp
+
+
+
 # This is just for test
 if __name__ == "__main__":
     dbg = hw_eth_debugger()
@@ -515,7 +731,7 @@ if __name__ == "__main__":
     print(dbg.mdio_write(1, 0x1, 0x7400))
     print(dbg.mdio_read(1, 0x1))
     print(dbg.capture_start())
-    packets = dbg.capture_stop() 
+    packets = dbg.capture_stop()
     print(packets, packets.summary(), dir(packets))
     print(dbg.set_speed(100))
     print(dbg.get_info())
