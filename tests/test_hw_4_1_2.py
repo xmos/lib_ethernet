@@ -4,7 +4,8 @@
 import random
 import copy
 from types import SimpleNamespace
-from hw_helpers import mii2pcapfile, get_mac_address, calc_time_diff, hw_eth_debugger
+from hw_helpers import mii2pcapfile, get_mac_address, calc_time_diff, hw_eth_debugger, analyse_dbg_cap_vs_sent_miipackets
+from helpers import create_expect, create_if_needed
 from hardware_test_tools.XcoreApp import XcoreApp
 from mii_clock import Clock
 from mii_packet import MiiPacket
@@ -12,24 +13,23 @@ import pytest
 import sys
 from test_4_1_2 import do_test
 from test_hw_mii_rx_only import test_hw_mii_rx_only as hw_mii_rx_only
-
+import Pyxsim as px
 
 requests = None # So we don't have to pass this through do_test
 
 def do_rx_test(mac, arch, packets_to_send):
-    pcapfile_send_file = "packets_sent.pcapng"
-    mii2pcapfile(packets_to_send, pcapfile_send_file)
+    # pcapfile_send_file = "packets_sent.pcapng"
+    # mii2pcapfile(packets_to_send, pcapfile_send_file)
     payload_len = ['max', 'min', 'random'][0]
     # hw_mii_rx_only(requests, 'debugger', payload_len)
+
+
 
     # I will modify test_hw_mii_rx_only once this works reliably
     ###############################################
     import threading
     from pathlib import Path
-    import random
     import copy
-    from mii_packet import MiiPacket
-    from hardware_test_tools.XcoreApp import XcoreApp
     from hw_helpers import mii2scapy, scapy2mii, get_mac_address
     import pytest
     from contextlib import nullcontext
@@ -72,11 +72,6 @@ def do_rx_test(mac, arch, packets_to_send):
     host_mac_address = [int(i, 16) for i in host_mac_address_str.split(":")]
     dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
-    ethertype = [0x22, 0x22]
-    num_packets_sent = 0
-    packets = []
-
-
     # Create packets
     print(f"Going to test {test_duration_s} seconds of packets")
 
@@ -108,22 +103,11 @@ def do_rx_test(mac, arch, packets_to_send):
             else:
                 raise RuntimeError("Links not up")
             dbg.capture_start("packets_received.pcapng")
-            #num_packets_sent = socket_host.send(test_duration_s, payload_len=payload_len)
             
-            packet_idx = 0
             for packet_to_send in packets_to_send:
-                print(packet_to_send)
-                nibbles = packet_to_send.get_nibbles()
-                if len(nibbles) % 2 != 0:
-                    print(f"Warning: padding packet {packet_idx} by {len(nibbles)} nibbles to {len(nibbles)+1} due to debugger inject limitations")
-                    nibbles.append(0)
-                byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
-                hex_string = bytes(byte_list).hex()
-                dbg.inject_packets(dbg.debugger_phy_to_dut, data=hex_string, append_preamble_crc=False)
-                packet_idx += 1
+                dbg.inject_MiiPacket(dbg.debugger_phy_to_dut, packet_to_send)
 
-            # print(packets_to_send)
-            # dbg.inject_packets(phy_to_dut, filename=pcapfile_send_file)
+            time.sleep(0.5) # Allow packets to depart
             received_packets = dbg.capture_stop()
 
         print("Retrive status and shutdown DUT")
@@ -133,27 +117,22 @@ def do_rx_test(mac, arch, packets_to_send):
         print(stdout)
         print("Terminating!!!")
 
-
+    report = analyse_dbg_cap_vs_sent_miipackets(received_packets, packets_to_send, swap_src_dst=True)
+    expect_folder = create_if_needed("expect_temp")
+    testname = "test_hw_4_1_2_rmii"
+    expect_filename = f'{expect_folder}/{testname}.expect'
+    create_expect(packets_to_send, expect_filename)
+    tester = px.testers.ComparisonTester(open(expect_filename))
+    
+    assert tester.run(report.split("\n")[:-1])
 
 def test_4_1_2_hw_debugger(request):
-    if False:
-       
-        pckt = MiiPacket(random.Random(),
-                dst_mac_addr=[1,2,3,4,5,6],
-                create_data_args=['step', (0, 150)],
-                inter_frame_gap=10)
-        print(pckt.dump())
-        nibbles = pckt.get_nibbles()
-        byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
-        hex_string = bytes(byte_list).hex()
-        print(hex_string)
-    else:
-        global requests
-        requests = request
-        random.seed(12)
-        seed = random.randint(0, sys.maxsize)
-        phy = SimpleNamespace(get_name=lambda: "rmii",
-                              get_clock=lambda: SimpleNamespace(get_bit_time=lambda: 1))
-        clock = SimpleNamespace(get_rate=Clock.CLK_50MHz,
-                                get_min_ifg=lambda: 1e9)
-        do_test(None, "rt_hp", "xs3", clock, phy, clock, phy, seed, hw_debugger_test=do_rx_test)
+    global requests
+    requests = request
+    random.seed(12)
+    seed = random.randint(0, sys.maxsize)
+    phy = SimpleNamespace(get_name=lambda: "rmii",
+                          get_clock=lambda: SimpleNamespace(get_bit_time=lambda: 1))
+    clock = SimpleNamespace(get_rate=Clock.CLK_50MHz,
+                            get_min_ifg=lambda: 1e20)
+    do_test(None, "rt_hp", "xs3", clock, phy, clock, phy, seed, hw_debugger_test=do_rx_test)
