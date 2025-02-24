@@ -14,6 +14,7 @@ import json
 from scapy.all import rdpcap, Ether, Raw, wrpcap, PcapWriter
 from mii_packet import MiiPacket
 import re
+import random
 
 
 """
@@ -41,6 +42,7 @@ class hw_eth_debugger:
         # Startup debugger process
         # first kill any unterminated
         subprocess.run("pkill -f nose", shell=True)
+        time.sleep(0.1) # ensure is dead otherwise starting may come too soon
         cmd = f"{str(self.nose_bin_path)} {device_str} --ipc-server {socket_path}"
         self.nose_proc = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
         # ensure is running
@@ -190,7 +192,7 @@ class hw_eth_debugger:
 
         return False
 
-    """ Inject arbitraty packets or play from a file
+    """ Inject arbitraty packet or read from a file (WARNING - ONLY SUPPORTS ONE PACKET IN FILE)
     Parameters (from Intona):
           phy             Port/PHY
                           Type: integer or string choice
@@ -238,7 +240,7 @@ class hw_eth_debugger:
     Repeats num times.
     Packets shorter than 60 bytes will be zero padded to 60 bytes
     """
-    def inject_packets(self, phy, data=None, num=1, append_preamble_crc=True, ifg_bytes=12, filename=""):
+    def inject_packet(self, phy, data=None, num=1, append_preamble_crc=True, ifg_bytes=12, filename=""):
         raw = "false" if append_preamble_crc else "true"
         append_rand = 0
         append_zero = 0
@@ -262,14 +264,18 @@ class hw_eth_debugger:
     This converts from MiiPacket to expected format and sends num times
     Only works for properly formed packets
     """
-    def inject_packet_MiiPacket(self, phy, packet, num=1, ifg_bytes=12):
-        # Need to add dst,src,etype?
-        data_bytes = packet.get_packet_bytes()
-        hex_string = ''.join(format(x, '02x') for x in data_bytes)
-        self.inject_packets(phy, data=hex_string, num=num, ifg_bytes=ifg_bytes)
+    def inject_MiiPacket(self, phy, packet, num=1, ifg_bytes=12):
+        print("inject_MiiPacket", packet)
+        nibbles = packet.get_nibbles()
+        if len(nibbles) % 2 != 0:
+            print(f"Warning: padding packet by {len(nibbles)} nibbles to {len(nibbles)+1} due to debugger inject limitations")
+            nibbles.append(0)
+        byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
+        hex_string = bytes(byte_list).hex()
+        self.inject_packet(phy, data=hex_string, num=num, append_preamble_crc=False, ifg_bytes=ifg_bytes)
 
     # Only needed if we need to interrupt a long repeating inject command
-    def inject_packets_stop(self):
+    def inject_packet_stop(self):
         self.capture_file = None
         self._send_cmd(f"inject_stop")
         # Note inject_stop does not normally respond with anythin so set short timeout and ignore timeout warning
@@ -302,7 +308,7 @@ class hw_eth_debugger:
             return True
         return False
 
-    # Stops capture and returns the packets if successful, otherwise the error message
+    # Stops capture and returns the scapy packets if successful, otherwise the error message
     def capture_stop(self):
         if self.capture_file is None:
             raise RuntimeError("Trying to stop capture when it hasn't been started")
@@ -392,7 +398,7 @@ def mii2pcapfile(mii_packets, pcapfile="packets.pcapng"):
         if len(nibbles) % 2 != 0:
             print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to pcap writer limitations")
             nibbles.append(0)
-        byte_list = [(nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2)]
+        byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
         pcap_writer.write(bytes(byte_list))
 
     with PcapWriter(pcapfile, linktype=1) as pcap_writer: 
@@ -411,7 +417,7 @@ def mii2scapy(mii_packets):
         if len(nibbles) % 2 != 0:
             print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to scapy limitations")
             nibbles.append(0)
-        byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
+        byte_list = [(nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2)]
         return Raw(bytes(byte_list))
 
     if isinstance(mii_packets, list):
@@ -441,6 +447,43 @@ def scapy2mii(scapy_packets):
     else:
         return scapy_to_mii_single(scapy_packets)
 
+
+# Take scapy packets from eth debgugger and report which of them are present in 
+# a reference miipacket list. Provides output the same as the PHY model for
+# checking against expect files. Can swap src_dst for compare where packets have been l
+def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets, swap_src_dst=False):
+    report = ""
+    for pkt in received_scapy_packets:
+        raw_data = bytes(pkt)
+        preamble = raw_data[:8] # Note this capture has complete frame including preamble and CRC
+        dst_mac = raw_data[8:14]
+        src_mac = raw_data[14:20]
+        etype = raw_data[20:22]
+        payload = raw_data[22:-4]
+        crc = raw_data[-4:]
+        
+        # print(f"Source MAC: {src_mac.hex()}, Destination MAC: {dst_mac.hex()}, etype: {etype.hex()}, CRC: {crc.hex()}, {src_mac.hex()}, Payload (Hex): {payload.hex()}")
+
+        # Now turn into MII packet for comparison
+        miipacket = MiiPacket(rand=random.Random(), blank=True)
+        if swap_src_dst:
+            miipacket.dst_mac_addr = list(src_mac)
+            miipacket.src_mac_addr = list(dst_mac)
+        else:
+            miipacket.dst_mac_addr = list(dst_mac)
+            miipacket.src_mac_addr = list(src_mac)
+        miipacket.ether_len_type = list(etype)
+        miipacket.data_bytes = list(payload)
+
+        try:
+            index = sent_mii_packets.index(miipacket)
+            report += f"Received packet {index} ok\n"
+        except ValueError:
+            pass
+
+    report += "Test done\n"
+
+    return report
 
 def get_mac_address(interface):
     try:
@@ -479,10 +522,10 @@ if __name__ == "__main__":
     print(dbg.wait_for_links_up())
     print(dbg.get_link_status())
 
-    print(dbg.inject_packets("AB", data="4ce17347ccbe01020304050622ea", num=10))
+    print(dbg.inject_packet("AB", data="4ce17347ccbe01020304050622ea", num=10))
     time.sleep(1)
-    print(dbg.inject_packets("AB", filename="packets.pcapng", num=10000))
-    print(dbg.inject_packets_stop())
+    print(dbg.inject_packet("AB", filename="packets.pcapng", num=10000))
+    print(dbg.inject_packet_stop())
 
     for i in range(3):
         print("linky", dbg.get_link_status())
