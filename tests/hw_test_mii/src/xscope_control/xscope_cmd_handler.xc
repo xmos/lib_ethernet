@@ -105,6 +105,12 @@ select xscope_cmd_handler(chanend c_xscope_control, client_cfg_t &client_cfg, cl
       // the client is expected to exit after signalling the Mac to exit
       client_state.done = 1;
     }
+    else if(cmd == CMD_SET_DUT_TX_SWEEP)
+    {
+      debug_printf("Received CMD_SET_DUT_TX_SWEEP command\n");
+      client_state.tx_sweep = 1;
+      c_xscope_control <: 1; // Acknowledge
+    }
     break;
 
 }

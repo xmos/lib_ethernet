@@ -70,13 +70,32 @@ void test_tx_lp(client ethernet_cfg_if cfg,
           c_tx_synch <: 0; // Break HP loop
 
         }
+        else if(client_state.tx_sweep == 1)
+        {
+          memcpy(&data[0], client_state.target_mac_addr, sizeof(client_state.target_mac_addr));
+          memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
+          memcpy(&data[12], &ether_type, sizeof(ether_type));
+          // barrier synch with HP so they start at exactly the same time
+          c_tx_synch <: 0;
+          // Sweep through all valid payload sizes sending 100 packets for each
+          for(int payload_len=60; payload_len<=1514; payload_len++)
+          {
+            for(int i=0; i<50; i++) // 50 frames per payload length to keep the test time reasonable
+            {
+              memcpy(&data[14], &seq_id, sizeof(unsigned)); // sequence ID
+              tx.send_packet(data, payload_len, ETHERNET_ALL_INTERFACES);
+              seq_id++;
+            }
+          }
+          client_state.tx_sweep = 0;
+          c_tx_synch <: 0; // Break HP loop
+        }
         break;
     } //select
   }
   debug_printf("Got shutdown from host LP\n");
   c_xscope_control <: 1; // Acknowledge shutdown completion
 }
-
 
 void test_tx_hp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
