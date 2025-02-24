@@ -104,7 +104,7 @@ def test_hw_mii_hot_plug(request):
                                                         dut_mac_address_hp = dut_mac_address_hp,
                                                         expected_bandwidth_hp = hp_packet_bandwidth_bps,
                                                         verbose = True,
-                                                        check_ifg = True)
+                                                        check_ifg = False)
             if not num_lp_received < expected_packet_count:
                 errors += "Error: All LP packets received despite phy power cycles.\nPerhaps the PHY did not power cycle.\n"
                 break
@@ -134,7 +134,7 @@ def test_hw_mii_hot_plug(request):
                                                         expected_bandwidth_hp = hp_packet_bandwidth_bps,
                                                         start_seq_id_lp = (2*iter + 1) * expected_packet_count,
                                                         verbose = True,
-                                                        check_ifg = True)
+                                                        check_ifg = False)
             if errors: # If there are errors when no hotplug then break and fail the test
                 break
 

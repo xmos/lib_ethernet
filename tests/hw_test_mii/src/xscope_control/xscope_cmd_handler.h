@@ -13,6 +13,7 @@ typedef struct
   unsigned num_tx_packets;
   unsigned tx_packet_len;
   unsigned qav_bw_bps;
+  unsigned tx_sweep;
 }client_state_t;
 
 typedef struct

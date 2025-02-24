@@ -16,6 +16,8 @@ import statistics
 from scapy.all import rdpcap, Ether, Raw, wrpcap, PcapWriter
 from mii_packet import MiiPacket
 import re
+from collections import defaultdict
+from pprint import pformat
 import random
 
 # Constants used in the tests
@@ -392,13 +394,16 @@ class hw_eth_debugger:
     def capture_stop(self):
         if self.capture_file is None:
             raise RuntimeError("Trying to stop capture when it hasn't been started")
+        ok, msg = self._get_response() # drain out any previous responses
         self._send_cmd(f"capture_stop")
         ok, msg = self._get_response()
         if ok and 'stopped' in msg:
             packets = rdpcap(self.capture_file)
+            print(f"Total packets: {len(packets)}")
             self.capture_file = None
             return packets
         else:
+            print("ERROR!!!!")
             self.capture_file = None
             print(msg, file=sys.stderr)
             return msg
@@ -528,7 +533,7 @@ def scapy2mii(scapy_packets):
         return scapy_to_mii_single(scapy_packets)
 
 
-# Take scapy packets from eth debgugger and report which of them are present in 
+# Take scapy packets from eth debgugger and report which of them are present in
 # a reference miipacket list. Provides output the same as the PHY model for
 # checking against expect files. Can swap src_dst for compare where packets have been l
 def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets, swap_src_dst=False):
@@ -541,7 +546,7 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
         etype = raw_data[20:22]
         payload = raw_data[22:-4]
         crc = raw_data[-4:]
-        
+
         # print(f"Source MAC: {src_mac.hex()}, Destination MAC: {dst_mac.hex()}, etype: {etype.hex()}, CRC: {crc.hex()}, {src_mac.hex()}, Payload (Hex): {payload.hex()}")
 
         # Now turn into MII packet for comparison
@@ -634,7 +639,8 @@ def parse_packet_summary(packet_summary,
                         expected_bandwidth_hp = 0,
                         start_seq_id_lp = 0,
                         verbose = False,
-                        check_ifg = False):
+                        check_ifg = False,
+                        log_ifg_per_payload_len=False):
     print("Parsing packet file")
     # get first packet time with valid source addr
     datum = 0
@@ -651,6 +657,8 @@ def parse_packet_summary(packet_summary,
     last_valid_packet_time = 0
     last_length = 0 # We need this for checking IFG
     ifgs = []
+    ifg_full_dict = defaultdict(list) # dictionary containing IFGs seen for each payload length
+    ifg_summary_dict = defaultdict(dict)
 
     for packet in packet_summary:
         dst = packet[0]
@@ -662,7 +670,7 @@ def parse_packet_summary(packet_summary,
         packet_time = int(tv_s * 1e9 + tv_ns) - datum
 
         if src == dut_mac_address_lp:
-            if length != expected_packet_len_lp:
+            if (expected_packet_len_lp != 0) and (length != expected_packet_len_lp):
                 errors += f"Incorrect LP length at seqid: {seqid}, expected: {expected_packet_len_lp} got: {length}\n"
             if seqid != expected_seqid_lp:
                 errors += f"Missing LP seqid: {expected_seqid_lp}, got: {seqid}\n"
@@ -685,6 +693,9 @@ def parse_packet_summary(packet_summary,
                 packet_time_ns = 1e9 / line_speed * 8 * (last_length + 4 + 8) #preamble and CRC only
                 ifg_ns = packet_time_diff_ns - packet_time_ns
                 ifgs.append(ifg_ns)
+                if log_ifg_per_payload_len:
+                    if(last_length == length): # log IFG seen between packets of the same length
+                        ifg_full_dict[length].append(ifg_ns)
             # ensure we only count valid packets for bandwidth calc
             last_valid_packet_time = packet_time
             last_length = length
@@ -713,7 +724,28 @@ def parse_packet_summary(packet_summary,
         print(f"IFG stats min: {min_ifg:.2f} max: {max_ifg:.2f} mean: {mean_ifg:.2f} std_dev: {std_dev_ifg:.2f}")
         print(f"IFG instances: {counter_dict}")
 
-    if counted_lp != expected_count_lp:
+        if len(ifg_full_dict):
+            for pl in ifg_full_dict: # Look at the IFGs one payload length at a time and summarise
+                min_ifg_pl = min(ifg_full_dict[pl])
+                max_ifg_pl = max(ifg_full_dict[pl])
+                std_dev_ifg_pl = statistics.stdev(ifg_full_dict[pl])
+                mean_ifg_pl = statistics.mean(ifg_full_dict[pl])
+                ifg_summary_dict[pl] = {"min": round(min_ifg_pl, 2), "max": round(max_ifg_pl, 2), "mean": round(mean_ifg_pl, 2), "std_dev": round(std_dev_ifg_pl, 2)}
+
+            with open("ifg_sweep_summary.txt", "w") as f:
+                f.write("After sweeping through all valid payload lengths:\n")
+                f.write(f"Overall max IFG = {round(max_ifg,2)}\n")
+                f.write(f"Overall min IFG = {round(min_ifg,2)}\n")
+                f.write(f"Overall mean IFG = {round(mean_ifg,2)}\n")
+                f.write("\nIFG summary per payload length\n")
+                f.write(pformat(ifg_summary_dict))
+
+            with open("ifg_sweep_full.txt", "w") as f:
+                f.write("IFG all frames per payload length\n")
+                f.write(pformat(ifg_full_dict))
+
+
+    if (expected_count_lp > 0) and (counted_lp != expected_count_lp):
         errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp} (dropped: {expected_count_lp-counted_lp})"
 
     if verbose:

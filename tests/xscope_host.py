@@ -37,6 +37,7 @@ class XscopeControl():
         CMD_SET_DUT_RECEIVE = auto()
         CMD_DEVICE_CONNECT = auto()
         CMD_EXIT_DEVICE_MAC = auto()
+        CMD_SET_DUT_TX_SWEEP = auto()
 
         """
         Method for generating a .h file containing the enum defined above
@@ -193,6 +194,18 @@ class XscopeControl():
         stdout and stderr from running the host application
         """
         return self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_EXIT_DEVICE_MAC'].value])
+
+    def xscope_controller_cmd_set_dut_tx_sweep(self, client_index):
+        """
+        Run command to get a client on the DUT to sweep through all frame sizes while transmitting.
+        Parameters:
+        client_index: index of the client.
+
+        Returns:
+        stdout and stderr from running the host application
+        """
+        cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_DUT_TX_SWEEP'].value, client_index]
+        return self.xscope_controller_do_command(cmd_plus_args)
 
 """
 Do not change the main function since it's called from CMakeLists.txt to autogenerate the xscope commands enum .h file
