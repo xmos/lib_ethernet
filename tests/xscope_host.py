@@ -66,8 +66,9 @@ class XscopeControl():
         self.port = port
         self.timeout = timeout
         self.verbose = verbose
+        self._ep = None
 
-    def xscope_controller_do_command(self, cmds):
+    def xscope_controller_do_command(self, cmds, connect=True):
         """
         Runs the xscope host app to connect to the DUT and execute a command over xscope port
 
@@ -79,12 +80,16 @@ class XscopeControl():
         Returns:
         stdout and stderr from running the host application
         """
-        ep = Endpoint()
+        if connect:
+            ep = Endpoint()
+        else:
+            ep = self._ep
         probe = QueueConsumer(ep, "command_ack")
 
-        if ep.connect(hostname=self.host, port=self.port):
-            print("Xscope Host app failed to connect")
-            assert False
+        if connect:
+            if ep.connect(hostname=self.host, port=self.port):
+                print("Xscope Host app failed to connect")
+                assert False
         if self.verbose:
             print(f"Sending {cmds} bytes to the device over xscope")
         ep.publish(bytes(cmds))
@@ -97,7 +102,8 @@ class XscopeControl():
             print("stdout from the device:")
             print(device_stdout)
 
-        ep.disconnect()
+        if connect:
+            ep.disconnect()
         if ack == None:
             print("Xscope host received no response from device")
             print(f"device stdout: {device_stdout}")
@@ -156,7 +162,7 @@ class XscopeControl():
         cmd_plus_args.extend(mac_addr_bytes)
         return self.xscope_controller_do_command(cmd_plus_args)
 
-    def xscope_controller_cmd_set_dut_tx_packets(self, client_index, arg1, arg2):
+    def xscope_controller_cmd_set_dut_tx_packets(self, client_index, arg1, arg2, connect=True):
         """
         Run command to inform the TX clients on the DUT the number of packets and length of each packet that it needs to transmit
 
@@ -171,7 +177,7 @@ class XscopeControl():
         for a in [client_index, arg1, arg2]: # client_index, arg1 and arg2 are int32
             bytes_to_append = [(a >> (8 * i)) & 0xFF for i in range(4)]
             cmd_plus_args.extend(bytes_to_append)
-        return self.xscope_controller_do_command(cmd_plus_args)
+        return self.xscope_controller_do_command(cmd_plus_args, connect=connect)
 
 
     def xscope_controller_cmd_set_dut_receive(self, client_index, recv_flag):
@@ -208,6 +214,31 @@ class XscopeControl():
         """
         cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_DUT_TX_SWEEP'].value, client_index]
         return self.xscope_controller_do_command(cmd_plus_args)
+
+    def xscope_controller_start_timestamp_recorder(self):
+        ep = Endpoint()
+        probe = QueueConsumer(ep, "tx_start_timestamp")
+
+        if ep.connect(hostname=self.host, port=self.port):
+            print("Xscope Host app failed to connect")
+            assert False
+
+        self._ep = ep
+        self._probe = probe
+
+
+    def xscope_controller_stop_timestamp_recorder(self):
+        print(f"{self._probe.queue.qsize()} elements in the queue")
+        probe_output = []
+        for i in range(self._probe.queue.qsize()):
+            probe_output.extend(self._probe.next())
+        device_stdout = self._ep._captured_output.getvalue() # stdout from the device
+        print("stdout from the device:")
+        print(device_stdout)
+        self._ep.disconnect()
+        return probe_output
+
+
 
 """
 Do not change the main function since it's called from CMakeLists.txt to autogenerate the xscope commands enum .h file

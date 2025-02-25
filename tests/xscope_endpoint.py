@@ -23,7 +23,7 @@ RECORD_CALLBACK = ctypes.CFUNCTYPE(
     ctypes.c_ulonglong,     # timestamp
     ctypes.c_uint,          # length
     ctypes.c_ulonglong,     # dataval
-    ctypes.c_char_p)        # databytes
+    ctypes.POINTER(ctypes.c_ubyte))        # databytes
 
 REGISTER_CALLBACK = ctypes.CFUNCTYPE(
     None,
@@ -141,9 +141,13 @@ class Endpoint(object):
            Override this to method to implement your own dispatcher.  However,
            that should rarely be necessary.
         """
-        # For some reason negative values keep getting interpreted as UINT64
-        # which messes everything up. This seems to fix it.
-        data_val = np.int32(np.uint32(data_val & 0xFFFFFFFF))
+        if length > 1:
+            data_bytes = ctypes.string_at(data_bytes, length)
+            data_val = list(data_bytes)
+        else:
+            # For some reason negative values keep getting interpreted as UINT64
+            # which messes everything up. This seems to fix it.
+            data_val = np.int32(np.uint32(data_val & 0xFFFFFFFF))
         def notify_consumers(consumers, probe_name):
             for cb in consumers:
                 cb(timestamp, probe_name, data_val)

@@ -18,6 +18,11 @@
 #include "rmii_rx_pins_exit.h"
 #include "shaper.h"
 
+#if PROBE_TX_TIMESTAMPS
+    #include "log_tx_ts.h"
+    extern mii_tx_ts_fifo_t tx_ts_queue;
+#endif
+
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -513,7 +518,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         /*    pointers never fill up */
         mii_add_packet(incoming_packets, buf);
     }
-    
+
     // Exit cleanly so we don't leave channels full/in use
     rx_end_disable_interrupt();
     rx_end_drain_and_clear(c_rx_pins_exit);
@@ -690,7 +695,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd_1,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
-    
+
     // Setup ISR to for exiting this task
     int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
     rx_end_isr_ctx_t isr_ctx = {
@@ -813,6 +818,10 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
         ifg_tmr when timerafter(ifg_time) :> ifg_time;
     }
 
+#if PROBE_TX_TIMESTAMPS
+    ifg_tmr :> now;
+    tx_ts_queue.fifo[tx_ts_queue.wr_index] = now;
+#endif
     tx_4b_word(p_mii_txd, 0x55555555, tx_port_4b_pins);
     tx_4b_word(p_mii_txd, 0xD5555555, tx_port_4b_pins);
 
@@ -1050,6 +1059,9 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time, eof_time);
             eof_time = ifg_time;
             ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
+        #if PROBE_TX_TIMESTAMPS
+            increment_tx_ts_queue_write_index();
+        #endif
         } else {
             time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
             eof_time = ifg_time;

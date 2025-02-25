@@ -10,6 +10,7 @@
 #include "smi.h"
 #include <xscope.h>
 #include "xk_eth_xu316_dual_100m/board.h"
+#include "log_tx_ts.h"
 
 
 port p_smi_mdio = MDIO;
@@ -64,16 +65,18 @@ int main()
                                       get_port_timings(0),
                                       ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                       ETHERNET_ENABLE_SHAPER);
-
+#if PROBE_TX_TIMESTAMPS
+    on tile[0]: tx_timestamp_probe();
+#endif
     on tile[1]: dual_dp83826e_phy_driver(i_smi, i_cfg[0], null);
 
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
     // TX threads
-    on tile[0]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], c_tx_synch);
-    on tile[0]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, 1, c_clients[1], c_tx_synch);
+    on tile[1]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], c_tx_synch);
+    on tile[1]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, 1, c_clients[1], c_tx_synch);
 
-    on tile[0]: {
+    on tile[1]: {
       xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
       _Exit(0);
     }
