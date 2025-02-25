@@ -630,6 +630,41 @@ def rdpcap_to_packet_summary(packets):
         structures.append([dst, src, etype, seqid, length, time_s, time_ns])
     return structures
 
+def log_ifg_summary(ifg_full_dict,
+                    ifg_summary_file="ifg_sweep_summary.txt",
+                    ifg_full_file="ifg_sweep_full.txt"
+                    ):
+    ifg_summary_dict = defaultdict(dict)
+    all_ifgs = []
+    for pl in ifg_full_dict: # Look at the IFGs one payload length at a time and summarise
+        all_ifgs.extend(ifg_full_dict[pl])
+        min_ifg_pl = min(ifg_full_dict[pl])
+        max_ifg_pl = max(ifg_full_dict[pl])
+        if len(ifg_full_dict[pl]) > 1:
+            std_dev_ifg_pl = statistics.stdev(ifg_full_dict[pl])
+        else:
+            std_dev_ifg_pl = 0.0
+
+        mean_ifg_pl = statistics.mean(ifg_full_dict[pl])
+        ifg_summary_dict[pl] = {"min": round(min_ifg_pl, 2), "max": round(max_ifg_pl, 2), "mean": round(mean_ifg_pl, 2), "std_dev": round(std_dev_ifg_pl, 2)}
+
+    min_ifg = min(all_ifgs)
+    max_ifg = max(all_ifgs)
+    std_dev_ifg = statistics.stdev(all_ifgs)
+    mean_ifg = statistics.mean(all_ifgs)
+
+    with open(ifg_summary_file, "w") as f:
+        f.write("After sweeping through all valid payload lengths:\n")
+        f.write(f"Overall max IFG = {round(max_ifg,2)}\n")
+        f.write(f"Overall min IFG = {round(min_ifg,2)}\n")
+        f.write(f"Overall mean IFG = {round(mean_ifg,2)}\n")
+        f.write("\nIFG summary per payload length\n")
+        f.write(pformat(ifg_summary_dict))
+
+    with open(ifg_full_file, "w") as f:
+        f.write("IFG all frames per payload length\n")
+        f.write(pformat(ifg_full_dict))
+
 def parse_packet_summary(packet_summary,
                         expected_count_lp,
                         expected_packet_len_lp,
@@ -658,7 +693,6 @@ def parse_packet_summary(packet_summary,
     last_length = 0 # We need this for checking IFG
     ifgs = []
     ifg_full_dict = defaultdict(list) # dictionary containing IFGs seen for each payload length
-    ifg_summary_dict = defaultdict(dict)
 
     for packet in packet_summary:
         dst = packet[0]
@@ -725,24 +759,7 @@ def parse_packet_summary(packet_summary,
         print(f"IFG instances: {counter_dict}")
 
         if len(ifg_full_dict):
-            for pl in ifg_full_dict: # Look at the IFGs one payload length at a time and summarise
-                min_ifg_pl = min(ifg_full_dict[pl])
-                max_ifg_pl = max(ifg_full_dict[pl])
-                std_dev_ifg_pl = statistics.stdev(ifg_full_dict[pl])
-                mean_ifg_pl = statistics.mean(ifg_full_dict[pl])
-                ifg_summary_dict[pl] = {"min": round(min_ifg_pl, 2), "max": round(max_ifg_pl, 2), "mean": round(mean_ifg_pl, 2), "std_dev": round(std_dev_ifg_pl, 2)}
-
-            with open("ifg_sweep_summary.txt", "w") as f:
-                f.write("After sweeping through all valid payload lengths:\n")
-                f.write(f"Overall max IFG = {round(max_ifg,2)}\n")
-                f.write(f"Overall min IFG = {round(min_ifg,2)}\n")
-                f.write(f"Overall mean IFG = {round(mean_ifg,2)}\n")
-                f.write("\nIFG summary per payload length\n")
-                f.write(pformat(ifg_summary_dict))
-
-            with open("ifg_sweep_full.txt", "w") as f:
-                f.write("IFG all frames per payload length\n")
-                f.write(pformat(ifg_full_dict))
+            log_ifg_summary(ifg_full_dict)
 
 
     if (expected_count_lp > 0) and (counted_lp != expected_count_lp):

@@ -205,8 +205,6 @@ pipeline {
                           } // withXTAG
                         } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                     } // script
-                    archiveArtifacts artifacts: "ifg_sweep_summary.txt", fingerprint: true, allowEmptyArchive: false
-                    archiveArtifacts artifacts: "ifg_sweep_full.txt", fingerprint: true, allowEmptyArchive: false
                     junit "pytest_result.xml"
                   } // dir("tests")
                 } // withTools
@@ -214,6 +212,9 @@ pipeline {
             } // dir("${REPO}")
           } // steps
           post {
+            always {
+              archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+            }
             cleanup {
               xcoreCleanSandbox()
             } // cleanup
