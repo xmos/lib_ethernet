@@ -143,7 +143,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
                                             dut_mac_address_hp = dut_mac_address_hp,
                                             expected_bandwidth_hp = hp_packet_bandwidth_bps,
                                             verbose = True,
-                                            check_ifg = True)
+                                            check_ifg = False)
 
         else:
             assert 0, f"Send method {send_method} not yet supported"

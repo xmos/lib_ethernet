@@ -95,7 +95,6 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                 }
                 else if(char_ptr[0] == CMD_SET_HOST_MACADDR)
                 {
-                    unsigned client_index = char_ptr[1];
                     debug_printf("set host mac address\n");
                     for(int i=0; i<6; i++)
                     {
@@ -148,6 +147,17 @@ void xscope_control(chanend c_xscope, chanend c_clients[num_clients], static con
                     debug_printf("xscope_control received CMD_EXIT_DEVICE_MAC\n");
                     c_clients[0] <: CMD_EXIT_DEVICE_MAC; // Send to the first client.
                     c_clients[0] :> int temp;
+                    // Acknowledge
+                    unsigned char ret = 0;
+                    xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
+                }
+                else if(char_ptr[0] == CMD_SET_DUT_TX_SWEEP)
+                {
+                    debug_printf("xscope_control received CMD_SET_DUT_TX_SWEEP\n");
+                    unsigned client_index = char_ptr[1];
+                    debug_printf("set client index %u to do a TX sweep\n", client_index);
+                    c_clients[client_index] <: CMD_SET_DUT_TX_SWEEP;
+                    c_clients[client_index] :> int temp;
                     // Acknowledge
                     unsigned char ret = 0;
                     xscope_bytes(XSCOPE_ID_COMMAND_RETURN, 1, &ret);
