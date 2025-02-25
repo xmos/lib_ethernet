@@ -165,6 +165,9 @@ pipeline {
             } // dir("${REPO}")
           } // steps
           post {
+            always {
+              archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+            }
             cleanup {
             xcoreCleanSandbox()
             } // cleanup

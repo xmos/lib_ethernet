@@ -209,6 +209,24 @@ class XscopeControl():
         cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_DUT_TX_SWEEP'].value, client_index]
         return self.xscope_controller_do_command(cmd_plus_args)
 
+    def xscope_controller_start_timestamp_recorder(self):
+        ep = Endpoint()
+        probe = QueueConsumer(ep, "tx_start_timestamp")
+
+        if ep.connect(hostname=self.host, port=self.port):
+            print("Xscope Host app failed to connect")
+            assert False
+
+        self._ep = ep
+        self._probe = probe
+
+
+    def xscope_controller_stop_timestamp_recorder(self):
+        print(f"{self._probe.queue.qsize()} elements in the queue")
+        self._ep.disconnect()
+
+
+
 """
 Do not change the main function since it's called from CMakeLists.txt to autogenerate the xscope commands enum .h file
 """

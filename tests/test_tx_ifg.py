@@ -76,7 +76,7 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
     assert result is True, f"{result}"
 
 
-test_params_file = Path(__file__).parent / "test_time_tx/test_params.json"
+test_params_file = Path(__file__).parent / "test_tx_ifg/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_tx_ifg(capfd, params):
     with capfd.disabled():
