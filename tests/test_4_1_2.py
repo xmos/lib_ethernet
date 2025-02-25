@@ -129,7 +129,10 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
         ))
 
     if hw_debugger_test is not None:
-        hw_debugger_test(mac, arch, packets)
+        test_fn = hw_debugger_test[0]
+        request = hw_debugger_test[1]
+        testname = hw_debugger_test[2]
+        test_fn(request, testname, mac, arch, packets)
     else:
         do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx", rx_width=rx_width, tx_width=tx_width)
 
