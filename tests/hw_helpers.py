@@ -368,6 +368,8 @@ class hw_eth_debugger:
         hex_string = bytes(byte_list).hex()
         self.inject_packet(phy, data=hex_string, num=num, append_preamble_crc=False, ifg_bytes=ifg_bytes)
 
+        return hex_string
+
     # Only needed if we need to interrupt a long repeating inject command.
     # Injecting only disrupts traffic whilst packets are sending.
     def inject_packet_stop(self):
@@ -565,6 +567,13 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
         payload = raw_data[22:-4]
         crc = raw_data[-4:]
 
+        vlan_tpid = [0x81, 0x00]  # VLAN TPID identifier
+        vlan_tag = None
+        if list(etype) == vlan_tpid:
+            vlan_tag = raw_data[20:24]
+            payload = raw_data[26:-4]
+            etype = raw_data[24:26]
+
         # print(f"Source MAC: {src_mac.hex()}, Destination MAC: {dst_mac.hex()}, etype: {etype.hex()}, CRC: {crc.hex()}, {src_mac.hex()}, Payload (Hex): {payload.hex()}")
 
         # Now turn into MII packet for comparison
@@ -577,6 +586,8 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
             miipacket.src_mac_addr = list(src_mac)
         miipacket.ether_len_type = list(etype)
         miipacket.data_bytes = list(payload)
+        if vlan_tag:
+            miipacket.vlan_prio_tag = list(vlan_tag)
 
         try:
             index = sent_mii_packets.index(miipacket)
@@ -819,13 +830,11 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     print(f"dut_mac_address = {dut_mac_address_str}")
     dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
-
     if send_method == "debugger":
         assert platform.system() in ["Linux"], f"HW debugger only supported on Linux"
         dbg = hw_eth_debugger()
     else:
         assert False, f"Invalid send_method {send_method}"
-
 
     xe_name = pkg_dir / "hw_test_mii" / "bin" / "loopback" / "hw_test_mii_loopback.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
@@ -843,7 +852,6 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
             dbg.capture_start("packets_received.pcapng")
             
             print("Debugger sending packets")
-            time_to_send = 0
             for packet_to_send in packets_to_send:
                 dbg.inject_MiiPacket(dbg.debugger_phy_to_dut, packet_to_send)
             time.sleep(0.1) # Allow last packet to depart before stopping capture. 0.01s normally plenty but add margin
@@ -851,11 +859,12 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
             received_packets = dbg.capture_stop()
 
         print("Retrive status and shutdown DUT")
-        xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
         print("Terminating!!!")
 
     # Analyse and compare against expected
     report = analyse_dbg_cap_vs_sent_miipackets(received_packets, packets_to_send, swap_src_dst=True) # Packets are looped back so swap MAC addresses for filter
+    if verbose: print(report)
     expect_folder = create_if_needed("expect_temp")
     expect_filename = f'{expect_folder}/{testname}.expect'
     create_expect(packets_to_send, expect_filename)
