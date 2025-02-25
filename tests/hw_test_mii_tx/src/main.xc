@@ -65,9 +65,9 @@ int main()
                                       get_port_timings(0),
                                       ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                       ETHERNET_ENABLE_SHAPER);
-
+#if PROBE_TX_TIMESTAMPS
     on tile[0]: tx_timestamp_probe();
-
+#endif
     on tile[1]: dual_dp83826e_phy_driver(i_smi, i_cfg[0], null);
 
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);

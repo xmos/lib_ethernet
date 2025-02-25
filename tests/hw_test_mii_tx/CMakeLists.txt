@@ -36,7 +36,7 @@ set(COMPILER_FLAGS_COMMON   -g
 							-fxscope
                             -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
                             -DENABLE_MAC_START_NOTIFICATION=1
-                            -DPROBE_TX_TIMESTAMPS=1
+                            #-DPROBE_TX_TIMESTAMPS=1
                             )
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
