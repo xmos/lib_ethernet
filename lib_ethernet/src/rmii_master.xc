@@ -816,11 +816,12 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
     if(wait)
     {
         ifg_tmr when timerafter(ifg_time) :> ifg_time;
-#if PROBE_TX_TIMESTAMPS
-        tx_ts_queue.fifo[tx_ts_queue.wr_index] = ifg_time;
-#endif
     }
 
+#if PROBE_TX_TIMESTAMPS
+    ifg_tmr :> now;
+    tx_ts_queue.fifo[tx_ts_queue.wr_index] = now;
+#endif
     tx_4b_word(p_mii_txd, 0x55555555, tx_port_4b_pins);
     tx_4b_word(p_mii_txd, 0xD5555555, tx_port_4b_pins);
 
