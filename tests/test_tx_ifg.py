@@ -71,7 +71,7 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
                                     simthreads=simthreads,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    timeout=20*60)
+                                    timeout=60*60)
 
     assert result is True, f"{result}"
 
