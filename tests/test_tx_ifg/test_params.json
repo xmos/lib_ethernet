@@ -1,0 +1,5 @@
+{
+    "PROFILES": [
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "tx_width":"4b_upper"}
+        ]
+}
