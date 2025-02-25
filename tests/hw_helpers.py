@@ -48,6 +48,17 @@ class hw_eth_debugger:
         # Startup debugger process
         # first kill any unterminated
         subprocess.run("pkill -f nose", shell=True)
+        print("Killing old process..", end="")
+        running = True
+        while running:
+            try:
+                subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
+                print(".", end="")
+            except subprocess.CalledProcessError:
+                print("Killed!")
+                running = False
+            time.sleep(0.01)
+
         time.sleep(0.1) # ensure is dead otherwise starting may come too soon
         cmd = f"{str(self.nose_bin_path)} {device_str} --ipc-server {socket_path}"
         self.nose_proc = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
@@ -58,7 +69,7 @@ class hw_eth_debugger:
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.timeout_s = 2 # normal timeout for command response
         self.sock.settimeout(self.timeout_s)
-        print("Connecting to debugger..", end="")
+        print("Connecting to debugger process..", end="")
         while True:
             try:
                 self.sock.connect(socket_path)
@@ -340,7 +351,6 @@ class hw_eth_debugger:
     Only works for properly formed packets
     """
     def inject_MiiPacket(self, phy, packet, num=1, ifg_bytes=12):
-        print("inject_MiiPacket", packet)
         nibbles = packet.get_nibbles()
         if len(nibbles) % 2 != 0:
             print(f"Warning: padding packet by {len(nibbles)} nibbles to {len(nibbles)+1} due to debugger inject limitations")
@@ -349,7 +359,8 @@ class hw_eth_debugger:
         hex_string = bytes(byte_list).hex()
         self.inject_packet(phy, data=hex_string, num=num, append_preamble_crc=False, ifg_bytes=ifg_bytes)
 
-    # Only needed if we need to interrupt a long repeating inject command
+    # Only needed if we need to interrupt a long repeating inject command.
+    # Injecting only disrupts traffic whilst packets are sending.
     def inject_packet_stop(self):
         self.capture_file = None
         self._send_cmd(f"inject_stop")
