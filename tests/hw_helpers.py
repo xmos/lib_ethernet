@@ -776,7 +776,8 @@ def parse_packet_summary(packet_summary,
             print(text)
 
     if check_ifg:
-        ifgs = ifgs[1:-10] # The first is always wrong as is the datum and last few are HP dominared with gaps as LP tx shuts down first
+        if len(ifgs) > 15:
+            ifgs = ifgs[1:-10] # The first is always wrong as is the datum and last few are HP dominared with gaps as LP tx shuts down first
         min_ifg = min(ifgs)
         max_ifg = max(ifgs)
         std_dev_ifg = statistics.stdev(ifgs)
