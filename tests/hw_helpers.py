@@ -787,17 +787,13 @@ def parse_packet_summary(packet_summary,
         print(f"IFG stats min: {min_ifg:.2f} max: {max_ifg:.2f} mean: {mean_ifg:.2f} std_dev: {std_dev_ifg:.2f}")
         print(f"IFG instances: {counter_dict}")
 
-        if len(ifg_full_dict):
-            log_ifg_summary(ifg_full_dict)
-
-
     if (expected_count_lp > 0) and (counted_lp != expected_count_lp):
         errors += f"Did not get: {expected_count_lp} LP packets, got: {counted_lp} (dropped: {expected_count_lp-counted_lp})"
 
     if verbose:
         print(f"Counted {counted_lp} LP packets and {counted_hp} HP packets over {last_valid_packet_time/1e9:.2f}s")
 
-    return errors if errors != "" else None, counted_lp, counted_hp
+    return errors if errors != "" else None, counted_lp, counted_hp, ifg_full_dict
 
 def hw_4_1_x_test_init(seed):
     random.seed(seed)
@@ -850,7 +846,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
             else:
                 raise RuntimeError("Links not up")
             dbg.capture_start("packets_received.pcapng")
-            
+
             print("Debugger sending packets")
             for packet_to_send in packets_to_send:
                 dbg.inject_MiiPacket(dbg.debugger_phy_to_dut, packet_to_send)
@@ -869,7 +865,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     expect_filename = f'{expect_folder}/{testname}.expect'
     create_expect(packets_to_send, expect_filename)
     tester = px.testers.ComparisonTester(open(expect_filename))
-    
+
     assert tester.run(report.split("\n")[:-1]) # Need to chop off last line
 
 # This is just for test

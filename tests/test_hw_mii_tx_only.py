@@ -107,7 +107,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
             host_received_packets = socket_host.recv_asynch_wait_complete()
 
             packet_summary = load_packet_file(capture_file)
-            errors, _, _ = parse_packet_summary(  packet_summary,
+            errors, _, _, _ = parse_packet_summary(  packet_summary,
                                             expected_packet_count,
                                             expected_packet_len_lp,
                                             dut_mac_address_lp,
@@ -135,7 +135,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
             filtered_packets = [pkt for pkt in packets if Ether in pkt and pkt[Ether].dst == host_mac_address_str]
 
             packet_summary = rdpcap_to_packet_summary(filtered_packets)
-            errors, _, _ = parse_packet_summary(  packet_summary,
+            errors, _, _, _ = parse_packet_summary(  packet_summary,
                                             expected_packet_count,
                                             expected_packet_len_lp,
                                             dut_mac_address_lp,

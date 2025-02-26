@@ -98,7 +98,7 @@ def test_hw_mii_hot_plug(request):
             # we need to filter because debugger captures both ports
             filtered_packets = [pkt for pkt in packets if Ether in pkt and pkt[Ether].dst == host_mac_address_str]
             packet_summary = rdpcap_to_packet_summary(filtered_packets)
-            errors, num_lp_received, num_hp_received = parse_packet_summary(  packet_summary,
+            errors, num_lp_received, num_hp_received, _ = parse_packet_summary(  packet_summary,
                                                         expected_packet_count,
                                                         expected_packet_len_lp,
                                                         dut_mac_address_lp,
@@ -127,7 +127,7 @@ def test_hw_mii_hot_plug(request):
             filtered_packets = [pkt for pkt in packets if Ether in pkt and pkt[Ether].dst == host_mac_address_str]
 
             packet_summary = rdpcap_to_packet_summary(filtered_packets)
-            errors, num_lp_received, num_hp_received = parse_packet_summary(  packet_summary,
+            errors, num_lp_received, num_hp_received, _ = parse_packet_summary(  packet_summary,
                                                         expected_packet_count,
                                                         expected_packet_len_lp,
                                                         dut_mac_address_lp,
