@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#define TOTAL_NUM_TS_ENTRIES (20000)
+#define TOTAL_NUM_TS_ENTRIES (50000)
 
 typedef struct mii_tx_ts_fifo_t {
   unsigned rd_index;

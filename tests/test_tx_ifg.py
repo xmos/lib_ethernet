@@ -19,11 +19,41 @@ from hw_helpers import log_ifg_summary
 
 num_test_packets = (1514-60+1)*2 # 2 packets for each valid payload length. Takes about 15mins to run in sim
 
-def start_test(phy):
+class IfgTester:
+    def __init__(self):
+        self.result = None
+
+    def run(self, output):
+        timestamps = output[0::2]
+        lengths = output[1::2]
+        timestamps = list(map(int, timestamps))
+        lengths = list(map(int, lengths))
+        iters = min(len(lengths), len(timestamps))
+        overhead = 8 + 4 # preamble and crc
+        line_speed = 100e6
+
+        ifg_full_dict = defaultdict(list)
+        for i in range(iters - 1):
+            ts_diff = (timestamps[i+1] - timestamps[i]) % (1 << 32)
+            packet_length = lengths[i] + overhead
+            packet_time_ns = (1e9 * 8*packet_length)/line_speed
+            ts_diff_ns = ts_diff * 10 # ref timer is 10ns
+            ifg = ts_diff_ns - packet_time_ns
+            ifg_full_dict[lengths[i]].append(round(ifg, 2))
+        if len(ifg_full_dict):
+            log_ifg_summary(ifg_full_dict,
+                ifg_summary_file="ifg_sweep_summary_sim_device_probe.txt",
+                ifg_full_file="ifg_sweep_full_sim_device_probe.txt"
+                )
+
+        return True
+
+def start_test(phy, test_type):
     phy.num_packets = 0
     phy.num_bytes = 0
     phy.start_time = 0
     phy.ifg_full_dict = defaultdict(list) # dictionary containing IFGs seen for each payload length
+    phy.test_type = test_type
 
 def packet_checker(packet, phy):
     # The CRC is not included in the packet bytes
@@ -36,25 +66,35 @@ def packet_checker(packet, phy):
 
 
     if phy.num_packets == num_test_packets:
-        print(phy.ifg_full_dict)
-        log_ifg_summary(phy.ifg_full_dict,
-                        ifg_summary_file="ifg_sweep_summary_sim.txt",
-                        ifg_full_file="ifg_sweep_full_sim.txt"
-                        )
+        if "probe" in phy.test_type:
+            log_ifg_summary(phy.ifg_full_dict,
+                            ifg_summary_file="ifg_sweep_summary_sim_host_probe.txt",
+                            ifg_full_file="ifg_sweep_full_sim_host_probe.txt"
+                            )
+        else:
+            log_ifg_summary(phy.ifg_full_dict,
+                ifg_summary_file="ifg_sweep_summary_sim_host_no_probe.txt",
+                ifg_full_file="ifg_sweep_full_sim_host_no_probe.txt"
+                )
+        poll_duration_us = 10
+        poll_duration_ticks = (poll_duration_us* px.Xsi.get_xsi_tick_freq_hz())/1e6
+        phy.wait_until(phy.xsi.get_time() + poll_duration_ticks) # If the device is printing probe timestamps wait for them to come thrpugh
         phy.xsi.terminate()
 
 
-def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
-    start_test(rx_phy)
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None, test_type=None):
+    start_test(rx_phy, test_type)
 
     testname = 'test_tx_ifg'
 
     if tx_width:
-        profile = f'{mac}_{rx_phy.get_name()}_tx{tx_width}_{arch}'
-        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy, {tx_width} tx_width at {rx_clk.get_name()} for {arch} arch")
+        profile = f'{mac}_{test_type}_tx{tx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {test_type} phy, {tx_width} tx_width at {rx_clk.get_name()} for {arch} arch")
     else:
-        profile = f'{mac}_{rx_phy.get_name()}_{arch}'
-        print(f"Running {testname}: {mac} {rx_phy.get_name()} phy at {rx_clk.get_name()} for {arch} arch")
+        profile = f'{mac}_{test_type}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {mac} {test_type} phy at {rx_clk.get_name()} for {arch} arch")
 
     binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
     assert os.path.isfile(binary)
@@ -67,11 +107,15 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
     if tx_phy != None:
         simthreads.append(tx_phy)
 
+    tester = IfgTester()
+
     result = px.run_on_simulator_(  binary,
                                     simthreads=simthreads,
                                     simargs=simargs,
                                     do_xe_prebuild=False,
-                                    timeout=20*60)
+                                    timeout=20*60,
+                                    tester=tester,
+                                    capfd=capfd)
 
     assert result is True, f"{result}"
 
@@ -79,36 +123,15 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, tx_width=None):
 test_params_file = Path(__file__).parent / "test_tx_ifg/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
 def test_tx_ifg(capfd, params):
-    with capfd.disabled():
-        verbose = False
-        # Test 100 MBit - MII XS2
-        if params["phy"] == "mii":
-            (rx_clk_25, rx_mii) = get_mii_rx_clk_phy(packet_fn=packet_checker)
-            (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(do_timeout=False, verbose=verbose)
-            do_test(params["mac"], params["arch"], rx_clk_25, rx_mii, tx_clk_25, tx_mii)
+    verbose = False
+    if "rmii" in params["phy"]:
+        clk = get_rmii_clk(Clock.CLK_50MHz)
+        rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
+                                        clk,
+                                        packet_fn=packet_checker,
+                                        verbose=verbose
+                                    )
 
-        elif params["phy"] == "rgmii":
-            # Test 100 MBit - RGMII
-            if params["clk"] == "25MHz":
-                (rx_clk_25, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_25MHz, packet_fn=packet_checker)
-                (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, do_timeout=False, verbose=verbose)
-                do_test(params["mac"], params["arch"], rx_clk_25, rx_rgmii, tx_clk_25, tx_rgmii)
-            # Test 1000 MBit - RGMII
-            elif params["clk"] == "125MHz":
-                (rx_clk_125, rx_rgmii) = get_rgmii_rx_clk_phy(Clock.CLK_125MHz, packet_fn=packet_checker)
-                (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, do_timeout=False, verbose=verbose)
-                do_test(params["mac"], params["arch"], rx_clk_125, rx_rgmii, tx_clk_125, tx_rgmii)
-            else:
-                assert 0, f"Invalid params: {params}"
-
-        elif params["phy"] == "rmii":
-            clk = get_rmii_clk(Clock.CLK_50MHz)
-            rx_rmii_phy = get_rmii_rx_phy(params['tx_width'],
-                                            clk,
-                                            packet_fn=packet_checker,
-                                            verbose=verbose
-                                        )
-
-            do_test(params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'])
-        else:
-            assert 0, f"Invalid params: {params}"
+        do_test(capfd, params["mac"], params["arch"], clk, rx_rmii_phy, None, None, tx_width=params['tx_width'], test_type = params["phy"])
+    else:
+        assert 0, f"Invalid params: {params}"
