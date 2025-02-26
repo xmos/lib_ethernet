@@ -11,6 +11,10 @@ import pytest
 from pathlib import Path
 from helpers import generate_tests
 
+"""
+Host sends oversized packets (both vlan tagged and untagged) interleaved with valid sized frames and checks that the DUT drops the oversized packets but receives the valid sized frames
+"""
+
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None, hw_debugger_test=None):
     rand = random.Random()
     rand.seed(seed)

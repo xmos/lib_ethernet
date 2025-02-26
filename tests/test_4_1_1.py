@@ -9,7 +9,9 @@ import pytest
 from pathlib import Path
 from helpers import generate_tests
 
-
+"""
+Host sends few packets with corrupt CRC followed by valid packets and ensure the valid packets are received by the DUT
+"""
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None, hw_debugger_test=None):
     rand = random.Random()

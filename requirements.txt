@@ -25,6 +25,7 @@ filelock==3.16.1
 bitstring==4.3.0
 scapy==2.6.1
 numpy==2.2.3
+python-pcapng==2.1.1
 
 # Development dependencies
 #

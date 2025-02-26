@@ -10,6 +10,10 @@ import pytest
 from pathlib import Path
 from helpers import generate_tests
 
+"""
+Host sends invalid packets where the len/type field indicates length greater than the actual payload length, interleaved with valid frames and check that DUT receives the valid frames
+"""
+
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None, hw_debugger_test=None):
     rand = random.Random()
     rand.seed(seed)

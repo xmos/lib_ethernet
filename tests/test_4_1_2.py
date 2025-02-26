@@ -12,6 +12,9 @@ from pathlib import Path
 from helpers import generate_tests
 import warnings
 
+"""
+Test small fragment lengths (less than 46 bytes) interleaved with valid packets and check that the valid packets are received
+"""
 
 def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None, hw_debugger_test=None):
     rand = random.Random()

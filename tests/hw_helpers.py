@@ -13,7 +13,7 @@ import time
 import json
 from decimal import Decimal
 import statistics
-from scapy.all import rdpcap, Ether, Raw, wrpcap, PcapWriter
+from scapy.all import rdpcap, Ether, Raw, wrpcap, PcapNgWriter
 from mii_packet import MiiPacket
 import re
 from collections import defaultdict
@@ -26,6 +26,7 @@ from xcore_app_control import XcoreAppControl
 from helpers import create_expect, create_if_needed
 import Pyxsim as px
 import inspect
+from pcapng import FileScanner # I found a bug in rdpcap in scapy 2.6.1. This seems more robust: python-pcapng==2.1.1
 
 # Constants used in the tests
 packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
@@ -411,14 +412,25 @@ class hw_eth_debugger:
         return False
 
     # Stops capture and returns the scapy packets if successful, otherwise the error message
-    def capture_stop(self):
+    def capture_stop(self, use_raw=False):
         if self.capture_file is None:
             raise RuntimeError("Trying to stop capture when it hasn't been started")
         ok, msg = self._get_response() # drain out any previous responses
         self._send_cmd(f"capture_stop")
         ok, msg = self._get_response()
         if ok and 'stopped' in msg:
-            packets = rdpcap(self.capture_file)
+            if use_raw:
+                #### WARNING BUG IN SCAPY IN RARE CASES SO USING THIS INSTEAD ##### 
+                packets = []
+                with open(self.capture_file, 'rb') as fp:
+                    scanner = FileScanner(fp)
+                    for block in scanner:
+                        raw = block._decoded
+                        if "packet_data" in raw.keys():
+                            packets.append(raw["packet_data"])
+                #### END OF WARNING ####
+            else:
+                packets = rdpcap(self.capture_file)
             print(f"Total packets: {len(packets)}")
             self.capture_file = None
             return packets
@@ -501,12 +513,13 @@ def mii2pcapfile(mii_packets, pcapfile="packets.pcapng"):
     def mii2pcapfile_single(mii_packet, pcap_writer):
         nibbles = mii_packet.get_nibbles()
         if len(nibbles) % 2 != 0:
-            print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to pcap writer limitations")
+            print(f"Warning: padding {len(nibbles)} nibbles to {len(nibbles)+1} due to pcapng writer limitations")
             nibbles.append(0)
         byte_list = [(nibbles[i + 1] << 4) | nibbles[i] for i in range(0, len(nibbles), 2)]
         pcap_writer.write(bytes(byte_list))
 
-    with PcapWriter(pcapfile, linktype=1) as pcap_writer:
+
+    with PcapNgWriter(pcapfile) as pcap_writer:
         if isinstance(mii_packets, list):
             frames = []
             for mii_packet in mii_packets:
@@ -558,7 +571,7 @@ def scapy2mii(scapy_packets):
 # checking against expect files. Can swap src_dst for compare where packets have been l
 def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets, swap_src_dst=False):
     report = ""
-    for pkt in received_scapy_packets:
+    for idx, pkt in enumerate(received_scapy_packets):
         raw_data = bytes(pkt)
         preamble = raw_data[:8] # Note this capture has complete frame including preamble and CRC
         dst_mac = raw_data[8:14]
@@ -574,8 +587,8 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
             payload = raw_data[26:-4]
             etype = raw_data[24:26]
 
-        # print(f"Source MAC: {src_mac.hex()}, Destination MAC: {dst_mac.hex()}, etype: {etype.hex()}, CRC: {crc.hex()}, {src_mac.hex()}, Payload (Hex): {payload.hex()}")
-
+        # print(f"Len: {len(payload)}, Source MAC: {src_mac.hex()}, Destination MAC: {dst_mac.hex()}, etype: {etype.hex()}, VLAN: {vlan_tag} CRC: {crc.hex()}, {src_mac.hex()}, Payload (Hex): {payload.hex()}")
+        # print(f"Raw: {raw_data.hex()}")
         # Now turn into MII packet for comparison
         miipacket = MiiPacket(rand=random.Random(), blank=True)
         if swap_src_dst:
@@ -586,16 +599,21 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
             miipacket.src_mac_addr = list(src_mac)
         miipacket.ether_len_type = list(etype)
         miipacket.data_bytes = list(payload)
+        miipacket.num_data_bytes = len(miipacket.data_bytes)
         if vlan_tag:
             miipacket.vlan_prio_tag = list(vlan_tag)
 
+        # look for the received packet now in miipacket format in the sent packet list
         try:
             index = sent_mii_packets.index(miipacket)
             report += f"Received packet {index} ok\n"
         except ValueError:
             pass
 
+
     report += "Test done\n"
+
+    print(report)
 
     return report
 
@@ -856,7 +874,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
                 dbg.inject_MiiPacket(dbg.debugger_phy_to_dut, packet_to_send)
             time.sleep(0.1) # Allow last packet to depart before stopping capture. 0.01s normally plenty but add margin
 
-            received_packets = dbg.capture_stop()
+            received_packets = dbg.capture_stop(use_raw=True)
 
         print("Retrive status and shutdown DUT")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
