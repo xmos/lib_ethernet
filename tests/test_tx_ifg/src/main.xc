@@ -10,6 +10,7 @@
 #else
 #include "ports.h"
 #endif
+#include "log_tx_ts.h"
 
 void test_tx_sweep(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
 {
@@ -123,12 +124,15 @@ int main()
                                       port_timing,
                                       4000, 4000,
                                       ETHERNET_DISABLE_SHAPER);
+#if PROBE_TX_TIMESTAMPS
+    on tile[0]: tx_timestamp_probe();
+#endif
     #endif
 
     #if ETHERNET_SUPPORT_HP_QUEUES
-    on tile[0]: test_tx_sweep(i_tx_lp[0], c_tx_hp);
+    on tile[1]: test_tx_sweep(i_tx_lp[0], c_tx_hp);
     #else
-    on tile[0]: test_tx_sweep(i_tx_lp[0], null);
+    on tile[1]: test_tx_sweep(i_tx_lp[0], null);
     #endif
 
     #else
