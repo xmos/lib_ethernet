@@ -27,7 +27,7 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
 
     # Test Frame 1 - Fragments (no SFD, no valid CRC)
     max_fragment_len = 143
-    if tx_clk.get_rate == Clock.CLK_125MHz:
+    if tx_clk.get_rate() == Clock.CLK_125MHz:
         max_fragment_len = 142
 
     if tx_phy.get_name() == "rmii":

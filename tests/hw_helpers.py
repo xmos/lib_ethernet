@@ -825,7 +825,7 @@ def hw_4_1_x_test_init(seed):
     name = "rmii"
     phy = SimpleNamespace(get_name=lambda: name,
                           get_clock=lambda: SimpleNamespace(get_bit_time=lambda: 1))
-    clock = SimpleNamespace(get_rate=Clock.CLK_50MHz,
+    clock = SimpleNamespace(get_rate=lambda: Clock.CLK_50MHz,
                             get_min_ifg=lambda: 96)
 
     caller_frame = inspect.currentframe().f_back  # Get the caller's frame
