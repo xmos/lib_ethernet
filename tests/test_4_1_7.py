@@ -1,6 +1,10 @@
 # Copyright 2014-2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+"""
+Send packets with invalid SFD nibble and/or invalid preamble nibbles and expect device to drop them.
+"""
+
 import random
 import copy
 from mii_packet import MiiPacket
@@ -10,7 +14,7 @@ import pytest
 from pathlib import Path
 from helpers import generate_tests
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None, hw_debugger_test=None):
     rand = random.Random()
     rand.seed(seed)
 
@@ -62,7 +66,13 @@ def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=Non
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx", rx_width=rx_width, tx_width=tx_width)
+    if hw_debugger_test is not None:
+        test_fn = hw_debugger_test[0]
+        request = hw_debugger_test[1]
+        testname = hw_debugger_test[2]
+        test_fn(request, testname, mac, arch, packets)
+    else:
+        do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx", rx_width=rx_width, tx_width=tx_width)
 
 test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 @pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
