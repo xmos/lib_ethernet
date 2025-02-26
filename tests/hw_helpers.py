@@ -568,10 +568,11 @@ def scapy2mii(scapy_packets):
 
 # Take scapy packets from eth debgugger and report which of them are present in
 # a reference miipacket list. Provides output the same as the PHY model for
-# checking against expect files. Can swap src_dst for compare where packets have been l
+# checking against expect files. Can swap src_dst for compare where packets have been looped back
 def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets, swap_src_dst=False):
     report = ""
-    for idx, pkt in enumerate(received_scapy_packets):
+    last_idx_found_in_sent = 0 # To avoid searching from the start each time
+    for rcvd_idx, pkt in enumerate(received_scapy_packets):
         raw_data = bytes(pkt)
         preamble = raw_data[:8] # Note this capture has complete frame including preamble and CRC
         dst_mac = raw_data[8:14]
@@ -603,10 +604,12 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
         if vlan_tag:
             miipacket.vlan_prio_tag = list(vlan_tag)
 
-        # look for the received packet now in miipacket format in the sent packet list
+        # look for the received packet now in miipacket format in the sent packet list, making sure we shrink the sent list as we move through
+        # to avoid the case where two sent packets are the same in the sent sequence.
         try:
-            index = sent_mii_packets.index(miipacket)
+            index = sent_mii_packets[last_idx_found_in_sent:].index(miipacket) + last_idx_found_in_sent
             report += f"Received packet {index} ok\n"
+            last_idx_found_in_sent = index
         except ValueError:
             pass
 
