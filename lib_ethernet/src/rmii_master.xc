@@ -1061,6 +1061,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
         #if PROBE_TX_TIMESTAMPS
             increment_tx_ts_queue_write_index();
+            tx_ts_queue.fifo[tx_ts_queue.wr_index] = buf->length;
+            increment_tx_ts_queue_write_index();
         #endif
         } else {
             time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);

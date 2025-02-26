@@ -6,6 +6,7 @@
 #include <debug_print.h>
 #include <xscope.h>
 #include <assert.h>
+#include <print.h>
 #include "log_tx_ts.h"
 
 unsigned tx_start_timestamps[TOTAL_NUM_TS_ENTRIES];
@@ -49,16 +50,34 @@ void increment_tx_ts_queue_write_index()
         assert(0);
     }
 }
+
+
 void tx_timestamp_probe()
 {
     init_tx_ts_queue();
+#if PROBE_TIMESTAMPS_SIM
+    unsigned timestamp_print_block_size = 10;
+#else
+    unsigned timestamp_print_block_size = 1000; // should be even and divide TOTAL_NUM_TS_ENTRIES
+#endif
     while(1)
     {
-        if(tx_ts_queue_size() > 1000)
+        if(tx_ts_queue_size() > timestamp_print_block_size)
         {
             // output 1000 entries at a time
-            xscope_bytes(2, 1000*sizeof(unsigned), (const unsigned char *)&tx_ts_queue.fifo[tx_ts_queue.rd_index]);
-            tx_ts_queue.rd_index += 1000;
+#if PROBE_TIMESTAMPS_SIM
+            for(int i=0; i<timestamp_print_block_size; i=i+2)
+            {
+                //unsigned diff = tx_ts_queue.fifo[tx_ts_queue.rd_index+i+1] - tx_ts_queue.fifo[tx_ts_queue.rd_index+i];
+                //printuintln(diff);
+                printuintln(tx_ts_queue.fifo[tx_ts_queue.rd_index+i]);
+                printuintln(tx_ts_queue.fifo[tx_ts_queue.rd_index+i+1]);
+            }
+#else
+            xscope_bytes(2, timestamp_print_block_size*sizeof(unsigned), (const unsigned char *)&tx_ts_queue.fifo[tx_ts_queue.rd_index]);
+#endif
+
+            tx_ts_queue.rd_index += timestamp_print_block_size;
             if(tx_ts_queue.rd_index >= TOTAL_NUM_TS_ENTRIES)
             {
                 tx_ts_queue.rd_index = tx_ts_queue.rd_index - TOTAL_NUM_TS_ENTRIES;

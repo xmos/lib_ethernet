@@ -87,6 +87,16 @@ void test_tx_lp(client ethernet_cfg_if cfg,
               seq_id++;
             }
           }
+          // for the last payload length, send some more packets so the timestamp logging thread gets to complete a timestamp block
+          // for sending over xscope. Timestamps are sent in blocks of 1000, where each entry is made of a timestamp and a packet length.
+          // Each packet generates one entry, so send 500 to make a block
+          unsigned payload_len = 1514;
+          for(int i=0; i<500; i++)
+          {
+            memcpy(&data[14], &seq_id, sizeof(unsigned)); // sequence ID
+            tx.send_packet(data, payload_len, ETHERNET_ALL_INTERFACES);
+            seq_id++;
+          }
           client_state.tx_sweep = 0;
           c_tx_synch <: 0; // Break HP loop
         }

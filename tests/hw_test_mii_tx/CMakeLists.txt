@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
-project(hw_test_mii_tx_only)
+project(hw_test_mii)
 
 set(APP_HW_TARGET           xk-eth-xu316-dual-100m.xn)
 
@@ -36,10 +36,10 @@ set(COMPILER_FLAGS_COMMON   -g
 							-fxscope
                             -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
                             -DENABLE_MAC_START_NOTIFICATION=1
-                            #-DPROBE_TX_TIMESTAMPS=1
                             )
 
-set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
+set(APP_COMPILER_FLAGS_tx_only              ${COMPILER_FLAGS_COMMON})
+set(APP_COMPILER_FLAGS_tx_ts_probe_enabled     ${COMPILER_FLAGS_COMMON} -DPROBE_TX_TIMESTAMPS=1)
 
 set(APP_XSCOPE_SRCS src/config.xscope)
 

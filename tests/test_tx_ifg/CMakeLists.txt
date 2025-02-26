@@ -8,6 +8,7 @@ include(../helpers.cmake)
 include(../test_deps.cmake)
 
 file(GLOB_RECURSE SOURCES_XC RELATIVE  ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
+list(APPEND SOURCES_XC "../include/log_tx_ts.c")
 set(APP_XC_SRCS             ${SOURCES_XC})
 set(APP_INCLUDES            ../include src)
 
@@ -15,7 +16,8 @@ set(APP_INCLUDES            ../include src)
 set(COMPILER_FLAGS_COMMON   -g
                             -report
                             -DDEBUG_PRINT_ENABLE=1
-                            -Os)
+                            -Os
+    )
 
 set(XMOS_SANDBOX_DIR                    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
@@ -66,6 +68,8 @@ foreach(PROFILE ${profile_list})
 
             if(${phy} MATCHES "rgmii")
                 list(APPEND APP_COMPILER_FLAGS_${config} -DRGMII=1)
+            elseif(${phy} MATCHES "rmii_ts_probe")
+                list(APPEND APP_COMPILER_FLAGS_${config} -DRMII=1  -DPROBE_TX_TIMESTAMPS=1 -DPROBE_TIMESTAMPS_SIM=1)
             elseif(${phy} MATCHES "rmii")
                 list(APPEND APP_COMPILER_FLAGS_${config} -DRMII=1)
             elseif(${phy} MATCHES "mii")

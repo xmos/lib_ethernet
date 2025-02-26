@@ -150,7 +150,7 @@ pipeline {
                       if(params.TEST_TYPE == 'smoke')
                       {
                         echo "Running tests with fixed seed ${env.SEED}"
-                        sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw' "
+                        sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw and not tx_ifg' "
                       }
                       else
                       {
@@ -166,7 +166,7 @@ pipeline {
           } // steps
           post {
             always {
-              archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+              archiveArtifacts artifacts: "${REPO}/tests/ifg_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
             xcoreCleanSandbox()
