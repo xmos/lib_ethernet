@@ -51,7 +51,7 @@ def test_hw_mii_tx_sweep(request):
     lp_client_id = 0
     hp_client_id = 1
 
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_only" / "hw_test_mii_tx_only.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         if dbg.wait_for_links_up():
             print("Links up")

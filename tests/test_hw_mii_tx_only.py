@@ -80,7 +80,7 @@ def test_hw_mii_tx_only(request, send_method, tx_config):
 
     capture_file = "packets.bin"
 
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_only" / "hw_test_mii_tx_only.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
