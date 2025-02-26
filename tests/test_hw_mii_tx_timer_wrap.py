@@ -71,7 +71,7 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     dut_mac_address_lp = [int(i, 16) for i in dut_mac_address_str_lp.split(":")]
     dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
 
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "hw_test_mii_tx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_only" / "hw_test_mii_tx_only.xe"
     print(f"Asking DUT to send the first packet")
 
     nanoseconds_in_a_second = 1000000000

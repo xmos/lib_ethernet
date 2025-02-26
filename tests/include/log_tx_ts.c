@@ -58,7 +58,7 @@ void tx_timestamp_probe()
 #if PROBE_TIMESTAMPS_SIM
     unsigned timestamp_print_block_size = 10;
 #else
-    unsigned timestamp_print_block_size = 1000;
+    unsigned timestamp_print_block_size = 1000; // should be even and divide TOTAL_NUM_TS_ENTRIES
 #endif
     while(1)
     {

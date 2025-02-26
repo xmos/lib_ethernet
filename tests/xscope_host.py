@@ -203,7 +203,7 @@ class XscopeControl():
         """
         return self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_EXIT_DEVICE_MAC'].value])
 
-    def xscope_controller_cmd_set_dut_tx_sweep(self, client_index):
+    def xscope_controller_cmd_set_dut_tx_sweep(self, client_index, connect=True):
         """
         Run command to get a client on the DUT to sweep through all frame sizes while transmitting.
         Parameters:
@@ -213,7 +213,7 @@ class XscopeControl():
         stdout and stderr from running the host application
         """
         cmd_plus_args = [XscopeControl.XscopeCommands['CMD_SET_DUT_TX_SWEEP'].value, client_index]
-        return self.xscope_controller_do_command(cmd_plus_args)
+        return self.xscope_controller_do_command(cmd_plus_args, connect=connect)
 
     def xscope_controller_start_timestamp_recorder(self):
         ep = Endpoint()
