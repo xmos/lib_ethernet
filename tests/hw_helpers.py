@@ -824,9 +824,9 @@ def hw_4_1_x_test_init(seed):
     arch = "xs3"
     name = "rmii"
     phy = SimpleNamespace(get_name=lambda: name,
-                          get_clock=lambda: SimpleNamespace(get_bit_time=lambda: 1))
+                          get_clock=lambda: SimpleNamespace(get_bit_time=lambda: 100000.0))
     clock = SimpleNamespace(get_rate=lambda: Clock.CLK_50MHz,
-                            get_min_ifg=lambda: 96)
+                            get_min_ifg=lambda: 960000000.0)
 
     caller_frame = inspect.currentframe().f_back  # Get the caller's frame
     testname = caller_frame.f_code.co_name + "_" + name # Extract the caller's function name
