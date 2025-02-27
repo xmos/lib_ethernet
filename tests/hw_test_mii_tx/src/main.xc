@@ -24,9 +24,13 @@ clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
 port p_phy_clk = PHY_1_CLK_50M;
 
-
-#define NUM_TX_LP_IF 2
-#define NUM_RX_LP_IF 2
+#if SINGLE_CLIENT
+  #define NUM_TX_LP_IF 1
+  #define NUM_RX_LP_IF 1
+#else
+  #define NUM_TX_LP_IF 2
+  #define NUM_RX_LP_IF 2
+#endif
 #define NUM_CFG_CLIENTS NUM_RX_LP_IF + 1 /*phy_driver*/
 #define ETH_RX_BUFFER_SIZE_WORDS 4000
 
@@ -74,8 +78,9 @@ int main()
 
     // TX threads
     on tile[1]: test_tx_lp(i_cfg[1],  i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], c_tx_synch);
+#if !SINGLE_CLIENT
     on tile[1]: test_tx_hp(i_cfg[2],  i_rx_lp[1], c_tx_hp, 1, c_clients[1], c_tx_synch);
-
+#endif
     on tile[1]: {
       xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
       _Exit(0);
