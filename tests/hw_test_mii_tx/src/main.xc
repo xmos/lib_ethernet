@@ -42,7 +42,11 @@ int main()
   smi_if i_smi;
   chan c_xscope;
   chan c_clients[NUM_CFG_CLIENTS - 1]; // Exclude lan8710a_phy_driver
+#if !SINGLE_CLIENT
   streaming chan c_tx_hp;
+#else
+  #define c_tx_hp null
+#endif
   chan c_tx_synch;
 
 
@@ -68,7 +72,12 @@ int main()
                                       phy_txclk,
                                       get_port_timings(0),
                                       ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
-                                      ETHERNET_ENABLE_SHAPER);
+                                  #if !SINGLE_CLIENT
+                                      ETHERNET_ENABLE_SHAPER
+                                  #else
+                                      ETHERNET_DISABLE_SHAPER
+                                  #endif
+                                      );
 #if PROBE_TX_TIMESTAMPS
     on tile[0]: tx_timestamp_probe();
 #endif
