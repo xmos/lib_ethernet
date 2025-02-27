@@ -40,6 +40,13 @@ int main()
   #define c_rx_hp null
 #endif
 
+#if USE_PHY0
+  #define CFG_IF_PHY0 i_cfg[0]
+  #define CFG_IF_PHY1 null
+#else
+  #define CFG_IF_PHY0 null
+  #define CFG_IF_PHY1 i_cfg[0]
+#endif
 
   par {
     xscope_host_data(c_xscope);
@@ -82,7 +89,7 @@ int main()
     on tile[1]:
     {
       par {
-        dual_dp83826e_phy_driver(i_smi, i_cfg[0], null);
+        dual_dp83826e_phy_driver(i_smi, CFG_IF_PHY0, CFG_IF_PHY1);
         smi(i_smi, p_smi_mdio, p_smi_mdc);
       }
     }

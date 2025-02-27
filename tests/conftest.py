@@ -42,6 +42,13 @@ def pytest_addoption(parser):
         default=None,
         help="Test duration in seconds",
     )
+    parser.addoption(
+        "--phy",
+        action="store",
+        default="phy0",
+        choices=["phy0", "phy1"],
+        help="The PHY to run HW tests on. Default is phy0",
+    )
 
 def build_socket_host():
     print("In build_socket_host()")

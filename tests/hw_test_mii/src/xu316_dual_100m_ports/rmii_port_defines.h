@@ -6,7 +6,11 @@
 port p_smi_mdio = MDIO;
 port p_smi_mdc = MDC;
 
-#if PHY == PHY0
+#if USE_PHY0 && USE_PHY1
+#error "Error: PHY0 and PHY1 both enabled. Compile with either -DUSE_PHY0=1 or -DUS_PHY1=1"
+#endif
+
+#if USE_PHY0
   port p_phy_rxd_0 = PHY_0_RXD_4BIT;
   #define p_phy_rxd_1 null
   port p_phy_txd_0 = PHY_0_TXD_4BIT;
@@ -20,7 +24,7 @@ port p_smi_mdc = MDC;
   #define TX_PINS USE_UPPER_2B
   #define RX_PINS USE_UPPER_2B
 
-#elif PHY == PHY1
+#else
 
   port p_phy_rxd_0 = PHY_1_RXD_0;
   port p_phy_rxd_1 = PHY_1_RXD_1;
