@@ -36,13 +36,13 @@ set(COMPILER_FLAGS_COMMON   -g
                             -DENABLE_MAC_START_NOTIFICATION=1
                             )
 
-set(APP_COMPILER_FLAGS_rx_only                 ${COMPILER_FLAGS_COMMON})
-set(APP_COMPILER_FLAGS_rx_multiple_queues      ${COMPILER_FLAGS_COMMON} -DMULTIPLE_QUEUES=1 -DETHERNET_SUPPORT_HP_QUEUES=1)
-set(APP_COMPILER_FLAGS_loopback                ${COMPILER_FLAGS_COMMON} -DLOOPBACK=1)
+set(APP_COMPILER_FLAGS_rx_only                 ${COMPILER_FLAGS_COMMON} -DPHY=PHY0)
+set(APP_COMPILER_FLAGS_rx_multiple_queues      ${COMPILER_FLAGS_COMMON} -DMULTIPLE_QUEUES=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DPHY=PHY0)
+set(APP_COMPILER_FLAGS_loopback                ${COMPILER_FLAGS_COMMON} -DLOOPBACK=1 -DPHY=PHY0)
 
 set(APP_XSCOPE_SRCS src/config.xscope)
 
-set(APP_INCLUDES src/xscope_control src/phy_driver ${REL_AUTOGEN_DIR})
+set(APP_INCLUDES src/xscope_control src/xu316_dual_100m_ports ${REL_AUTOGEN_DIR})
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
