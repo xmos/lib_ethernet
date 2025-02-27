@@ -59,7 +59,9 @@ void test_tx_lp(client ethernet_cfg_if cfg,
           memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
           memcpy(&data[12], &ether_type, sizeof(ether_type));
           // barrier synch with HP so they start at exactly the same time
+#if !SINGLE_CLIENT
           c_tx_synch <: 0;
+#endif
           for(int i=0; i<client_state.num_tx_packets; i++)
           {
             memcpy(&data[14], &seq_id, sizeof(i)); // sequence ID
@@ -67,8 +69,9 @@ void test_tx_lp(client ethernet_cfg_if cfg,
             seq_id++;
           }
           client_state.num_tx_packets = 0;
+#if !SINGLE_CLIENT
           c_tx_synch <: 0; // Break HP loop
-
+#endif
         }
         else if(client_state.tx_sweep == 1)
         {
@@ -76,7 +79,9 @@ void test_tx_lp(client ethernet_cfg_if cfg,
           memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
           memcpy(&data[12], &ether_type, sizeof(ether_type));
           // barrier synch with HP so they start at exactly the same time
+#if !SINGLE_CLIENT
           c_tx_synch <: 0;
+#endif
           // Sweep through all valid payload sizes sending 100 packets for each
           for(int payload_len=60; payload_len<=1514; payload_len++)
           {
@@ -98,7 +103,9 @@ void test_tx_lp(client ethernet_cfg_if cfg,
             seq_id++;
           }
           client_state.tx_sweep = 0;
+#if !SINGLE_CLIENT
           c_tx_synch <: 0; // Break HP loop
+#endif
         }
         break;
     } //select
