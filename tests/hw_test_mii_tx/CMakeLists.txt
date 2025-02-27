@@ -30,15 +30,12 @@ set(COMPILER_FLAGS_COMMON   -g
                             -DDEBUG_PRINT_ENABLE=1
                             -Os
                             -Wno-reinterpret-alignment
-                            -DENABLE_DUT_TIMEOUT=0
-                            -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1
-							-DETHERNET_SUPPORT_HP_QUEUES=1
 							-fxscope
                             -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
                             -DENABLE_MAC_START_NOTIFICATION=1
                             )
 
-set(APP_COMPILER_FLAGS_tx_only              ${COMPILER_FLAGS_COMMON})
+set(APP_COMPILER_FLAGS_tx_only              ${COMPILER_FLAGS_COMMON} -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1 -DETHERNET_SUPPORT_HP_QUEUES=1)
 set(APP_COMPILER_FLAGS_tx_single_client     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1)
 set(APP_COMPILER_FLAGS_tx_single_client_with_ts_probe     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DPROBE_TX_TIMESTAMPS=1)
 
