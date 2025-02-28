@@ -20,7 +20,6 @@ import platform
 
 pkg_dir = Path(__file__).parent
 
-
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_mii_rx_only(request, send_method):
     adapter_id = request.config.getoption("--adapter-id")

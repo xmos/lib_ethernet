@@ -93,6 +93,8 @@ def pytest_configure(config):
     if config.pluginmanager.hasplugin("xdist"):
         if hasattr(config, 'workerinput'): # skip if worker node
             return
+
+    config.addinivalue_line("markers", "debugger: Tests which require the ethernet debuuger to run")
     # We're here if either master node in xdist or running without xdist
     # Perform setup that should happen only once here
     seed_value = config.getoption("--seed")

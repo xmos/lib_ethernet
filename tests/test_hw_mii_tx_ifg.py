@@ -61,6 +61,7 @@ def log_timestamps_probed_from_dut(probe_ts, ifg_summary_filename, ifg_full_file
 # When fixed_size, the packet size is hardcoded in the test and can be changed (by changing 'packet_len' in the test code)
 # when reqd to test for another size.
 # This is largely for debug so not parametrizing for different sizes
+@pytest.mark.debugger
 @pytest.mark.parametrize("packet_type", ["sweep", "fixed_size"])
 @pytest.mark.parametrize("dut_timestamp_probe", [True, False], ids=["ts_probe_on", "ts_probe_off"]) # Enable or disable timestamp probing in the DUT
 def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):

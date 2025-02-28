@@ -4,7 +4,7 @@
 """
 Send packets with less than min IFG to the DUT and see how smallest IFG for which the device still receives without dropping packets
 """
-
+import pytest
 from hw_helpers import hw_4_1_x_test_init, line_speed, analyse_dbg_cap_vs_sent_miipackets
 from helpers import create_if_needed, create_expect
 from test_4_2_6 import do_test
@@ -88,7 +88,7 @@ def do_test_4_2_6_hw_dbg(request, testname, mac, arch, packets_to_send):
         print("Terminating!!!")
 
 
-
+@pytest.mark.debugger
 def test_4_2_6_hw_debugger(request):
     seed, testname, mac, arch, phy, clock = hw_4_1_x_test_init(26)
     # This doesn't exercise min IFG times
