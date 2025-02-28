@@ -4,10 +4,6 @@
 #include <xclib.h>
 #include <stdint.h>
 #include <ethernet.h>
-<<<<<<< HEAD
-#include <otp_board_info.h>
-=======
->>>>>>> hw_test
 #include <string.h>
 
 static unsigned short checksum_ip(const unsigned char frame[34])
@@ -246,21 +242,10 @@ void icmp_server(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
                  const unsigned char ip_address[4],
-<<<<<<< HEAD
-                 otp_ports_t &otp_ports)
-{
-  unsigned char mac_address[MACADDR_NUM_BYTES];
-  ethernet_macaddr_filter_t macaddr_filter;
-
-  // Get the mac address from OTP and set it in the ethernet component
-  otp_board_info_get_mac(otp_ports, 0, mac_address);
-
-=======
                  const unsigned char mac_address[MACADDR_NUM_BYTES])
 {
   ethernet_macaddr_filter_t macaddr_filter;
 
->>>>>>> hw_test
   size_t index = rx.get_index();
   cfg.set_macaddr(0, mac_address);
 
@@ -275,13 +260,9 @@ void icmp_server(client ethernet_cfg_if cfg,
   cfg.add_ethertype_filter(index, 0x0806);
   cfg.add_ethertype_filter(index, 0x0800);
 
-<<<<<<< HEAD
-  debug_printf("Test started\n");
-=======
   debug_printf("ICMP server started at MAC: %x:%x:%x:%x:%x:%x, on IP: %d:%d:%d:%d\n",
               mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
               ip_address[0], ip_address[1], ip_address[2], ip_address[3]);
->>>>>>> hw_test
   while (1)
   {
     select {
