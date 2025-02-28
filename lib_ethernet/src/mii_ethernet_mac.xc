@@ -118,6 +118,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
 
     ethernet_init_filter_table(filter_info);
 
+
     while (1) {
       select {
       case i_rx[int i].get_index() -> size_t result:
@@ -281,6 +282,10 @@ static void mii_ethernet_aux(client mii_if i_mii,
         mii_packet_sent(mii_info);
         break;
 
+#if ENABLE_MAC_START_NOTIFICATION
+      case i_cfg[int i].ack_mac_start():
+        break;
+#endif
       case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
         if (link_status != status) {
           link_status = status;
@@ -288,6 +293,12 @@ static void mii_ethernet_aux(client mii_if i_mii,
           update_client_state(client_state, i_rx, n_rx);
         }
         break;
+
+      case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+        link_state = link_status;
+        link_speed = link_speed;
+        break;
+
       case mii_incoming_packet(mii_info):
         int * unsafe data;
         int nbytes;

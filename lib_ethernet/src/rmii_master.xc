@@ -18,6 +18,11 @@
 #include "rmii_rx_pins_exit.h"
 #include "shaper.h"
 
+#if PROBE_TX_TIMESTAMPS
+    #include "log_tx_ts.h"
+    extern mii_tx_ts_fifo_t tx_ts_queue;
+#endif
+
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -247,12 +252,12 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 //////////////////////////////////////// RX ////////////////////////////////////
 unsigned receive_full_preamble_4b_with_select_asm(in port p_mii_rxdv,
                                               in buffered port:32 p_mii_rxd,
-                                              rmii_data_4b_pin_assignment_t rx_port_4b_pins);
+                                              rmii_data_pin_assignment_t rx_port_4b_pins);
 
 
 unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
                                               in buffered port:32 p_mii_rxd,
-                                              rmii_data_4b_pin_assignment_t rx_port_4b_pins)
+                                              rmii_data_pin_assignment_t rx_port_4b_pins)
 {
     unsigned crc = 0x9226F562;
     unsigned word2, word1;
@@ -295,7 +300,7 @@ unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
 
 }
 static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
-                                  rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+                                  rmii_data_pin_assignment_t rx_port_4b_pins){
     unsigned word1, word2;
     p_mii_rxd :> word1;
     p_mii_rxd :> word2;
@@ -313,7 +318,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 {int, unsigned, unsigned* unsafe} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
-                                                                        rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                                        rmii_data_pin_assignment_t rx_port_4b_pins,
                                                                         unsigned * unsafe timestamp,
                                                                         unsigned * unsafe wrap_ptr,
                                                                         unsigned * unsafe write_end_ptr);
@@ -323,7 +328,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 {int, unsigned, unsigned* unsafe} master_rx_pins_4b_body( unsigned * unsafe dptr,
                                                             in port p_mii_rxdv,
                                                             in buffered port:32 p_mii_rxd,
-                                                            rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                            rmii_data_pin_assignment_t rx_port_4b_pins,
                                                             unsigned * unsafe timestamp,
                                                             unsigned * unsafe wrap_ptr,
                                                             unsigned * unsafe write_end_ptr){
@@ -449,7 +454,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd,
-                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                    rmii_data_pin_assignment_t rx_port_4b_pins,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
 
@@ -486,21 +491,21 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         int num_rx_bytes;
 #if ETH_RX_4B_USE_ASM
         {num_rx_bytes, crc, dptr} = master_rx_pins_4b_body_asm(dptr,
-                                                                                p_mii_rxdv,
-                                                                                *p_mii_rxd,
-                                                                                rx_port_4b_pins,
-                                                                                (unsigned*)&buf->timestamp,
-                                                                                wrap_ptr,
-                                                                                end_ptr);
+                                                                p_mii_rxdv,
+                                                                *p_mii_rxd,
+                                                                rx_port_4b_pins,
+                                                                (unsigned*)&buf->timestamp,
+                                                                wrap_ptr,
+                                                                end_ptr);
 #else
 
         {num_rx_bytes, crc, dptr} = master_rx_pins_4b_body(dptr,
-                                                                            p_mii_rxdv,
-                                                                            *p_mii_rxd,
-                                                                            rx_port_4b_pins,
-                                                                            (unsigned*)&buf->timestamp,
-                                                                            wrap_ptr,
-                                                                            end_ptr);
+                                                            p_mii_rxdv,
+                                                            *p_mii_rxd,
+                                                            rx_port_4b_pins,
+                                                            (unsigned*)&buf->timestamp,
+                                                            wrap_ptr,
+                                                            end_ptr);
 #endif
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
@@ -522,7 +527,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         /*    pointers never fill up */
         mii_add_packet(incoming_packets, buf);
     }
-    
+
     // Exit cleanly so we don't leave channels full/in use
     rx_end_disable_interrupt();
     rx_end_drain_and_clear(c_rx_pins_exit);
@@ -699,7 +704,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
                                     in buffered port:32 * unsafe p_mii_rxd_1,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
-    
+
     // Setup ISR to for exiting this task
     int isrstack[RXE_ISR_CONTEXT_WORDS] = {0};
     rx_end_isr_ctx_t isr_ctx = {
@@ -769,7 +774,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
 ///////////////////////////////////// TX /////////////////////////////////////////
 static inline void tx_4b_word(out buffered port:32 p_mii_txd,
                               unsigned word,
-                              rmii_data_4b_pin_assignment_t tx_port_4b_pins){
+                              rmii_data_pin_assignment_t tx_port_4b_pins){
     uint64_t zipped;
     if(tx_port_4b_pins == USE_LOWER_2B){
         zipped = zip(0, word, 1);
@@ -783,7 +788,7 @@ static inline void tx_4b_word(out buffered port:32 p_mii_txd,
 
 static inline void tx_4b_byte(out buffered port:32 p_mii_txd,
                               unsigned word,
-                              rmii_data_4b_pin_assignment_t tx_port_4b_pins){
+                              rmii_data_pin_assignment_t tx_port_4b_pins){
     uint64_t zipped;
     if(tx_port_4b_pins == USE_LOWER_2B){
         zipped = zip(0, word, 1);
@@ -859,7 +864,7 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
 unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
-                                    rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                    rmii_data_pin_assignment_t tx_port_4b_pins,
                                     hwtimer_t ifg_tmr,
                                     unsigned &ifg_time,
                                     unsigned last_frame_end_time)
@@ -884,6 +889,10 @@ unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
         ifg_tmr when timerafter(ifg_time) :> ifg_time;
     }
 
+#if PROBE_TX_TIMESTAMPS
+    ifg_tmr :> now;
+    tx_ts_queue.fifo[tx_ts_queue.wr_index] = now;
+#endif
     tx_4b_word(p_mii_txd, 0x55555555, tx_port_4b_pins);
     tx_4b_word(p_mii_txd, 0xD5555555, tx_port_4b_pins);
 
@@ -992,7 +1001,10 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     {
         ifg_tmr when timerafter(ifg_time) :> ifg_time;
     }
-
+#if PROBE_TX_TIMESTAMPS
+    ifg_tmr :> now;
+    tx_ts_queue.fifo[tx_ts_queue.wr_index] = now;
+#endif
     // Ensure first Tx is synchronised so they launch at the same time. We will continue filling the buffer until the end of packet.
     stop_clock(txclk);
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555);
@@ -1095,8 +1107,10 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     // Lookup table for 8b transmit case
     unsigned lookup_8b_tx[256];
+    unsigned bit_pos_0 = (unsigned)tx_port_pins & 0xffff;
+    unsigned bit_pos_1 = (unsigned)tx_port_pins >> 16;
     if(tx_port_width == 8){
-        init_8b_tx_lookup(lookup_8b_tx, tx_port_pins.pins_8b.bit_pos_0, tx_port_pins.pins_8b.bit_pos_1);
+        init_8b_tx_lookup(lookup_8b_tx, bit_pos_0, bit_pos_1);
     }
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
@@ -1143,7 +1157,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                     break;
                 }
             case 4: {
-                    time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_pins.pins_4b, ifg_tmr, ifg_time, eof_time);
+                    time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_pins, ifg_tmr, ifg_time, eof_time);
                     eof_time = ifg_time;
                     ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
                     break;
@@ -1162,6 +1176,11 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                     break;
             }
         }
+#if PROBE_TX_TIMESTAMPS
+        increment_tx_ts_queue_write_index();
+        tx_ts_queue.fifo[tx_ts_queue.wr_index] = buf->length;
+        increment_tx_ts_queue_write_index();
+#endif
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {

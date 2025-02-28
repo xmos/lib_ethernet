@@ -1,0 +1,6 @@
+{
+    "PROFILES": [
+        {"phy":"rmii", "mac":"rt", "arch":["xs3"], "tx_width":"4b_upper"},
+        {"phy":"rmii_ts_probe", "mac":"rt", "arch":["xs3"], "tx_width":"4b_upper"}
+        ]
+}

@@ -9,24 +9,20 @@
 #include "xk_eth_xu316_dual_100m/board.h"
 #include "debug_print.h"
 
-rmii_data_port_t p_eth_rxd = {{PHY_0_RXD_4B, USE_UPPER_2B}};
-rmii_data_port_t p_eth_txd = {{PHY_0_TXD_4B, USE_UPPER_2B}};
 
-port p_eth_clk = CLK_50M;
-port p_eth_rxdv = PHY_0_RXDV;
-port p_eth_txen = PHY_0_TX_EN;
+port p_smi_mdio = MDIO;
+port p_smi_mdc = MDC;
 
-clock eth_rxclk = on tile[0]: XS1_CLKBLK_1;
-clock eth_txclk = on tile[0]: XS1_CLKBLK_2;
+port p_phy_rxd = PHY_0_RXD_4BIT;
+port p_phy_txd = PHY_0_TXD_4BIT;
+port p_phy_rxdv = PHY_0_RXDV;
+port p_phy_txen = PHY_0_TX_EN;
+clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
+clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
+port p_phy_clk = PHY_1_CLK_50M;
 
-port p_smi_mdio   = MDIO;
-port p_smi_mdc    = MDC;
-
-
-// These ports are for accessing the OTP memory
-otp_ports_t otp_ports = on tile[0]: OTP_PORTS_INITIALIZER;
-
-static unsigned char ip_address[4] = {192, 168, 1, 178};
+static unsigned char ip_address[4] = {192, 168, 2, 178};
+static unsigned char mac_address_phy[MACADDR_NUM_BYTES] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 
 // An enum to manage the array of connections from the ethernet component
 // to its clients.
@@ -42,7 +38,7 @@ enum cfg_clients {
 };
 
 #define ETH_RX_BUFFER_SIZE_WORDS 1600
-const int phy_address = 0x0;
+
 int main()
 {
   ethernet_cfg_if i_cfg[NUM_CFG_CLIENTS];
@@ -51,23 +47,31 @@ int main()
   smi_if i_smi;
 
   par {
-    on tile[0]: unsafe{rmii_ethernet_rt_mac(i_cfg, NUM_CFG_CLIENTS,
-                                          i_rx, NUM_ETH_CLIENTS,
-                                          i_tx, NUM_ETH_CLIENTS,
-                                          null, null,
-                                          p_eth_clk,
-                                          &p_eth_rxd, p_eth_rxdv,
-                                          p_eth_txen, &p_eth_txd,
-                                          eth_rxclk, eth_txclk,
-                                          port_timing,
-                                          4000, 4000, ETHERNET_DISABLE_SHAPER);}
+    on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
+                                      i_rx, NUM_ETH_CLIENTS,
+                                      i_tx, NUM_ETH_CLIENTS,
+                                      null, null,
+                                      p_phy_clk,
+                                      p_phy_rxd,
+                                      null,
+                                      USE_UPPER_2B,
+                                      p_phy_rxdv,
+                                      p_phy_txen,
+                                      p_phy_txd,
+                                      null,
+                                      USE_UPPER_2B,
+                                      phy_rxclk,
+                                      phy_txclk,
+                                      get_port_timings(0),
+                                      ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
+                                      ETHERNET_DISABLE_SHAPER);
 
-    on tile[1]: dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], phy_address);
+    on tile[1]: dual_dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], null);
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
 
     on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
                             i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
-                            ip_address, otp_ports);
+                            ip_address, mac_address_phy);
   }
   return 0;
 }

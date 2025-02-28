@@ -123,6 +123,8 @@ void ethernet_clear_filter_table(eth_global_filter_info_t table,
   }
 }
 
+#include <debug_print.h>
+
 #pragma unsafe arrays
 unsigned ethernet_do_filtering(eth_global_filter_info_t table,
                                char buf[packet_size],
