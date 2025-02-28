@@ -52,6 +52,8 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     eth_intf = request.config.getoption("--eth-intf")
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
+    phy = request.config.getoption("--phy")
+
     verbose = False
     seed = 0
     rand = random.Random()
@@ -71,7 +73,7 @@ def test_hw_mii_tx_timer_wrap(request, send_method):
     dut_mac_address_lp = [int(i, 16) for i in dut_mac_address_str_lp.split(":")]
     dut_mac_addres_hp= [int(i, 16) for i in dut_mac_address_str_hp.split(":")]
 
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_only" / "hw_test_mii_tx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_only_{phy}" / f"hw_test_mii_tx_only_{phy}.xe"
     print(f"Asking DUT to send the first packet")
 
     nanoseconds_in_a_second = 1000000000
