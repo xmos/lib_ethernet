@@ -57,10 +57,10 @@ def do_test_4_2_6_hw_dbg(request, testname, mac, arch, packets_to_send):
 
             # Debugger can only set IFG in steps of 8b (a bytes)
             standard_ifg_bytes = 12 # 96 bit times
-            min_tested_ifg_bytes = 10
+            min_tested_ifg_bytes = 9 # 72 bit times
             num_packets_to_send = 10 # The DUT takes longer to send than rx so don't overwhelm the Rx buffer
 
-            for ifg_byte_count in range(standard_ifg_bytes, min_tested_ifg_bytes, -1):
+            for ifg_byte_count in range(standard_ifg_bytes, min_tested_ifg_bytes-1, -1):
                 dbg.capture_start("packets_received.pcapng")
                 time.sleep(0.25) # Ensure capture started
                 packet = packets_to_send[0]
