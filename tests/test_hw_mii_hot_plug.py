@@ -23,9 +23,10 @@ import struct
 pkg_dir = Path(__file__).parent
 
 def test_hw_mii_hot_plug(request):
-    print()
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
+
+    phy = request.config.getoption("--phy")
 
     dbg = hw_eth_debugger()
     host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
@@ -62,7 +63,7 @@ def test_hw_mii_hot_plug(request):
     lp_client_id = 0
     hp_client_id = 1
 
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_only" / "hw_test_mii_tx_only.xe"
+    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_only_{phy}" / f"hw_test_mii_tx_only_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         if dbg.wait_for_links_up():
             print("Links up")
@@ -89,7 +90,7 @@ def test_hw_mii_hot_plug(request):
             # power cycle a few times
             while time.time() - start_time < duration:
                 print("power cycle the PHY connected to the DUT")
-                dbg.power_cycle_phy('A')
+                dbg.power_cycle_phy(dbg.debugger_phy_to_dut)
                 time.sleep(rand.randint(1, 4))
 
             time.sleep(1)

@@ -29,6 +29,8 @@ def test_hw_mii_rx_only(request, send_method):
     eth_intf = request.config.getoption("--eth-intf")
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
+    phy = request.config.getoption("--phy")
+
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
         test_duration_s = 0.4
@@ -66,7 +68,7 @@ def test_hw_mii_rx_only(request, send_method):
         assert False, f"Invalid send_method {send_method}"
 
 
-    xe_name = pkg_dir / "hw_test_mii" / "bin" / "rx_multiple_queues" / "hw_test_mii_rx_multiple_queues.xe"
+    xe_name = pkg_dir / "hw_test_mii" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_mii_rx_multiple_queues_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()

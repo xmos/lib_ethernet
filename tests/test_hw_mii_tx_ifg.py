@@ -61,6 +61,8 @@ def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
+    phy = request.config.getoption("--phy")
+
     dbg = hw_eth_debugger()
     host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
@@ -103,9 +105,9 @@ def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
     lp_client_id = 0
 
     if not dut_timestamp_probe:
-        xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_single_client" / "hw_test_mii_tx_single_client.xe"
+        xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_single_client_{phy}" / f"hw_test_mii_tx_single_client_{phy}.xe"
     else:
-        xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / "tx_single_client_with_ts_probe" / "hw_test_mii_tx_single_client_with_ts_probe.xe"
+        xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_single_client_with_ts_probe_{phy}" / f"hw_test_mii_tx_single_client_with_ts_probe_{phy}.xe"
 
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         if dbg.wait_for_links_up():
