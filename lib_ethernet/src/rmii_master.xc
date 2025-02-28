@@ -930,7 +930,10 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     {
         ifg_tmr when timerafter(ifg_time) :> ifg_time;
     }
-
+#if PROBE_TX_TIMESTAMPS
+    ifg_tmr :> now;
+    tx_ts_queue.fifo[tx_ts_queue.wr_index] = now;
+#endif
     // Ensure first Tx is synchronised so they launch at the same time. We will continue filling the buffer until the end of packet.
     stop_clock(txclk);
     tx_1b_word(p_mii_txd_0, p_mii_txd_1, 0x55555555);
@@ -1059,11 +1062,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
             time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time, eof_time);
             eof_time = ifg_time;
             ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
-        #if PROBE_TX_TIMESTAMPS
-            increment_tx_ts_queue_write_index();
-            tx_ts_queue.fifo[tx_ts_queue.wr_index] = buf->length;
-            increment_tx_ts_queue_write_index();
-        #endif
         } else {
             time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
             eof_time = ifg_time;
@@ -1076,6 +1074,11 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                 ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES;
             }
         }
+#if PROBE_TX_TIMESTAMPS
+        increment_tx_ts_queue_write_index();
+        tx_ts_queue.fifo[tx_ts_queue.wr_index] = buf->length;
+        increment_tx_ts_queue_write_index();
+#endif
 
 
 
