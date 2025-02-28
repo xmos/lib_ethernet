@@ -37,18 +37,24 @@ def log_timestamps_probed_from_dut(probe_ts, ifg_summary_filename, ifg_full_file
     lengths = timestamps_and_packet_len[1::2]
     iters = min(len(lengths), len(timestamps))
     ifg_full_dict = defaultdict(list)
+    errors = False
     for i in range(iters - 1):
         ts_diff = (timestamps[i+1] - timestamps[i]) % (1 << 32)
         packet_length = lengths[i] + overhead
         packet_time_ns = (1e9 * 8*packet_length)/line_speed
         ts_diff_ns = ts_diff * 10 # ref timer is 10ns
         ifg = ts_diff_ns - packet_time_ns
+        if ifg < 96.0:
+            errors = True
         ifg_full_dict[lengths[i]].append(round(ifg, 2))
 
     #print(ifg_full_dict)
     log_ifg_summary(ifg_full_dict,
                     ifg_summary_file=Path(ifg_summary_filename),
                     ifg_full_file=Path(ifg_full_filename))
+
+    assert errors == False, f"Errors: Min IFG violation seen. Check {ifg_summary_filename} and {ifg_full_filename} for more details"
+
 
 
 # When transmitting, get the DUT to either sweep through all packet sizes or send packets of one size.
@@ -86,11 +92,11 @@ def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
 
     # host generates IFG files both for probe on DUT enabled and disabled
     # DUT generates IFG files only when probes are enabled on the DUT
-    ifg_summary_file_host = f"ifg_{pkt_sz_str}_summary_host_{probe_str}.txt"
-    ifg_full_file_host = f"ifg_{pkt_sz_str}_full_host_{probe_str}.txt"
+    ifg_summary_file_host = f"ifg_{pkt_sz_str}_summary_host_{probe_str}_{phy}.txt"
+    ifg_full_file_host = f"ifg_{pkt_sz_str}_full_host_{probe_str}_{phy}.txt"
 
-    ifg_summary_file_device = f"ifg_{pkt_sz_str}_summary_device_{probe_str}.txt"
-    ifg_full_file_device = f"ifg_{pkt_sz_str}_full_device_{probe_str}.txt"
+    ifg_summary_file_device = f"ifg_{pkt_sz_str}_summary_device_{probe_str}_{phy}.txt"
+    ifg_full_file_device = f"ifg_{pkt_sz_str}_full_device_{probe_str}_{phy}.txt"
 
     print(f"ifg_summary_file_host = {ifg_summary_file_host}")
     print(f"ifg_full_file_host = {ifg_full_file_host}")
@@ -128,14 +134,13 @@ def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
         if packet_type == "sweep":
             # Get DUT to sweep through all frame sizes
             stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_sweep(lp_client_id, connect=False)
+            print(f"DUT sending packets sweeping through all packet sizes\n")
         else:
             # Get DUT to send packets with a fixed packet length
             packet_len = 60
             num_packets = 1005 # Atleast a 1000 since if timestamp probing enabled in the device, it puts out blocks of 1000 timestamps at a time over xscope
             xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(0, num_packets, packet_len, connect=False)
-
-
-        print(f"DUT sending packets sweeping through all packet sizes\n")
+            print(f"DUT sending {num_packets} packets of size {packet_len} bytes\n")
 
         time.sleep(test_duration_s + 1)
         packets = dbg.capture_stop()
