@@ -1,6 +1,10 @@
 # Copyright 2014-2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+"""
+Send packets with less than min IFG to the DUT and see how smallest IFG for which the device still receives without dropping packets
+"""
+
 import random
 from mii_packet import MiiPacket
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
