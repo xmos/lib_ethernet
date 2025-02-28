@@ -609,14 +609,11 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
         try:
             index = sent_mii_packets[last_idx_found_in_sent:].index(miipacket) + last_idx_found_in_sent
             report += f"Received packet {index} ok\n"
-            last_idx_found_in_sent = index
+            last_idx_found_in_sent = index + 1 # Start at the next packet after this one
         except ValueError:
             pass
 
-
     report += "Test done\n"
-
-    print(report)
 
     return report
 
