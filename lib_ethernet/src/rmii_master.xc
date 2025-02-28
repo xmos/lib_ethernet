@@ -1092,9 +1092,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
                                 volatile int * unsafe running_flag_ptr){
 
-    int credit = 0;
-    int credit_time;
-
     // Need one timer to be able to read at any time for the shaper
     timer credit_tmr;
     // And a second timer to be enforcing the IFG gap
