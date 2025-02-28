@@ -21,12 +21,8 @@ add_subdirectory(test_check_ifg_wait)
 add_subdirectory(test_rmii_timing)
 add_subdirectory(test_rmii_restart)
 add_subdirectory(test_smi)
-<<<<<<< HEAD
-add_subdirectory(test_do_idle_slope_unit)
-=======
 add_subdirectory(hw_test_mii)
 add_subdirectory(test_do_idle_slope_unit)
 add_subdirectory(hw_test_mii_tx)
 add_subdirectory(test_tx_ifg)
->>>>>>> hw_test
 
