@@ -20,7 +20,6 @@ import platform
 
 pkg_dir = Path(__file__).parent
 
-
 @pytest.mark.parametrize('send_method', ['socket'])
 @pytest.mark.parametrize('payload_len', ['max', 'min', 'random'])
 def test_hw_mii_rx_only(request, send_method, payload_len):

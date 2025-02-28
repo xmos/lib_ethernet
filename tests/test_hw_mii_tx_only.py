@@ -21,7 +21,7 @@ import struct
 
 pkg_dir = Path(__file__).parent
 
-@pytest.mark.parametrize('send_method', ['socket', 'debugger'])
+@pytest.mark.parametrize('send_method', ['socket', pytest.param('debugger', marks=pytest.mark.debugger)])
                                         # Format is LP packet size, HP packet size, Qav bandwidth bps
                                         # Restricting payload length to 1000 since the host cannot keep up with receiving small packets. Packet drops noticed for anything below 500 bytes.
 @pytest.mark.parametrize('tx_config', [ [1000, 0, 0],
