@@ -4,15 +4,24 @@ lib_ethernet change log
 4.0.0
 -----
 
-  * ADDED: Support for running MII sim tests for XS3 architecture
   * ADDED: RMII Ethernet MAC support for XCORE-AI
   * ADDED: Extended sim tests for testing RMII applications
+  * ADDED: Support for running MII sim tests for XS3 architecture
   * ADDED: Support for XCommon CMake build system
   * ADDED: Exit command to RMII RT MAC
-  * RESOLVED: Build warnings even when compile successful
+  * ADDED: Improved MAC feature documentation
+  * ADDED: Tests for SMI
+  * ADDED: Optional credit limit for Qav shaper
+  * ADDED: Support for running MII sim tests for XS3 architecture
+  * CHANGED: SMI re-write. Single port version now functional and documented
+  * CHANGED: Moved example PHY drivers to lib_board_support
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * REMOVED: Support for XS1 devices
+  * RESOLVED: Build warnings even when compile successful
+  * RESOLVED: Qav shaper credit overflow causing negative credit on idle
+  * RESOLVED: Packets might not be transmitted for 21 seconds if no transmit
+    activity for 21 seconds (IFG timer)
 
   * Changes to dependencies:
 

@@ -8,12 +8,14 @@ lib_ethernet: Ethernet library
 Introduction
 ************
 
-``lib_ethernet`` allows interfacing to MII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
+``lib_ethernet`` allows interfacing to MII, RMII or RGMII Ethernet PHYs and provides the Media Access Control (MAC) function
 for the Ethernet stack.
 
-Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed.
+Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed, as described in :numref:`ethernet_supported_macs`.
 
+.. _ethernet_supported_macs:
 .. list-table:: Ethernet MAC support by XMOS device family
+ :widths: 30 20 20 20 20
  :header-rows: 1
 
  * - XCORE Architecture
@@ -37,16 +39,42 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
    - Contact XMOS
    - N/A
 
+
+The MII MAC is available as two types; a low resource usage version which provides standard layer 2 data access to an array of clients, and a real-time version which offers additional hardware features including:
+
+ * Hardware time-stamping of point of ingress and egress of frames supporting standards such as IEEE 802.1AS.
+ * Support for high priority send and receive queues and receive filtering. This allows time sensitive traffic to be prioritised over other traffic.
+ * Traffic shaping on egress using an IEEE 802.1Qav compliant credit based shaper.
+ * Configurable VLAN tag stripping on received frames.
+
+All RMII and RGMII implementations offer the 'real-time' features as standard. See the :ref:`rt_mac_section` section for more details.
+
+In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
+
+
+``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
+, the `XMOS` application build and dependency management system.
+
+To use ``lib_ethernet`` in an application, add ``lib_ethernet``, to the list of dependent modules in the application's `CMakeLists.txt` file.
+
+  set(APP_DEPENDENT_MODULES "lib_ethernet")
+
+All `lib_ethernet` functions can be accessed via the ``ethernet.h`` header file::
+
+  #include <ethernet.h>
+
 |newpage|
 
 **********************
-Typical Resource Usage
+Typical resource usage
 **********************
 
 Instantiating Ethernet on the XCORE requires resources in terms of memory, threads (MIPS), ports and other resources.
-The amount required depends on the feature set of the MAC. The table below summarises the main requirements.
+The amount required depends on the feature set of the MAC. :numref:`ethernet_mac_resource_usage` summarises the main requirements.
 
+.. _ethernet_mac_resource_usage:
 .. list-table:: Ethernet MAC XCORE resource usage
+ :widths: 25 7 25 7 9 7
  :header-rows: 1
 
  * - Configuration
@@ -79,13 +107,13 @@ The amount required depends on the feature set of the MAC. The table below summa
    - 4
    - ~102 k
    - 8
- * - Raw MII 
+ * - Raw MII
    - 13
    - 5 (1-bit), 2 (4-bit)
    - 2
    - ~10 k
    - 1
- * - SMI (MDIO) 
+ * - SMI (MDIO)
    - 2
    - 2 (1-bit) or 1 (multi-bit)
    - 0
@@ -100,6 +128,88 @@ The amount required depends on the feature set of the MAC. The table below summa
     The SMI configuration API is a function call and so uses no dedicated threads. It
     blocks until the last bit of the transaction is complete.
 
+|newpage|
+
+
+.. _standard_mac_section:
+
+*********************
+Standard MAC Features
+*********************
+
+All MACs in this library support a number of useful features which can be configured by clients.
+
+  * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
+  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries is configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
+  * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
+  * Link state detection allowing action to be taken by higher layers in the case of link state change.
+  * Separately configurable Rx and Tx buffer sizes (queues).
+  * VLAN aware packet reception. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
+
+Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. This means the buffer size should be appropriately sized for your application or the application should tolerate blocking.
+
+Reception of a packet blocks until a packet is available. It may however be combined with an asynchronous notification allowing the client to ``select`` on the XC interface whereupon it can then receive the waiting packet. This provides an efficient, event-driven API option. Please see the :ref:`api_section` for details on how to use the MAC.
+
+In addition, the RMII RT MAC supports an exit command. This tears down all of the tasks associated with the MAC and frees the memory and XCORE resources used, including ports. After exit, the MAC may be re-started again. This can be helpful in cases where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
+
+|newpage|
+
+.. _rt_mac_section:
+
+**********************
+Real-Time MAC Features
+**********************
+
+In addition to all of the features outlined in the :ref:`standard_mac_section` section, real-time (RT) MACs offer enhanced features which are useful in a number of applications such as industrial control, real-time networking and Audio/Video streaming cases. These specific features are introduced below.
+
+
+Hardware Time Stamping
+======================
+
+The XCORE contains architectural features supporting precise timing measurements. Specifically, a 100 MHz timer is included and the RT MACs make use of this to timestamp packets at the point of ingress and egress. This 100 MHz, 32-bit timer value has a resolution of 10 nanoseconds and the provided timestamp can be converted to nanoseconds by multiplying by 10.
+
+When receiving packets, a reference to a structure of type ``ethernet_packet_info_t`` contains the timestamp of the received packet at point of ingress.
+
+When transmitting packets, an additional Tx API is provided for the RT MAC which blocks until the packet has been transmitted and returns the time of egress.
+
+These features, along with APIs to tune the ingress and egress latency offsets, can be used by higher layers such as IEEE 802.1AS (Timing and Synchronization) or PTP (IEEE 1588) to implement precise timing synchronisation across the network.
+
+
+High Priority Queues
+====================
+
+The RT MACs extend the standard client interfaces with the support of a dedicated High Priority (HP) queue. This queue allows traffic to be received or transmitted before lower priority traffic, which is useful in real-time applications where the network is shared with normal, lower priority, traffic. The MAC logic always prioritises HP packets and queues over low priority.
+
+The dedicated HP client API uses streaming channels instead of XC interfaces which provide higher performance data transfer. A dedicated channel is used for each of the receive and transmit interfaces. Streaming channels offer higher performance at the cost of occupying a dedicated switch path which may require careful consideration if the client is placed on a different tile from the MAC. This is important due to the architectural limitation of a maximum of four inter-tile switch paths between tiles. A maximum of one HP receive and transmit client are be supported per MAC.
+
+A flag in the filter table can manually be set when making filter entries which is then used to determine the priority level when receiving packets. This determines which queue to use.
+
+The transmit HP queue is optionally rate limited using the Credit Based Shaper which is described below. Together, these features provide the mechanisms required by IEEE 802.1Qav enabling reliable, low-latency delivery of time-sensitive streams over Ethernet networks.
+
+
+Credit Based Shaper
+===================
+
+The Credit Based Shaper (CBS), in conjunction with the HP queue, limits the bandwidth of non-time-sensitive traffic and ensures a reserved bandwidth for high-priority streams.
+
+
+The CBS uses the following mechanisms to manage egress rate:
+
+  * Credits: The high priority queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
+  * Idle Slope: Determines how quickly credit increases when the queue is idle (i.e., waiting to transmit).
+  * Transmission of data decreases credit proportionally to the number of bits sent.
+
+If the credit is positive, the high priority stream is eligible for transmission and will always be transmitted before any low priority traffic. If the credit is negative, the high priority stream is paused until the credit returns to a positive state. By spreading traffic out evenly over time using a CBS, the queue size in each bridge and endpoint can be shorter, which in turn reduces the latency experienced by traffic as it flows through the system.
+
+The RT MACs are passed an enum argument when instantiated which enables or disables the CBS. In addition the MAC provides an API which can adjust the high-priority transmit queue's CBS idle slope dynamically, for example, if a different bandwidth reservation is required.
+
+The idle slope passed is a fractional value representing the number of bits per reference timer tick in a Q16.16 format defined by ``MII_CREDIT_FRACTIONAL_BITS`` allowing very precise control over bandwidth reservation. Please see :ref:`api_section` for details and an example showing how to convert from bits-per-second to the slope argument.
+
+
+VLAN Tag Stripping
+==================
+
+In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
 
 |newpage|
 
@@ -120,8 +230,9 @@ The MII transfers data using 4 bit words (nibbles) in each direction, clocked at
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
 A clock signal (TXCLK) clocks nibbles (TXD[3:0]) at 2.5 MHz for 10 Mb/s mode and 25 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). Table 1 below describes the MII signals:
+A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). :numref:`mii_signals` describes the MII signals:
 
+.. _mii_signals:
 .. list-table:: MII signals
  :header-rows: 1
 
@@ -168,8 +279,8 @@ A clock signal (RXCLK) clocks the received nibbles (RXD[3:0]). Table 1 below des
    - RX0
    - Receive data bit 0
 
-Any unused 1-bit and 4-bit xCORE ports can be used for MII providing that they are on the same Tile and there is enough
-resource to instantiate the relevant Ethernet MAC component on that Tile.
+Any unused 1-bit and 4-bit xCORE ports can be used for MII provided that they are on the same tile and there is enough
+resource to instantiate the relevant Ethernet MAC component on that tile.
 
 .. _rmii_signals_section:
 
@@ -183,11 +294,11 @@ similar functionality to MII however offers a reduced pin-count.
 The RMII transfers data using 2 bit words (half-nibbles) in each direction, clocked at 50 MHz to achieve 100 Mb/s data rate.
 
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
-A common clock signal clocks nibbles (TXD[1:0]) at 5 MHz for 10 Mb/s mode and 50 MHz for 100 Mb/s mode.
+A common clock signal clocks 2 bits (TXD[1:0]) at 50 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A common clock signal clocks the received nibbles (RXD[1:0]).
+A common clock signal clocks the received half-nibbles (RXD[1:0]).
 
-Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This 
+Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This
 provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
 have their port type set independently and can be mixed. Unused pins on a 4-bit port are ignored for Rx and driven low for Tx.
 
@@ -199,8 +310,9 @@ have their port type set independently and can be mixed. Unused pins on a 4-bit 
 The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardware threads to be used on a 600 MHz xcore.ai device.
 
 
-Table 1 below describes the RMII signals:
+:numref:`rmii_signals` describes the RMII signals:
 
+.. _rmii_signals:
 .. list-table:: RMII signals
  :header-rows: 1
 
@@ -260,8 +372,9 @@ The Ethernet MAC will expect RX clock from PHY to xCORE be delayed by 1.2-2ns as
 
 The pins and functions are listed in Table 2. When the 10/100/1000 Mb/s Ethernet MAC is instantiated these pins can
 no longer be used as GPIO pins, and will instead be driven directly from a Double Data Rate RGMII block, which in turn
-is interfaced to a set of ports on Tile 1.
+is interfaced to a set of ports on Tile 1. :numref:`rgmii_signals` describes the RGMII pins and signals:
 
+.. _rgmii_signals:
 .. list-table:: RGMII pins and signals
  :header-rows: 1
 
@@ -311,15 +424,10 @@ Other IO pins and ports are unaffected.
 
 .. _rgmii_port_structure:
 
-.. figure:: images/XS2-RGMII.pdf
+.. figure:: images/XS2-RGMII.png
 
    RGMII port structure
 
-PHY Serial Management Interface (MDIO)
-======================================
-
-The MDIO interface consists of clock (MDC) and data (MDIO) signals. Both should be connected to two one-bit ports that are
-configured as open-drain IOs, using external pull-ups to either 3.3V or 2.5V (RGMII).
 
 |newpage|
 
@@ -343,9 +451,10 @@ non-real-time configuration.
 
 Ethernet MAC components are instantiated as parallel tasks that run in a ``par`` statement. The application
 can connect via a transmit, receive and configuration interface connection using the :ref:`ethernet_tx_if<ethernet_tx_if_section>`,
-:ref:`ethernet_rx_if<ethernet_rx_if_section>` and :ref:`ethernet_cfg_if` interface types:
+:ref:`ethernet_rx_if<ethernet_rx_if_section>` and :ref:`ethernet_cfg_if` interface types, as shown in :numref:`standard_mii_task_diagram`
 
-.. figure:: images/10_100_mac_tasks.pdf
+.. _standard_mii_task_diagram:
+.. figure:: images/10_100_mac_tasks.png
 
    10/100 Mb/s Ethernet MAC task diagram
 
@@ -418,9 +527,10 @@ The real-time MAC may support the RMII interface described in :ref:`rmii_signals
 
 
 It is instantiated similarly to the non-real-time Ethernet MAC, with additional streaming channels for sending and
-receiving high-priority Ethernet traffic:
+receiving high-priority Ethernet traffic, as shown in :numref:`rt_mac_task_diagram`:
 
-.. figure:: images/10_100_rt_mac_tasks.pdf
+.. _rt_mac_task_diagram:
+.. figure:: images/10_100_rt_mac_tasks.png
 
    10/100 Mb/s real-time Ethernet MAC task diagram
 
@@ -456,16 +566,16 @@ interfaces and connects to it::
 
 
 
-Similarly the RMII real-time MAC may be instantiated::
+Similarly the RMII real-time MAC may be instantiated (four bit port version shown)::
 
     port p_eth_clk = XS1_PORT_1J;
-    rmii_data_port_t p_eth_txd = {{XS1_PORT_4B, USE_LOWER_2B}};
-    rmii_data_port_t p_eth_rxd = {{XS1_PORT_4A, USE_LOWER_2B}};
+    port p_eth_txd = XS1_PORT_4B;
+    port p_eth_rxd = XS1_PORT_4A;
     port p_eth_rxdv = XS1_PORT_1K;
     port p_eth_txen = XS1_PORT_1L;
     clock eth_rxclk = XS1_CLKBLK_1;
     clock eth_txclk = XS1_CLKBLK_2;
-   
+
     int main()
     {
       ethernet_cfg_if i_cfg[1];
@@ -474,21 +584,19 @@ Similarly the RMII real-time MAC may be instantiated::
       streaming chan c_rx_hp;
       streaming chan c_tx_hp;
       par {
-        unsafe{rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
-                                    c_rx_hp, c_tx_hp,
-                                    p_eth_clk,
-                                    &p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txen, &p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_ENABLE_SHAPER);}
+        rmii_ethernet_rt_mac(i_cfg, 1, i_rx_lp, 1, i_tx_lp, 1,
+                             c_rx_hp, c_tx_hp,
+                             p_eth_clk,
+                             p_eth_rxd, NULL, USE_UPPER_2B,
+                             p_eth_rxdv,
+                             p_eth_txen,
+                             p_eth_txd, NULL, USE_UPPER_2B,
+                             eth_rxclk, eth_txclk,
+                             port_timing,
+                             4000, 4000, ETHERNET_ENABLE_SHAPER);
        application(i_cfg[0], i_rx_lp[0], i_tx_lp[0], c_rx_hp, c_tx_hp);
       }
     }
-
-
-.. note::
-    The call to rmii_ethernet_rt_mac() needs to be wrapped in  ``unsafe{}`` because the rmii_data_port_t types are sent as references which translate to unsafe (array bounds unchecked) pointers.
-
 
 
 
@@ -529,9 +637,10 @@ interface as described in :ref:`rgmii_signals_section`.
 
 It is instantiated similarly to the real-time Ethernet MAC, with an additional combinable task that allows the
 configuration interface to be shared with another slow interface such as SMI/MDIO. It must be instantiated on Tile 1
-and the user application run on Tile 0:
+and the user application run on Tile 0, as shown in :numref:`rgmii_mac_task_diagram`:
 
-.. figure:: images/10_100_1000_mac_tasks.pdf
+.. _rgmii_mac_task_diagram:
+.. figure:: images/10_100_1000_mac_tasks.png
 
    10/100/1000 Mb/s Ethernet MAC task diagram
 
@@ -563,9 +672,8 @@ interfaces and connects to it::
 
 .. _mii:
 
-*****************
 Raw MII interface
-*****************
+=================
 
 The raw MII interface implements a MII layer component with a basic buffering scheme that is shared with the application. It
 provides a direct access to the MII pins as described in :ref:`mii_signals_section`. It does not implement the buffering and
@@ -573,9 +681,10 @@ filtering required by a compliant Ethernet MAC layer, and defers this to the app
 
 The buffering of this task is shared with the application it is connected to. It sets up an interrupt handler
 on the logical core the application is running on (via the ``init`` function on the :ref:`mii_if<mii_if_section>` interface connection) and also
-consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on.
+consumes some of the MIPs on that core in addition to the core :ref:`mii` is running on (:numref:`raw_mii_task`).
 
-.. figure:: images/mii_tasks.pdf
+.. _raw_mii_task:
+.. figure:: images/mii_tasks.png
 
    MII task diagram
 
@@ -607,6 +716,32 @@ For example, the following code instantiates a MII component and connects to it:
 More information on interfaces and tasks can be be found in the `XMOS Programming Guide <https://www.xmos.com/file/xmos-programming-guide>`_.
 
 |newpage|
+
+.. _smi:
+
+SMI/MDIO interface
+==================
+
+The SMI (Serial Management Interface) is used in Ethernet systems for the management and configuration of PHY (physical layer) devices. It is part of the MDIO (Management Data Input/Output) system defined by the IEEE 802.3 standard and provides a mechanism for communication between a MAC (Media Access Control) layer and PHY devices in an Ethernet system.
+
+The MDIO interface consists of clock (MDC) and data (MDIO) signals. MDC is always driven by the host whereas MDIO can be turned around so that it can read data from the PHY.
+
+The SMI task is marked as ``[[distributable]]`` which means, if it is called from the same tile, does not occupy a hardware thread. Instead the call to the ``read_reg()`` or ``write_reg()`` methods are treated as function calls which return when the last bit of the SMI transaction is complete.
+
+The interface uses two pins to communicate and there are two variants of the API provided, depending on whether you wish to use two one bit ports or two bits of a wider port. If you use two bits of a wider port, the remaining pins are not available for general use and should either be left disconnected or weakly pulled down.
+
+.. note::
+    The standard SMI/MDIO specification requires use of a pull-up resistor on MDIO (typically 4.7 kOhm for a single PHY in a 3.3 V system). If using the single-port version then it is necessary to also connect a pull-up to the MDC line (typically 4.7 kOhm for 3.3 V systems). The reason for this is that xcore ports have only a single direction bit. So in order to sample the MDIO line with a known MDC state, an external resistor is required.
+
+The speed of the interface is set conservatively at 1.66 MHz which supports slower PHY SMI interfaces (eg. LAN8710A) that have a relatively slow time to data valid. This speed is also chosen to support the single port version which has to sample read data at the falling edge, effectively reducing the maximum bit clock by a factor of two. If faster access is required and supported by the PHY, or the two port version is used, then it is possible to adjust the following define in ``smi.xc`` up to a maximum of around 4 MHz for xCORE-200 and 5 MHz for xcore.ai::
+
+    #define SMI_BIT_CLOCK_HZ 1660000
+
+Increasing the bit clock may require use of smaller pull-up resistor(s) depending on board layout to ensure that the signal rise time is sufficient. If in doubt, either test operation using lower the bit rate by setting a smaller ``SMI_BIT_CLOCK_HZ`` or check with an oscilloscope to ensure that the MDC and MDIO lines are fully reaching the logic high state.
+
+|newpage|
+
+.. _api_section:
 
 ***
 API
@@ -756,19 +891,3 @@ SMI PHY configuration helper functions
 .. doxygenfunction:: smi_phy_is_powered_down
 
 .. doxygenfunction:: smi_get_link_state
-
-
-|newpage|
-
-
-************
-Known Issues
-************
-
-Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
-
-*********
-Changelog
-*********
-
-Please see the active repo for the latest `changelog <https://github.com/xmos/lib_ethernet/blob/develop/CHANGELOG.rst>`_.

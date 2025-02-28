@@ -1,4 +1,4 @@
-// Copyright 2013-2024 XMOS LIMITED.
+// Copyright 2013-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "mii_master.h"
 #include <xs1.h>
@@ -13,6 +13,7 @@
 #include "mii_common_lld.h"
 #include "string.h"
 #include "check_ifg_wait.h"
+#include "shaper.h"
 
 #define QUOTEAUX(x) #x
 #define QUOTE(x) QUOTEAUX(x)
@@ -471,9 +472,9 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                out buffered port:32 p_mii_txd,
                                volatile ethernet_port_state_t * unsafe p_port_state)
 {
-  int credit = 0; // No. of bits allowed to send
-  int credit_time;
-  // Need one timer to be able to read at any time for the shaper
+  qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
+
+  // Need a timer to be able to read at any time for the shaper
   timer credit_tmr;
   // And a second timer to be enforcing the IFG gap
   hwtimer_t ifg_tmr;
@@ -485,7 +486,8 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
     enable_shaper = 0;
 
   if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
-    credit_tmr :> credit_time;
+    credit_tmr :> qav_state.current_time;
+    qav_state.prev_time = qav_state.current_time;
   }
 
   ifg_tmr :> ifg_time;
@@ -496,27 +498,15 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
     mii_ts_queue_t *p_ts_queue = null;
     mii_mempool_t tx_mem = tx_mem_hp;
 
-    if (ETHERNET_SUPPORT_HP_QUEUES)
+    if (ETHERNET_SUPPORT_HP_QUEUES) {
       buf = mii_get_next_buf(packets_hp);
-
-    if (enable_shaper) {
-      int prev_credit_time = credit_time;
-      credit_tmr :> credit_time;
-
-      int elapsed = credit_time - prev_credit_time;
-      credit += elapsed * p_port_state->qav_idle_slope; // add bit budget since last transmission to credit. ticks * bits/tick = bits
-
-      if (buf) {
-        if (credit < 0) {
-          buf = 0; // if out of credit drop this HP packet
-        }
-      }
-      else {
-        if (credit > 0)
-          credit = 0;
-      }
     }
 
+    if (enable_shaper) {
+      credit_tmr :> qav_state.current_time;
+      buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
+    }
+    
     if (!buf) {
       buf = mii_get_next_buf(packets_lp);
       p_ts_queue = &ts_queue;
@@ -530,19 +520,15 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     unsigned time = mii_transmit_packet(tx_mem, buf, p_mii_txd, ifg_tmr, ifg_time, eof_time);
 
-    eof_time = ifg_time;
     // Setup the hardware timer to enforce the IFG
+    eof_time = ifg_time;
     ifg_time += MII_ETHERNET_IFS_AS_REF_CLOCK_COUNT;
     ifg_time += (buf->length & 0x3) * 8;
 
+    // Calculate the send slope (decrement credit) if enabled and was HP
     const int packet_is_high_priority = (p_ts_queue == null);
     if (enable_shaper && packet_is_high_priority) {
-      const int preamble_bytes = 8;
-      const int ifg_bytes = 96/8;
-      const int crc_bytes = 4;
-      int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
-      // decrease credit by no. of bits transmitted
-      credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3)); // MII_CREDIT_FRACTIONAL_BITS+3 to convert from bytes to bits
+      shaper_do_send_slope(buf->length, &qav_state);
     }
 
     if (mii_get_and_dec_transmit_count(buf) == 0) {
@@ -559,6 +545,6 @@ unsafe void mii_master_tx_pins(mii_mempool_t tx_mem_lp,
         mii_free_current(packets_hp);
       }
     }
-  }
+  } // while(1)
 }
 

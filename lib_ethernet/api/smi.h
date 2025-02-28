@@ -1,4 +1,4 @@
-// Copyright 2014-2024 XMOS LIMITED.
+// Copyright 2014-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef _smi_h_
 #define _smi_h_
@@ -8,24 +8,28 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 // SMI Registers
-#define BASIC_CONTROL_REG                  0x0
-#define BASIC_STATUS_REG                   0x1
-#define PHY_ID1_REG                        0x2
-#define PHY_ID2_REG                        0x3
-#define AUTONEG_ADVERT_REG                 0x4
-#define AUTONEG_LINK_REG                   0x5
-#define AUTONEG_EXP_REG                    0x6
-#define GIGE_CONTROL_REG                   0x9
+#define BASIC_CONTROL_REG                   0x0
+#define BASIC_STATUS_REG                    0x1
+#define PHY_ID1_REG                         0x2
+#define PHY_ID2_REG                         0x3
+#define AUTONEG_ADVERT_REG                  0x4
+#define AUTONEG_LINK_REG                    0x5
+#define AUTONEG_EXP_REG                     0x6
+#define GIGE_CONTROL_REG                    0x9
+#define RMII_AND_STATUS_REG                 0x17
+#define IO_CONFIG_1_REG                     0x302
 
-#define BASIC_CONTROL_LOOPBACK_BIT        14
-#define BASIC_CONTROL_100_MBPS_BIT        13
-#define BASIC_CONTROL_1000_MBPS_BIT        6
-#define BASIC_CONTROL_AUTONEG_EN_BIT      12
-#define BASIC_CONTROL_POWER_DOWN_BIT      11
-#define BASIC_CONTROL_RESTART_AUTONEG_BIT  9
-#define BASIC_CONTROL_FULL_DUPLEX_BIT      8
+#define BASIC_CONTROL_LOOPBACK_BIT          14
+#define BASIC_CONTROL_100_MBPS_BIT          13
+#define BASIC_CONTROL_1000_MBPS_BIT         6
+#define BASIC_CONTROL_AUTONEG_EN_BIT        12
+#define BASIC_CONTROL_POWER_DOWN_BIT        11
+#define BASIC_CONTROL_RESTART_AUTONEG_BIT   9
+#define BASIC_CONTROL_FULL_DUPLEX_BIT       8
 
-#define BASIC_STATUS_LINK_BIT              2
+#define BASIC_STATUS_LINK_BIT               2
+
+#define IO_CFG_CRS_RX_DV_BIT                8
 
 #define AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX             9
 #define AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX             8
@@ -86,10 +90,14 @@ void smi(SERVER_INTERFACE(smi_if, i_smi),
 
 /** SMI component that connects to an Ethernet PHY or switch via MDIO
  *  on a shared multi-bit port.
+ * 
+ *  Important!! This version requires a pull-up resistor on MDC to function.
  *
  *  This function implements a SMI component that connects to an 
  *  Ethernet PHY/ switch via MDIO/MDC connected on the same multi-bit port.
  *  Interaction to the component is via the connected SMI interface.
+ *  Unsed pins in the port are reserved and should be left unconnected or weakly
+ *  pulled down.
  *
  *  \param i_smi    Client register read/write interface
  *  \param p_smi    The multi-bit port with MDIO/MDC pins

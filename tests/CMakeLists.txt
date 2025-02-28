@@ -20,4 +20,6 @@ add_subdirectory(test_rx_queues)
 add_subdirectory(test_check_ifg_wait)
 add_subdirectory(test_rmii_timing)
 add_subdirectory(test_rmii_restart)
+add_subdirectory(test_smi)
+add_subdirectory(test_do_idle_slope_unit)
 

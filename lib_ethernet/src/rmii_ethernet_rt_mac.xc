@@ -45,13 +45,16 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           nullable_streaming_chanend_t c_rx_hp,
                           nullable_streaming_chanend_t c_tx_hp,
                           in_port_t p_clk,
-                          rmii_data_port_t * unsafe p_rxd, in_port_t p_rxdv,
-                          out_port_t p_txen, rmii_data_port_t * unsafe p_txd,
+                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_4b_pin_assignment_t rx_pin_map,
+                          in_port_t p_rxdv,
+                          out_port_t p_txen,
+                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
+                          rmii_port_timing_t port_timing,
                           static_const_unsigned_t rx_bufsize_words,
                           static_const_unsigned_t tx_bufsize_words,
-                          enum ethernet_enable_shaper_t enable_shaper)
+                          enum ethernet_enable_shaper_t shaper_enabled)
 {
   // Establish types of data ports presented
   unsafe{
@@ -105,19 +108,18 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     in buffered port:32 * unsafe rx_data_1 = NULL;
 
     // Extract width and optionally which 4b pins to use
-    unsigned rx_port_width = ((unsigned)(p_rxd->rmii_data_1b.data_0) >> 16) & 0xff;
-    rmii_data_4b_pin_assignment_t rx_port_4b_pins = (rmii_data_4b_pin_assignment_t)(p_rxd->rmii_data_1b.data_1);
+    unsigned rx_port_width = ((unsigned)(p_rxd_0) >> 16) & 0xff;
 
     // Extract pointers to ports with correct port qualifiers and setup data pins
     switch(rx_port_width){
       case 4:
-        rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd->rmii_data_1b.data_0), 32);
-        rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk);
+        rx_data_0 = enable_buffered_in_port((unsigned*)(&p_rxd_0), 32);
+        rmii_master_init_rx_4b(p_clk, rx_data_0, p_rxdv, rxclk, port_timing);
         break;
       case 1:
-        rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_0, 32);
-        rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd->rmii_data_1b.data_1, 32);
-        rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk);
+        rx_data_0 = enable_buffered_in_port((unsigned*)&p_rxd_0, 32);
+        rx_data_1 = enable_buffered_in_port((unsigned*)&p_rxd_1, 32);
+        rmii_master_init_rx_1b(p_clk, rx_data_0, rx_data_1, p_rxdv, rxclk, port_timing);
         break;
       default:
         fail("Invald port width for RMII Rx");
@@ -129,20 +131,18 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     out buffered port:32 * unsafe tx_data_1 = NULL;
 
     // Extract port info
-    unsigned tx_port_width = ((unsigned)(p_txd->rmii_data_1b.data_0) >> 16) & 0xff;
-    unsigned tx_pins_used  = (unsigned)(p_txd->rmii_data_1b.data_1);
-    rmii_data_pin_assignment_t tx_port_pins = {tx_pins_used};
+    unsigned tx_port_width = ((unsigned)(p_txd_0) >> 16) & 0xff;
 
     switch(tx_port_width){
       case 8:
       case 4:
-        tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd->rmii_data_1b.data_0), 32);
-        rmii_master_init_tx_4b_8b(p_clk, tx_data_0, p_txen, txclk);
+        tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd_0), 32);
+        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk, port_timing);
         break;
       case 1:
-        tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_0, 32);
-        tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd->rmii_data_1b.data_1, 32);
-        rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk);
+        tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd_0, 32);
+        tx_data_1 = enable_buffered_out_port((unsigned*)&p_txd_1, 32);
+        rmii_master_init_tx_1b(p_clk, tx_data_0, tx_data_1, p_txen, txclk, port_timing);
         break;
       default:
         fail("Invald port width for RMII Tx");
@@ -151,7 +151,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
 
     // Setup server
     ethernet_port_state_t port_state;
-    init_server_port_state(port_state, enable_shaper == ETHERNET_ENABLE_SHAPER);
+    init_server_port_state(port_state, shaper_enabled == ETHERNET_ENABLE_SHAPER);
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
@@ -170,7 +170,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                                  p_rx_rdptr,
                                  p_rxdv,
                                  rx_data_0,
-                                 rx_port_4b_pins,
+                                 rx_pin_map,
                                  running_flag_ptr,
                                  c_rx_pins_exit);
         } else {
@@ -194,7 +194,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           tx_port_width,
                           tx_data_0,
                           tx_data_1,
-                          tx_port_pins,
+                          tx_pin_map,
                           txclk,
                           p_port_state,
                           running_flag_ptr);
@@ -232,11 +232,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     stop_clock(rxclk);
     switch(rx_port_width){
       case 4:
-        set_port_use_off(p_rxd->rmii_data_1b.data_0);
+        set_port_use_off(*rx_data_0);
         break;
       case 1:
-        set_port_use_off(p_rxd->rmii_data_1b.data_0);
-        set_port_use_off(p_rxd->rmii_data_1b.data_1);
+        set_port_use_off(*rx_data_0);
+        set_port_use_off(*rx_data_1);
         break;
       default:
         fail("Invald port width for RMII Rx");
@@ -247,11 +247,11 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     stop_clock(txclk);
     switch(tx_port_width){
       case 4:
-        set_port_use_off(p_txd->rmii_data_1b.data_0);
+        set_port_use_off(*tx_data_0);
         break;
       case 1:
-        set_port_use_off(p_txd->rmii_data_1b.data_0);
-        set_port_use_off(p_txd->rmii_data_1b.data_1);
+        set_port_use_off(*tx_data_0);
+        set_port_use_off(*tx_data_1);
         break;
       default:
         fail("Invald port width for RMII Tx");

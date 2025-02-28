@@ -16,6 +16,7 @@
 #include "string.h"
 #include "check_ifg_wait.h"
 #include "rmii_rx_pins_exit.h"
+#include "shaper.h"
 
 
 #define QUOTEAUX(x) #x
@@ -39,12 +40,6 @@
 #define RECEIVE_PREAMBLE_WITH_SELECT_4b_ASM (1) // Call asm version of receive_full_preamble_4b_with_select
 #define RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM (1) // Call asm version of receive_full_preamble_1b_with_select
 
-// Timing tuning constants
-// TODO THESE NEED SETTING UP
-#define PAD_DELAY_RECEIVE    0
-#define PAD_DELAY_TRANSMIT   0
-#define CLK_DELAY_RECEIVE    0
-#define CLK_DELAY_TRANSMIT   0
 
 // After-init delay (used at the end of rmii_init)
 #define PHY_INIT_DELAY 10000000
@@ -91,7 +86,7 @@
 // These are overridable defines and can be overriden if the processor is running faster than what these were measured for.
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b
-    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (8) // In reference timer ticks
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (7) // In reference timer ticks
 #endif
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b
@@ -119,7 +114,8 @@
 
 static void rmii_master_init_rx_common(in port p_clk,
                                        in port p_rxdv,
-                                       clock rxclk){
+                                       clock rxclk,
+                                       rmii_port_timing_t port_timing){
     // Enable data valid. Data ports already on and configured to 32b buffered.
     set_port_use_on(p_rxdv);
 
@@ -131,20 +127,24 @@ static void rmii_master_init_rx_common(in port p_clk,
     set_port_clock(p_rxdv, rxclk);      // Connect to clock block
     set_clock_ready_src(rxclk, p_rxdv); // Enable data valid
 
-    set_clock_rise_delay(rxclk, CLK_DELAY_RECEIVE);
-    set_clock_fall_delay(rxclk, CLK_DELAY_RECEIVE);
+    set_clock_rise_delay(rxclk, port_timing.clk_delay_rx_rising);
+    set_clock_fall_delay(rxclk, port_timing.clk_delay_rx_falling);
 }
 
 
-unsafe void rmii_master_init_rx_4b(in port p_clk,
-                            in buffered port:32 * unsafe rx_data,
-                            in port p_rxdv,
-                            clock rxclk){
-    rmii_master_init_rx_common(p_clk, p_rxdv, rxclk);
+unsafe void rmii_master_init_rx_4b( in port p_clk,
+                                    in buffered port:32 * unsafe rx_data,
+                                    in port p_rxdv,
+                                    clock rxclk,
+                                    rmii_port_timing_t port_timing){
+    rmii_master_init_rx_common(p_clk, p_rxdv, rxclk, port_timing);
 
     set_port_clock(*rx_data, rxclk); // Connect to rx clock block
     set_port_strobed(*rx_data);      // Strobed slave (only accept data when valid asserted)
     set_port_slave(*rx_data);
+
+    set_pad_delay(*rx_data, port_timing.pad_delay_rx);
+    set_pad_delay(p_rxdv, port_timing.pad_delay_rx);
 
     clearbuf(*rx_data);
 
@@ -155,8 +155,9 @@ unsafe void rmii_master_init_rx_1b(in port p_clk,
                             in buffered port:32 * unsafe rx_data_0,
                             in buffered port:32 * unsafe rx_data_1,
                             in port p_rxdv,
-                            clock rxclk){
-    rmii_master_init_rx_common(p_clk, p_rxdv, rxclk);
+                            clock rxclk,
+                            rmii_port_timing_t port_timing){
+    rmii_master_init_rx_common(p_clk, p_rxdv, rxclk, port_timing);
 
     set_port_clock(*rx_data_0, rxclk);  // Connect to rx clock block
     set_port_strobed(*rx_data_0);       // Strobed slave (only accept data when valid asserted)
@@ -166,6 +167,10 @@ unsafe void rmii_master_init_rx_1b(in port p_clk,
     set_port_strobed(*rx_data_1);
     set_port_slave(*rx_data_1);
 
+    set_pad_delay(*rx_data_0, port_timing.pad_delay_rx);
+    set_pad_delay(*rx_data_1, port_timing.pad_delay_rx);
+    set_pad_delay(p_rxdv, port_timing.pad_delay_rx);
+
     clearbuf(*rx_data_0);
     clearbuf(*rx_data_1);
 
@@ -174,7 +179,8 @@ unsafe void rmii_master_init_rx_1b(in port p_clk,
 
 static void rmii_master_init_tx_common( in port p_clk,
                                         out port p_txen,
-                                        clock txclk){
+                                        clock txclk,
+                                        rmii_port_timing_t port_timing){
     // Enable tx enable valid signal. Data ports already on and configured to 32b buffered.
     set_port_use_on(p_txen);
     p_txen <: 0; // Ensure is initially low so no spurious enables
@@ -187,19 +193,20 @@ static void rmii_master_init_tx_common( in port p_clk,
     set_port_mode_ready(p_txen);
     set_port_clock(p_txen, txclk);
 
-    set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
-    set_clock_rise_delay(txclk, CLK_DELAY_TRANSMIT);
+    set_clock_rise_delay(txclk, port_timing.clk_delay_tx_rising);
+    set_clock_fall_delay(txclk, port_timing.clk_delay_tx_falling);
 }
 
 
-unsafe void rmii_master_init_tx_4b_8b( in port p_clk,
-                                       out buffered port:32 * unsafe tx_data,
-                                       out port p_txen,
-                                       clock txclk){
+unsafe void rmii_master_init_tx_4b_8b(in port p_clk,
+                                      out buffered port:32 * unsafe tx_data,
+                                      out port p_txen,
+                                      clock txclk,
+                                      rmii_port_timing_t port_timing){
     *tx_data <: 0;  // Ensure lines are low
     sync(*tx_data); // And wait to empty. This ensures no spurious p_txen on init
 
-    rmii_master_init_tx_common(p_clk, p_txen, txclk);
+    rmii_master_init_tx_common(p_clk, p_txen, txclk, port_timing);
 
     // Configure so that tx_data controls the ready signal strobe
     set_port_strobed(*tx_data);
@@ -214,13 +221,14 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
                                     out buffered port:32 * unsafe tx_data_0,
                                     out buffered port:32 * unsafe tx_data_1,
                                     out port p_txen,
-                                    clock txclk){
+                                    clock txclk,
+                                    rmii_port_timing_t port_timing){
     *tx_data_0 <: 0;  // Ensure lines are low
     sync(*tx_data_0); // And wait to empty. This ensures no spurious p_txen on init
     *tx_data_1 <: 0;
     sync(*tx_data_1);
 
-    rmii_master_init_tx_common(p_clk, p_txen, txclk);
+    rmii_master_init_tx_common(p_clk, p_txen, txclk, port_timing);
 
     // Configure so that just tx_data_0 controls the read signal strobe
     // When we transmit we will ensure both port buffers are launched
@@ -823,7 +831,7 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
     if(wrap_size > 0){
         first_chunk_size -= wrap_size;
         wrap_ptr = (unsigned *)*wrap_ptr; // Dereference wrap pointer to get start of wrap memory
-        printstrln("wrap_required");
+        // printstrln("wrap_required");
     }
 
     if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
@@ -1074,12 +1082,15 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     int credit = 0;
     int credit_time;
+
     // Need one timer to be able to read at any time for the shaper
     timer credit_tmr;
     // And a second timer to be enforcing the IFG gap
     hwtimer_t ifg_tmr;
     unsigned ifg_time = 0;
     unsigned eof_time = 0;
+
+    qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
 
     // Lookup table for 8b transmit case
@@ -1092,7 +1103,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         enable_shaper = 0;
     }
     if (ETHERNET_SUPPORT_HP_QUEUES && enable_shaper) {
-        credit_tmr :> credit_time;
+        credit_tmr :> qav_state.current_time;
+        qav_state.prev_time = qav_state.current_time;
     }
 
     ifg_tmr :> ifg_time;
@@ -1107,21 +1119,8 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         }
 
         if (enable_shaper) {
-            int prev_credit_time = credit_time;
-            credit_tmr :> credit_time;
-
-            int elapsed = credit_time - prev_credit_time;
-            credit += elapsed * p_port_state->qav_idle_slope;
-
-            if (buf) {
-                if (credit < 0) {
-                    buf = 0;
-                }
-            } else {
-                if (credit > 0) {
-                    credit = 0;
-                }
-            }
+            credit_tmr :> qav_state.current_time;
+            buf = shaper_do_idle_slope(buf, &qav_state, p_port_state);
         }
 
         if (!buf) {
@@ -1166,11 +1165,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {
-            const int preamble_bytes = 8;
-            const int ifg_bytes = 96/8;
-            const int crc_bytes = 4;
-            int len = buf->length + preamble_bytes + ifg_bytes + crc_bytes;
-            credit = credit - (len << (MII_CREDIT_FRACTIONAL_BITS+3));
+            shaper_do_send_slope(buf->length, &qav_state);
         }
 
         if (mii_get_and_dec_transmit_count(buf) == 0) {
