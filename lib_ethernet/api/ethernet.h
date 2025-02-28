@@ -722,7 +722,6 @@ typedef struct rmii_port_timing_t{
  *  \param rx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param p_rxdv              RMII RX data valid port
  *  \param p_txen              RMII TX enable port
-<<<<<<< HEAD
  *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 or 8 bit option)
  *  \param p_txd_1             Port for data bit 1 (1 bit option). Pass null if unused.
  *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
@@ -733,15 +732,6 @@ typedef struct rmii_port_timing_t{
  *  \param txclk               Clock used for RMII transmit timing
  *  \param port_timing         Struct used for initialising the clock blocks to ensure setup and hold times are met
  * 
-=======
- *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
- *  \param p_txd_1             Port for data bit 1 (1 bit option). Pass null if unused.
- *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
- *  \param rxclk               Clock used for RMII receive timing
- *  \param txclk               Clock used for RMII transmit timing
- *  \param port_timing         Struct used for initialising the clock blocks to ensure setup and hold times are met
- *
->>>>>>> hw_test
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
  *                             This should be at least 500 long words.
  *  \param tx_bufsize_words    The number of words to used for a transmit buffer.

@@ -2,7 +2,6 @@
 
 @Library('xmos_jenkins_shared_library@v0.36.0') _
 
-
 def clone_test_deps() {
   dir("${WORKSPACE}") {
     sh "git clone git@github.com:xmos/test_support"
@@ -89,6 +88,7 @@ pipeline {
             }
           }
         }
+
         stage('Documentation') {
           steps {
             dir("${REPO}") {
