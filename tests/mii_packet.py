@@ -102,6 +102,9 @@ class MiiPacket(object):
         if self.src_mac_addr is None:
             self.src_mac_addr = [rand.randint(0, 255) for x in range(6)]
 
+        self.dst_mac_addr_str = ":".join([str(format(j, '02x')) for j in self.dst_mac_addr ])
+        self.src_mac_addr_str = ":".join([str(format(j, '02x')) for j in self.src_mac_addr ])
+
         # If the data is defined, then record the length. Otherwise create random
         # data of the length specified
         if self.data_bytes is None and not blank:
