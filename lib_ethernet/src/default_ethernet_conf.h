@@ -75,4 +75,13 @@
 #define __SIMULATOR__ 0
 #endif
 
+// Enable the mii_ethernet_server() thread notifying the clients connected to it over the i_cfg interface when it starts.
+// Note that this uses the XC interface notification mechanism that is channel heavy and could lead to the application
+// running out of chanends. Hence disabled by default.
+// Currently this is only enabled when testing the mac exit command. After the mii_ethernet_server() restarts after an exit,
+// on receiving this notification the phy drivers shares the current ethernet link status with it.
+#ifndef ENABLE_MAC_START_NOTIFICATION
+#define ENABLE_MAC_START_NOTIFICATION 0
+#endif
+
 #endif // __default_ethernet_conf_h__

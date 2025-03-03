@@ -61,9 +61,10 @@ def log_timestamps_probed_from_dut(probe_ts, ifg_summary_filename, ifg_full_file
 # When fixed_size, the packet size is hardcoded in the test and can be changed (by changing 'packet_len' in the test code)
 # when reqd to test for another size.
 # This is largely for debug so not parametrizing for different sizes
+@pytest.mark.debugger
 @pytest.mark.parametrize("packet_type", ["sweep", "fixed_size"])
 @pytest.mark.parametrize("dut_timestamp_probe", [True, False], ids=["ts_probe_on", "ts_probe_off"]) # Enable or disable timestamp probing in the DUT
-def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
+def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -111,9 +112,9 @@ def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
     lp_client_id = 0
 
     if not dut_timestamp_probe:
-        xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_single_client_{phy}" / f"hw_test_mii_tx_single_client_{phy}.xe"
+        xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_single_client_{phy}" / f"hw_test_rmii_tx_single_client_{phy}.xe"
     else:
-        xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_single_client_with_ts_probe_{phy}" / f"hw_test_mii_tx_single_client_with_ts_probe_{phy}.xe"
+        xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_single_client_with_ts_probe_{phy}" / f"hw_test_rmii_tx_single_client_with_ts_probe_{phy}.xe"
 
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         if dbg.wait_for_links_up():

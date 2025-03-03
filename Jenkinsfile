@@ -18,9 +18,7 @@ def clone_test_deps() {
 getApproval()
 
 pipeline {
-  agent {
-    label 'documentation&&linux&&x86_64'
-  }
+  agent none
   options {
     buildDiscarder(xmosDiscardBuildSettings())
     skipDefaultCheckout()
@@ -52,6 +50,9 @@ pipeline {
   }
   stages {
     stage('Build + Documentation') {
+      agent {
+        label 'documentation&&linux&&x86_64'
+      }
       stages {
         stage('Checkout') {
           environment {
@@ -173,9 +174,59 @@ pipeline {
             } // cleanup
           } // post
         } // stage('Simulator tests')
-        stage('HW tests') {
+        //stage('HW tests - PHY0') {
+        //  agent {
+        //    label 'sw-hw-eth-ubu0'
+        //  }
+        //  environment {
+        //    PYTHON_VERSION = "3.12.3"
+        //  }
+        //  steps {
+        //    dir("${REPO}") {
+        //      checkoutScmShallow()
+        //      createVenv()
+        //      installPipfile(false)
+        //    }
+
+        //    clone_test_deps()
+
+        //    dir("${REPO}") {
+        //      withVenv {
+        //        sh "pip install -e ../test_support"
+        //        sh "pip install -e ../hardware_test_tools"
+        //        sh "pip install -e ../xtagctl"
+        //        withTools(params.TOOLS_VERSION) {
+        //          dir("tests") {
+        //            // Build all apps in the examples directory
+        //            unstash 'test_bin'
+        //            script {
+        //                // Set environment variable based on condition
+        //                def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
+        //                // Use withEnv to pass the variable to the shell
+        //                withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
+        //                  withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
+        //                    sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw' "
+        //                  } // withXTAG
+        //                } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
+        //            } // script
+        //            junit "pytest_result.xml"
+        //          } // dir("tests")
+        //        } // withTools
+        //      } // withVenv
+        //    } // dir("${REPO}")
+        //  } // steps
+        //  post {
+        //    always {
+        //      archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+        //    }
+        //    cleanup {
+        //      xcoreCleanSandbox()
+        //    } // cleanup
+        //  } // post
+        //} // stage('HW tests - PHY0')
+        stage('HW tests - PHY1') {
           agent {
-            label 'ethernet_testing'
+            label 'sw-hw-eth-ubu1'
           }
           environment {
             PYTHON_VERSION = "3.12.3"
@@ -204,7 +255,7 @@ pipeline {
                         // Use withEnv to pass the variable to the shell
                         withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
                           withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw' "
+                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw' "
                           } // withXTAG
                         } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                     } // script

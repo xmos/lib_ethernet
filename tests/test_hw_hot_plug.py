@@ -22,7 +22,8 @@ import struct
 
 pkg_dir = Path(__file__).parent
 
-def test_hw_mii_hot_plug(request):
+@pytest.mark.debugger
+def test_hw_hot_plug(request):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -63,7 +64,7 @@ def test_hw_mii_hot_plug(request):
     lp_client_id = 0
     hp_client_id = 1
 
-    xe_name = pkg_dir / "hw_test_mii_tx" / "bin" / f"tx_only_{phy}" / f"hw_test_mii_tx_only_{phy}.xe"
+    xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_{phy}" / f"hw_test_rmii_tx_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         if dbg.wait_for_links_up():
             print("Links up")

@@ -4,7 +4,7 @@
 """
 Send packets with less than min IFG to the DUT and see how smallest IFG for which the device still receives without dropping packets
 """
-
+import pytest
 from hw_helpers import hw_4_1_x_test_init, line_speed, analyse_dbg_cap_vs_sent_miipackets
 from helpers import create_if_needed, create_expect
 from test_4_2_6 import do_test
@@ -39,7 +39,7 @@ def do_test_4_2_6_hw_dbg(request, testname, mac, arch, packets_to_send):
     else:
         assert False, f"Invalid send_method {send_method}"
 
-    xe_name = pkg_dir / "hw_test_mii" / "bin" / f"loopback_{phy}" / f"hw_test_mii_loopback_{phy}.xe"
+    xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
     print(xe_name)
 
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
@@ -88,7 +88,7 @@ def do_test_4_2_6_hw_dbg(request, testname, mac, arch, packets_to_send):
         print("Terminating!!!")
 
 
-
+@pytest.mark.debugger
 def test_4_2_6_hw_debugger(request):
     seed, testname, mac, arch, phy, clock = hw_4_1_x_test_init(26)
     # This doesn't exercise min IFG times

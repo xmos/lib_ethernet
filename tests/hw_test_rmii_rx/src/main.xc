@@ -13,6 +13,7 @@
 #include "debug_print.h"
 #include "rmii_port_defines.h" // RMII port definitions
 
+
 #if MULTIPLE_QUEUES
 #define NUM_RX_LP_IF 2
 #define NUM_TX_LP_IF 2
@@ -75,11 +76,9 @@ int main()
                                         get_port_timings(0),
                                         ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                         ETHERNET_DISABLE_SHAPER);
-            test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0]);
+            test_rx_lp(i_cfg[1], i_rx_lp[0], 0, c_clients[0]);
           }
         }
-
-
         {
           xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
           _Exit(0);
@@ -99,7 +98,7 @@ int main()
     // RX threads
     par ( size_t i = 1; i < NUM_RX_LP_IF; i ++)
     {
-      on tile[0]: test_rx_lp(i_cfg[1+i], i_rx_lp[i], i_tx_lp[i], i, c_clients[i]);
+      on tile[0]: test_rx_lp(i_cfg[1+i], i_rx_lp[i], i, c_clients[i]);
     }
     on tile[0]: test_rx_hp(i_cfg[1+NUM_RX_LP_IF], c_rx_hp, NUM_RX_LP_IF, c_clients[NUM_RX_LP_IF]); // HP is the last client
 #endif

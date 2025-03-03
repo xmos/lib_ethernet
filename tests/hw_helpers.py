@@ -852,7 +852,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     else:
         assert False, f"Invalid send_method {send_method}"
 
-    xe_name = pkg_dir / "hw_test_mii" / "bin" / f"loopback_{phy}" / f"hw_test_mii_loopback_{phy}.xe"
+    xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()

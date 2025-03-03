@@ -39,11 +39,6 @@ typedef enum ethernet_link_state_t {
   ETHERNET_LINK_UP       /**< Ethernet link up event. */
 } ethernet_link_state_t;
 
-typedef struct {
-  ethernet_link_state_t state;
-  ethernet_speed_t speed;
-}ethernet_link_t;
-
 /** Structure representing a received data or control packet from the Ethernet MAC */
 typedef struct ethernet_packet_info_t {
   eth_packet_type_t type; /**< Type representing the type of packet from the MAC */
@@ -108,8 +103,13 @@ typedef interface ethernet_cfg_if {
   void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
 
 #if ENABLE_MAC_START_NOTIFICATION
-  XC_NOTIFICATION slave void mac_started(); // Notify the phy driver that the mac has started
-  XC_CLEARS_NOTIFICATION void ack_mac_start();   // Ack mac restart. Implement only if the client requires to be notified of mac restarts
+  /** Mac start notification.
+   */
+  XC_NOTIFICATION slave void mac_started();
+  /** Acknowledge a Mac start notification.
+   * Implement only if the client requires to be notified of mac start/restarts
+   */
+  XC_CLEARS_NOTIFICATION void ack_mac_start();
 #endif
 
   /** Get the current link state.
