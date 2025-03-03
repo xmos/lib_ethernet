@@ -279,14 +279,6 @@ The ``xrun`` console will print the status of the ICMP server and show ARP and I
 
 |newpage|
 
-****
-FAQs
-****
-
-TODO
-
-|newpage|
-
 ***************
 Further reading
 ***************
@@ -306,7 +298,7 @@ Further reading
 
  * XMOS Layer 2 Ethernet MAC Component
 
-   https://www.xmos.com/published/xmos-layer-2-ethernet-mac-component
+   https://github.com/xmos/lib_ethernet
 
 
  * Ethernet Frame
