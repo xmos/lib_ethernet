@@ -72,13 +72,12 @@ int main()
                                         get_port_timings(0),
                                         ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                         ETHERNET_DISABLE_SHAPER);
-            test_rx_hp(i_cfg[1], c_rx_hp, 0, c_clients[0], i_loopback);
-
-            test_rx_loopback(c_tx_hp, i_loopback);
+            test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], i_loopback);
           }
         }
-
-
+#if LOOPBACK
+        test_rx_loopback(c_tx_hp, i_loopback);
+#endif
         {
           xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
           _Exit(0);

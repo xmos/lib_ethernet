@@ -6,16 +6,17 @@
 #include <otp_board_info.h>
 
 
-void test_rx_lp(client ethernet_cfg_if cfg,
-                 client ethernet_rx_if rx,
-                 client ethernet_tx_if tx,
-                 unsigned client_num,
-                 chanend c_xscope_control);
-
 typedef interface loopback_if {
   [[notification]] slave void packet_ready();
   [[clears_notification]] void get_packet(unsigned &len, uintptr_t &buf);
 } loopback_if;
+
+void test_rx_lp(client ethernet_cfg_if cfg,
+                 client ethernet_rx_if rx,
+                 client ethernet_tx_if tx,
+                 unsigned client_num,
+                 chanend c_xscope_control,
+                 server loopback_if i_loopback);
 
 void test_rx_hp(client ethernet_cfg_if cfg,
                 streaming chanend c_rx_hp,

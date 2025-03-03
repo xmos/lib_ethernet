@@ -13,6 +13,7 @@
 #include "debug_print.h"
 #include "rmii_port_defines.h" // RMII port definitions
 
+
 #if MULTIPLE_QUEUES
 #define NUM_RX_LP_IF 2
 #define NUM_TX_LP_IF 2
@@ -34,6 +35,8 @@ int main()
   smi_if i_smi;
   chan c_xscope;
   chan c_clients[NUM_CFG_CLIENTS - 1]; // Exclude phy_driver
+  streaming chan c_tx_hp;
+  loopback_if i_loopback;
 #if NUM_RX_HP_IF
   streaming chan c_rx_hp;
 #else
@@ -60,7 +63,7 @@ int main()
             rmii_ethernet_rt_mac( i_cfg, NUM_CFG_CLIENTS,
                                         i_rx_lp, NUM_RX_LP_IF,
                                         i_tx_lp, NUM_TX_LP_IF,
-                                        c_rx_hp, null,
+                                        c_rx_hp, c_tx_hp,
                                         p_phy_clk,
                                         p_phy_rxd_0,
                                         p_phy_rxd_1,
@@ -75,11 +78,12 @@ int main()
                                         get_port_timings(0),
                                         ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                         ETHERNET_DISABLE_SHAPER);
-            test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0]);
+            test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], i_loopback);
           }
         }
-
-
+#if LOOPBACK
+        test_rx_loopback(c_tx_hp, i_loopback);
+#endif
         {
           xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
           _Exit(0);
