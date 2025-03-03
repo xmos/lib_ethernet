@@ -42,7 +42,7 @@ foreach(phy PHY0 PHY1) # compile for each phy
     set(APP_COMPILER_FLAGS_tx_single_client_with_ts_probe_${phy_lower}     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DPROBE_TX_TIMESTAMPS=1 -DUSE_${phy}=1)
 endforeach()
 
-set(APP_XSCOPE_SRCS src/config.xscope)
+set(APP_XSCOPE_SRCS ../hw_test_rmii_rx/src/xscope_control/config.xscope)
 
 file(GLOB XC_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
 file(GLOB COMMON_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR}

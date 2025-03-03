@@ -40,7 +40,7 @@ foreach(phy PHY0 PHY1) # compile for each phy
     set(APP_COMPILER_FLAGS_loopback_${phy_lower}                ${COMPILER_FLAGS_COMMON} -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
 endforeach()
 
-set(APP_XSCOPE_SRCS src/config.xscope)
+set(APP_XSCOPE_SRCS ../hw_test_rmii_rx/src/xscope_control/config.xscope)
 
 file(GLOB XC_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
 file(GLOB COMMON_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR}

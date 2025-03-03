@@ -41,7 +41,7 @@ foreach(phy PHY0 PHY1) # compile for each phy
     set(APP_COMPILER_FLAGS_rx_multiple_queues_${phy_lower}      ${COMPILER_FLAGS_COMMON} -DMULTIPLE_QUEUES=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
 endforeach()
 
-set(APP_XSCOPE_SRCS src/config.xscope)
+set(APP_XSCOPE_SRCS src/xscope_control/config.xscope)
 
 set(APP_INCLUDES src/xscope_control src/xu316_dual_100m_ports ${REL_AUTOGEN_DIR})
 
