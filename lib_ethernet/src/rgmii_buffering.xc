@@ -663,7 +663,7 @@ unsafe void rgmii_ethernet_tx_server(tx_client_state_t client_state_lp[n_tx_lp],
         high_priority_packet = (int) buf; // 0 if no credit, non-zero if credit
       } // Shaper enabled
     } // Queues enabled
-  
+
     // Here, high_priority_packet flag will be set only if HP queues enabled, packet avaialable AND credit is good (if shaper enabled)
 
     // Do transmit logic
@@ -739,10 +739,22 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
         memcpy(mac_address, r_mac_address, sizeof r_mac_address);
         break;
 
+#if ENABLE_MAC_START_NOTIFICATION
+      case i_cfg[int i].ack_mac_start():
+        break;
+#endif
+
       case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
         unsafe {
           p_port_state->link_state = status;
           p_port_state->link_speed = speed;
+        }
+        break;
+
+      case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+        unsafe {
+          link_state = p_port_state->link_state;
+          link_speed = p_port_state->link_speed;
         }
         break;
 

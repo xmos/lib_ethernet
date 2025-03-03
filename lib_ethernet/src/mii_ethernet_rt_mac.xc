@@ -119,7 +119,7 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
 {
   for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
-    
+
     if (client_state.rd_index != client_state.wr_index) {
       unsigned client_rd_index = client_state.rd_index;
       unsigned packets_rd_index = (unsigned)client_state.fifo[client_rd_index];
@@ -244,6 +244,14 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
 
   volatile unsigned * unsafe p_rx_rdptr = (volatile unsigned * unsafe)rx_rdptr;
 
+#if ENABLE_MAC_START_NOTIFICATION
+  for(int i=0; i<n_cfg; i++)
+  {
+    i_cfg[i].mac_started(); // The phy_driver clients will respond to this with a set_link_state(), others will ignore the notification
+                            // This is required so that if the mac restarts, it can request for the current link state from the phy_driver
+  }
+#endif
+
   int prioritize_rx = 0;
   while (*running_flag_ptr) {
     if (prioritize_rx)
@@ -286,6 +294,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         int len = (n > buf->length ? buf->length : n);
         unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
         unsigned * unsafe dptr = buf->data;
+
         int prewrap = ((char *) wrap_ptr - (char *) dptr);
         int len1 = prewrap > len ? len : prewrap;
         int len2 = prewrap > len ? 0 : len - prewrap;
@@ -327,12 +336,21 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       memcpy(mac_address, r_mac_address, sizeof r_mac_address);
       break;
 
+#if ENABLE_MAC_START_NOTIFICATION
+    case i_cfg[int i].ack_mac_start():
+      break;
+#endif
     case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
       if (p_port_state->link_state != status) {
         p_port_state->link_state = status;
         p_port_state->link_speed = speed;
         update_client_state(rx_client_state_lp, i_rx_lp, n_rx_lp);
       }
+      break;
+
+    case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+      link_state = p_port_state->link_state;
+      link_speed = p_port_state->link_speed;
       break;
 
     case i_cfg[int i].add_macaddr_filter(size_t client_num, int is_hp,
@@ -419,7 +437,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds 
+      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds
       break;
     }
 
@@ -561,7 +579,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         drop_lp_packets(rx_packets_lp, rx_client_state_lp, n_rx_lp);
       }
     }
-    
+
     if (!isnull(c_tx_hp)) {
       if (!mii_packet_queue_full(tx_packets_hp)) {
         unsigned * unsafe rdptr = mii_get_rdptr(tx_packets_hp);

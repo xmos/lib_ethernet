@@ -22,4 +22,11 @@ add_subdirectory(test_rmii_timing)
 add_subdirectory(test_rmii_restart)
 add_subdirectory(test_smi)
 add_subdirectory(test_do_idle_slope_unit)
+add_subdirectory(test_tx_ifg)
+
+# HW test apps
+add_subdirectory(hw_test_rmii_rx)
+add_subdirectory(hw_test_rmii_tx)
+add_subdirectory(hw_test_rmii_loopback)
+
 
