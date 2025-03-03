@@ -67,7 +67,7 @@ def test_hw_mii_rx_only(request, send_method):
         assert False, f"Invalid send_method {send_method}"
 
 
-    xe_name = pkg_dir / "hw_test_mii" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_mii_rx_multiple_queues_{phy}.xe"
+    xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_rmii_rx_multiple_queues_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
