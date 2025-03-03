@@ -22,7 +22,7 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
 @pytest.mark.parametrize('payload_len', ['max', 'min', 'random'])
-def test_hw_mii_rx_only(request, send_method, payload_len):
+def test_hw_rx_only(request, send_method, payload_len):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

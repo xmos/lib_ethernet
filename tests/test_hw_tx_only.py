@@ -29,7 +29,7 @@ pkg_dir = Path(__file__).parent
                                         [1514, 1514, 5000000],
                                         [1000, 1000, 25000000]]
                                         , ids=["LP_only", "LP_1Mbps_HP_small", "LP_max_len_2Mbps_HP_max", "LP_25Mbps_HP"])
-def test_hw_mii_tx_only(request, send_method, tx_config):
+def test_hw_tx_only(request, send_method, tx_config):
     print()
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"

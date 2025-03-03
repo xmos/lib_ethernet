@@ -21,7 +21,7 @@ import platform
 pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
-def test_hw_mii_restart(request, send_method):
+def test_hw_restart(request, send_method):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

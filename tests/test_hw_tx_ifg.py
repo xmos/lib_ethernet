@@ -64,7 +64,7 @@ def log_timestamps_probed_from_dut(probe_ts, ifg_summary_filename, ifg_full_file
 @pytest.mark.debugger
 @pytest.mark.parametrize("packet_type", ["sweep", "fixed_size"])
 @pytest.mark.parametrize("dut_timestamp_probe", [True, False], ids=["ts_probe_on", "ts_probe_off"]) # Enable or disable timestamp probing in the DUT
-def test_hw_mii_tx_ifg(request, dut_timestamp_probe, packet_type):
+def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

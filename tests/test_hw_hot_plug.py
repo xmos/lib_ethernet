@@ -23,7 +23,7 @@ import struct
 pkg_dir = Path(__file__).parent
 
 @pytest.mark.debugger
-def test_hw_mii_hot_plug(request):
+def test_hw_hot_plug(request):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

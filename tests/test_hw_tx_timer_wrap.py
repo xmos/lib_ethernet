@@ -45,7 +45,7 @@ def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verb
     return packet_summary[0][5], packet_summary[0][6]
 
 @pytest.mark.parametrize('send_method', ['socket'])
-def test_hw_mii_tx_timer_wrap(request, send_method):
+def test_hw_tx_timer_wrap(request, send_method):
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
