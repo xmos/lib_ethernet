@@ -103,7 +103,7 @@ int main()
     // RX threads
     par ( size_t i = 1; i < NUM_RX_LP_IF; i ++)
     {
-      on tile[0]: test_rx_lp(i_cfg[1+i], i_rx_lp[i], i_tx_lp[i], i, c_clients[i]);
+      on tile[0]: test_rx_lp(i_cfg[1+i], i_rx_lp[i], i_tx_lp[i], i, c_clients[i], i_loopback);
     }
     on tile[0]: test_rx_hp(i_cfg[1+NUM_RX_LP_IF], c_rx_hp, NUM_RX_LP_IF, c_clients[NUM_RX_LP_IF]); // HP is the last client
 #endif

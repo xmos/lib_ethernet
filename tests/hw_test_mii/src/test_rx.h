@@ -21,8 +21,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 void test_rx_hp(client ethernet_cfg_if cfg,
                 streaming chanend c_rx_hp,
                 unsigned client_num,
-                chanend c_xscope_control,
-                server loopback_if i_loopback);
+                chanend c_xscope_control);
 
 
 void test_rx_loopback(streaming chanend c_tx_hp,

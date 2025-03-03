@@ -267,8 +267,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 void test_rx_hp(client ethernet_cfg_if cfg,
                 streaming chanend c_rx_hp,
                 unsigned client_num,
-                chanend c_xscope_control,
-                server loopback_if i_loopback)
+                chanend c_xscope_control)
 {
   set_core_fast_mode_on();
 
@@ -279,13 +278,9 @@ void test_rx_hp(client ethernet_cfg_if cfg,
     macaddr_filter.addr[i] = i+client_num;
   cfg.add_macaddr_filter(0, 1, macaddr_filter);
 
-    unsigned char rxbuf[NUM_BUF][ETHERNET_MAX_PACKET_SIZE];
-    unsigned rxlen[NUM_BUF];
-    unsigned wr_index = 0;
-    unsigned rd_index = 0;
-
   unsigned num_rx_bytes = 0;
   unsigned pkt_count = 0;
+  unsigned char rxbuf[ETHERNET_MAX_PACKET_SIZE];
   seq_id_pair_t seq_id_err_log[NUM_SEQ_ID_MISMATCH_LOGS];
 
   unsigned count_seq_id_err_log = 0;
@@ -304,26 +299,15 @@ void test_rx_hp(client ethernet_cfg_if cfg,
   client_cfg.client_num = client_num;
   client_cfg.client_index = 0;
   client_cfg.is_hp = 1;
-  unsigned overflow = 0;
 
   while (!client_state.done) {
     ethernet_packet_info_t packet_info;
 
     #pragma ordered
     select {
-    case ethernet_receive_hp_packet(c_rx_hp, rxbuf[wr_index], packet_info):
-        pkt_count += 1;
-        //printuintln(pkt_count);
-        uint8_t dst_mac[MACADDR_NUM_BYTES], src_mac[MACADDR_NUM_BYTES];
-        memcpy(dst_mac, rxbuf[wr_index], MACADDR_NUM_BYTES);
-        memcpy(src_mac, rxbuf[wr_index]+MACADDR_NUM_BYTES, MACADDR_NUM_BYTES);
-
-        // swap src and dst mac addr
-        memcpy(rxbuf[wr_index], src_mac, MACADDR_NUM_BYTES);
-        memcpy(rxbuf[wr_index]+MACADDR_NUM_BYTES, dst_mac, MACADDR_NUM_BYTES);
-
+      case ethernet_receive_hp_packet(c_rx_hp, rxbuf, packet_info):
         // Check the first byte after the header (which can be VLAN tagged)
-        unsigned seq_id = ((unsigned)rxbuf[wr_index][14] << 24) | ((unsigned)rxbuf[wr_index][15] << 16) | ((unsigned)rxbuf[wr_index][16] << 8) | (unsigned)rxbuf[wr_index][17];
+        unsigned seq_id = ((unsigned)rxbuf[14] << 24) | ((unsigned)rxbuf[15] << 16) | ((unsigned)rxbuf[16] << 8) | (unsigned)rxbuf[17];
         // Check for seq id
         if(!(seq_id == prev_seq_id + 1) && !(seq_id == prev_seq_id)) // Consider seq_id == prev_seq_id okay in order to test the same frame sent in a loop by the host. No seq id check req in this case
         {
@@ -338,42 +322,14 @@ void test_rx_hp(client ethernet_cfg_if cfg,
           }
           count_seq_id_mismatch += 1;
         }
-        if(!overflow)
-        {
-            rxlen[wr_index] = packet_info.len;
-            wr_index = (wr_index + 1) % NUM_BUF;
-            if (wr_index == rd_index) {
-                debug_printf("test_rx ran out of buffers. wr_index = %d, rd_index = %d\n", wr_index, rd_index);
-                overflow = 1;
-                //_Exit(0);
-            }
-            else
-            {
-                i_loopback.packet_ready();
-            }
-        }
+        pkt_count += 1;
         num_rx_bytes += packet_info.len;
         break;
 
-      case i_loopback.get_packet(unsigned &len, uintptr_t &buf): {
-        len = rxlen[rd_index];
-        buf = (uintptr_t)&rxbuf[rd_index];
-        rd_index = (rd_index + 1) % NUM_BUF;
-        if (rd_index != wr_index)
-        {
-          i_loopback.packet_ready();
-        }
-        break;
-      }
       case xscope_cmd_handler (c_xscope_control, client_cfg, cfg, client_state );
     }
   }
   debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
-
-  if(overflow)
-  {
-    debug_printf("DUT client index %u ERROR: Overflow in FIFO when looping back packets\n");
-  }
   if(test_fail)
   {
     debug_printf("DUT client index %u ERROR: Test failed due to sequence ID mismatch. Total %u seq_id mismatches. Total missing %u packets\n", client_num, count_seq_id_mismatch, total_missing);
