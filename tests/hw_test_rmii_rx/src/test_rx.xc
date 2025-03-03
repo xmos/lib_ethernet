@@ -35,7 +35,6 @@ static void wait_us(int microseconds)
 
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
-                 client ethernet_tx_if tx,
                  unsigned client_num,
                  chanend c_xscope_control)
 {
@@ -61,12 +60,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   {
     broadcast[i] = 0xff;
   }
-  unsigned enable_time_based_check = 0;
-  timer t;
-  unsigned time;
-  t :> time;
-  unsigned test_end_time;
-  unsigned dut_timeout_s = 10; // dut timeout in seconds
 
   unsigned timestamps[NUM_TS_LOGS];
   seq_id_pair_t seq_id_err_log[NUM_SEQ_ID_MISMATCH_LOGS];
@@ -108,30 +101,13 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         unsigned timestamp = packet_info.timestamp;
         //printhexln((unsigned)seq_id);
 
-#if LOOPBACK
-        uint8_t dst_mac[MACADDR_NUM_BYTES], src_mac[MACADDR_NUM_BYTES];
-        memcpy(dst_mac, rxbuf, MACADDR_NUM_BYTES);
-        memcpy(src_mac, rxbuf+MACADDR_NUM_BYTES, MACADDR_NUM_BYTES);
-
-        // swap src and dst mac addr
-        memcpy(rxbuf, src_mac, MACADDR_NUM_BYTES);
-        memcpy(rxbuf+MACADDR_NUM_BYTES, dst_mac, MACADDR_NUM_BYTES);
-        tx.send_packet(rxbuf, packet_info.len, ETHERNET_ALL_INTERFACES);
-#endif
-
-        if(pkt_count == 0)
-        {
-          enable_time_based_check = 1;
-          t :> time;
-          test_end_time = time + (dut_timeout_s * XS1_TIMER_HZ);
-        }
-
+#if PRINT_TS_LOG
         if((pkt_count >= 0) && (pkt_count < 0 + NUM_TS_LOGS))
         {
           timestamps[counter] = timestamp;
           counter += 1;
         }
-
+#endif
         pkt_count += 1;
         num_rx_bytes += packet_info.len;
 
@@ -175,11 +151,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         prev_seq_id = seq_id;
         prev_timestamp = timestamp;
         break;
-#if ENABLE_DUT_TIMEOUT
-      case (enable_time_based_check == 1) => t when timerafter(test_end_time) :> test_end_time:
-        client_state.done = 1;
-        break;
-#endif
+
       case xscope_cmd_handler (c_xscope_control, client_cfg, cfg, client_state );
 
     } // select
@@ -222,7 +194,6 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   wait_us(2000); // Since this task might be scheduled in a while(1), wait sometime before exiting so that xscope_control exits first in case of a shutdown command.
                  // Shutdown fails occasionally (To be debugged) otherwise.
 }
-
 
 
 void test_rx_hp(client ethernet_cfg_if cfg,
