@@ -24,5 +24,6 @@ add_subdirectory(test_smi)
 add_subdirectory(hw_test_mii)
 add_subdirectory(test_do_idle_slope_unit)
 add_subdirectory(hw_test_mii_tx)
+add_subdirectory(hw_test_rmii_loopback)
 add_subdirectory(test_tx_ifg)
 
