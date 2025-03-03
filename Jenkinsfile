@@ -18,9 +18,7 @@ def clone_test_deps() {
 getApproval()
 
 pipeline {
-  agent {
-    label 'documentation&&linux&&x86_64'
-  }
+  agent none
   options {
     buildDiscarder(xmosDiscardBuildSettings())
     skipDefaultCheckout()
@@ -52,6 +50,9 @@ pipeline {
   }
   stages {
     stage('Build + Documentation') {
+      agent {
+        label 'documentation&&linux&&x86_64'
+      }
       stages {
         stage('Checkout') {
           environment {
