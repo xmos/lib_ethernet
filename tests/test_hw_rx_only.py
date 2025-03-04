@@ -12,7 +12,7 @@ import pytest
 from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
-from socket_host import SocketHost, scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
+from socket_host import SocketHost, scapy_send_l2_pkt_loop, scapy_send_l2_pkt_sequence
 import re
 import subprocess
 import platform
@@ -97,7 +97,7 @@ def test_hw_rx_only(request, send_method, payload_len):
 
 
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_{phy}" / f"hw_test_rmii_rx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
@@ -112,7 +112,7 @@ def test_hw_rx_only(request, send_method, payload_len):
             if test_type == 'seq_id':
                 thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
             else:
-                thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets_sent, send_time]) # send the same packet in a loop
+                thread_send = threading.Thread(target=scapy_send_l2_pkt_loop, args=[eth_intf, packet, num_packets_sent, send_time]) # send the same packet in a loop
 
             thread_send.start()
             thread_send.join()
