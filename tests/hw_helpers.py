@@ -618,6 +618,12 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
     return report
 
 def get_mac_address(interface):
+    """
+    Get the mac address associated with an ethernet interface
+
+    Parameters:
+    interface (str, eg. eno1): Ethernet interface to get the mac address for.
+    """
     try:
         output = subprocess.check_output(f"ip link show {interface}", shell=True, text=True)
         for line in output.splitlines():
@@ -629,7 +635,10 @@ def get_mac_address(interface):
 
 def calc_time_diff(start_s, start_ns, end_s, end_ns):
     """
-    Returns: time difference in nanoseconds
+    Given start and end time in the form of (start_s, start_ns) and (end_s, end_ns), return time difference in nanoseconds
+
+    Returns:
+    int: time difference in nanoseconds
     """
     diff_s = end_s - start_s
     diff_ns = end_ns - start_ns
@@ -641,6 +650,12 @@ def calc_time_diff(start_s, start_ns, end_s, end_ns):
 
 
 def load_packet_file(filename):
+    """
+    Parse packet file written by the SocketHost recv functions into a list of ethernet packet parameters for every L2 packet received by the host.
+
+    Returns:
+    2D list of the form [num_pkts][dst_mac_addr, src_mac_addr, etype, seq_id, payload_len, time_recvd_s, time_recvd_ns]
+    """
     chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
     structures = []
     with open(filename, 'rb') as f:
@@ -662,6 +677,9 @@ def load_packet_file(filename):
     return structures
 
 def rdpcap_to_packet_summary(packets):
+    """
+    Parse the .pcapng file captured by the ethernet debugger into the packet summary same as load_packet_file()
+    """
     structures = []
     for packet in packets:
         raw_payload = bytes(packet.payload)
@@ -681,6 +699,15 @@ def log_ifg_summary(ifg_full_dict,
                     ifg_summary_file="ifg_sweep_summary.txt",
                     ifg_full_file="ifg_sweep_full.txt"
                     ):
+    """
+    Summarise the ethernet interframe gaps for packets received by the host from the device on a
+    per packet length basis and write to a file.
+
+    Parameter:
+    ifg_full_dict (dict): Dictionary of the form {packet_len: [list of IFGs in ns for that packet_len]}
+    ifg_summary_file(str): File to write the IFG summary to
+    ifg_full_file(str): File to write the full IFG dictionary to
+    """
     ifg_summary_dict = defaultdict(dict)
     all_ifgs = []
     for pl in ifg_full_dict: # Look at the IFGs one payload length at a time and summarise
@@ -723,6 +750,11 @@ def parse_packet_summary(packet_summary,
                         verbose = False,
                         check_ifg = False,
                         log_ifg_per_payload_len=False):
+    """
+    Parse the packet summary output from rdpcap_to_packet_summary() or load_packet_file()
+    and further process it to check for errors and optionally log the interframe gaps in the packets
+    received from the device.
+    """
     print("Parsing packet file")
     # get first packet time with valid source addr
     datum = 0
@@ -853,7 +885,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
         assert False, f"Invalid send_method {send_method}"
 
     xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
