@@ -132,7 +132,7 @@ facilitating packet transfer between the clients and the network (``mii_ethernet
 
 The ``rmii_ethernet_rt_mac`` tasks takes the previously declared ports as arguments as well as the required buffer size for the packet
 buffer within the MAC. In addition, a structure provided by ``lib_board_support`` is passed in which configures the clock-block and
-pad delays to ensure the capture window (setup and hold times) are met for this relatively fast IO interface.
+pad delays to ensure the capture windows (setup and hold times) are met for this relatively fast IO interface.
 
 The ``smi`` task is part of the Ethernet library and controls the SMI protocol to configure the PHY.
 It connects to the ``dual_dp83826e_phy_driver`` task which handles configuration of the PHY and monitors the line state.
