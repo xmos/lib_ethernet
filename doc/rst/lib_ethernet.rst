@@ -346,7 +346,7 @@ The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardwa
    - RX0
    - Receive data bit 0
 
-Any unused 1-bit and 4-bit xCORE ports can be used for RMII providing that they are on the same tile and there are sufficient
+Any unused 1-bit and 4-bit xCORE ports can be used for RMII provided that they are on the same tile and there are sufficient
 chip resources to instantiate the relevant Ethernet MAC component on that tile.
 
 Port timing on xCORE devices typically becomes important above 20 MHz. Since RMII operates at 50 MHz, it is likely that port timings will need to be adjusted to center the data valid windows for both capture (RX) and presentation (TX) for maximum reliability. These timings are provided by a structure ``port_timing`` which has various members to control the on-chip delays.
