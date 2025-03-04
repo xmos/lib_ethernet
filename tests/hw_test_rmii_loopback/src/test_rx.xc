@@ -40,6 +40,10 @@ void test_rx_loopback(streaming chanend c_tx_hp,
                       client loopback_if i_loopback)
 {
   set_core_fast_mode_on();
+  unsigned * unsafe loopback_pkt_count_ptr;
+  unsafe {
+    loopback_pkt_count_ptr = &loopback_pkt_count;
+  }
 
   unsafe {
     while (1) {
@@ -52,7 +56,9 @@ void test_rx_loopback(streaming chanend c_tx_hp,
         break;
       }
       ethernet_send_hp_packet(c_tx_hp, (char *)buf, len, ETHERNET_ALL_INTERFACES);
-      loopback_pkt_count += 1;
+      unsafe {
+        *loopback_pkt_count_ptr += 1;
+      }
     }
   }
 }
@@ -65,6 +71,10 @@ void test_rx_lp(client ethernet_cfg_if cfg,
                  server loopback_if i_loopback)
 {
   set_core_fast_mode_on();
+  unsigned * unsafe loopback_pkt_count_ptr;
+  unsafe {
+    loopback_pkt_count_ptr = &loopback_pkt_count;
+  }
   ethernet_macaddr_filter_t macaddr_filter;
 
   macaddr_filter.appdata = 0;
@@ -244,8 +254,9 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 #endif
   debug_printf("DUT client index %u: counter = %u, min_ifg = %u, max_ifg = %u, overflow=%d, rd_index %d, wr_index %d\n", client_num, counter, min_ifg, max_ifg, overflow, rd_index, wr_index);
   debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
-  debug_printf("DUT client index %u: Number of loopback packets = %u\n", client_num, loopback_pkt_count);
-
+  unsafe {
+  debug_printf("DUT client index %u: Number of loopback packets = %u\n", client_num, *loopback_pkt_count_ptr);
+  }
   if(test_fail)
   {
     debug_printf("DUT client index %u ERROR: Test failed due to sequence ID mismatch. Total %u seq_id mismatches. Total missing %u packets\n", client_num, count_seq_id_mismatch, total_missing);
