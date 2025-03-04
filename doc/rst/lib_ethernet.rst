@@ -341,8 +341,22 @@ The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardwa
    - RX0
    - Receive data bit 0
 
-Any unused 1-bit and 4-bit xCORE ports can be used for RMII providing that they are on the same Tile and there are sufficient
-chip resources to instantiate the relevant Ethernet MAC component on that Tile.
+Any unused 1-bit and 4-bit xCORE ports can be used for RMII providing that they are on the same tile and there are sufficient
+chip resources to instantiate the relevant Ethernet MAC component on that tile.
+
+Port timing on xCORE devices typically becomes important above 20 MHz. Since RMII operates at 50 MHz, it is likely that port timings will need to be adjusted to center the data valid windows for both capture (RX) and presentation (TX) for maximum reliability. These timings are provided by a structure ``port_timing`` which has various members to control the on-chip delays.
+
+The detail for how to set the values is outside the scope of this document, however the user is encouraged to consult the `IO timings for xcore.ai <https://www.xmos.com/documentation/XM-014231-AN/html/rst/index.html>`_ document for further understanding. Aspects of the hardware design including PCB layout, clock skew, duty cycle and pin drive strength will affect these adjustments. The RMII MAC example in this repo shows an example port timing struct for a specific board.
+
+In summary, the fields (and their uses) in the ``port_timing`` structure are as follows:
+
+ * clk_delay_tx_rising - The number of core clock cycles to delay the capture clock. Since no signal capture occurs in the TX section this value is not critical, however it should be set to the same as clk_delay_tx_falling.
+ * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock. 
+ * clk_delay_rx_rising - The number of core clock cycles to delay the capture clock. Increasing this value delays the point at which the RX data and RXDV are sampled relative to the external ethernet clock.
+ * clk_delay_rx_falling - The number of core clock cycles to delay the drive clock. Since no signal drive occurs in the RX section this value is not critical, however it should be set to the same as clk_delay_rx_rising.
+ * pad_delay_rx - The number of core clock cycles to delay the sampling of RX data and strobe. Because this setting delays the data and not the clock, it has the effect of adding negative clock delay, which can be useful in some cases.
+
+
 
 .. _rgmii_signals_section:
 
