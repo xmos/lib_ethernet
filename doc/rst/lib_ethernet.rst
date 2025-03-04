@@ -121,6 +121,11 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
    - 0
 
 .. note::
+    The RAM usage shown is for a typical usage rx and tx buffer size that can store multiple 1500 byte
+    packets. The total RAM usage by the MAC will increase or decrease depending on buffer size settings which
+    is set by the user.
+
+.. note::
     Not all ports are brought out to pins since they are used internally to the device.
     Hence the total port bit-count may not always match the required device pin count.
 
