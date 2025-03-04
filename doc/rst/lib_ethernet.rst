@@ -121,6 +121,11 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
    - 0
 
 .. note::
+    The RAM usage shown is for a typical usage rx and tx buffer size that can store multiple 1500 byte
+    packets. The total RAM usage by the MAC will increase or decrease depending on buffer size settings which
+    is set by the user.
+
+.. note::
     Not all ports are brought out to pins since they are used internally to the device.
     Hence the total port bit-count may not always match the required device pin count.
 
@@ -294,9 +299,9 @@ similar functionality to MII however offers a reduced pin-count.
 The RMII transfers data using 2 bit words (half-nibbles) in each direction, clocked at 50 MHz to achieve 100 Mb/s data rate.
 
 An enable signal (TXEN) is set active to indicate start of frame and remains active until it is completed.
-A common clock signal clocks 2 bits (TXD[1:0]) at 50 MHz for 100 Mb/s mode.
+A common, externally provided, clock signal clocks 2 bits (TXD[1:0]) at 50 MHz for 100 Mb/s mode.
 The RXDV signal goes active when a valid frame starts and remains active throughout a valid frame duration.
-A common clock signal clocks the received half-nibbles (RXD[1:0]).
+The common clock signal clocks the received half-nibbles (RXD[1:0]).
 
 Note that either half of a 4-bit port (upper or lower pins) may be used for data or alternatively two 1-bit ports may be used. This
 provides additional pinout flexibility which may be important in applications which use low pin-count packages. Both Rx and Tx
@@ -341,8 +346,22 @@ The RMII MAC requires a minimum thread speed of 75 MHz which allows all 8 hardwa
    - RX0
    - Receive data bit 0
 
-Any unused 1-bit and 4-bit xCORE ports can be used for RMII providing that they are on the same Tile and there is enough
-resource to instantiate the relevant Ethernet MAC component on that Tile.
+Any unused 1-bit and 4-bit xCORE ports can be used for RMII provided that they are on the same tile and there are sufficient
+chip resources to instantiate the relevant Ethernet MAC component on that tile.
+
+Port timing on xCORE devices typically becomes important above 20 MHz. Since RMII operates at 50 MHz, it is likely that port timings will need to be adjusted to center the data valid windows for both capture (RX) and presentation (TX) for maximum reliability. These timings are provided by a structure ``port_timing`` which has various members to control the on-chip delays.
+
+The detail for how to set the values is outside the scope of this document, however the user is encouraged to consult the `IO timings for xcore.ai <https://www.xmos.com/documentation/XM-014231-AN/html/rst/index.html>`_ document for further understanding. Aspects of the hardware design including PCB layout, clock skew, duty cycle and pin drive strength will affect these adjustments. The RMII MAC example in this repo shows an example port timing struct for a specific board.
+
+In summary, the fields (and their uses) in the ``port_timing`` structure are as follows:
+
+ * clk_delay_tx_rising - The number of core clock cycles to delay the capture clock. Since no signal capture occurs in the TX section this value is not critical, however it should be set to the same as clk_delay_tx_falling.
+ * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock. 
+ * clk_delay_rx_rising - The number of core clock cycles to delay the capture clock. Increasing this value delays the point at which the RX data and RXDV are sampled relative to the external ethernet clock.
+ * clk_delay_rx_falling - The number of core clock cycles to delay the drive clock. Since no signal drive occurs in the RX section this value is not critical, however it should be set to the same as clk_delay_rx_rising.
+ * pad_delay_rx - The number of core clock cycles to delay the sampling of RX data and strobe. Because this setting delays the data and not the clock, it has the effect of adding negative clock delay, which can be useful in some cases.
+
+
 
 .. _rgmii_signals_section:
 
@@ -440,10 +459,12 @@ Usage
 ==================================
 
 There are two types of 10/100 Mb/s Ethernet MAC that are optimized for different feature sets. Both connect to a
-standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`.
+standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`, or optionally 
+an RMII interface for the real-time MAC running on xcore.ai.
 
 The resource-optimized MAC described here is provided for applications that do not require real-time features,
-such as those required by the Audio Video Bridging standards.
+such as those required by the Audio Video Bridging standards. A simple webserver or low-bandwidth TCP traffic is
+a typical use for this MAC.
 
 The same API is shared across all configurations of the Ethernet MACs. Additional API calls are available in the
 configuration interface of the real-time MACs that will cause a run-time assertion if called by the
@@ -458,7 +479,7 @@ can connect via a transmit, receive and configuration interface connection using
 
    10/100 Mb/s Ethernet MAC task diagram
 
-For example, the following code instantiates a standard Ethernet MAC component and connects to it::
+For example, the following code instantiates a standard Ethernet MAC component using MII and connects to it::
 
   port p_eth_rxclk  = XS1_PORT_1J;
   port p_eth_rxd    = XS1_PORT_4E;
@@ -523,7 +544,7 @@ The real-time 10/100 Mb/s Ethernet MAC supports additional features required to 
 an AVB Talker and/or Listener endpoint, but has additional xCORE resource requirements compared to the
 non-real-time MAC.
 
-The real-time MAC may support the RMII interface described in :ref:`rmii_signals_section`.
+The real-time MAC may support the RMII interface described in :ref:`rmii_signals_section` when targeting xcore.ai devices.
 
 
 It is instantiated similarly to the non-real-time Ethernet MAC, with additional streaming channels for sending and
@@ -534,7 +555,7 @@ receiving high-priority Ethernet traffic, as shown in :numref:`rt_mac_task_diagr
 
    10/100 Mb/s real-time Ethernet MAC task diagram
 
-For example, the following code instantiates a real-time Ethernet MAC component with high and low-priority
+For example, the following code instantiates a real-time Ethernet MAC component with connected via MII high and low-priority
 interfaces and connects to it::
 
   port p_eth_rxclk  = XS1_PORT_1J;
@@ -771,9 +792,7 @@ Real-time Ethernet MAC supporting typedefs
 ------------------------------------------
 
 .. doxygenenum:: ethernet_enable_shaper_t
-.. doxygenunion:: rmii_data_port_t
-.. doxygenstruct:: rmii_data_1b_t
-.. doxygenstruct:: rmii_data_4b_t
+.. doxygenstruct:: rmii_port_timing_t
 .. doxygenenum:: rmii_data_4b_pin_assignment_t
 
 

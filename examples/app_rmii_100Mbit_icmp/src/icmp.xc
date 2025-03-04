@@ -261,7 +261,11 @@ void icmp_server(client ethernet_cfg_if cfg,
   cfg.add_ethertype_filter(index, 0x0806);
   cfg.add_ethertype_filter(index, 0x0800);
 
-  debug_printf("Test started\n");
+  debug_printf("ICMP server started at MAC %x:%x:%x:%x:%x:%x, IP %d.%d.%d.%d\n",
+                mac_address[0], mac_address[1], mac_address[2],
+                mac_address[3], mac_address[4], mac_address[5],
+                ip_address[0], ip_address[1], ip_address[2], ip_address[3]);
+
   while (1)
   {
     select {

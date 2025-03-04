@@ -661,7 +661,7 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 /** ENUM to determine which two bits of a four bit port are to be used as data lines
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
- *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
+ *  port cannot be used. For Rx the unused input bits are ignored. For Tx, the unused pins are always driven low. */
 typedef enum rmii_data_4b_pin_assignment_t{
     USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port for data bits 0 and 1*/
     USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
@@ -672,11 +672,11 @@ typedef enum rmii_data_4b_pin_assignment_t{
  *  This is required due to the relatively fast 50 MHz clock.
  *  Please consult the documentation for further details and suggested settings. */
 typedef struct rmii_port_timing_t{
-    unsigned clk_delay_tx_rising;
-    unsigned clk_delay_tx_falling;
-    unsigned clk_delay_rx_rising;
-    unsigned clk_delay_rx_falling;
-    unsigned pad_delay_rx;
+    unsigned clk_delay_tx_rising; /**< The number of core clock cycles to delay the capture clock*/
+    unsigned clk_delay_tx_falling; /**< The number of core clock cycles to delay the drive clock*/
+    unsigned clk_delay_rx_rising; /**< The number of core clock cycles to delay the capture clock*/
+    unsigned clk_delay_rx_falling; /**< The number of core clock cycles to delay the drive clock*/
+    unsigned pad_delay_rx; /**< The number of core clock cycles to delay the sampling of rx data and strobe*/
 }rmii_port_timing_t;
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
