@@ -79,7 +79,7 @@ def test_hw_tx_timer_wrap(request, send_method):
     nanoseconds_in_a_second = 1000000000
     packet_recv_times = []
     wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 

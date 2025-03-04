@@ -116,7 +116,7 @@ def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
     else:
         xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_single_client_with_ts_probe_{phy}" / f"hw_test_rmii_tx_single_client_with_ts_probe_{phy}.xe"
 
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
         if dbg.wait_for_links_up():
             print("Links up")
 

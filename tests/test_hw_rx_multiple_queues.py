@@ -68,7 +68,7 @@ def test_hw_rx_multiple_queues(request, send_method):
 
 
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_rmii_rx_multiple_queues_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
@@ -78,9 +78,9 @@ def test_hw_rx_multiple_queues(request, send_method):
 
         if send_method == "socket":
             # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
-            socket_host.send_non_blocking(test_duration_s)
+            socket_host.send_asynch_start(test_duration_s)
             stopped = [False, False] # The rx clients are receiving by default
-            while socket_host.send_in_progress():
+            while socket_host.send_asynch_check_complete():
                 client_index = rand.randint(0,1) # client 0 and 1 are LP so toggle receiving for one of them
                 stopped[client_index] = stopped[client_index] ^ 1
                 delay = rand.randint(1, 1000) * 0.0001 # Up to 100 ms wait before toggling 'stopped'
