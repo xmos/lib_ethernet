@@ -840,7 +840,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
     phy = request.config.getoption("--phy")
-    verbose = False
+    verbose = True
 
     dut_mac_address_str = "00:01:02:03:04:05"
     print(f"dut_mac_address = {dut_mac_address_str}")
