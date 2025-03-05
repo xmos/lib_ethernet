@@ -57,13 +57,15 @@ class hw_eth_debugger:
 
         # Startup debugger process
         # first kill any unterminated
-        subprocess.run("pkill -f nose", shell=True)
-        print("Killing old process..", end="")
+        print("Killing old nose process..", end="")
         running = True
         while running:
             try:
-                subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
                 print(".", end="")
+                # This will throw an exception if not found
+                subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
+                # this will throw an exception if no matching process 
+                subprocess.run("pkill -f nose", shell=True)
             except subprocess.CalledProcessError:
                 print("Killed!")
                 running = False
@@ -118,6 +120,7 @@ class hw_eth_debugger:
     # Destructor
     def __del__(self):
         self._send_cmd("exit")
+        time.sleep(0.1) # Allow command to be processed
         if self.nose_proc.poll() is None:
             self.nose_proc.terminate()
         self.sock.close()
