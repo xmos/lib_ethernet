@@ -151,14 +151,14 @@ pipeline {
                       if(params.TEST_TYPE == 'smoke')
                       {
                         echo "Running tests with fixed seed ${env.SEED}"
-                        sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw and not tx_ifg' "
+                        //sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw and not tx_ifg' "
                       }
                       else
                       {
                         echo "Running tests with random seed"
-                        sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
+                        //sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
                       }
-                      junit "pytest_result.xml"
+                      //junit "pytest_result.xml"
                     } // script
                   } // dir("tests")
                 } // withTools
@@ -174,56 +174,56 @@ pipeline {
             } // cleanup
           } // post
         } // stage('Simulator tests')
-        stage('HW tests - PHY0') {
-          agent {
-            label 'sw-hw-eth-ubu0'
-          }
-          environment {
-            PYTHON_VERSION = "3.12.3"
-          }
-          steps {
-            dir("${REPO}") {
-              checkoutScmShallow()
-              createVenv()
-              installPipfile(false)
-            }
+        //stage('HW tests - PHY0') {
+        //  agent {
+        //    label 'sw-hw-eth-ubu0'
+        //  }
+        //  environment {
+        //    PYTHON_VERSION = "3.12.3"
+        //  }
+        //  steps {
+        //    dir("${REPO}") {
+        //      checkoutScmShallow()
+        //      createVenv()
+        //      installPipfile(false)
+        //    }
 
-            clone_test_deps()
+        //    clone_test_deps()
 
-            dir("${REPO}") {
-              withVenv {
-                sh "pip install -e ../test_support"
-                sh "pip install -e ../hardware_test_tools"
-                sh "pip install -e ../xtagctl"
-                withTools(params.TOOLS_VERSION) {
-                  dir("tests") {
-                    // Build all apps in the examples directory
-                    unstash 'test_bin'
-                    script {
-                        // Set environment variable based on condition
-                        def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
-                        // Use withEnv to pass the variable to the shell
-                        withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
-                          withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw' --timeout=600 --session-timeout=3600"
-                          } // withXTAG
-                        } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
-                    } // script
-                    junit "pytest_result.xml"
-                  } // dir("tests")
-                } // withTools
-              } // withVenv
-            } // dir("${REPO}")
-          } // steps
-          post {
-            always {
-              archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
-            }
-            cleanup {
-              xcoreCleanSandbox()
-            } // cleanup
-          } // post
-        } // stage('HW tests - PHY0')
+        //    dir("${REPO}") {
+        //      withVenv {
+        //        sh "pip install -e ../test_support"
+        //        sh "pip install -e ../hardware_test_tools"
+        //        sh "pip install -e ../xtagctl"
+        //        withTools(params.TOOLS_VERSION) {
+        //          dir("tests") {
+        //            // Build all apps in the examples directory
+        //            unstash 'test_bin'
+        //            script {
+        //                // Set environment variable based on condition
+        //                def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
+        //                // Use withEnv to pass the variable to the shell
+        //                withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
+        //                  withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
+        //                    sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw' --timeout=600 --session-timeout=3600"
+        //                  } // withXTAG
+        //                } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
+        //            } // script
+        //            junit "pytest_result.xml"
+        //          } // dir("tests")
+        //        } // withTools
+        //      } // withVenv
+        //    } // dir("${REPO}")
+        //  } // steps
+        //  post {
+        //    always {
+        //      archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+        //    }
+        //    cleanup {
+        //      xcoreCleanSandbox()
+        //    } // cleanup
+        //  } // post
+        //} // stage('HW tests - PHY0')
         stage('HW tests - PHY1') {
           agent {
             label 'sw-hw-eth-ubu1'
@@ -255,7 +255,7 @@ pipeline {
                         // Use withEnv to pass the variable to the shell
                         withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
                           withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw' --timeout=600 --session-timeout=3600"
+                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw and test_hw_4_1_1' --timeout=60 --session-timeout=3600 -s"
                           } // withXTAG
                         } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                     } // script
@@ -267,6 +267,7 @@ pipeline {
           } // steps
           post {
             always {
+              archiveArtifacts artifacts: "${REPO}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
               archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {

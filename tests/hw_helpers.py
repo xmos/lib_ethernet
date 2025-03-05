@@ -27,6 +27,7 @@ from helpers import create_expect, create_if_needed
 import Pyxsim as px
 import inspect
 from pcapng import FileScanner # I found a bug in rdpcap in scapy 2.6.1. This seems more robust: python-pcapng==2.1.1
+import shutil
 
 # Constants used in the tests
 packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
@@ -872,7 +873,7 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
     phy = request.config.getoption("--phy")
-    verbose = True
+    verbose = False
 
     dut_mac_address_str = "00:01:02:03:04:05"
     print(f"dut_mac_address = {dut_mac_address_str}")
@@ -908,6 +909,8 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
         print("Retrive status and shutdown DUT")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+        print(f"shutdown stdout:\n")
+        print(stdout)
         print("Terminating!!!")
 
     # Analyse and compare against expected
@@ -918,7 +921,11 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     create_expect(packets_to_send, expect_filename)
     tester = px.testers.ComparisonTester(open(expect_filename))
 
-    assert tester.run(report.split("\n")[:-1]) # Need to chop off last line
+    shutil.copy2("packets_received.pcapng", f"{testname}_fail.pcapng")
+    result = tester.run(report.split("\n")[:-1]) # Need to chop off last line
+    if not result:
+        #shutil.copy2("packets_received.pcapng", f"{testname}_fail.pcapng")
+        assert False
 
 # This is just for test
 if __name__ == "__main__":
