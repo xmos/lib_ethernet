@@ -121,6 +121,7 @@ class hw_eth_debugger:
     def __del__(self):
         self._send_cmd("exit")
         time.sleep(0.1) # Allow command to be processed
+        # If exit didn't work..
         if self.nose_proc.poll() is None:
             self.nose_proc.terminate()
         self.sock.close()
