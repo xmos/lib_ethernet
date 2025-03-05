@@ -8,7 +8,7 @@
 #include <otp_board_info.h>
 #include <string.h>
 #include <print.h>
-#include "test_loopback.h"
+#include "test_rx.h"
 #include "xscope_control.h"
 #include "xscope_cmd_handler.h"
 

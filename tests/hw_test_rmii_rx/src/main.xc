@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "otp_board_info.h"
 #include "ethernet.h"
-#include "test_loopback.h"
+#include "test_rx.h"
 #include "xscope_control.h"
 #include "smi.h"
 #include "xk_eth_xu316_dual_100m/board.h"
