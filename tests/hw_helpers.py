@@ -27,6 +27,7 @@ from helpers import create_expect, create_if_needed
 import Pyxsim as px
 import inspect
 from pcapng import FileScanner # I found a bug in rdpcap in scapy 2.6.1. This seems more robust: python-pcapng==2.1.1
+import shutil
 
 # Constants used in the tests
 packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
@@ -412,8 +413,8 @@ class hw_eth_debugger:
         if self.verbose:
             print(f"cmd: capture_start {filename}, returned ok {ok}, msg {msg}")
         if ok and 'succeeded' in msg:
-            return True
-        return False
+            return True, msg
+        return False, msg
 
     # Stops capture and returns the scapy packets if successful, otherwise the error message
     def capture_stop(self, use_raw=False):
@@ -901,7 +902,8 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
                 print("Links up")
             else:
                 raise RuntimeError("Links not up")
-            dbg.capture_start("packets_received.pcapng")
+            started, response = dbg.capture_start("packets_received.pcapng")
+            assert started, f"Error: Debugger capture not started. response = {response}"
 
             print("Debugger sending packets")
             for packet_to_send in packets_to_send:
@@ -912,6 +914,8 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
         print("Retrive status and shutdown DUT")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+        print(f"shutdown stdout:\n")
+        print(stdout)
         print("Terminating!!!")
 
     # Analyse and compare against expected
@@ -922,7 +926,11 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     create_expect(packets_to_send, expect_filename)
     tester = px.testers.ComparisonTester(open(expect_filename))
 
-    assert tester.run(report.split("\n")[:-1]) # Need to chop off last line
+    result = tester.run(report.split("\n")[:-1]) # Need to chop off last line
+    if not result:
+        shutil.copy2("packets_received.pcapng", f"{testname}_fail.pcapng")
+        print(f"capture_start results: started {started}, {response}")
+        assert False
 
 # This is just for test
 if __name__ == "__main__":
