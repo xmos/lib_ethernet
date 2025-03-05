@@ -29,7 +29,6 @@ def test_hw_hot_plug(request):
 
     phy = request.config.getoption("--phy")
 
-    dbg = hw_eth_debugger()
     host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
     test_duration_s = 5 # hardcoded small duration since we hot plug the device and test multiple times
@@ -65,7 +64,7 @@ def test_hw_hot_plug(request):
     hp_client_id = 1
 
     xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_{phy}" / f"hw_test_rmii_tx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         if dbg.wait_for_links_up():
             print("Links up")
 

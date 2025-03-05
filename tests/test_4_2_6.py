@@ -1,75 +1,95 @@
-# Copyright 2014-2025 XMOS LIMITED.
+# Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 """
 Send packets with less than min IFG to the DUT and see how smallest IFG for which the device still receives without dropping packets
 """
-
-import random
-from mii_packet import MiiPacket
-from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
 import pytest
+from hw_helpers import hw_4_1_x_test_init, line_speed, analyse_dbg_cap_vs_sent_miipackets
+from helpers import create_if_needed, create_expect
+from test_4_2_6 import do_test
 from pathlib import Path
-from helpers import generate_tests
+import platform
+from hw_helpers import hw_eth_debugger
+from xcore_app_control import XcoreAppControl
+import Pyxsim as px
+import time
 
-def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed, rx_width=None, tx_width=None, hw_debugger_test=None):
-    rand = random.Random()
-    rand.seed(seed)
+# This requires a custom version because we want to test IFG and the hw debugger cannot do
+# that with played packets as they are sent one by one. We need to instead use the inject command and manipulate ifg_bytes in the inject_packet method
+def do_test_4_2_6_hw_dbg(request, testname, mac, arch, packets_to_send):
+    testname += "_" + mac + "_" + arch
+    pkg_dir = Path(__file__).parent
+    send_method = "debugger"
 
-    dut_mac_address = get_dut_mac_address()
+    adapter_id = request.config.getoption("--adapter-id")
+    assert adapter_id != None, "Error: Specify a valid adapter-id"
 
-    packets = []
+    phy = request.config.getoption("--phy")
 
-    ifg = tx_clk.get_min_ifg()
+    verbose = False
 
-    # Part A - Ensure that two packets separated by minimum IFG are received ok
-    packets.append(MiiPacket(rand,
-        dst_mac_addr=dut_mac_address,
-        create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))]
-      ))
-    packets.append(MiiPacket(rand,
-        dst_mac_addr=dut_mac_address,
-        create_data_args=['step', (rand.randint(1, 254), choose_small_frame_size(rand))],
-        inter_frame_gap=ifg
-      ))
+    dut_mac_address_str = "00:01:02:03:04:05"
+    print(f"dut_mac_address = {dut_mac_address_str}")
+    dut_mac_address = [int(i, 16) for i in dut_mac_address_str.split(":")]
 
-    # Part B - Determine the minimum IFG that can be supported
-    bit_time = ifg/96
-
-    # Allow lots of time for the DUT to recover between test bursts
-    recovery_time = 4*packet_processing_time(tx_phy, 46, mac)
-
-    # Test shrinking the IFG by different amounts. Use the shrink as the step for debug purposes
-    if tx_phy.get_name() == "rmii":
-        gap_shrink_list = [5]
+    if send_method == "debugger":
+        assert platform.system() in ["Linux"], f"HW debugger only supported on Linux"
     else:
-        gap_shrink_list = [5, 10]
+        assert False, f"Invalid send_method {send_method}"
 
-    for gap_shrink in gap_shrink_list:
-        new_ifg = ifg - gap_shrink * bit_time
+    xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
+    print(xe_name)
 
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=dut_mac_address,
-            create_data_args=['step', (gap_shrink, choose_small_frame_size(rand))],
-            inter_frame_gap=recovery_time
-          ))
-        packets.append(MiiPacket(rand,
-            dst_mac_addr=dut_mac_address,
-            create_data_args=['step', (gap_shrink, choose_small_frame_size(rand))],
-            inter_frame_gap=new_ifg
-          ))
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
+        print("Wait for DUT to be ready")
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
-    if hw_debugger_test is not None:
-        test_fn = hw_debugger_test[0]
-        request = hw_debugger_test[1]
-        testname = hw_debugger_test[2]
-        test_fn(request, testname, mac, arch, packets)
-    else:
-        do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx", rx_width=rx_width, tx_width=tx_width)
+        print("Set DUT Mac address")
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
 
-test_params_file = Path(__file__).parent / "test_rx/test_params.json"
-@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
-def test_4_2_6(params, capfd):
-    random.seed(26)
-    run_parametrised_test_rx(capfd, do_test, params)
+        if send_method == "debugger":
+            if dbg.wait_for_links_up():
+                print("Links up")
+            else:
+                raise RuntimeError("Links not up")
+
+            # Debugger can only set IFG in steps of 8b (a bytes)
+            standard_ifg_bytes = 12 # 96 bit times
+            min_tested_ifg_bytes = 9 # 72 bit times
+            num_packets_to_send = 10 # The DUT takes longer to send than rx so don't overwhelm the Rx buffer
+
+            for ifg_byte_count in range(standard_ifg_bytes, min_tested_ifg_bytes-1, -1):
+                dbg.capture_start("packets_received.pcapng")
+                time.sleep(0.25) # Ensure capture started
+                packet = packets_to_send[0]
+                print("Debugger sending packets")
+                dbg.inject_MiiPacket(dbg.debugger_phy_to_dut, packet, num=num_packets_to_send, ifg_bytes=ifg_byte_count)
+                sleep_time = (len(packet.get_nibbles()) * 4 + ifg_byte_count * 8) * num_packets_to_send / line_speed
+                time.sleep(sleep_time + 0.1)
+
+                received_packets = dbg.capture_stop(use_raw=True)
+
+                # Analyse and compare against expected
+                sent_packets = [packet for i in range(num_packets_to_send)]
+                report = analyse_dbg_cap_vs_sent_miipackets(received_packets, sent_packets, swap_src_dst=True) # Packets are looped back so swap MAC addresses for filter
+                print("****IFG BYTES ", ifg_byte_count, " PACKET BYTES ", len(packet.get_packet_bytes()) + 8 + 4)
+
+                expect_folder = create_if_needed("expect_temp")
+                expect_filename = f'{expect_folder}/{testname}.expect'
+                create_expect([packet for i in range(num_packets_to_send)], expect_filename)
+                tester = px.testers.ComparisonTester(open(expect_filename))
+
+                assert tester.run(report.split("\n")[:-1]) # Need to chop off last line
+
+        print("Retrive status and shutdown DUT")
+        stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+        print("Terminating!!!")
+
+
+@pytest.mark.debugger
+def test_4_2_6_hw_debugger(request):
+    seed, testname, mac, arch, phy, clock = hw_4_1_x_test_init(26)
+    # This doesn't exercise min IFG times
+    # do_test(None, mac, arch, clock, phy, clock, phy, seed, hw_debugger_test=(do_hw_dbg_rx_test, request, testname))
+    do_test(None, mac, arch, clock, phy, clock, phy, seed, hw_debugger_test=(do_test_4_2_6_hw_dbg, request, testname))
