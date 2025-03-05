@@ -75,26 +75,6 @@ class hw_eth_debugger:
         socket_path = f"/tmp/nose_socket{self.device}"
         device_str = "" if self.device == "" else f"--device {self.device}"
 
-        # Startup debugger process
-        # first kill any unterminated
-        running = True
-        count = 0
-        while running:
-            try:
-                # This will throw an exception if not found
-                subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
-                print("Killing old nose process..")
-                # this will throw an exception if no matching process 
-                subprocess.run("pkill -f nose", shell=True)
-                count += 1
-                time.sleep(0.1) # ensure is dead otherwise starting may come too soon
-                if count == 10:
-                    raise Exception("Unable to kill old nose process")
-            except subprocess.CalledProcessError:
-                print("Previous nose process killed.")
-                running = False
-            time.sleep(0.1) # loop throttle
-
         cmd = f"{str(self.nose_bin_path)} {device_str} --ipc-server {socket_path}"
         self.nose_proc = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
         # ensure is running
