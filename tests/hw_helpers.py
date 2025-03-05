@@ -65,7 +65,7 @@ class hw_eth_debugger:
                 print(".", end="")
                 # This will throw an exception if not found
                 subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
-                # this will throw an exception if no matching process 
+                # this will throw an exception if no matching process
                 subprocess.run("pkill -f nose", shell=True)
             except subprocess.CalledProcessError:
                 print("Killed!")
@@ -413,6 +413,7 @@ class hw_eth_debugger:
         if self.verbose:
             print(f"cmd: capture_start {filename}, returned ok {ok}, msg {msg}")
         if ok and 'succeeded' in msg:
+            time.sleep(2)
             return True, msg
         return False, msg
 
