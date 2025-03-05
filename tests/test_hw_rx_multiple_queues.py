@@ -7,7 +7,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
 import pytest
 from contextlib import nullcontext
 import time
@@ -29,6 +29,10 @@ def test_hw_rx_multiple_queues(request, send_method):
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
     phy = request.config.getoption("--phy")
+
+    no_debugger = request.config.getoption("--no-debugger")
+    if not no_debugger: # If debugger present, create an instance
+        dbg = hw_eth_debugger()
 
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
@@ -70,6 +74,9 @@ def test_hw_rx_multiple_queues(request, send_method):
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_rmii_rx_multiple_queues_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
         print("Wait for DUT to be ready")
+        if not no_debugger:
+            if dbg.wait_for_links_up():
+                print("Links up")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address for each RX client")
