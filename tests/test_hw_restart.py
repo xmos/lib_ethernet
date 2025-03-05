@@ -65,7 +65,12 @@ def test_hw_restart(request, send_method):
 
         if send_method == "socket":
             num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
-            assert host_received_packets == num_packets_sent, f"ERROR: Host received back fewer than it sent. Sent {num_packets_sent}, received back {host_received_packets}"
+            if host_received_packets != num_packets_sent:
+                print(f"ERROR: Host received back fewer than it sent. Sent {num_packets_sent}, received back {host_received_packets}")
+                stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+                print("shutdown stdout:\n")
+                print(stdout)
+                assert False
 
         for _ in range(num_restarts):
             # restart the mac
@@ -78,17 +83,24 @@ def test_hw_restart(request, send_method):
 
             if send_method == "socket":
                 num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
-                assert host_received_packets == 0, f"After mac restart and before setting macaddr filters, host expected to receive 0 packets. Received {host_received_packets} packets instead"
-
+                if host_received_packets != 0:
+                    print(f"After mac restart and before setting macaddr filters, host expected to receive 0 packets. Received {host_received_packets} packets instead")
+                    stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+                    print("shutdown stdout:\n")
+                    print(stdout)
+                    assert False
 
             stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_macaddr(0, dut_mac_address_str)
 
             # Now the RX client should receive packets
             if send_method == "socket":
                 num_packets_sent, host_received_packets = socket_host.send_recv(test_duration_s)
-                #assert host_received_packets == num_packets_sent, f"ERROR: Host received back fewer than it sent. Sent {num_packets_sent}, received back {host_received_packets}"
-
-
+                if host_received_packets != num_packets_sent:
+                    print(f"ERROR: Host received back fewer than it sent. Sent {num_packets_sent}, received back {host_received_packets}")
+                    stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+                    print("shutdown stdout:\n")
+                    print(stdout)
+                    assert False
 
         print("Retrive status and shutdown DUT")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
