@@ -73,8 +73,8 @@ class XcoreAppControl(XcoreApp):
         This method is called at the end of the `with` statement block.
         """
         if self.xrun_app: # Kill the xrun process
-            proc_stdout, proc_stderr = self.terminate()
+            super().__exit__(exc_type, exc_val, exc_tb)
             if self.verbose:
                 print("After terminating xrun:\n")
-                print(f"stdout: {proc_stdout}")
-                print(f"stderr: {proc_stderr}")
+                print(f"stdout: {self.proc_stdout}")
+                print(f"stderr: {self.proc_stderr}")
