@@ -78,6 +78,7 @@ class hw_eth_debugger:
         # Startup debugger process
         # first kill any unterminated
         running = True
+        count = 0
         while running:
             try:
                 # This will throw an exception if not found
@@ -85,9 +86,12 @@ class hw_eth_debugger:
                 print("Killing old nose process..")
                 # this will throw an exception if no matching process 
                 subprocess.run("pkill -f nose", shell=True)
+                count += 1
                 time.sleep(0.1) # ensure is dead otherwise starting may come too soon
+                if count == 10:
+                    raise Exception("Unable to kill old nose process")
             except subprocess.CalledProcessError:
-                print("Previous nose processes killed.")
+                print("Previous nose process killed.")
                 running = False
             time.sleep(0.1) # loop throttle
 
@@ -936,8 +940,8 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
 # This is just for test
 if __name__ == "__main__":
-    dbg = hw_eth_debugger()
-
+    with hw_eth_debugger() as dbg:
+        pass
     sys.exit(0)
 
     print(dbg.get_link_status())
