@@ -209,39 +209,6 @@ class SocketHost():
 
         return num_packets_sent, int(m.group(1))
 
-    def recv(self, capture_file):
-        """
-        Receive Layer 2 Ethernet packets over a raw socket. This is a wrapper function that executes the C++ application for receiving packets.
-
-        Note that this is a blocking call that returns after 5 seconds of inactivity following reception of the last packet.
-
-        Parameters:
-        capture_file (str): File in which to capture information about the received packet
-
-        Returns:
-        Number of packets received on the ethernet interface
-        """
-        self.set_cap_net_raw(self.socket_recv_app)
-        cmd = [self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file]
-        ret = subprocess.run(cmd,
-                             capture_output = True,
-                             text = True)
-        assert ret.returncode == 0, (
-            f"Subprocess run of cmd failed: {' '.join([str(c) for c in cmd])}"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-        if self.verbose:
-            print(f"After running cmd {' '.join([str(c) for c in cmd])}")
-            print(f"stdout = {ret.stdout}")
-            print(f"stderr = {ret.stderr}")
-
-        m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
-        assert m, ("Sniffer doesn't report received packets"
-        + f"\nstdout:\n{ret.stdout}"
-        + f"\nstderr:\n{ret.stderr}")
-
-        return int(m.group(1))
 
     def recv_asynch_start(self, capture_file):
         """
@@ -261,6 +228,20 @@ class SocketHost():
                                             stdout=subprocess.PIPE,
                                             stderr=subprocess.PIPE,
                                             text=True)
+
+        # Only return once the receiver signals it is ready. Check stdout for receiver ready msg
+        timeout = 10 # timeout in 10 sec
+        start_time = time.time()
+        while True:
+            output = self.recv_proc.stdout.readline()
+            search_str = f"Socket receiver ready to receive on interface {self.eth_intf}"
+            if search_str in output.strip():
+                if self.verbose:
+                    print("Socket receiver signalled ready!!")
+                return
+            elif time.time() - start_time > timeout:
+                assert False, "Timed out waiting for socket receiver's ready signal"
+
 
     def recv_asynch_wait_complete(self):
         """

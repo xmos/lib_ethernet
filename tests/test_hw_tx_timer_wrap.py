@@ -7,7 +7,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
 from hw_helpers import load_packet_file
 import pytest
 from contextlib import nullcontext
@@ -54,6 +54,8 @@ def test_hw_tx_timer_wrap(request, send_method):
 
     phy = request.config.getoption("--phy")
 
+    no_debugger = request.config.getoption("--no-debugger")
+
     verbose = False
     seed = 0
     rand = random.Random()
@@ -79,8 +81,12 @@ def test_hw_tx_timer_wrap(request, send_method):
     nanoseconds_in_a_second = 1000000000
     packet_recv_times = []
     wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
+        if not no_debugger:
+            if dbg.wait_for_links_up():
+                print("Links up")
+
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         # config contents of Tx packets

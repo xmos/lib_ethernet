@@ -42,8 +42,8 @@ class hw_eth_debugger:
     def __init__(self, nose_bin_path=None, device=None, verbose=False):
         self.nose_bin_path = nose_bin_path
         self.device = device
-        self.verbose = verbose    
-        
+        self.verbose = verbose
+
         self.last_cmd = None
         self.capture_file = None # For packet capture
         self.disrupting = False # For disrupting packets
@@ -111,7 +111,7 @@ class hw_eth_debugger:
     # destructor
     def __del__(self):
         print("hw_eth_debugger exited")
-    
+
     # Cleanup after exiting block
     def __exit__(self, exc_type, exc_value, traceback):
         self._send_cmd("exit")

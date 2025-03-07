@@ -49,6 +49,14 @@ def pytest_addoption(parser):
         choices=["phy0", "phy1"],
         help="The PHY to run HW tests on. Default is phy0",
     )
+    # Whether or not debugger is in the path. Set to False when not specified, meaning that debugger is assumed to be in the path by default
+    # This information is required even by non debugger based tests to wait for links to be up at the debugger end,
+    # otherwise an arbitrary wait is required for the debugger links to be up before communicating with the device.
+    parser.addoption(
+        "--no-debugger",
+        action="store_true",
+        help="Run with --no-debugger when debugger is not in the path. When not specified, debugger assumed in the path",
+    )
 
 def build_socket_host():
     print("In build_socket_host()")

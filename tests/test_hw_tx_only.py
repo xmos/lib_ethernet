@@ -36,6 +36,8 @@ def test_hw_tx_only(request, send_method, tx_config):
 
     phy = request.config.getoption("--phy")
 
+    no_debugger = request.config.getoption("--no-debugger")
+
     if send_method == "socket":
         eth_intf = request.config.getoption("--eth-intf", default=None)
         assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
@@ -43,7 +45,6 @@ def test_hw_tx_only(request, send_method, tx_config):
         assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
         print(f"host_mac_address = {host_mac_address_str}")
         host_mac_address = int(host_mac_address_str.replace(":", ""), 16)
-
     elif send_method == "debugger":
         host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
@@ -94,6 +95,9 @@ def test_hw_tx_only(request, send_method, tx_config):
         xcoreapp.xscope_host.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
         if send_method == "socket":
+            if not no_debugger:
+                if dbg.wait_for_links_up():
+                    print("Links up")
             print("Starting socket sniffer")
             assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
             socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}", verbose=verbose)

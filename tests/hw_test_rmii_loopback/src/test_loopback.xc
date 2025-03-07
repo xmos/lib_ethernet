@@ -16,6 +16,7 @@
 #define NUM_SEQ_ID_MISMATCH_LOGS (1000) // Save the first few seq id mismatches
 
 #define PRINT_TS_LOG (0)
+#define MAX_PACKET_BYTES (6 + 6 + 2 + 1500)
 
 typedef struct
 {
@@ -24,25 +25,19 @@ typedef struct
   unsigned ifg;
 }seq_id_pair_t;
 
-static void wait_us(int microseconds)
-{
-    timer t;
-    unsigned time;
-
-    t :> time;
-    t when timerafter(time + (microseconds * 100)) :> void;
-}
-
-
 #define NUM_BUF 200
 unsigned loopback_pkt_count = 0;
+unsigned loopback_byte_count = 0;
+
 void test_rx_loopback(streaming chanend c_tx_hp,
                       client loopback_if i_loopback)
 {
   set_core_fast_mode_on();
   unsigned * unsafe loopback_pkt_count_ptr;
+  unsigned * unsafe loopback_byte_count_ptr;
   unsafe {
     loopback_pkt_count_ptr = &loopback_pkt_count;
+    loopback_byte_count_ptr = &loopback_byte_count;
   }
 
   unsafe {
@@ -58,6 +53,7 @@ void test_rx_loopback(streaming chanend c_tx_hp,
       ethernet_send_hp_packet(c_tx_hp, (char *)buf, len, ETHERNET_ALL_INTERFACES);
       unsafe {
         *loopback_pkt_count_ptr += 1;
+        *loopback_byte_count_ptr += len;
       }
     }
   }
@@ -72,8 +68,10 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 {
   set_core_fast_mode_on();
   unsigned * unsafe loopback_pkt_count_ptr;
+  unsigned * unsafe loopback_byte_count_ptr;
   unsafe {
     loopback_pkt_count_ptr = &loopback_pkt_count;
+    loopback_byte_count_ptr = &loopback_byte_count;
   }
   ethernet_macaddr_filter_t macaddr_filter;
 
@@ -128,8 +126,15 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned rd_index = 0;
   unsigned overflow = 0;
 
+  // If client index 0, wait for link up and send a pipecleaner packet to work around suspected phy issue of occasionally not receiving the first packet
+  if(client_cfg.client_num == 0)
+  {
+    transmit_startup_packet(cfg, tx);
+  }
+
   while (!client_state.done)
   {
+    #pragma ordered
     select {
       case client_state.receiving => rx.packet_ready():
         ethernet_packet_info_t packet_info;
@@ -255,7 +260,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   debug_printf("DUT client index %u: counter = %u, min_ifg = %u, max_ifg = %u, overflow=%d, rd_index %d, wr_index %d\n", client_num, counter, min_ifg, max_ifg, overflow, rd_index, wr_index);
   debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
   unsafe {
-  debug_printf("DUT client index %u: Number of loopback packets = %u\n", client_num, *loopback_pkt_count_ptr);
+  debug_printf("DUT client index %u: Number of loopback bytes = %u, loopback packets = %u\n", client_num, *loopback_byte_count_ptr, *loopback_pkt_count_ptr);
   }
   if(test_fail)
   {

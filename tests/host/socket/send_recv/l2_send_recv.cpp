@@ -27,11 +27,15 @@ int main(int argc, char *argv[])
     std::vector<std::vector<unsigned char>> dut_mac_bytes;
     dut_mac_bytes.push_back(parse_mac_address(dut_mac));
 
+    std::promise<void> ready_signal; // shared signalling object
+    std::future<void> future_signal = ready_signal.get_future();
     // Start sender and receiver threads
     std::string no_capture_file = "";
-    std::thread receiver(receive_packets, std::string(argv[1]), no_capture_file, dut_mac_bytes[0]);
+    std::thread receiver(receive_packets, std::string(argv[1]), no_capture_file, dut_mac_bytes[0], std::ref(ready_signal));
 
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Give time for receiver thread to start receiving before starting sender
+    future_signal.get(); // Wait for a ready signal from receiver before starting sender
+
+    std::cout << "Socket receiver ready to receive on interface " << std::string(argv[1]) << std::endl;
 
     std::thread sender(send_packets, std::string(argv[1]), std::string(argv[2]), std::string(argv[3]), host_mac_bytes, dut_mac_bytes);
 
