@@ -21,10 +21,6 @@ import struct
 
 
 pkg_dir = Path(__file__).parent
-"""
-Time it takes for the socket receiver to get ready to receive a packet.
-After starting the socket receiver process, wait this long before asking the DUT to transmit
-"""
 
 def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verbose):
     expected_packet_len = 1500
@@ -46,6 +42,18 @@ def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verb
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_tx_timer_wrap(request, send_method):
+    """
+    Test the fix for https://github.com/xmos/lib_ethernet/issues/51
+
+    The TX thread in the MAC uses the 32bit reference timer to keep track of the IFG.
+    If the gap between 2 packets that require transmitting is large such that it causes time wraparound(s),
+    the next packet still needs to be transmitted within a reasonable time (without a 21 sec delay that a timer
+    wraparound if not handled would introduce)
+
+    This test introduces a large delay (rand.randint(20, 40) seconds) between requesting the device to transmit a
+    packet and then checks that the second packet is received reasonably quickly.
+    This is repeated 3 times with different values of the randomly computed delay.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

@@ -30,7 +30,21 @@ pkg_dir = Path(__file__).parent
                                         [1000, 1000, 25000000]]
                                         , ids=["LP_only", "LP_1Mbps_HP_small", "LP_max_len_2Mbps_HP_max", "LP_25Mbps_HP"])
 def test_hw_tx_only(request, send_method, tx_config):
-    print()
+    """
+    Test that a TX client on the DUT can transmit packets.
+
+    The DUT test app has a LP and HP TX client.
+    The LP client can be configured to send a no. of packets of a given size.
+    The LP client can be configured to do nothing or send a given sized packets at a host defined throughput.
+    All of this is configured by the host over the xscope interface.
+    The TX client encodes a seq_id in the first 4 bytes of the payload.
+
+    On receiving the packets, the host checks for any dropped packets and also if the HP traffic is received at the throughput if specified.
+
+    The test uses 2 types of host applications for sending packets: The raw socket based receiver running on the linux host, or the ethernet HW
+    debugger based receiver capturing packets seen by the debugger.
+    """
+
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

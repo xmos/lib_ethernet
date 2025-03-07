@@ -24,6 +24,19 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.debugger
 def test_hw_hot_plug(request):
+    """
+    Simulate hot-plugging the device and test that it recovers after a hot-plug.
+
+    hot plugging is simulated by power cycling the PHY on the HW debugger by writing to the power down bit in bmrc register
+    over the mdio interface available on the debugger. This causes the ethernet link on the device to go down and then back up.
+
+    In the test, the tx app on the device is configured to send packets and the device is hot plugged while transmitting.
+    The test checks that there's packet loss due to the hot-plugging.
+    After the link is back up, the device is configured to transmit again and the test checks that there's no packet loss
+    this time.
+    The above sequence is repeated 'num_hot_plug_instances' times
+
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
