@@ -161,10 +161,6 @@ class XscopeControl():
         device stdout from executing the command
         """
         ret = self.xscope_controller_do_command([XscopeControl.XscopeCommands['CMD_DEVICE_CONNECT'].value])
-        # This is to wait for debugger's link up in case its in the path. Ideally we should be doing
-        # dbg.wait_for_links_up(): but for non debugger tests there's no guarantee that the debugger is in the path
-        # TODO find a better way. Maybe not support debugger not being in the path, or have a cmd line option indicating so??
-        time.sleep(2)
         return ret
 
 

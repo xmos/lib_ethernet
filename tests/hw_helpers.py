@@ -413,7 +413,6 @@ class hw_eth_debugger:
         if self.verbose:
             print(f"cmd: capture_start {filename}, returned ok {ok}, msg {msg}")
         if ok and 'succeeded' in msg:
-            #time.sleep(5)
             return True, msg
         return False, msg
 
