@@ -25,16 +25,6 @@ typedef struct
   unsigned ifg;
 }seq_id_pair_t;
 
-static void wait_us(int microseconds)
-{
-    timer t;
-    unsigned time;
-
-    t :> time;
-    t when timerafter(time + (microseconds * 100)) :> void;
-}
-
-
 #define NUM_BUF 200
 unsigned loopback_pkt_count = 0;
 unsigned loopback_byte_count = 0;
@@ -136,34 +126,11 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned rd_index = 0;
   unsigned overflow = 0;
 
-  // If client index 0, wait for link up and send a packet cleaner packet
-  unsigned char data[MAX_PACKET_BYTES] = {0};
-  uint16_t ether_type = 0x2222;
-  unsigned char source_mac_addr[MACADDR_NUM_BYTES];
-  unsigned char target_mac_addr[MACADDR_NUM_BYTES];
-  for(int i=0; i<MACADDR_NUM_BYTES; i++)
-  {
-    target_mac_addr[i] = 0xff;
-    source_mac_addr[i] = i+client_num;
-  }
-  memcpy(&data[0], target_mac_addr, sizeof(target_mac_addr));
-  memcpy(&data[6], source_mac_addr, sizeof(source_mac_addr));
-  memcpy(&data[12], &ether_type, sizeof(ether_type));
+  // If client index 0, wait for link up and send a pipecleaner packet to work around suspected phy issue of occasionally not receiving the first packet
   if(client_cfg.client_num == 0)
   {
-    // The first client needs to ensure link is up when returning ready status
-    unsigned link_state, link_speed;
-    cfg.get_link_state(0, link_state, link_speed);
-    while(link_state != ETHERNET_LINK_UP)
-    {
-      wait_us(1000); // Check every 1ms
-      cfg.get_link_state(0, link_state, link_speed);
-    }
-    debug_printf("Before sending the startup packet, ensured Ethernet link up\n");
+    transmit_startup_packet(cfg, tx);
   }
-  debug_printf("Send startup packet\n");
-  tx.send_packet(data, 1500, ETHERNET_ALL_INTERFACES);
-  debug_printf("Finished Send startup packet\n");
 
   while (!client_state.done)
   {

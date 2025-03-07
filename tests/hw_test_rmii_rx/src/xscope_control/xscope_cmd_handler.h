@@ -27,4 +27,6 @@ typedef struct
 
 select xscope_cmd_handler(chanend c_xscope_control, client_cfg_t &client_cfg, client ethernet_cfg_if cfg, client_state_t &client_state);
 
+void transmit_startup_packet(client ethernet_cfg_if cfg, client ethernet_tx_if tx);
+void wait_us(int microseconds);
 #endif

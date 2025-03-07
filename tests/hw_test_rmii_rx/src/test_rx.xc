@@ -24,15 +24,6 @@ typedef struct
   unsigned ifg;
 }seq_id_pair_t;
 
-static void wait_us(int microseconds)
-{
-    timer t;
-    unsigned time;
-
-    t :> time;
-    t when timerafter(time + (microseconds * 100)) :> void;
-}
-
 void test_rx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  unsigned client_num,

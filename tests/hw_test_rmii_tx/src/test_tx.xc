@@ -14,15 +14,6 @@
 
 #define MAX_PACKET_BYTES (6 + 6 + 2 + 1500)
 
-static void wait_us(int microseconds)
-{
-    timer t;
-    unsigned time;
-
-    t :> time;
-    t when timerafter(time + (microseconds * 100)) :> void;
-}
-
 void test_tx_lp(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,
                  client ethernet_tx_if tx,
@@ -55,20 +46,11 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
-  // If client index 0, wait for link up and send a packet cleaner packet
+  // If client index 0, wait for link up and send a pipecleaner packet to work around suspected phy issue of occasionally not receiving the first packet
   if(client_cfg.client_num == 0)
   {
-    // The first client needs to ensure link is up when returning ready status
-    unsigned link_state, link_speed;
-    cfg.get_link_state(0, link_state, link_speed);
-    while(link_state != ETHERNET_LINK_UP)
-    {
-      wait_us(1000); // Check every 1ms
-      cfg.get_link_state(0, link_state, link_speed);
-    }
-    debug_printf("Ethernet link up\n");
+    transmit_startup_packet(cfg, tx);
   }
-  tx.send_packet(data, client_state.tx_packet_len, ETHERNET_ALL_INTERFACES);
 
 
   while(!client_state.done)
