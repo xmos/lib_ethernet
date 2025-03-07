@@ -42,6 +42,18 @@ def sniff_pkt(intf, target_mac_addr, timeout_s, seq_ids):
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_loopback(request, send_method):
+    """
+    Test that the device can loopback packets over an ethernet interface.
+
+    The test application on the device is a loopback application that has a an LP RX client and a HP TX client running.
+    Everything received on the RX interfaces if looped back out of the TX interface
+
+    This is tested with only the host socket based way of testing, where the linux host opens
+    raw sockets to send/receive traffic to/from the device.
+
+    Note: Only 'max' (1514 bytes) size packets are used for this test since the device buffers cannot keep up with receiving small size
+    packets with min IFG while also looping them back.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

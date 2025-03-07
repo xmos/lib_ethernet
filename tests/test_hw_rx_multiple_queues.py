@@ -22,6 +22,14 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_rx_multiple_queues(request, send_method):
+    """
+    Test that when there are multiple LP RX clients and one HP RX client in the device, when receiving data, the HP
+    traffic never gets dropped in the device.
+
+    While the device is receiving packets, commands are sent over xscope to the LP clients to stop and start receiving packets
+    for random intervals. This causes the buffers in the device to fill up and correct behaviour would involve only dropping LP
+    traffic. The test checks that all HP packets sent from the host are received by the HP client on the device.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

@@ -23,6 +23,17 @@ pkg_dir = Path(__file__).parent
 @pytest.mark.parametrize('send_method', ['socket'])
 @pytest.mark.parametrize('payload_len', ['max', 'min', 'random'])
 def test_hw_rx_only(request, send_method, payload_len):
+    """
+    Test that the device can receive packets without dropping any.
+
+    This test uses the linux host sending traffic over a raw socket to the device.
+    It tests 3 types of traffic, with the socket send application sending either all max (1514) sized,
+    all min (60) sized or randomly sized packets.
+    The packets have a 'seq_id' encoded in the first 4 bytes of the payload and the client on the device logs
+    if there's a seq_id mismatch and reports the mismatches by printing them to stdout, on receiving a shutdown command
+
+    The test checks the stdout from the shutdown command for any errors reported from the device.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

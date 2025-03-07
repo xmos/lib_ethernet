@@ -65,6 +65,27 @@ def log_timestamps_probed_from_dut(probe_ts, ifg_summary_filename, ifg_full_file
 @pytest.mark.parametrize("packet_type", ["sweep", "fixed_size"])
 @pytest.mark.parametrize("dut_timestamp_probe", [True, False], ids=["ts_probe_on", "ts_probe_off"]) # Enable or disable timestamp probing in the DUT
 def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
+    """
+    Log the Interframe gap (IFG) in packets transmitted by the device and ensure that the IFG doesn't violate the min IFG requirement (960ns)
+
+    The TX app on the device can sweep through all valid packet sizes sending a fixed no. of frames for each size, or send a user requested number of frames
+    or a requested size. The device can be configured to do either over the xscope control interface.
+    @pytest.mark.parametrize("packet_type", ["sweep", "fixed_size"]) controls this.
+
+    The IFG is logged at the host end and optionally, directly from the device.
+    Logging at the host end involves reading packet receive timestamps recorded in the ethernet debugger.
+    When logging directly in the device, the test app has to be compiled in a mode where it allows probing of timestamps directly from the
+    rmii_master thread over xscope. This involves a change in the Mac code and is not recommended unless testing this specific use case.
+    @pytest.mark.parametrize("dut_timestamp_probe", [True, False], ids=["ts_probe_on", "ts_probe_off"]) chooses whether we use the device app
+    with or without timestamp probing enabled.
+
+    Due to the jitter in the captured timestamps from the debugger, the probing from the device method has been necessary to read accurate IFG values.
+
+    The min IFG checks in the test, as a result, look only at the timestamps probed from the device to ensure min IFG is not violated.
+
+    The IFGs logged at the host (with and without device probe enabled) and the device end are logged in suitable named files making it possible to refer
+    later.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 

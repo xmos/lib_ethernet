@@ -22,6 +22,20 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_restart(request, send_method):
+    """
+    Test exiting and restarting the Mac threads.
+
+    This test sends the restart command to the device over xscope control which causes the MAC
+    and client loopback rx thread to exit and start again.
+
+    After restarting the test checks that no packets get looped back from the device since the MAC address filters
+    that were set in the device prior to restart should now have got reset. This is an indication that
+    the MAC actually did restart.
+    Once the Mac address filters are set in the device, loopback is again tested and the device is expected to
+    successfully loopback packets now.
+
+    The above sequence is repeated 'num_restarts' times.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
