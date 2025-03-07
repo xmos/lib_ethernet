@@ -31,8 +31,6 @@ def test_hw_rx_multiple_queues(request, send_method):
     phy = request.config.getoption("--phy")
 
     no_debugger = request.config.getoption("--no-debugger")
-    if not no_debugger: # If debugger present, create an instance
-        dbg = hw_eth_debugger()
 
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
@@ -72,7 +70,7 @@ def test_hw_rx_multiple_queues(request, send_method):
 
 
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_rmii_rx_multiple_queues_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         if not no_debugger:
             if dbg.wait_for_links_up():

@@ -30,8 +30,6 @@ def test_hw_rx_only(request, send_method, payload_len):
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
     no_debugger = request.config.getoption("--no-debugger")
-    if not no_debugger: # If debugger present, create an instance
-        dbg = hw_eth_debugger()
 
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
@@ -101,7 +99,7 @@ def test_hw_rx_only(request, send_method, payload_len):
 
 
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_{phy}" / f"hw_test_rmii_rx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
 
         if not no_debugger:

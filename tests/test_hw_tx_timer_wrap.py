@@ -55,8 +55,6 @@ def test_hw_tx_timer_wrap(request, send_method):
     phy = request.config.getoption("--phy")
 
     no_debugger = request.config.getoption("--no-debugger")
-    if not no_debugger: # If debugger present, create an instance
-        dbg = hw_eth_debugger()
 
     verbose = False
     seed = 0
@@ -83,7 +81,7 @@ def test_hw_tx_timer_wrap(request, send_method):
     nanoseconds_in_a_second = 1000000000
     packet_recv_times = []
     wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         if not no_debugger:
             if dbg.wait_for_links_up():

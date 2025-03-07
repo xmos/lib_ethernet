@@ -73,3 +73,4 @@ test_params_file = Path(__file__).parent / "test_rx/test_params.json"
 def test_4_2_6(params, capfd):
     random.seed(26)
     run_parametrised_test_rx(capfd, do_test, params)
+

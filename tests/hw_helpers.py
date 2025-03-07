@@ -40,39 +40,42 @@ This class contains helpers for running the Intona 7060-A Ethernet Debugger
 class hw_eth_debugger:
     # No need to pass binary if on the path. Device used to specify debugger if more than one
     def __init__(self, nose_bin_path=None, device=None, verbose=False):
+        self.nose_bin_path = nose_bin_path
+        self.device = device
+        self.verbose = verbose
+
+        self.last_cmd = None
+        self.capture_file = None # For packet capture
+        self.disrupting = False # For disrupting packets
+        self.verbose = verbose
+
+        # These are fixed in the test harness
+        self.debugger_phy_to_dut = "A"
+        self.debugger_phy_to_host = "B"
+
+        # Will be a number in Mbit
+        # This state is asynchronously reported by the debugger and so we pick these messages up
+        # whenever they come during normal command responses or specifically with a blocking command
+        self.link_state_a = 0
+        self.link_state_b = 0
+
+    def __enter__(self):
         # Get the "nose" binary that drives the debugger
-        if nose_bin_path is None:
+        if self.nose_bin_path is None:
             result = subprocess.run("which nose".split(), capture_output=True, text=True)
             if result.returncode == 0:
                 self.nose_bin_path = Path(result.stdout.strip("\n"))
             else:
-                self.nose_bin_path = self.build_binary()
+                self.nose_bin_path = self._build_binary()
         else:
             if not Path(nose_bin_path).isfile():
                 raise RuntimeError(f'Nose not found on supplied path: {nose_bin_path}')
 
         # Setup socket for comms with debugger
-        device = "" if device is None else device
-        socket_path = f"/tmp/nose_socket{device}"
-        device_str = "" if device == "" else f"--device {device}"
+        self.device = "" if self.device is None else self.device
+        socket_path = f"/tmp/nose_socket{self.device}"
+        device_str = "" if self.device == "" else f"--device {self.device}"
 
-        # Startup debugger process
-        # first kill any unterminated
-        print("Killing old nose process..", end="")
-        running = True
-        while running:
-            try:
-                print(".", end="")
-                # This will throw an exception if not found
-                subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
-                # this will throw an exception if no matching process
-                subprocess.run("pkill -f nose", shell=True)
-            except subprocess.CalledProcessError:
-                print("Killed!")
-                running = False
-            time.sleep(0.01)
-
-        time.sleep(0.1) # ensure is dead otherwise starting may come too soon
         cmd = f"{str(self.nose_bin_path)} {device_str} --ipc-server {socket_path}"
         self.nose_proc = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
         # ensure is running
@@ -92,21 +95,6 @@ class hw_eth_debugger:
                 print(".", end="")
                 time.sleep(.01)
 
-        self.last_cmd = None
-
-        self.capture_file = None # For packet capture
-        self.disrupting = False # For disrupting packets
-        self.verbose = verbose
-
-        # These are fixed in the test harness
-        self.debugger_phy_to_dut = "A"
-        self.debugger_phy_to_host = "B"
-
-        # Will be a number in Mbit
-        # This state is asynchronously reported by the debugger and so we pick these messages up
-        # whenever they come during normal command responses or specifically with a blocking command
-        self.link_state_a = 0
-        self.link_state_b = 0
         # Cycle through device closed then open, which will force printing of PHY state
         self._send_cmd(f"device_close")
         self._get_response()
@@ -118,18 +106,25 @@ class hw_eth_debugger:
         self._send_cmd("reset_device_settings")
         self._get_response()
 
-    # Destructor
+        return self
+
+    # destructor
     def __del__(self):
+        print("hw_eth_debugger exited")
+
+    # Cleanup after exiting block
+    def __exit__(self, exc_type, exc_value, traceback):
         self._send_cmd("exit")
         time.sleep(0.1) # Allow command to be processed
         # If exit didn't work..
         if self.nose_proc.poll() is None:
             self.nose_proc.terminate()
         self.sock.close()
-        print("hw_eth_debugger exited")
+
+        return False # propagate exceptions
 
     # This is tested as working on Linux and Mac
-    def build_binary(self):
+    def _build_binary(self):
         version_tag = "v1.6" # latest as of feb 2025. Note command protocol may change so pinning.
         # See https://github.com/intona/ethernet-debugger/tags
         repo_root = (Path(__file__).parent / "../..").resolve()
@@ -885,12 +880,11 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
     if send_method == "debugger":
         assert platform.system() in ["Linux"], f"HW debugger only supported on Linux"
-        dbg = hw_eth_debugger()
     else:
         assert False, f"Invalid send_method {send_method}"
 
     xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
@@ -934,7 +928,9 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
 # This is just for test
 if __name__ == "__main__":
-    dbg = hw_eth_debugger()
+    with hw_eth_debugger() as dbg:
+        pass
+    sys.exit(0)
 
     print(dbg.get_link_status())
     print(dbg.mdio_write(1, 0x1, 0x7400))

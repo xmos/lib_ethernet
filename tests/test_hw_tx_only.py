@@ -45,10 +45,7 @@ def test_hw_tx_only(request, send_method, tx_config):
         assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
         print(f"host_mac_address = {host_mac_address_str}")
         host_mac_address = int(host_mac_address_str.replace(":", ""), 16)
-        if not no_debugger: # If debugger present, create an instance
-            dbg = hw_eth_debugger()
     elif send_method == "debugger":
-        dbg = hw_eth_debugger()
         host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
     test_duration_s = request.config.getoption("--test-duration")
@@ -86,7 +83,7 @@ def test_hw_tx_only(request, send_method, tx_config):
     capture_file = "packets.bin"
 
     xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_{phy}" / f"hw_test_rmii_tx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 

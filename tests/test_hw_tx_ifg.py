@@ -70,7 +70,6 @@ def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
 
     phy = request.config.getoption("--phy")
 
-    dbg = hw_eth_debugger()
     host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
     test_duration_s = 30 # hardcoded. this is the duration in which we expect the DUT to complete sending all the packets
@@ -116,7 +115,7 @@ def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
     else:
         xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_single_client_with_ts_probe_{phy}" / f"hw_test_rmii_tx_single_client_with_ts_probe_{phy}.xe"
 
-    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         if dbg.wait_for_links_up():
             print("Links up")
 
