@@ -51,6 +51,9 @@ All RMII and RGMII implementations offer the 'real-time' features as standard. S
 
 In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
 
+*****
+Usage
+*****
 
 ``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
 , the `XMOS` application build and dependency management system.
@@ -214,7 +217,7 @@ The idle slope passed is a fractional value representing the number of bits per 
 VLAN Tag Stripping
 ==================
 
-In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
+In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis.
 
 |newpage|
 
@@ -356,7 +359,7 @@ The detail for how to set the values is outside the scope of this document, howe
 In summary, the fields (and their uses) in the ``port_timing`` structure are as follows:
 
  * clk_delay_tx_rising - The number of core clock cycles to delay the capture clock. Since no signal capture occurs in the TX section this value is not critical, however it should be set to the same as clk_delay_tx_falling.
- * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock. 
+ * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock.
  * clk_delay_rx_rising - The number of core clock cycles to delay the capture clock. Increasing this value delays the point at which the RX data and RXDV are sampled relative to the external ethernet clock.
  * clk_delay_rx_falling - The number of core clock cycles to delay the drive clock. Since no signal drive occurs in the RX section this value is not critical, however it should be set to the same as clk_delay_rx_rising.
  * pad_delay_rx - The number of core clock cycles to delay the sampling of RX data and strobe. Because this setting delays the data and not the clock, it has the effect of adding negative clock delay, which can be useful in some cases.
@@ -459,7 +462,7 @@ Usage
 ==================================
 
 There are two types of 10/100 Mb/s Ethernet MAC that are optimized for different feature sets. Both connect to a
-standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`, or optionally 
+standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`, or optionally
 an RMII interface for the real-time MAC running on xcore.ai.
 
 The resource-optimized MAC described here is provided for applications that do not require real-time features,

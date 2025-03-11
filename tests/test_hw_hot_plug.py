@@ -1,29 +1,19 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 from scapy.all import *
-import threading
 from pathlib import Path
 import random
-import copy
-from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
-from hw_helpers import load_packet_file, rdpcap_to_packet_summary, parse_packet_summary
+from hw_helpers import hw_eth_debugger
+from hw_helpers import rdpcap_to_packet_summary, parse_packet_summary
 from hw_helpers import packet_overhead, line_speed
 import pytest
-from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
-from socket_host import SocketHost
-import re
-import subprocess
-import platform
-import struct
 
 pkg_dir = Path(__file__).parent
 
 @pytest.mark.debugger
-def test_hw_hot_plug(request):
+def test_hw_hot_plug(request, seed):
     """
     Simulate hot-plugging the device and test that it recovers after a hot-plug.
 
@@ -62,7 +52,6 @@ def test_hw_hot_plug(request):
     print(f"Setting DUT to send {hp_packet_bandwidth_bps} bps HP packets of size {hp_packet_len}")
 
     verbose = False
-    seed = 0
     rand = random.Random()
     rand.seed(seed)
 
@@ -132,6 +121,21 @@ def test_hw_hot_plug(request):
             stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect() # Ensure that device can see link up
             dbg.capture_start()
             # now signal to DUT that we are ready to receive and say what we want from it
+            """
+            Workaround for the phy not receiving the first packets after link up. Get the DUT to transmit 1 packet and ignore whether its received or not.
+            Note that this is required only in this test since it has a special case of link going down and up multiple times during the test. The DUT already
+            sends one pipecleaner packet at startup after link seen up for the first time and this is sufficient for the other tests.
+            For this one, we add an extra workaround in the test instead to get the DUT to transmit one packet after link up and ignore whether its received or not.
+
+            Issue captured in https://github.com/xmos/lib_ethernet/issues/164
+            """
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
+            stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, 1, expected_packet_len_lp)
+            time.sleep(0.1)
+            packets = dbg.capture_stop()
+
+            # Now request the actual transmit that we care about
+            dbg.capture_start()
             stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(hp_client_id, hp_packet_bandwidth_bps, hp_packet_len)
             stdout = xcoreapp.xscope_host.xscope_controller_cmd_set_dut_tx_packets(lp_client_id, expected_packet_count, expected_packet_len_lp)
             time.sleep(test_duration_s + 1)
@@ -148,7 +152,7 @@ def test_hw_hot_plug(request):
                                                         expected_packet_len_hp = hp_packet_len,
                                                         dut_mac_address_hp = dut_mac_address_hp,
                                                         expected_bandwidth_hp = hp_packet_bandwidth_bps,
-                                                        start_seq_id_lp = (2*iter + 1) * expected_packet_count,
+                                                        start_seq_id_lp = (2*iter + 1) * expected_packet_count + (iter+1), # Extra (iter+1) for the 1 extra packet DUT transmits once per for iter in range(num_hot_plug_instances): iteration
                                                         verbose = True,
                                                         check_ifg = False)
             if errors: # If there are errors when no hotplug then break and fail the test
