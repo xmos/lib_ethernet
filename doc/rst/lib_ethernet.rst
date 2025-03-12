@@ -154,7 +154,6 @@ All MACs in this library support a number of useful features which can be config
   * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
   * Link state detection allowing action to be taken by higher layers in the case of link state change.
   * Separately configurable Rx and Tx buffer sizes (queues).
-  * VLAN aware packet reception. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
 
 Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. This means the buffer size should be appropriately sized for your application or the application should tolerate blocking.
 
@@ -165,13 +164,15 @@ In addition, the RMII RT MAC supports an exit command. This tears down all of th
 Receive Filter
 ==============
 
-All ethernet MACs support filtering of received packets. The filtering consists of two stages; first destination MAC address filtering followed by an optional Ethertype filter.
+All ethernet MACs support filtering of received packets. The filtering consists of two stages; first destination MAC address filtering followed by an optional Ethertype filter. Note that Ethertype filters are not supported on high priority receive queues.
 
 By default the receive MAC address filter has no entries so all clients must register at least one MAC address filter entry to be able to receive packets. The size of the filter table is statically defined by ``ETHERNET_MACADDR_FILTER_TABLE_SIZE`` which is nominally set to 30 which is the maximum number of total entries for all clients that can be supported whilst still maintaining full line rate reception without packet drops. The MII and RMII MACs use a linear search whereas the RGMII MAC uses a hash table which offers higher performance required by the line speed at the cost of greater memory usage.
 
-Multiple MAC addresses may be registered per client including the broadcast MAC address ``FF:FF:FF:FF:FF:FF`` which is needed by some protocols such as ARP, DHCP or WoL. Any MAC address matching one of the filter entries will be forwarded to the client that registered it. It is possible for multiple clients to register and share the same destination MAC address and receive the same packet. However, in the case of the real-time MACs where a high priority receive queue is enabled, it is not possible for a mixture of high and low priority queues to filter by the same mac address; the user must choose either high priority or low priority for a given MAC address filiter entry. 
+Multiple MAC addresses may be registered per client including the broadcast MAC address ``FF:FF:FF:FF:FF:FF`` which is needed by some protocols such as ARP, DHCP or WoL. Any MAC address matching one of the filter entries will be forwarded to the client that registered it. It is possible for multiple clients to register and share the same destination MAC address and receive the same packet. However, in the case of the real-time MACs, where a high priority receive queue is enabled, it is not possible for a mixture of high and low priority queues to filter by the same mac address; the user must choose either high priority or low priority for a given MAC address filter entry. 
 
-Once a packet has been filtered for destination MAC address and forwarded to the server for client reception, an additional Ethertype filter is optionally applied. If no Ethertype filter has been registered for a client then the ethertype field is ignored and all packets are forwarded to the client. A maximum of ``ETHERNET_MAX_ETHERTYPE_FILTERS`` (set to two statically) are supported per client. VLAN tagged packets are automatically detected and the extracted Ethertype field position within the packet is automatically accounted for.
+Once a packet has been filtered for destination MAC address and forwarded to the server for client reception, an additional Ethertype filter is optionally applied for low priority queues only. If no Ethertype filter has been registered for a client then the Ethertype field is ignored and all packets are forwarded to the client. A maximum of ``ETHERNET_MAX_ETHERTYPE_FILTERS`` (set to two statically) are supported per client.
+
+For real-time MACs, VLAN tagged packets are automatically detected and the extracted Ethertype field position within the packet is automatically accounted for.
 
 For details of the API regarding filter configuration, please see the :ref:`configuration API documentation<ethernet_cfg_if>`. 
 
@@ -233,7 +234,9 @@ The idle slope passed is a fractional value representing the number of bits per 
 VLAN Tag Stripping
 ==================
 
-In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags. This is done inside the MAC so that the application can just treat the incoming packet as a standard Ethernet frame. VLAN stripping is dynamically controllable on a per-client basis. 
+In addition to standard MAC VLAN awareness of received packets when calculating payload length, the RT MAC also includes a feature to optionally strip VLAN tags.
+If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI). This is done inside the MAC so that the application can directly utilise the incoming packet payload. VLAN stripping is dynamically controllable on a per-client basis.
+
 
 |newpage|
 
