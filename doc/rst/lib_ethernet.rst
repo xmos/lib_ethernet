@@ -130,8 +130,10 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
     Hence the total port bit-count may not always match the required device pin count.
 
 .. note::
-    The SMI configuration API is a function call and so uses no dedicated threads. It
-    blocks until the last bit of the transaction is complete.
+    The SMI configuration API allows the SMI task to be ``distributed`` which means, when placed on the same
+    tile as the client (e.g. PHY management task), read and write API calls will be turned into function calls by
+    the compiler. Consequently it doesn't normally require a dedicated xCORE thread. The read and write API calls
+    always block until the last bit of the SMI transaction is complete.
 
 |newpage|
 
