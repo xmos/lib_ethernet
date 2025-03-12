@@ -58,7 +58,7 @@ typedef struct ethernet_macaddr_filter_t {
 
 /** Type representing the result of adding a filter entry to the Ethernet MAC */
 typedef enum ethernet_macaddr_filter_result_t {
-  ETHERNET_MACADDR_FILTER_SUCCESS,    /**< The filter entry was added succesfully */
+  ETHERNET_MACADDR_FILTER_SUCCESS,    /**< The filter entry was added successfully */
   ETHERNET_MACADDR_FILTER_TABLE_FULL  /**< The filter entry was not added because the filter table is full */
 } ethernet_macaddr_filter_result_t;
 
@@ -79,8 +79,9 @@ typedef interface ethernet_cfg_if {
    *
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
-   * Warning: The mac address set through this function is not used anywhere in the Mac. The client is expected
-   * to create the full packet including src and dest mac address for transmission.
+   * Warning: The mac address set through this function is not used anywhere in the MAC other than for
+   * later retrieval by get_macaddr(). The client is expected to create the full packet including 
+   * src and dest mac address for transmission.
    * For setting a mac address filter when receiving packets, use add_macaddr_filter
    */
   void set_macaddr(size_t ifnum, const uint8_t mac_address[MACADDR_NUM_BYTES]);
@@ -130,7 +131,7 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
-   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      High priority queuing is only available in the 10/100 Mb/s real-time
    *                      and 10/100/1000 Mb/s MACs.
    *  \param entry        The filter entry to add.
    *
@@ -161,7 +162,7 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
-   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      High priority queuing is only available in the 10/100 Mb/s real-time
    *                      and 10/100/1000 Mb/s MACs.
    */
   void del_all_macaddr_filters(size_t client_num, int is_hp);
