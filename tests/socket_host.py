@@ -14,17 +14,26 @@ pkg_dir = Path(__file__).parent
 
 class SocketHost():
     """
-    Class containing functions that send and receive L2 ethernet packets over a raw socket.
+    Class implementing functions to transmit and receive Layer 2 Ethernet packets using a raw socket on Linux.
+
+    This is achieved by executing a C++ compiled application via subprocess.run(), which handles packet transmission and reception.
     """
     def __init__(self, eth_intf, host_mac_addr, dut_mac_addr, verbose=False):
         """
-        Constructor for the SocketHost class. It compiles the C++ socket send and receive applications.
+        Constructor for the SocketHost class. Compiles the C++ socket send and receive applications if they are not already compiled.
 
         Parameters:
-        eth_intf: ethernet interface on which to send/receive packets
-        host_mac_addr: Mac address of the host. Used as src mac address for packets sent by the host. String of the form '11:22:33:44:55:66'
-        dut_mac_addr: List of mac addresses of the client running on the dut. For example, if the DUT has 3 client running, dut_mac_addr
+        eth_intf (str, eg. "eno1"): ethernet interface on which to send/receive packets. Run the 'ip link' command to get the list of
+        available interfaces and choose the relevant one.
+
+        host_mac_addr (str, eg. "11:22:33:44:55:66"): Mac address of the host. Used as source mac address for packets sent by the host.
+
+        dut_mac_addr (str, eg. '11:22:33:44:55:66 aa:bb:cc:dd:ee:ff 00:01:02:03:04:05'): List of mac addresses of the clients running on the device.
+        For eg. if the DUT has 3 clients running, dut_mac_addr
         is a string of the form '11:22:33:44:55:66 aa:bb:cc:dd:ee:ff 00:01:02:03:04:05'
+        These are used as destination mac addresses when sending packets from the host to the device.
+
+        verbose (bool, optional, default=False): Verbose output when running.
         """
         self.eth_intf = eth_intf
         self.host_mac_addr = host_mac_addr
@@ -48,6 +57,13 @@ class SocketHost():
             build_socket_host()
 
     def set_cap_net_raw(self, app):
+        """
+        Grant capability to the application to use raw sockets to send and receive raw sockets
+        without requiring root privileges.
+
+        Parameters:
+        app (str): application that requires the cap_net_raw capability
+        """
         cmd = f"sudo /usr/sbin/setcap cap_net_raw=eip {app}"
 
         ret = subprocess.run(cmd.split(),
@@ -67,11 +83,13 @@ class SocketHost():
 
     def send(self, test_duration_s, payload_len="max"):
         """
-        Send L2 packets over a raw socket. This is a wrapper functin that runs the C++ socket send packets application.
+        Send Layer 2 Ethernet packets over a raw socket. This is a wrapper function that executes the C++ application for sending packets.
+
+        Note that this is a blocking call that returns only after sending the packets.
 
         Parameters:
-        test_duration_s: Test duration in seconds
-        payload_len: string. One of 'max', 'min' or 'random'. The socket send app generates max, min or random sized payload packets depending on this argument.
+        test_duration_s (float): Test duration in seconds
+        payload_len (str, optional, one of ["max", "min", "random"], default="max"): The socket send app generates max, min or random sized payload packets depending on this argument.
         """
         assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
@@ -92,7 +110,17 @@ class SocketHost():
         return self.get_num_pkts_sent_from_stdout(ret.stdout)
 
 
-    def send_non_blocking(self, test_duration_s, payload_len="max"):
+    def send_asynch_start(self, test_duration_s, payload_len="max"):
+        """
+        Start an asynchronous send of Layer 2 Ethernet packets over a raw socket.
+        This is a wrapper function that starts the C++ application for sending packets.
+
+        Unlike send(), this starts the packet send application (subprocess.Popen) and returns.
+
+        Parameters:
+        test_duration_s (float): Test duration in seconds
+        payload_len (str, optional, one of ["max", "min", "random"], default="max"): The socket send app generates max, min or random sized payload packets depending on this argument.
+        """
         assert payload_len in ["max", "min", "random"]
         self.set_cap_net_raw(self.socket_send_app)
         self.num_packets_sent = None
@@ -108,7 +136,15 @@ class SocketHost():
             )
         # Parse number of sent packets from the stdout
 
-    def send_in_progress(self):
+    def send_asynch_check_complete(self):
+        """
+        Checks whether the Layer 2 packet send application, started in send_asynch_start(), has completed execution.
+
+        If completed, updates self.num_packets_sent with the number of packets sent, extracted from the application's stdout output.
+
+        Returns:
+        running (bool): True if still running, False if completed.
+        """
         assert self.send_proc
         running = (self.send_proc.poll() == None)
         if not running:
@@ -133,6 +169,20 @@ class SocketHost():
 
 
     def send_recv(self, test_duration_s, payload_len="max"):
+        """
+        Send and receive Layer 2 Ethernet packets over a raw socket. This wrapper function executes the C++ application to handle both sending and receiving packets simultaneously.
+
+        Note: This is a blocking call. It returns after the sending operation is complete and there has been at least 5 seconds of inactivity following the reception of the last packet.
+
+        Once complete, it parses the number of sent and received packets from the applications stdout output.
+
+        Parameters:
+        test_duration_s (float): Test duration in seconds
+        payload_len (str, optional, one of ["max", "min", "random"], default="max"): The socket send app generates max, min or random sized payload packets depending on this argument.
+
+        Returns:
+        int, int: number of packets sent by the host, number of packets received by the host
+        """
         self.set_cap_net_raw(self.socket_send_recv_app)
 
         cmd = [self.socket_send_recv_app, self.eth_intf, str(test_duration_s), payload_len, self.host_mac_addr , *(self.dut_mac_addr.split())]
@@ -159,30 +209,17 @@ class SocketHost():
 
         return num_packets_sent, int(m.group(1))
 
-    def recv(self, capture_file):
-        self.set_cap_net_raw(self.socket_recv_app)
-        cmd = [self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file]
-        ret = subprocess.run(cmd,
-                             capture_output = True,
-                             text = True)
-        assert ret.returncode == 0, (
-            f"Subprocess run of cmd failed: {' '.join([str(c) for c in cmd])}"
-            + f"\nstdout:\n{ret.stdout}"
-            + f"\nstderr:\n{ret.stderr}"
-        )
-        if self.verbose:
-            print(f"After running cmd {' '.join([str(c) for c in cmd])}")
-            print(f"stdout = {ret.stdout}")
-            print(f"stderr = {ret.stderr}")
-
-        m = re.search(r"Receieved (\d+) packets on ethernet interface", ret.stdout)
-        assert m, ("Sniffer doesn't report received packets"
-        + f"\nstdout:\n{ret.stdout}"
-        + f"\nstderr:\n{ret.stderr}")
-
-        return int(m.group(1))
 
     def recv_asynch_start(self, capture_file):
+        """
+        Start an asynchronous receive of Layer 2 Ethernet packets over a raw socket.
+        This is a wrapper function that starts the C++ application for receiving packets.
+
+        Unlike recv(), this starts the packet receive application (subprocess.Popen) and returns.
+
+        Parameters:
+        capture_file (str): File in which to capture information about the received packet
+        """
         self.set_cap_net_raw(self.socket_recv_app)
         self.recv_cmd = [self.socket_recv_app, self.eth_intf, self.host_mac_addr , self.dut_mac_addr, capture_file]
         if self.verbose:
@@ -192,7 +229,29 @@ class SocketHost():
                                             stderr=subprocess.PIPE,
                                             text=True)
 
+        # Only return once the receiver signals it is ready. Check stdout for receiver ready msg
+        timeout = 10 # timeout in 10 sec
+        start_time = time.time()
+        while True:
+            output = self.recv_proc.stdout.readline()
+            search_str = f"Socket receiver ready to receive on interface {self.eth_intf}"
+            if search_str in output.strip():
+                if self.verbose:
+                    print("Socket receiver signalled ready!!")
+                return
+            elif time.time() - start_time > timeout:
+                assert False, "Timed out waiting for socket receiver's ready signal"
+
+
     def recv_asynch_wait_complete(self):
+        """
+        Wait for the Layer 2 packet receive application, started in recv_asynch_start(), to complete execution.
+
+        When completed, return the number of received packets, extracted from the host application's stdout output.
+
+        Returns:
+        int: Number of packets received.
+        """
         assert self.recv_proc
         while True:
             running = (self.recv_proc.poll() == None)
@@ -220,7 +279,16 @@ class SocketHost():
 
 
 # Send the same packet in a loop
-def scapy_send_l2_pkts_loop(intf, packet, loop_count, time_container):
+def scapy_send_l2_pkt_loop(intf, packet, loop_count, time_container):
+    """
+    Continuously send the same packet from the host to the device in a loop using Scapy.
+
+    Parameters:
+    intf (str, eg. "eno1"): network interface name. Run 'ip link' to check the list of available interfaces
+    packet (MiiPacket): Packet in the form of a MiiPacket object
+    loop_count (int): The number of times to send the same packet.
+    time_container (list): List in which to append the send time
+    """
     frame = mii2scapy(packet)
     # Send over ethernet
     start = time.perf_counter()
@@ -231,6 +299,14 @@ def scapy_send_l2_pkts_loop(intf, packet, loop_count, time_container):
 
 
 def scapy_send_l2_pkt_sequence(intf, packets, time_container):
+    """
+    Send a sequence of packets from the host to the device using Scapy.
+
+    Parameters:
+    intf (str, eg. "eno1"): network interface name. Run 'ip link' to check the list of available interfaces
+    packet (list of MiiPacket objects): Packet list in the form of a MiiPacket object list
+    time_container (list): List in which to append the send time
+    """
     frames = mii2scapy(packets)
     start = time.perf_counter()
     sendp(frames, iface=intf, verbose=False, realtime=True)
@@ -238,6 +314,7 @@ def scapy_send_l2_pkt_sequence(intf, packets, time_container):
     time_container.append(end-start)
 
 # To test the host app standalone
+from xscope_host import XscopeControl
 if __name__ == "__main__":
     xscope_host = XscopeControl("localhost", "12340", verbose=True)
     xscope_host.xscope_controller_cmd_connect()

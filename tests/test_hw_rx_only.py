@@ -7,12 +7,12 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
 import pytest
 from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
-from socket_host import SocketHost, scapy_send_l2_pkts_loop, scapy_send_l2_pkt_sequence
+from socket_host import SocketHost, scapy_send_l2_pkt_loop, scapy_send_l2_pkt_sequence
 import re
 import subprocess
 import platform
@@ -23,11 +23,24 @@ pkg_dir = Path(__file__).parent
 @pytest.mark.parametrize('send_method', ['socket'])
 @pytest.mark.parametrize('payload_len', ['max', 'min', 'random'])
 def test_hw_rx_only(request, send_method, payload_len):
+    """
+    Test that the device can receive packets without dropping any.
+
+    This test uses the linux host sending traffic over a raw socket to the device.
+    It tests 3 types of traffic, with the socket send application sending either all max (1514) sized,
+    all min (60) sized or randomly sized packets.
+    The packets have a 'seq_id' encoded in the first 4 bytes of the payload and the client on the device logs
+    if there's a seq_id mismatch and reports the mismatches by printing them to stdout, on receiving a shutdown command
+
+    The test checks the stdout from the shutdown command for any errors reported from the device.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
     eth_intf = request.config.getoption("--eth-intf")
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
+
+    no_debugger = request.config.getoption("--no-debugger")
 
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
@@ -97,8 +110,13 @@ def test_hw_rx_only(request, send_method, payload_len):
 
 
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_{phy}" / f"hw_test_rmii_rx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
+
+        if not no_debugger:
+            if dbg.wait_for_links_up():
+                print("Links up")
+
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address")
@@ -112,7 +130,7 @@ def test_hw_rx_only(request, send_method, payload_len):
             if test_type == 'seq_id':
                 thread_send = threading.Thread(target=scapy_send_l2_pkt_sequence, args=[eth_intf, packets, send_time]) # send a packet sequence
             else:
-                thread_send = threading.Thread(target=scapy_send_l2_pkts_loop, args=[eth_intf, packet, num_packets_sent, send_time]) # send the same packet in a loop
+                thread_send = threading.Thread(target=scapy_send_l2_pkt_loop, args=[eth_intf, packet, num_packets_sent, send_time]) # send the same packet in a loop
 
             thread_send.start()
             thread_send.join()

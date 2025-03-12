@@ -35,14 +35,12 @@ def do_test_4_2_6_hw_dbg(request, testname, mac, arch, packets_to_send):
 
     if send_method == "debugger":
         assert platform.system() in ["Linux"], f"HW debugger only supported on Linux"
-        dbg = hw_eth_debugger()
     else:
         assert False, f"Invalid send_method {send_method}"
 
     xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
-    print(xe_name)
 
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 

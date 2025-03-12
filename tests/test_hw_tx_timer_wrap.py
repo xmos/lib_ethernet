@@ -7,7 +7,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
 from hw_helpers import load_packet_file
 import pytest
 from contextlib import nullcontext
@@ -21,10 +21,6 @@ import struct
 
 
 pkg_dir = Path(__file__).parent
-"""
-Time it takes for the socket receiver to get ready to receive a packet.
-After starting the socket receiver process, wait this long before asking the DUT to transmit
-"""
 
 def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verbose):
     expected_packet_len = 1500
@@ -46,6 +42,18 @@ def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verb
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_tx_timer_wrap(request, send_method):
+    """
+    Test the fix for https://github.com/xmos/lib_ethernet/issues/51
+
+    The TX thread in the MAC uses the 32bit reference timer to keep track of the IFG.
+    If the gap between 2 packets that require transmitting is large such that it causes time wraparound(s),
+    the next packet still needs to be transmitted within a reasonable time (without a 21 sec delay that a timer
+    wraparound if not handled would introduce)
+
+    This test introduces a large delay (rand.randint(20, 40) seconds) between requesting the device to transmit a
+    packet and then checks that the second packet is received reasonably quickly.
+    This is repeated 3 times with different values of the randomly computed delay.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -53,6 +61,8 @@ def test_hw_tx_timer_wrap(request, send_method):
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
     phy = request.config.getoption("--phy")
+
+    no_debugger = request.config.getoption("--no-debugger")
 
     verbose = False
     seed = 0
@@ -79,8 +89,12 @@ def test_hw_tx_timer_wrap(request, send_method):
     nanoseconds_in_a_second = 1000000000
     packet_recv_times = []
     wait_times_s = [] # Artificially introduced wait between 2 packets sent by the DUT
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
+        if not no_debugger:
+            if dbg.wait_for_links_up():
+                print("Links up")
+
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         # config contents of Tx packets

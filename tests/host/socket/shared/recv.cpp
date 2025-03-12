@@ -19,7 +19,10 @@
 #define BUFFER_SIZE 65536
 unsigned recvd_packets = 0;
 
-void receive_packets(std::string eth_intf, std::string cap_file, std::vector<unsigned char> target_mac)
+void receive_packets(std::string eth_intf,
+                        std::string cap_file,
+                        std::vector<unsigned char> target_mac,
+                        std::promise<void>& ready_signal)
 {
     int sockfd;
     unsigned char buffer[BUFFER_SIZE];
@@ -96,6 +99,8 @@ void receive_packets(std::string eth_intf, std::string cap_file, std::vector<uns
     iov.iov_len = sizeof(buffer);
     msg.msg_control = control;
     msg.msg_controllen = sizeof(control);
+
+    ready_signal.set_value(); // Signal ready
 
     // Receive packets in a loop
     while (true) {

@@ -27,6 +27,7 @@ from helpers import create_expect, create_if_needed
 import Pyxsim as px
 import inspect
 from pcapng import FileScanner # I found a bug in rdpcap in scapy 2.6.1. This seems more robust: python-pcapng==2.1.1
+import shutil
 
 # Constants used in the tests
 packet_overhead = 8 + 4 + 12 # preamble, CRC and IFG
@@ -39,37 +40,42 @@ This class contains helpers for running the Intona 7060-A Ethernet Debugger
 class hw_eth_debugger:
     # No need to pass binary if on the path. Device used to specify debugger if more than one
     def __init__(self, nose_bin_path=None, device=None, verbose=False):
+        self.nose_bin_path = nose_bin_path
+        self.device = device
+        self.verbose = verbose
+
+        self.last_cmd = None
+        self.capture_file = None # For packet capture
+        self.disrupting = False # For disrupting packets
+        self.verbose = verbose
+
+        # These are fixed in the test harness
+        self.debugger_phy_to_dut = "A"
+        self.debugger_phy_to_host = "B"
+
+        # Will be a number in Mbit
+        # This state is asynchronously reported by the debugger and so we pick these messages up
+        # whenever they come during normal command responses or specifically with a blocking command
+        self.link_state_a = 0
+        self.link_state_b = 0
+
+    def __enter__(self):
         # Get the "nose" binary that drives the debugger
-        if nose_bin_path is None:
+        if self.nose_bin_path is None:
             result = subprocess.run("which nose".split(), capture_output=True, text=True)
             if result.returncode == 0:
                 self.nose_bin_path = Path(result.stdout.strip("\n"))
             else:
-                self.nose_bin_path = self.build_binary()
+                self.nose_bin_path = self._build_binary()
         else:
             if not Path(nose_bin_path).isfile():
                 raise RuntimeError(f'Nose not found on supplied path: {nose_bin_path}')
 
         # Setup socket for comms with debugger
-        device = "" if device is None else device
-        socket_path = f"/tmp/nose_socket{device}"
-        device_str = "" if device == "" else f"--device {device}"
+        self.device = "" if self.device is None else self.device
+        socket_path = f"/tmp/nose_socket{self.device}"
+        device_str = "" if self.device == "" else f"--device {self.device}"
 
-        # Startup debugger process
-        # first kill any unterminated
-        subprocess.run("pkill -f nose", shell=True)
-        print("Killing old process..", end="")
-        running = True
-        while running:
-            try:
-                subprocess.check_output(["pgrep", "-x", "nose"], stderr=subprocess.DEVNULL)
-                print(".", end="")
-            except subprocess.CalledProcessError:
-                print("Killed!")
-                running = False
-            time.sleep(0.01)
-
-        time.sleep(0.1) # ensure is dead otherwise starting may come too soon
         cmd = f"{str(self.nose_bin_path)} {device_str} --ipc-server {socket_path}"
         self.nose_proc = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
         # ensure is running
@@ -89,21 +95,6 @@ class hw_eth_debugger:
                 print(".", end="")
                 time.sleep(.01)
 
-        self.last_cmd = None
-
-        self.capture_file = None # For packet capture
-        self.disrupting = False # For disrupting packets
-        self.verbose = verbose
-
-        # These are fixed in the test harness
-        self.debugger_phy_to_dut = "A"
-        self.debugger_phy_to_host = "B"
-
-        # Will be a number in Mbit
-        # This state is asynchronously reported by the debugger and so we pick these messages up
-        # whenever they come during normal command responses or specifically with a blocking command
-        self.link_state_a = 0
-        self.link_state_b = 0
         # Cycle through device closed then open, which will force printing of PHY state
         self._send_cmd(f"device_close")
         self._get_response()
@@ -115,16 +106,25 @@ class hw_eth_debugger:
         self._send_cmd("reset_device_settings")
         self._get_response()
 
-    # Destructor
+        return self
+
+    # destructor
     def __del__(self):
+        print("hw_eth_debugger exited")
+
+    # Cleanup after exiting block
+    def __exit__(self, exc_type, exc_value, traceback):
         self._send_cmd("exit")
+        time.sleep(0.1) # Allow command to be processed
+        # If exit didn't work..
         if self.nose_proc.poll() is None:
             self.nose_proc.terminate()
         self.sock.close()
-        print("hw_eth_debugger exited")
+
+        return False # propagate exceptions
 
     # This is tested as working on Linux and Mac
-    def build_binary(self):
+    def _build_binary(self):
         version_tag = "v1.6" # latest as of feb 2025. Note command protocol may change so pinning.
         # See https://github.com/intona/ethernet-debugger/tags
         repo_root = (Path(__file__).parent / "../..").resolve()
@@ -408,8 +408,8 @@ class hw_eth_debugger:
         if self.verbose:
             print(f"cmd: capture_start {filename}, returned ok {ok}, msg {msg}")
         if ok and 'succeeded' in msg:
-            return True
-        return False
+            return True, msg
+        return False, msg
 
     # Stops capture and returns the scapy packets if successful, otherwise the error message
     def capture_stop(self, use_raw=False):
@@ -618,6 +618,12 @@ def analyse_dbg_cap_vs_sent_miipackets(received_scapy_packets, sent_mii_packets,
     return report
 
 def get_mac_address(interface):
+    """
+    Get the mac address associated with an ethernet interface
+
+    Parameters:
+    interface (str, eg. eno1): Ethernet interface to get the mac address for.
+    """
     try:
         output = subprocess.check_output(f"ip link show {interface}", shell=True, text=True)
         for line in output.splitlines():
@@ -629,7 +635,10 @@ def get_mac_address(interface):
 
 def calc_time_diff(start_s, start_ns, end_s, end_ns):
     """
-    Returns: time difference in nanoseconds
+    Given start and end time in the form of (start_s, start_ns) and (end_s, end_ns), return time difference in nanoseconds
+
+    Returns:
+    int: time difference in nanoseconds
     """
     diff_s = end_s - start_s
     diff_ns = end_ns - start_ns
@@ -641,6 +650,12 @@ def calc_time_diff(start_s, start_ns, end_s, end_ns):
 
 
 def load_packet_file(filename):
+    """
+    Parse packet file written by the SocketHost recv functions into a list of ethernet packet parameters for every L2 packet received by the host.
+
+    Returns:
+    2D list of the form [num_pkts][dst_mac_addr, src_mac_addr, etype, seq_id, payload_len, time_recvd_s, time_recvd_ns]
+    """
     chunk_size = 6 + 6 + 2 + 4 + 4 + 8 + 8
     structures = []
     with open(filename, 'rb') as f:
@@ -662,6 +677,9 @@ def load_packet_file(filename):
     return structures
 
 def rdpcap_to_packet_summary(packets):
+    """
+    Parse the .pcapng file captured by the ethernet debugger into the packet summary same as load_packet_file()
+    """
     structures = []
     for packet in packets:
         raw_payload = bytes(packet.payload)
@@ -681,6 +699,15 @@ def log_ifg_summary(ifg_full_dict,
                     ifg_summary_file="ifg_sweep_summary.txt",
                     ifg_full_file="ifg_sweep_full.txt"
                     ):
+    """
+    Summarise the ethernet interframe gaps for packets received by the host from the device on a
+    per packet length basis and write to a file.
+
+    Parameter:
+    ifg_full_dict (dict): Dictionary of the form {packet_len: [list of IFGs in ns for that packet_len]}
+    ifg_summary_file(str): File to write the IFG summary to
+    ifg_full_file(str): File to write the full IFG dictionary to
+    """
     ifg_summary_dict = defaultdict(dict)
     all_ifgs = []
     for pl in ifg_full_dict: # Look at the IFGs one payload length at a time and summarise
@@ -723,6 +750,11 @@ def parse_packet_summary(packet_summary,
                         verbose = False,
                         check_ifg = False,
                         log_ifg_per_payload_len=False):
+    """
+    Parse the packet summary output from rdpcap_to_packet_summary() or load_packet_file()
+    and further process it to check for errors and optionally log the interframe gaps in the packets
+    received from the device.
+    """
     print("Parsing packet file")
     # get first packet time with valid source addr
     datum = 0
@@ -848,12 +880,11 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
     if send_method == "debugger":
         assert platform.system() in ["Linux"], f"HW debugger only supported on Linux"
-        dbg = hw_eth_debugger()
     else:
         assert False, f"Invalid send_method {send_method}"
 
     xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
@@ -865,7 +896,8 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
                 print("Links up")
             else:
                 raise RuntimeError("Links not up")
-            dbg.capture_start("packets_received.pcapng")
+            started, response = dbg.capture_start("packets_received.pcapng")
+            assert started, f"Error: Debugger capture not started. response = {response}"
 
             print("Debugger sending packets")
             for packet_to_send in packets_to_send:
@@ -876,6 +908,8 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
 
         print("Retrive status and shutdown DUT")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_shutdown()
+        print(f"shutdown stdout:\n")
+        print(stdout)
         print("Terminating!!!")
 
     # Analyse and compare against expected
@@ -886,11 +920,17 @@ def do_hw_dbg_rx_test(request, testname, mac, arch, packets_to_send):
     create_expect(packets_to_send, expect_filename)
     tester = px.testers.ComparisonTester(open(expect_filename))
 
-    assert tester.run(report.split("\n")[:-1]) # Need to chop off last line
+    result = tester.run(report.split("\n")[:-1]) # Need to chop off last line
+    if not result:
+        shutil.copy2("packets_received.pcapng", f"{testname}_fail.pcapng")
+        print(f"capture_start results: started {started}, {response}")
+        assert False
 
 # This is just for test
 if __name__ == "__main__":
-    dbg = hw_eth_debugger()
+    with hw_eth_debugger() as dbg:
+        pass
+    sys.exit(0)
 
     print(dbg.get_link_status())
     print(dbg.mdio_write(1, 0x1, 0x7400))

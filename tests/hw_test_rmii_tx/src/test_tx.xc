@@ -46,6 +46,12 @@ void test_tx_lp(client ethernet_cfg_if cfg,
   memcpy(&data[6], client_state.source_mac_addr, sizeof(client_state.source_mac_addr));
   memcpy(&data[12], &ether_type, sizeof(ether_type));
 
+  // If client index 0, wait for link up and send a pipecleaner packet to work around suspected phy issue of occasionally not receiving the first packet
+  if(client_cfg.client_num == 0)
+  {
+    transmit_startup_packet(cfg, tx);
+  }
+
 
   while(!client_state.done)
   {

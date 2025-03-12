@@ -7,7 +7,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
 import pytest
 from contextlib import nullcontext
 import time
@@ -22,6 +22,14 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_rx_multiple_queues(request, send_method):
+    """
+    Test that when there are multiple LP RX clients and one HP RX client in the device, when receiving data, the HP
+    traffic never gets dropped in the device.
+
+    While the device is receiving packets, commands are sent over xscope to the LP clients to stop and start receiving packets
+    for random intervals. This causes the buffers in the device to fill up and correct behaviour would involve only dropping LP
+    traffic. The test checks that all HP packets sent from the host are received by the HP client on the device.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
@@ -29,6 +37,8 @@ def test_hw_rx_multiple_queues(request, send_method):
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
 
     phy = request.config.getoption("--phy")
+
+    no_debugger = request.config.getoption("--no-debugger")
 
     test_duration_s = request.config.getoption("--test-duration")
     if not test_duration_s:
@@ -68,8 +78,11 @@ def test_hw_rx_multiple_queues(request, send_method):
 
 
     xe_name = pkg_dir / "hw_test_rmii_rx" / "bin" / f"rx_multiple_queues_{phy}" / f"hw_test_rmii_rx_multiple_queues_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
+        if not no_debugger:
+            if dbg.wait_for_links_up():
+                print("Links up")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address for each RX client")
@@ -78,9 +91,9 @@ def test_hw_rx_multiple_queues(request, send_method):
 
         if send_method == "socket":
             # call non-blocking send so we can do the xscope_controller_cmd_set_dut_receive while sending packets
-            socket_host.send_non_blocking(test_duration_s)
+            socket_host.send_asynch_start(test_duration_s)
             stopped = [False, False] # The rx clients are receiving by default
-            while socket_host.send_in_progress():
+            while socket_host.send_asynch_check_complete():
                 client_index = rand.randint(0,1) # client 0 and 1 are LP so toggle receiving for one of them
                 stopped[client_index] = stopped[client_index] ^ 1
                 delay = rand.randint(1, 1000) * 0.0001 # Up to 100 ms wait before toggling 'stopped'

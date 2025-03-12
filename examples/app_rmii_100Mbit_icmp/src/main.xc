@@ -17,12 +17,13 @@ port p_phy_rxd = PHY_0_RXD_4BIT;
 port p_phy_txd = PHY_0_TXD_4BIT;
 port p_phy_rxdv = PHY_0_RXDV;
 port p_phy_txen = PHY_0_TX_EN;
-clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
-clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
 port p_phy_clk = PHY_1_CLK_50M;
 
 static unsigned char ip_address[4] = {192, 168, 2, 178};
 static unsigned char mac_address_phy[MACADDR_NUM_BYTES] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+
+clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
+clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
 
 // An enum to manage the array of connections from the ethernet component
 // to its clients.
@@ -38,6 +39,12 @@ enum cfg_clients {
 };
 
 #define ETH_RX_BUFFER_SIZE_WORDS 1600
+
+// Set to your desired IP address
+static unsigned char ip_address[4] = {192, 168, 1, 178};
+// MAC address within the XMOS block of 00:22:97:xx:xx:xx. Please adjust to your desired address.
+static unsigned char mac_address_phy[MACADDR_NUM_BYTES] = {0x00, 0x22, 0x97, 0x01, 0x02, 0x03};
+
 
 int main()
 {
@@ -68,7 +75,6 @@ int main()
 
     on tile[1]: dual_dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], null);
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
-
     on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
                             i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
                             ip_address, mac_address_phy);

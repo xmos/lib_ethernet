@@ -11,7 +11,7 @@
 #include "xscope_cmd_handler.h"
 #include "xscope_control.h"
 
-static void wait_us(int microseconds)
+void wait_us(int microseconds)
 {
     timer t;
     unsigned time;
@@ -114,5 +114,35 @@ select xscope_cmd_handler(chanend c_xscope_control, client_cfg_t &client_cfg, cl
       c_xscope_control <: 1; // Acknowledge
     }
     break;
+}
 
+void transmit_startup_packet(client ethernet_cfg_if cfg, client ethernet_tx_if tx)
+{
+  #define MAX_PACKET_BYTES (6 + 6 + 2 + 1500)
+  unsigned char data[MAX_PACKET_BYTES] = {0};
+  uint16_t ether_type = 0x1234;
+  unsigned char target_mac_addr[MACADDR_NUM_BYTES], source_mac_addr[MACADDR_NUM_BYTES];
+  for(int i=0; i<MACADDR_NUM_BYTES; i++)
+  {
+    target_mac_addr[i] = 0xff;
+    source_mac_addr[i] = i;
+  }
+  memcpy(&data[0], target_mac_addr, sizeof(target_mac_addr));
+  memcpy(&data[6], source_mac_addr, sizeof(source_mac_addr));
+  memcpy(&data[12], &ether_type, sizeof(ether_type));
+
+  debug_printf("Check for link up before sending startup packet\n");
+  // The first client needs to ensure link is up when returning ready status
+  unsigned link_state, link_speed;
+  cfg.get_link_state(0, link_state, link_speed);
+  while(link_state != ETHERNET_LINK_UP)
+  {
+    wait_us(1000); // Check every 1ms
+    cfg.get_link_state(0, link_state, link_speed);
+  }
+  debug_printf("Send startup packet\n");
+
+  tx.send_packet(data, 1500, ETHERNET_ALL_INTERFACES);
+
+  debug_printf("Finshed startup packet send\n");
 }

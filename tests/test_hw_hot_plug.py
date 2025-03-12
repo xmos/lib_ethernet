@@ -24,12 +24,24 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.debugger
 def test_hw_hot_plug(request):
+    """
+    Simulate hot-plugging the device and test that it recovers after a hot-plug.
+
+    hot plugging is simulated by power cycling the PHY on the HW debugger by writing to the power down bit in bmrc register
+    over the mdio interface available on the debugger. This causes the ethernet link on the device to go down and then back up.
+
+    In the test, the tx app on the device is configured to send packets and the device is hot plugged while transmitting.
+    The test checks that there's packet loss due to the hot-plugging.
+    After the link is back up, the device is configured to transmit again and the test checks that there's no packet loss
+    this time.
+    The above sequence is repeated 'num_hot_plug_instances' times
+
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
     phy = request.config.getoption("--phy")
 
-    dbg = hw_eth_debugger()
     host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
     test_duration_s = 5 # hardcoded small duration since we hot plug the device and test multiple times
@@ -65,7 +77,7 @@ def test_hw_hot_plug(request):
     hp_client_id = 1
 
     xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_{phy}" / f"hw_test_rmii_tx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         if dbg.wait_for_links_up():
             print("Links up")
 

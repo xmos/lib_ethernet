@@ -30,11 +30,27 @@ pkg_dir = Path(__file__).parent
                                         [1000, 1000, 25000000]]
                                         , ids=["LP_only", "LP_1Mbps_HP_small", "LP_max_len_2Mbps_HP_max", "LP_25Mbps_HP"])
 def test_hw_tx_only(request, send_method, tx_config):
-    print()
+    """
+    Test that a TX client on the DUT can transmit packets.
+
+    The DUT test app has a LP and HP TX client.
+    The LP client can be configured to send a no. of packets of a given size.
+    The LP client can be configured to do nothing or send a given sized packets at a host defined throughput.
+    All of this is configured by the host over the xscope interface.
+    The TX client encodes a seq_id in the first 4 bytes of the payload.
+
+    On receiving the packets, the host checks for any dropped packets and also if the HP traffic is received at the throughput if specified.
+
+    The test uses 2 types of host applications for sending packets: The raw socket based receiver running on the linux host, or the ethernet HW
+    debugger based receiver capturing packets seen by the debugger.
+    """
+
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
 
     phy = request.config.getoption("--phy")
+
+    no_debugger = request.config.getoption("--no-debugger")
 
     if send_method == "socket":
         eth_intf = request.config.getoption("--eth-intf", default=None)
@@ -43,9 +59,7 @@ def test_hw_tx_only(request, send_method, tx_config):
         assert host_mac_address_str, f"get_mac_address() couldn't find mac address for interface {eth_intf}"
         print(f"host_mac_address = {host_mac_address_str}")
         host_mac_address = int(host_mac_address_str.replace(":", ""), 16)
-
     elif send_method == "debugger":
-        dbg = hw_eth_debugger()
         host_mac_address_str = "d0:d1:d2:d3:d4:d5" # debugger doesn't care about this but DUT does and we can filter using this to get only DUT packets
 
     test_duration_s = request.config.getoption("--test-duration")
@@ -83,7 +97,7 @@ def test_hw_tx_only(request, send_method, tx_config):
     capture_file = "packets.bin"
 
     xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_{phy}" / f"hw_test_rmii_tx_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
@@ -95,6 +109,9 @@ def test_hw_tx_only(request, send_method, tx_config):
         xcoreapp.xscope_host.xscope_controller_cmd_set_host_macaddr(host_mac_address_str)
 
         if send_method == "socket":
+            if not no_debugger:
+                if dbg.wait_for_links_up():
+                    print("Links up")
             print("Starting socket sniffer")
             assert platform.system() in ["Linux"], f"Receiving using sockets only supported on Linux"
             socket_host = SocketHost(eth_intf, host_mac_address_str, f"{dut_mac_address_str_lp} {dut_mac_address_str_hp}", verbose=verbose)

@@ -7,7 +7,7 @@ import random
 import copy
 from mii_packet import MiiPacket
 from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address
+from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
 import pytest
 from contextlib import nullcontext
 import time
@@ -42,8 +42,22 @@ def sniff_pkt(intf, target_mac_addr, timeout_s, seq_ids):
 
 @pytest.mark.parametrize('send_method', ['socket'])
 def test_hw_loopback(request, send_method):
+    """
+    Test that the device can loopback packets over an ethernet interface.
+
+    The test application on the device is a loopback application that has a an LP RX client and a HP TX client running.
+    Everything received on the RX interfaces if looped back out of the TX interface
+
+    This is tested with only the host socket based way of testing, where the linux host opens
+    raw sockets to send/receive traffic to/from the device.
+
+    Note: Only 'max' (1514 bytes) size packets are used for this test since the device buffers cannot keep up with receiving small size
+    packets with min IFG while also looping them back.
+    """
     adapter_id = request.config.getoption("--adapter-id")
     assert adapter_id != None, "Error: Specify a valid adapter-id"
+
+    no_debugger = request.config.getoption("--no-debugger")
 
     eth_intf = request.config.getoption("--eth-intf")
     assert eth_intf != None, "Error: Specify a valid ethernet interface name on which to send traffic"
@@ -87,8 +101,12 @@ def test_hw_loopback(request, send_method):
 
 
     xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
-    with XcoreAppControl(adapter_id, xe_name, attach="xscope_app", verbose=verbose) as xcoreapp:
+    with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
+        if not no_debugger:
+            if dbg.wait_for_links_up():
+                print("Links up")
+
         stdout = xcoreapp.xscope_host.xscope_controller_cmd_connect()
 
         print("Set DUT Mac address")

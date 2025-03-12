@@ -198,13 +198,6 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
-<<<<<<< HEAD
-   * 
-   * 
-=======
-   *
-   *
->>>>>>> hw_test
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
 
@@ -213,13 +206,6 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The maximum number of bits per second to be set
-<<<<<<< HEAD
-   * 
-   * 
-=======
-   *
-   *
->>>>>>> hw_test
    */
   void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
 
@@ -688,11 +674,11 @@ typedef enum rmii_data_pin_assignment_t{
  *  Please consult the documentation for further details and suggested settings. */ 
 
 typedef struct rmii_port_timing_t{
-    unsigned clk_delay_tx_rising;
-    unsigned clk_delay_tx_falling;
-    unsigned clk_delay_rx_rising;
-    unsigned clk_delay_rx_falling;
-    unsigned pad_delay_rx;
+    unsigned clk_delay_tx_rising; /**< The number of core clock cycles to delay the capture clock*/
+    unsigned clk_delay_tx_falling; /**< The number of core clock cycles to delay the drive clock*/
+    unsigned clk_delay_rx_rising; /**< The number of core clock cycles to delay the capture clock*/
+    unsigned clk_delay_rx_falling; /**< The number of core clock cycles to delay the drive clock*/
+    unsigned pad_delay_rx; /**< The number of core clock cycles to delay the sampling of rx data and strobe*/
 }rmii_port_timing_t;
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
