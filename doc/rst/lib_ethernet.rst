@@ -144,6 +144,9 @@ The amount required depends on the feature set of the MAC. :numref:`ethernet_mac
 Standard MAC Features
 *********************
 
+Feature Overview
+================
+
 All MACs in this library support a number of useful features which can be configured by clients.
 
   * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
@@ -158,6 +161,20 @@ Transmission of packets is via an API that blocks until the frame has been copie
 Reception of a packet blocks until a packet is available. It may however be combined with an asynchronous notification allowing the client to ``select`` on the XC interface whereupon it can then receive the waiting packet. This provides an efficient, event-driven API option. Please see the :ref:`api_section` for details on how to use the MAC.
 
 In addition, the RMII RT MAC supports an exit command. This tears down all of the tasks associated with the MAC and frees the memory and XCORE resources used, including ports. After exit, the MAC may be re-started again. This can be helpful in cases where ports may be shared (eg. Flash memory) allowing DFU support in package constrained systems. It may also be used to support multiple connect PHY devices where redundancy is required, without costing the chip resources to support multiple MACs.
+
+Receive Filter
+==============
+
+All ethernet MACs support filtering of received packets. The filtering consists of two stages; first destination MAC address filtering followed by an optional Ethertype filter.
+
+By default the receive MAC address filter has no entries so all clients must register at least one MAC address filter entry to be able to receive packets. The size of the filter table is statically defined by ``ETHERNET_MACADDR_FILTER_TABLE_SIZE`` which is nominally set to 30 which is the maximum number of total entries for all clients that can be supported whilst still maintaining full line rate reception without packet drops. The MII and RMII MACs use a linear search whereas the RGMII MAC uses a hash table which offers higher performance required by the line speed at the cost of greater memory usage.
+
+Multiple MAC addresses may be registered per client including the broadcast MAC address ``FF:FF:FF:FF:FF:FF`` which is needed by some protocols such as ARP, DHCP or WoL. Any MAC address matching one of the filter entries will be forwarded to the client that registered it. It is possible for multiple clients to register and share the same destination MAC address and receive the same packet. However, in the case of the real-time MACs where a high priority receive queue is enabled, it is not possible for a mixture of high and low priority queues to filter by the same mac address; the user must choose either high priority or low priority for a given MAC address filiter entry. 
+
+Once a packet has been filtered for destination MAC address and forwarded to the server for client reception, an additional Ethertype filter is optionally applied. If no Ethertype filter has been registered for a client then the ethertype field is ignored and all packets are forwarded to the client. A maximum of ``ETHERNET_MAX_ETHERTYPE_FILTERS`` (set to two statically) are supported per client. VLAN tagged packets are automatically detected and the extracted Ethertype field position within the packet is automatically accounted for.
+
+For details of the API regarding filter configuration, please see the :ref:`configuration API documentation<ethernet_cfg_if>`. 
+
 
 |newpage|
 
