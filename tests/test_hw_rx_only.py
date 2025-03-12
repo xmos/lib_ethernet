@@ -6,15 +6,12 @@ from pathlib import Path
 import random
 import copy
 from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
+from hw_helpers import get_mac_address, hw_eth_debugger
 import pytest
-from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost, scapy_send_l2_pkt_loop, scapy_send_l2_pkt_sequence
 import re
-import subprocess
 import platform
 
 
@@ -22,7 +19,7 @@ pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
 @pytest.mark.parametrize('payload_len', ['max', 'min', 'random'])
-def test_hw_rx_only(request, send_method, payload_len):
+def test_hw_rx_only(request, send_method, payload_len, seed):
     """
     Test that the device can receive packets without dropping any.
 
@@ -50,7 +47,6 @@ def test_hw_rx_only(request, send_method, payload_len):
     phy = request.config.getoption("--phy")
 
     verbose = False
-    seed = 0
     rand = random.Random()
     rand.seed(seed)
 

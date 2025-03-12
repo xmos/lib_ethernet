@@ -1,23 +1,15 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 from scapy.all import *
-import threading
 from pathlib import Path
-import random
-import copy
-from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
+from hw_helpers import get_mac_address, hw_eth_debugger
 from hw_helpers import load_packet_file, rdpcap_to_packet_summary, parse_packet_summary
 from hw_helpers import packet_overhead, line_speed
 import pytest
-from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost
-import re
 import platform
-import struct
 
 pkg_dir = Path(__file__).parent
 
@@ -81,11 +73,7 @@ def test_hw_tx_only(request, send_method, tx_config):
     print(f"Setting DUT to send {expected_packet_count} LP packets of size {expected_packet_len_lp}")
     print(f"Setting DUT to send {hp_packet_bandwidth_bps} bps HP packets of size {hp_packet_len}")
 
-    test_type = "seq_id"
     verbose = False
-    seed = 0
-    rand = random.Random()
-    rand.seed(seed)
 
     dut_mac_address_str_lp = "00:01:02:03:04:05"
     dut_mac_address_str_hp = "f0:f1:f2:f3:f4:f5"

@@ -51,6 +51,9 @@ All RMII and RGMII implementations offer the 'real-time' features as standard. S
 
 In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
 
+*****
+Usage
+*****
 
 ``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
 , the `XMOS` application build and dependency management system.
@@ -169,13 +172,13 @@ All ethernet MACs support filtering of received packets. The filtering consists 
 
 By default the receive MAC address filter has no entries so all clients must register at least one MAC address filter entry to be able to receive packets. The size of the filter table is statically defined by ``ETHERNET_MACADDR_FILTER_TABLE_SIZE`` which is nominally set to 30 which is the maximum number of total entries for all clients that can be supported whilst still maintaining full line rate reception without packet drops. The MII and RMII MACs use a linear search whereas the RGMII MAC uses a hash table which offers higher performance required by the line speed at the cost of greater memory usage.
 
-Multiple MAC addresses may be registered per client including the broadcast MAC address ``FF:FF:FF:FF:FF:FF`` which is needed by some protocols such as ARP, DHCP or WoL. Any MAC address matching one of the filter entries will be forwarded to the client that registered it. It is possible for multiple clients to register and share the same destination MAC address and receive the same packet. However, in the case of the real-time MACs, where a high priority receive queue is enabled, it is not possible for a mixture of high and low priority queues to filter by the same mac address; the user must choose either high priority or low priority for a given MAC address filter entry. 
+Multiple MAC addresses may be registered per client including the broadcast MAC address ``FF:FF:FF:FF:FF:FF`` which is needed by some protocols such as ARP, DHCP or WoL. Any MAC address matching one of the filter entries will be forwarded to the client that registered it. It is possible for multiple clients to register and share the same destination MAC address and receive the same packet. However, in the case of the real-time MACs, where a high priority receive queue is enabled, it is not possible for a mixture of high and low priority queues to filter by the same mac address; the user must choose either high priority or low priority for a given MAC address filter entry.
 
 Once a packet has been filtered for destination MAC address and forwarded to the server for client reception, an additional Ethertype filter is optionally applied for low priority queues only. If no Ethertype filter has been registered for a client then the Ethertype field is ignored and all packets are forwarded to the client. A maximum of ``ETHERNET_MAX_ETHERTYPE_FILTERS`` (set to two statically) are supported per client.
 
 For real-time MACs, VLAN tagged packets are automatically detected and the extracted Ethertype field position within the packet is automatically accounted for.
 
-For details of the API regarding filter configuration, please see the :ref:`configuration API documentation<ethernet_cfg_if>`. 
+For details of the API regarding filter configuration, please see the :ref:`configuration API documentation<ethernet_cfg_if>`.
 
 
 |newpage|
@@ -379,7 +382,7 @@ The detail for how to set the values is outside the scope of this document, howe
 In summary, the fields (and their uses) in the ``port_timing`` structure are as follows:
 
  * clk_delay_tx_rising - The number of core clock cycles to delay the capture clock. Since no signal capture occurs in the TX section this value is not critical, however it should be set to the same as clk_delay_tx_falling.
- * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock. 
+ * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock.
  * clk_delay_rx_rising - The number of core clock cycles to delay the capture clock. Increasing this value delays the point at which the RX data and RXDV are sampled relative to the external ethernet clock.
  * clk_delay_rx_falling - The number of core clock cycles to delay the drive clock. Since no signal drive occurs in the RX section this value is not critical, however it should be set to the same as clk_delay_rx_rising.
  * pad_delay_rx - The number of core clock cycles to delay the sampling of RX data and strobe. Because this setting delays the data and not the clock, it has the effect of adding negative clock delay, which can be useful in some cases.
@@ -482,7 +485,7 @@ Usage
 ==================================
 
 There are two types of 10/100 Mb/s Ethernet MAC that are optimized for different feature sets. Both connect to a
-standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`, or optionally 
+standard 10/100 Mb/s Ethernet PHY using the same MII interface described in :ref:`mii_signals_section`, or optionally
 an RMII interface for the real-time MAC running on xcore.ai.
 
 The resource-optimized MAC described here is provided for applications that do not require real-time features,
