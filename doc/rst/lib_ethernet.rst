@@ -154,6 +154,7 @@ All MACs in this library support a number of useful features which can be config
   * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
   * Link state detection allowing action to be taken by higher layers in the case of link state change.
   * Separately configurable Rx and Tx buffer sizes (queues).
+  * VLAN aware received packet length calculation. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
 
 Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. This means the buffer size should be appropriately sized for your application or the application should tolerate blocking.
 
