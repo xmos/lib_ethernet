@@ -19,9 +19,6 @@ port p_phy_rxdv = PHY_0_RXDV;
 port p_phy_txen = PHY_0_TX_EN;
 port p_phy_clk = PHY_1_CLK_50M;
 
-static unsigned char ip_address[4] = {192, 168, 2, 178};
-static unsigned char mac_address_phy[MACADDR_NUM_BYTES] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
-
 clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
 
