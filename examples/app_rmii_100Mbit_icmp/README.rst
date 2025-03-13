@@ -40,7 +40,7 @@ on the xk_eth_xu316_dual_100m board.
 Required tools
 **************
 
-  * XMOS XTC Tools: 15.3.0
+  * XMOS XTC Tools: 15.3.1
 
 *********************************
 Required libraries (dependencies)
