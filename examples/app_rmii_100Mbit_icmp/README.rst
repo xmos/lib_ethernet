@@ -40,16 +40,14 @@ on the xk_eth_xu316_dual_100m board.
 Required tools
 **************
 
-  * XMOS XTC Tools: 15.3.0
+  * XMOS XTC Tools: 15.3.1
 
 *********************************
 Required libraries (dependencies)
 *********************************
 
   * `lib_ethernet <https://www.xmos.com/file/lib_ethernet>`_
-  * `lib_xua <https://www.xmos.com/file/lib_xua>`_
   * `lib_board_support <https://www.xmos.com/file/lib_board_support>`_
-  * `lib_otpinfo <https://www.xmos.com/file/lib_otpinfo>`_
 
 
 *************

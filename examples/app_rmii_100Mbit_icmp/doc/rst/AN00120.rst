@@ -251,7 +251,7 @@ In a terminal with XTC tools sourced, from the ``app_rmii_100Mbit_icmp`` directo
 
    xrun --xscope bin/app_rmii_100Mbit_icmp.xe
 
-Once this command has executed the application will be running on the xCore device. 
+Once this command has executed the application will be running on the xCORE device. 
 
 From a new terminal window, now ping the target::
 
@@ -301,11 +301,9 @@ Further reading
 
    https://github.com/xmos/lib_ethernet
 
-
  * Ethernet Frame
 
    http://en.wikipedia.org/wiki/Ethernet_frame
-
 
  * MAC address
 
