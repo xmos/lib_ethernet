@@ -101,7 +101,7 @@ pipeline {
             dir("${REPO}") {
               warnError("Docs") {
                 buildDocs()
-                dir("examples/app_rmii_100Mbit_icmp") {
+                dir("examples/AN00120_100Mbit_ethernet_demo_rmii") {
                   buildDocs()
                 }
                 dir("examples/AN00199_gigabit_ethernet_demo_explorerkit") {
