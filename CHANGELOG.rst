@@ -19,6 +19,7 @@ lib_ethernet change log
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * REMOVED: Support for XS1 devices
+  * REMOVED: MII simple demo example
   * RESOLVED: Build warnings even when compile successful
   * RESOLVED: Qav shaper credit overflow causing negative credit on idle
   * RESOLVED: Packets might not be transmitted for 21 seconds if no transmit

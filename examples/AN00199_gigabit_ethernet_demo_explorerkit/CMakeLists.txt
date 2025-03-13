@@ -9,6 +9,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../deps.cmake)
 set(APP_PCA_ENABLE          ON)
 
 set(COMPILER_FLAGS_COMMON   -g
+                            -Os
                             -report
                             -DDEBUG_PRINT_ENABLE
                             -DRGMII=1
