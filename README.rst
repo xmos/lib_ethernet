@@ -43,7 +43,13 @@ Features
 Known issues
 ************
 
-Please see the active repo for `up to date known issues <https://github.com/xmos/lib_ethernet/issues>`_.
+- RMII MAC hardware testing is done on the XK_ETH_XU316_DUAL_100M board which uses the TI DP83826 PHY. During testing it was noticed
+  that very occasionally (1% of the time) the first packet sent after initialisation may be dropped for certain link partners.
+  Subsequent packets are always OK (`#164 <https://github.com/xmos/lib_ethernet/issues/164>`_)
+- RMII MAC implementation is not tested for 10Mbps operation (`#87 <https://github.com/xmos/lib_ethernet/issues/87>`_)
+- MII/RMII buffering uses a global for the lock meaning lib is not re-entrant. This may cause problems when running 2 instances of the
+  MAC on the same tile (`#126 <https://github.com/xmos/lib_ethernet/issues/126>`_)
+
 
 ****************
 Development repo
@@ -55,7 +61,7 @@ Development repo
 Required tools
 **************
 
-  * XMOS XTC Tools: 15.3.0
+  * XMOS XTC Tools: 15.3.1
 
 *********************************
 Required libraries (dependencies)

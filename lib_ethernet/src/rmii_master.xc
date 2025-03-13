@@ -87,15 +87,15 @@
 //    This is the overhead of zip/unzip etc. before the first word is out on the TXD port.
 // This adjustment is seen from the VCD trace as 120 ns for 1b TXD case and 80 ns for 4b TXD case, for a core frequency of 600MHz with 8 threads running.
 // Note that this will vary depending on the processor speed.
-// The defines, RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b and RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b are set to 12 and 8 reference timer ticks respectively.
+// The defines, RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b and RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b are set to 5 and 11 reference timer ticks respectively.
 // These are overridable defines and can be overriden if the processor is running faster than what these were measured for.
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b
-    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (7) // In reference timer ticks
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b (5) // In reference timer ticks
 #endif
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b
-    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b (12) // In reference timer ticks
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b (11) // In reference timer ticks
 #endif
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b

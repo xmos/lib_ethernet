@@ -13,11 +13,13 @@ lib_ethernet change log
   * ADDED: Tests for SMI
   * ADDED: Optional credit limit for Qav shaper
   * ADDED: Support for running MII sim tests for XS3 architecture
+  * ADDED: Hardware tests for RMII Ethernet MAC
   * CHANGED: SMI re-write. Single port version now functional and documented
   * CHANGED: Moved example PHY drivers to lib_board_support
   * REMOVED: Slicekit based examples because hardware is obsolete
   * REMOVED: Support for waf build system
   * REMOVED: Support for XS1 devices
+  * REMOVED: MII simple demo example
   * RESOLVED: Build warnings even when compile successful
   * RESOLVED: Qav shaper credit overflow causing negative credit on idle
   * RESOLVED: Packets might not be transmitted for 21 seconds if no transmit
