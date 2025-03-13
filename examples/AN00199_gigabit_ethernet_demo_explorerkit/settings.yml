@@ -10,6 +10,7 @@ documentation:
   exclude_patterns_path: doc/exclude_patterns.inc
   root_doc: doc/rst/AN00199.rst
   linkcheck_ignore_regex: ['.*xmos\.com\/file.*']
+  cognidox_part_number: XM-008188-AN
   pdfs:
     doc/rst/AN00199.rst:
       pdf_title: '{{title}}'
