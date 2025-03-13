@@ -1,20 +1,11 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 from scapy.all import *
-import threading
 from pathlib import Path
-import random
-import copy
-from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
+from hw_helpers import get_mac_address, hw_eth_debugger
 import pytest
-from contextlib import nullcontext
-import time
 from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost
-import re
-import subprocess
 import platform
 
 
@@ -47,9 +38,6 @@ def test_hw_restart(request, send_method):
     phy = request.config.getoption("--phy")
 
     verbose = False
-    seed = 0
-    rand = random.Random()
-    rand.seed(seed)
     test_duration_s = 5.0
     payload_len = 'max'
     num_restarts = 4

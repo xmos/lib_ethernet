@@ -1,23 +1,15 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 from scapy.all import *
-import threading
 from pathlib import Path
 import random
-import copy
-from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
+from hw_helpers import get_mac_address, calc_time_diff, hw_eth_debugger
 from hw_helpers import load_packet_file
 import pytest
-from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost
-import re
-import subprocess
 import platform
-import struct
 
 
 pkg_dir = Path(__file__).parent
@@ -41,7 +33,7 @@ def recv_packet_from_dut(socket_host, xcoreapp, lp_client_id, hp_client_id, verb
     return packet_summary[0][5], packet_summary[0][6]
 
 @pytest.mark.parametrize('send_method', ['socket'])
-def test_hw_tx_timer_wrap(request, send_method):
+def test_hw_tx_timer_wrap(request, send_method, seed):
     """
     Test the fix for https://github.com/xmos/lib_ethernet/issues/51
 
@@ -65,7 +57,6 @@ def test_hw_tx_timer_wrap(request, send_method):
     no_debugger = request.config.getoption("--no-debugger")
 
     verbose = False
-    seed = 0
     rand = random.Random()
     rand.seed(seed)
 
