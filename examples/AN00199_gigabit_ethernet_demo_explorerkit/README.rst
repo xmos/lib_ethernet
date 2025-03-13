@@ -1,4 +1,4 @@
-:orphan
+:orphan:
 
 ####################################################
 XMOS Gigabit Ethernet application note (eXplorerKIT)
@@ -56,7 +56,7 @@ Prerequisites
 *************
 
  * This document assumes familarity with the XMOS xCORE architecture,
-   the Ethernet standards IEEE 802.3u (RMII), the XMOS tool chain and
+   the Ethernet standards IEEE 802.3, the XMOS tool chain and
    the XC language. Documentation related to these aspects which are
    not specific to this application note are linked to in the
    references appendix.

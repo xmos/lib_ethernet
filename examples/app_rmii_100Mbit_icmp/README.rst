@@ -1,4 +1,4 @@
-:orphan
+:orphan:
 
 #############################
 100Mbit Ethernet RMII example
