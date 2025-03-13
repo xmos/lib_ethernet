@@ -104,6 +104,9 @@ pipeline {
                 dir("examples/app_rmii_100Mbit_icmp") {
                   buildDocs()
                 }
+                dir("examples/AN00199_gigabit_ethernet_demo_explorerkit") {
+                  buildDocs()
+                }
               }
             }
           }
