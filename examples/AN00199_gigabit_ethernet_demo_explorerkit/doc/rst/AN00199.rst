@@ -182,6 +182,12 @@ Demo Hardware Setup
  * Connect the ethernet jack to the host PC or to the network switch
    using an ethernet cable.
 
+
+.. figure:: images/hardware_setup.png
+   :width: 80%
+
+   Hardware Setup
+
 |newpage|
 
 Building and running the demo device
