@@ -214,8 +214,7 @@ Finally, the application binaries can be built using ``xmake``::
 
     xmake -C build
 
-This will build the application binary ``AN00199_gigabit_ethernet_demo_explorerkit.xe
-`` in the ``AN00199_gigabit_ethernet_demo_explorerkit/bin`` directory.
+This will build the application binary ``AN00199_gigabit_ethernet_demo_explorerkit.xe`` in the ``AN00199_gigabit_ethernet_demo_explorerkit/bin`` directory.
 
 The example uses the MAC layer implementation in the ``lib_ethernet`` library. It depends on
 ``lib_board_support`` for the PHY configuration on the ``xk_evk_xe216`` board.
