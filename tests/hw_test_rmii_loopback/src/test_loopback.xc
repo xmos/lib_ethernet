@@ -22,7 +22,7 @@ typedef struct
 {
   unsigned current_seq_id;
   unsigned prev_seq_id;
-  unsigned ifg;
+  unsigned rx_ts_diff;
 }seq_id_pair_t;
 
 #define NUM_BUF 200
@@ -105,7 +105,11 @@ void test_rx_lp(client ethernet_cfg_if cfg,
   unsigned count_seq_id_mismatch = 0;
   unsigned total_missing = 0;
   unsigned prev_seq_id, prev_timestamp;
-  unsigned max_ifg = 0, min_ifg = 10000000; // Max and min observed IFG in reference
+  // Log max and min of RX timestamp difference between consecutive packets.
+  // To convert from timestamp diff to IFG, do,
+  // rx_ts_diff - (packet_length_without_crc_and_preamble_of_the_first_packet_bits + crc_bits + preamble_bits)
+  // For example, for a 1514 byte packet, IFG = rx_ts_diff - ((1514+4+8)*8)
+  unsigned max_rx_ts_diff = 0, min_rx_ts_diff = 10000000; // Max and min observed IFG in reference
 
   unsigned test_fail=0;
 
@@ -184,22 +188,22 @@ void test_rx_lp(client ethernet_cfg_if cfg,
         if(pkt_count > 1)
         {
           // Calculate IFG
-          unsigned ifg;
+          unsigned rx_ts_diff;
           if(timestamp > prev_timestamp)
           {
-            ifg = (unsigned)(timestamp-prev_timestamp);
+            rx_ts_diff = (unsigned)(timestamp-prev_timestamp);
           }
           else
           {
-            ifg = ((unsigned)(0xffffffff) - prev_timestamp) + timestamp;
+            rx_ts_diff = ((unsigned)(0xffffffff) - prev_timestamp) + timestamp;
           }
-          if(ifg > max_ifg)
+          if(rx_ts_diff > max_rx_ts_diff)
           {
-            max_ifg = ifg;
+            max_rx_ts_diff = rx_ts_diff;
           }
-          else if(ifg < min_ifg)
+          else if(rx_ts_diff < min_rx_ts_diff)
           {
-            min_ifg = ifg;
+            min_rx_ts_diff = rx_ts_diff;
           }
 
           // Check for seq id
@@ -211,7 +215,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
             {
               seq_id_err_log[count_seq_id_err_log].current_seq_id = seq_id;
               seq_id_err_log[count_seq_id_err_log].prev_seq_id = prev_seq_id;
-              seq_id_err_log[count_seq_id_err_log].ifg = ifg;
+              seq_id_err_log[count_seq_id_err_log].rx_ts_diff = rx_ts_diff;
               count_seq_id_err_log += 1;
               total_missing += (seq_id - prev_seq_id - 1);
             }
@@ -257,7 +261,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
     }
   }
 #endif
-  debug_printf("DUT client index %u: counter = %u, min_ifg = %u, max_ifg = %u, overflow=%d, rd_index %d, wr_index %d\n", client_num, counter, min_ifg, max_ifg, overflow, rd_index, wr_index);
+  debug_printf("DUT client index %u: counter = %u, min_rx_ts_diff = %u, max_rx_ts_diff = %u, overflow=%d, rd_index %d, wr_index %d\n", client_num, counter, min_rx_ts_diff, max_rx_ts_diff, overflow, rd_index, wr_index);
   debug_printf("DUT client index %u: Received %d bytes, %d packets\n", client_num, num_rx_bytes, pkt_count);
   unsafe {
   debug_printf("DUT client index %u: Number of loopback bytes = %u, loopback packets = %u\n", client_num, *loopback_byte_count_ptr, *loopback_pkt_count_ptr);
@@ -269,7 +273,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
     for(int i=0; i<count_seq_id_err_log; i++)
     {
       unsigned diff = seq_id_err_log[i].current_seq_id - seq_id_err_log[i].prev_seq_id - 1;
-      debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets. IFG = %u\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff, seq_id_err_log[i].ifg);
+      debug_printf("(current_seq_id, prev_seq_id) = (%u, %u). Missing %u packets. IFG = %u\n", seq_id_err_log[i].current_seq_id, seq_id_err_log[i].prev_seq_id, diff, seq_id_err_log[i].rx_ts_diff);
     }
   }
 
