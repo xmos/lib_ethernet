@@ -35,7 +35,7 @@ port p_phy1_rxd_1 = PHY_1_RXD_1;
     in port p_unused_1 = PHY_1_TXD_1;
     #define TX8_BIT_0 6
     #define TX8_BIT_1 7
-    #define TX_PINS ((TX8_BIT_0 << 16) | (TX8_BIT_1))
+    #define TX_PINS RMII_8B_PINS_INITIALISER(TX8_BIT_0, TX8_BIT_1)
     #define p_phy1_txd_1 null
 #else
     port p_phy1_txd_0 = PHY_1_TXD_0;

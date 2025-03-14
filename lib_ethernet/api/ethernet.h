@@ -199,8 +199,6 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
-   *
-   *
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
 
@@ -209,8 +207,6 @@ typedef interface ethernet_cfg_if {
    *
    *  \param ifnum   The index of the MAC interface to set the slope (always 0)
    *  \param slope   The maximum number of bits per second to be set
-   *
-   *
    */
   void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
 
@@ -662,16 +658,22 @@ void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_co
 
 /** ENUM to determine which two bits of a four bit port are to be used as data lines
  *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
- *  port cannot be used. For Rx the unused input bits are ignored. For Tx, the unused pins are always driven low. */
-typedef enum rmii_data_4b_pin_assignment_t{
+ *  port cannot be used. For Rx the input values are ignored. For Tx, the unused pins are always driven low. */
+typedef enum rmii_data_pin_assignment_t{
     USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port for data bits 0 and 1*/
     USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
-} rmii_data_4b_pin_assignment_t;
+} rmii_data_pin_assignment_t;
 
-/** Struct containing the clock delay settings for the Rx and Tx pins. This is needed to adjust
+
+/** Macro to populate which bits of the 8b port are used in the initialiser. Unused bits are driven low. */
+#define RMII_8B_PINS_INITIALISER(pos_0, pos_1) ((unsigned)pos_0 | ((unsigned)pos_1) << 16)
+
+
+/** Struct containing the clock delay settings for the Rx and Tx pins. This is needed to adjust 
  *  port timings to ensure that the data is captured with sufficient setup and hold margin.
- *  This is required due to the relatively fast 50 MHz clock.
- *  Please consult the documentation for further details and suggested settings. */
+ *  This is required due to the relatively fast 50 MHz clock. 
+ *  Please consult the documentation for further details and suggested settings. */ 
+
 typedef struct rmii_port_timing_t{
     unsigned clk_delay_tx_rising; /**< The number of core clock cycles to delay the capture clock*/
     unsigned clk_delay_tx_falling; /**< The number of core clock cycles to delay the drive clock*/
@@ -707,13 +709,16 @@ typedef struct rmii_port_timing_t{
  *  \param rx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
  *  \param p_rxdv              RMII RX data valid port
  *  \param p_txen              RMII TX enable port
- *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 or 8 bit option)
  *  \param p_txd_1             Port for data bit 1 (1 bit option). Pass null if unused.
  *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
+ *                             In the case of 8b port usage, the lower 16b word holds the position of the data bit 0 and
+ *                             the upper 16b word holds the position of data bit 1. Values 0..7 are valid. You can use the
+ *                             RMII_8B_PINS_INITIALISER(pos_0, pos_1) macro to initialise this value.
  *  \param rxclk               Clock used for RMII receive timing
  *  \param txclk               Clock used for RMII transmit timing
  *  \param port_timing         Struct used for initialising the clock blocks to ensure setup and hold times are met
- *
+ * 
  *  \param rx_bufsize_words    The number of words to used for a receive buffer.
  *                             This should be at least 500 long words.
  *  \param tx_bufsize_words    The number of words to used for a transmit buffer.
@@ -729,10 +734,10 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           nullable_streaming_chanend_t c_rx_hp,
                           nullable_streaming_chanend_t c_tx_hp,
                           in_port_t p_clk,
-                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_4b_pin_assignment_t rx_pin_map,
+                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_pin_assignment_t rx_pin_map,
                           in_port_t p_rxdv,
                           out_port_t p_txen,
-                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
+                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
                           rmii_port_timing_t port_timing,

@@ -77,6 +77,10 @@
 // So the RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 30), and
 // RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 62) for frames with no tail bytes and (96 + 38) for frames with tail bytes.
 
+// For 8b TXD port, we output 8b of data pins at a time (one byte on the wire). So after the last OUT we have TR and SR full which is two wire bytes,
+// we have 16 timer ticks until it is empty. There are 4 slots after the last OUT in the ASM before we return to callee.
+// TODO work this out properly.
+
 // Further, there's an adjustment needed due to the fact that
 // 1. The instruction that reads the timer is in fact the next instruction adter the out of the CRC word.
 // 2. There's a delay between the timer wait for the next packet and the preamble actually showing up on the wire (TX_EN goes high when the first bit shows up)
@@ -94,6 +98,11 @@
     #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b (11) // In reference timer ticks
 #endif
 
+#ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b (12) // In reference timer ticks
+#endif
+
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b) //TODO Work me out
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES  (96 + 62 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES  (96 + 38 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
@@ -194,11 +203,11 @@ static void rmii_master_init_tx_common( in port p_clk,
 }
 
 
-unsafe void rmii_master_init_tx_4b( in port p_clk,
-                                    out buffered port:32 * unsafe tx_data,
-                                    out port p_txen,
-                                    clock txclk,
-                                    rmii_port_timing_t port_timing){
+unsafe void rmii_master_init_tx_4b_8b(in port p_clk,
+                                      out buffered port:32 * unsafe tx_data,
+                                      out port p_txen,
+                                      clock txclk,
+                                      rmii_port_timing_t port_timing){
     *tx_data <: 0;  // Ensure lines are low
     sync(*tx_data); // And wait to empty. This ensures no spurious p_txen on init
 
@@ -243,12 +252,12 @@ unsafe void rmii_master_init_tx_1b( in port p_clk,
 //////////////////////////////////////// RX ////////////////////////////////////
 unsigned receive_full_preamble_4b_with_select_asm(in port p_mii_rxdv,
                                               in buffered port:32 p_mii_rxd,
-                                              rmii_data_4b_pin_assignment_t rx_port_4b_pins);
+                                              rmii_data_pin_assignment_t rx_port_4b_pins);
 
 
 unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
                                               in buffered port:32 p_mii_rxd,
-                                              rmii_data_4b_pin_assignment_t rx_port_4b_pins)
+                                              rmii_data_pin_assignment_t rx_port_4b_pins)
 {
     unsigned crc = 0x9226F562;
     unsigned word2, word1;
@@ -291,7 +300,7 @@ unsigned receive_full_preamble_4b_with_select(in port p_mii_rxdv,
 
 }
 static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
-                                  rmii_data_4b_pin_assignment_t rx_port_4b_pins){
+                                  rmii_data_pin_assignment_t rx_port_4b_pins){
     unsigned word1, word2;
     p_mii_rxd :> word1;
     p_mii_rxd :> word2;
@@ -309,7 +318,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 {int, unsigned, unsigned* unsafe} extern master_rx_pins_4b_body_asm(  unsigned * unsafe dptr,
                                                                         in port p_mii_rxdv,
                                                                         in buffered port:32 p_mii_rxd,
-                                                                        rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                                        rmii_data_pin_assignment_t rx_port_4b_pins,
                                                                         unsigned * unsafe timestamp,
                                                                         unsigned * unsafe wrap_ptr,
                                                                         unsigned * unsafe write_end_ptr);
@@ -319,7 +328,7 @@ static inline unsigned rx_word_4b(in buffered port:32 p_mii_rxd,
 {int, unsigned, unsigned* unsafe} master_rx_pins_4b_body( unsigned * unsafe dptr,
                                                             in port p_mii_rxdv,
                                                             in buffered port:32 p_mii_rxd,
-                                                            rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                                            rmii_data_pin_assignment_t rx_port_4b_pins,
                                                             unsigned * unsafe timestamp,
                                                             unsigned * unsafe wrap_ptr,
                                                             unsigned * unsafe write_end_ptr){
@@ -445,7 +454,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
                                     unsigned * unsafe rdptr,
                                     in port p_mii_rxdv,
                                     in buffered port:32 * unsafe p_mii_rxd,
-                                    rmii_data_4b_pin_assignment_t rx_port_4b_pins,
+                                    rmii_data_pin_assignment_t rx_port_4b_pins,
                                     volatile int * unsafe running_flag_ptr,
                                     chanend c_rx_pins_exit){
 
@@ -482,21 +491,21 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
         int num_rx_bytes;
 #if ETH_RX_4B_USE_ASM
         {num_rx_bytes, crc, dptr} = master_rx_pins_4b_body_asm(dptr,
-                                                                                p_mii_rxdv,
-                                                                                *p_mii_rxd,
-                                                                                rx_port_4b_pins,
-                                                                                (unsigned*)&buf->timestamp,
-                                                                                wrap_ptr,
-                                                                                end_ptr);
+                                                                p_mii_rxdv,
+                                                                *p_mii_rxd,
+                                                                rx_port_4b_pins,
+                                                                (unsigned*)&buf->timestamp,
+                                                                wrap_ptr,
+                                                                end_ptr);
 #else
 
         {num_rx_bytes, crc, dptr} = master_rx_pins_4b_body(dptr,
-                                                                            p_mii_rxdv,
-                                                                            *p_mii_rxd,
-                                                                            rx_port_4b_pins,
-                                                                            (unsigned*)&buf->timestamp,
-                                                                            wrap_ptr,
-                                                                            end_ptr);
+                                                            p_mii_rxdv,
+                                                            *p_mii_rxd,
+                                                            rx_port_4b_pins,
+                                                            (unsigned*)&buf->timestamp,
+                                                            wrap_ptr,
+                                                            end_ptr);
 #endif
         // Note: we don't store the last word since it contains the CRC and
         // we don't need it from this point on. Endin returns the number of bits of data in the port remaining.
@@ -765,7 +774,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
 ///////////////////////////////////// TX /////////////////////////////////////////
 static inline void tx_4b_word(out buffered port:32 p_mii_txd,
                               unsigned word,
-                              rmii_data_4b_pin_assignment_t tx_port_4b_pins){
+                              rmii_data_pin_assignment_t tx_port_4b_pins){
     uint64_t zipped;
     if(tx_port_4b_pins == USE_LOWER_2B){
         zipped = zip(0, word, 1);
@@ -779,7 +788,7 @@ static inline void tx_4b_word(out buffered port:32 p_mii_txd,
 
 static inline void tx_4b_byte(out buffered port:32 p_mii_txd,
                               unsigned word,
-                              rmii_data_4b_pin_assignment_t tx_port_4b_pins){
+                              rmii_data_pin_assignment_t tx_port_4b_pins){
     uint64_t zipped;
     if(tx_port_4b_pins == USE_LOWER_2B){
         zipped = zip(0, word, 1);
@@ -789,11 +798,73 @@ static inline void tx_4b_byte(out buffered port:32 p_mii_txd,
     partout(p_mii_txd, 16, zipped & 0xffffffff);
 }
 
+void rmii_master_tx_pins_8b_asm(unsigned * unsafe dptr,
+                                int byte_count,
+                                out buffered port:32 p_mii_txd,
+                                unsigned lookup_8b_tx[256],
+                                unsigned poly,
+                                unsigned * unsafe wrap_start_ptr,
+                                int byte_count_wrapped);
+
+unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
+                                    mii_packet_t * unsafe buf,
+                                    out buffered port:32 p_mii_txd,
+                                    unsigned lookup_8b_tx[256],
+                                    hwtimer_t ifg_tmr,
+                                    unsigned &ifg_time,
+                                    unsigned last_frame_end_time)
+{
+    unsigned time;
+    const unsigned poly = 0xEDB88320;
+    unsigned * unsafe dptr = &buf->data[0];
+    unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem);;
+
+    // Check that we are out of the inter-frame gap
+    unsigned now;
+    ifg_tmr :> now;
+    unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
+    if(wait)
+    {
+        ifg_tmr when timerafter(ifg_time) :> ifg_time;
+    }
+
+    // Check to see if we need to wrap or not
+    int first_chunk_size = buf->length;
+    int wrap_size = buf->length - ((int)wrap_ptr - (int)dptr);
+    wrap_size = wrap_size < 0 ? 0 : wrap_size;
+
+    if(wrap_size > 0){
+        first_chunk_size -= wrap_size;
+        wrap_ptr = (unsigned *)*wrap_ptr; // Dereference wrap pointer to get start of wrap memory
+        // printstrln("wrap_required");
+    }
+
+    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
+
+    // Tx all stuff incl preamble and CRC
+    if(buf->length > 5){ // The ASM always transmits at least 5 bytes. Less than that will break the
+                         // timing on the very tight loops so check in XC before we get there.
+        rmii_master_tx_pins_8b_asm(dptr, first_chunk_size, p_mii_txd, lookup_8b_tx, poly, wrap_ptr, wrap_size);
+    }
+
+
+    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+        ifg_tmr :> time;
+    }
+
+
+    ifg_tmr :> ifg_time;
+
+    return time;
+}
+
 
 unsafe unsigned rmii_transmit_packet_4b(mii_mempool_t tx_mem,
                                     mii_packet_t * unsafe buf,
                                     out buffered port:32 p_mii_txd,
-                                    rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                    rmii_data_pin_assignment_t tx_port_4b_pins,
                                     hwtimer_t ifg_tmr,
                                     unsigned &ifg_time,
                                     unsigned last_frame_end_time)
@@ -994,7 +1065,19 @@ unsafe unsigned rmii_transmit_packet_1b(mii_mempool_t tx_mem,
     return time;
 }
 
-
+static void init_8b_tx_lookup(unsigned lookup[], int bitpos_0, int bitpos_1){
+    for(int i = 0; i < 256; i++){
+        lookup[i] = 0; // All unused pins driven low
+        lookup[i] |= (i & 0x1) << (bitpos_0 + 0);
+        lookup[i] |= (i & 0x2) << (bitpos_1 - 1);
+        lookup[i] |= (i & 0x4) << (bitpos_0 + 6);
+        lookup[i] |= (i & 0x8) << (bitpos_1 + 5);
+        lookup[i] |= (i & 0x10) << (bitpos_0 + 12);
+        lookup[i] |= (i & 0x20) << (bitpos_1 + 11);
+        lookup[i] |= (i & 0x40) << (bitpos_0 + 18);
+        lookup[i] |= (i & 0x80) << (bitpos_1 + 17);
+    }
+}
 
 unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 mii_mempool_t tx_mem_hp,
@@ -1004,13 +1087,10 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
                                 unsigned tx_port_width,
                                 out buffered port:32 * unsafe p_mii_txd_0,
                                 out buffered port:32 * unsafe  p_mii_txd_1,
-                                rmii_data_4b_pin_assignment_t tx_port_4b_pins,
+                                rmii_data_pin_assignment_t tx_port_pins,
                                 clock txclk,
                                 volatile ethernet_port_state_t * unsafe p_port_state,
                                 volatile int * unsafe running_flag_ptr){
-
-    // Flag for readability and faster comparison
-    const unsigned use_4b = (tx_port_width == 4);
 
     // Need one timer to be able to read at any time for the shaper
     timer credit_tmr;
@@ -1021,6 +1101,14 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
     qav_state_t qav_state = {0, 0, 0}; // Set times and credit to zero so it can tx first frame
     unsigned enable_shaper = p_port_state->qav_shaper_enabled;
+
+    // Lookup table for 8b transmit case
+    unsigned lookup_8b_tx[256];
+    unsigned bit_pos_0 = (unsigned)tx_port_pins & 0xffff;
+    unsigned bit_pos_1 = (unsigned)tx_port_pins >> 16;
+    if(tx_port_width == 8){
+        init_8b_tx_lookup(lookup_8b_tx, bit_pos_0, bit_pos_1);
+    }
 
     if (!ETHERNET_SUPPORT_TRAFFIC_SHAPER) {
         enable_shaper = 0;
@@ -1058,20 +1146,31 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
 
 
         unsigned time;
-        if(use_4b) {
-            time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_4b_pins, ifg_tmr, ifg_time, eof_time);
-            eof_time = ifg_time;
-            ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
-        } else {
-            time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
-            eof_time = ifg_time;
-            if((buf->length & 0x3))
-            {
-                ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES;
-            }
-            else
-            {
-                ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES;
+        switch(tx_port_width){
+            case 8: {
+                    time = rmii_transmit_packet_8b(tx_mem, buf, *p_mii_txd_0, lookup_8b_tx, ifg_tmr, ifg_time, eof_time);
+                    eof_time = ifg_time;
+                    ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b; // TODO WORK ME OUT
+                    break;
+                }
+            case 4: {
+                    time = rmii_transmit_packet_4b(tx_mem, buf, *p_mii_txd_0, tx_port_pins, ifg_tmr, ifg_time, eof_time);
+                    eof_time = ifg_time;
+                    ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b;
+                    break;
+                }
+            case 1: {
+                    time = rmii_transmit_packet_1b(tx_mem, buf, *p_mii_txd_0, *p_mii_txd_1, txclk, ifg_tmr, ifg_time, eof_time);
+                    eof_time = ifg_time;
+                    if((buf->length & 0x3))
+                    {
+                        ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES;
+                    }
+                    else
+                    {
+                        ifg_time += RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES;
+                    }
+                    break;
             }
         }
 #if PROBE_TX_TIMESTAMPS
@@ -1079,8 +1178,6 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         tx_ts_queue.fifo[tx_ts_queue.wr_index] = buf->length;
         increment_tx_ts_queue_write_index();
 #endif
-
-
 
         const int packet_is_high_priority = (p_ts_queue == null);
         if (enable_shaper && packet_is_high_priority) {

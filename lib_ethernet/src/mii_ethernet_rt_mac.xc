@@ -437,7 +437,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds
+      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds 
       break;
     }
 

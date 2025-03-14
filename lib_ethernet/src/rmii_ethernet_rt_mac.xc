@@ -45,10 +45,10 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
                           nullable_streaming_chanend_t c_rx_hp,
                           nullable_streaming_chanend_t c_tx_hp,
                           in_port_t p_clk,
-                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_4b_pin_assignment_t rx_pin_map,
+                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_pin_assignment_t rx_pin_map,
                           in_port_t p_rxdv,
                           out_port_t p_txen,
-                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
+                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_pin_assignment_t tx_pin_map,
                           clock rxclk,
                           clock txclk,
                           rmii_port_timing_t port_timing,
@@ -130,12 +130,14 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     out buffered port:32 * unsafe tx_data_0 = NULL;
     out buffered port:32 * unsafe tx_data_1 = NULL;
 
+    // Extract port info
     unsigned tx_port_width = ((unsigned)(p_txd_0) >> 16) & 0xff;
 
     switch(tx_port_width){
+      case 8:
       case 4:
         tx_data_0 = enable_buffered_out_port((unsigned*)(&p_txd_0), 32);
-        rmii_master_init_tx_4b(p_clk, tx_data_0, p_txen, txclk, port_timing);
+        rmii_master_init_tx_4b_8b(p_clk, tx_data_0, p_txen, txclk, port_timing);
         break;
       case 1:
         tx_data_0 = enable_buffered_out_port((unsigned*)&p_txd_0, 32);
