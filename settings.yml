@@ -3,7 +3,7 @@
 lib_name: lib_ethernet
 project: '{{lib_name}}'
 title: '{{lib_name}}: Ethernet library'
-version: 4.0.0
+version: 4.0.1
 
 documentation:
   exclude_patterns_path: doc/exclude_patterns.inc
