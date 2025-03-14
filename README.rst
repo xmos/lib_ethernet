@@ -5,7 +5,7 @@ lib_ethernet: Ethernet library
 ##############################
 
 :vendor: XMOS
-:version: 4.0.0
+:version: 4.0.1
 :scope: General Use
 :description: XMOS Ethernet Library
 :category: Networking

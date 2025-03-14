@@ -26,4 +26,4 @@ XCC_FLAGS_rmii_ethernet_rt_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
 XCC_FLAGS_rmii_master.xc = $(MODULE_XCC_FLAGS) -mdual-issue -Wno-unusual-code
 
 
-VERSION = 4.0.0
+VERSION = 4.0.1
