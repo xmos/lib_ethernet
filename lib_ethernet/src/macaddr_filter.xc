@@ -1,4 +1,5 @@
-// Copyright (c) 2014-2017, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <string.h>
 #include <print.h>
 #include "macaddr_filter.h"
@@ -121,6 +122,8 @@ void ethernet_clear_filter_table(eth_global_filter_info_t table,
     }
   }
 }
+
+#include <debug_print.h>
 
 #pragma unsafe arrays
 unsigned ethernet_do_filtering(eth_global_filter_info_t table,

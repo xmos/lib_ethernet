@@ -1,4 +1,5 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright 2015-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
 #include <platform.h>
@@ -7,12 +8,16 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1C;
 #include "control.xc"
 
-port p_rx_lp_control = on tile[0]: XS1_PORT_1D;
+port p_rx_lp_control = on tile[0]: XS1_PORT_1E;
 
 #include "helpers.xc"
 
@@ -110,7 +115,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
       // Allow the testbench to control when packets are consumed
     case p_rx_lp_control when pinseq(1) :> int tmp:
       break;
-        
+
     case ctrl.status_changed():
       status_t status;
       ctrl.get_status(status);
@@ -121,7 +126,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 
     if (done)
       break;
-    
+
     #pragma ordered
     select {
     case rx.packet_ready():
@@ -147,7 +152,7 @@ void test_rx_lp(client ethernet_cfg_if cfg,
 
   // Wait until the high priority core has finished
   c_shutdown :> done;
-  
+
   debug_printf("Received %d lp bytes\n", num_rx_bytes);
   ctrl.set_done();
 }
@@ -184,14 +189,35 @@ int main()
 
     #else // !RGMII
 
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                    i_rx_lp, NUM_RX_LP_IF,
-                                    i_tx_lp, NUM_TX_LP_IF,
-                                    c_rx_hp, null,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      c_rx_hp, null,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+      on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        c_rx_hp, null,
+                                        p_eth_clk,
+                                        p_eth_rxd_0,
+                                        p_eth_rxd_1,
+                                        RX_PINS,
+                                        p_eth_rxdv,
+                                        p_eth_txen,
+                                        p_eth_txd_0,
+                                        p_eth_txd_1,
+                                        TX_PINS,
+                                        eth_rxclk,
+                                        eth_txclk,
+                                        port_timing,
+                                        4000, 4000,
+                                        ETHERNET_DISABLE_SHAPER);
+    #endif
     on tile[0]: filler(0x1111);
 
     #endif // RGMII
@@ -199,7 +225,7 @@ int main()
     on tile[0]: test_rx_hp(i_cfg[0], c_rx_hp, i_ctrl[0], c_shutdown);
     on tile[0]: test_rx_lp(i_cfg[1], i_rx_lp[0], i_ctrl[1], c_shutdown);
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

@@ -1,4 +1,5 @@
-// Copyright (c) 2013-2016, XMOS Ltd, All rights reserved
+// Copyright 2013-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __mii_lite_lld_h__
 #define __mii_lite_lld_h__
 #include "hwtimer.h"

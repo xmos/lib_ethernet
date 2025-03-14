@@ -1,11 +1,18 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
 #include "ethernet.h"
 #include "helpers.xc"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
+
+
 
 struct test_packet { int len; int step; int tagged; }
 test_packets[] =
@@ -114,17 +121,40 @@ int main()
       #endif
     }
 
-    #else // RGMII
+    #else
 
     #if RT
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                    i_rx_lp, NUM_RX_LP_IF,
-                                    i_tx_lp, NUM_TX_LP_IF,
-                                    c_rx_hp, c_tx_hp,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+
+    #if MII
+        on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        c_rx_hp, c_tx_hp,
+                                        p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                        p_eth_txclk, p_eth_txen, p_eth_txd,
+                                        eth_rxclk, eth_txclk,
+                                        4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+        on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+                                          i_rx_lp, NUM_RX_LP_IF,
+                                          i_tx_lp, NUM_TX_LP_IF,
+                                          c_rx_hp, c_tx_hp,
+                                          p_eth_clk,
+                                          p_eth_rxd_0,
+                                          p_eth_rxd_1,
+                                          RX_PINS,
+                                          p_eth_rxdv,
+                                          p_eth_txen,
+                                          p_eth_txd_0,
+                                          p_eth_txd_1,
+                                          TX_PINS,
+                                          eth_rxclk,
+                                          eth_txclk,
+                                          port_timing,
+                                          4000, 4000,
+                                          ETHERNET_DISABLE_SHAPER);
+    #endif
+
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x2222);
     on tile[0]: filler(0x3333);
@@ -153,7 +183,7 @@ int main()
     on tile[0]: test_tx(i_tx_lp[0], null);
 
     #endif // RT
-    #endif // RGMII
+    #endif
 
   }
   return 0;

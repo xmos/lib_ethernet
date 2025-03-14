@@ -1,5 +1,48 @@
-Ethernet MAC library change log
-===============================
+lib_ethernet change log
+=======================
+
+4.0.0
+-----
+
+  * ADDED: RMII Ethernet MAC support for XCORE-AI
+  * ADDED: Extended sim tests for testing RMII applications
+  * ADDED: Support for running MII sim tests for XS3 architecture
+  * ADDED: Support for XCommon CMake build system
+  * ADDED: Exit command to RMII RT MAC
+  * ADDED: Improved MAC feature documentation
+  * ADDED: Tests for SMI
+  * ADDED: Optional credit limit for Qav shaper
+  * ADDED: Support for running MII sim tests for XS3 architecture
+  * ADDED: Hardware tests for RMII Ethernet MAC
+  * CHANGED: SMI re-write. Single port version now functional and documented
+  * CHANGED: Moved example PHY drivers to lib_board_support
+  * REMOVED: Slicekit based examples because hardware is obsolete
+  * REMOVED: Support for waf build system
+  * REMOVED: Support for XS1 devices
+  * REMOVED: MII simple demo example
+  * RESOLVED: Build warnings even when compile successful
+  * RESOLVED: Qav shaper credit overflow causing negative credit on idle
+  * RESOLVED: Packets might not be transmitted for 21 seconds if no transmit
+    activity for 21 seconds (IFG timer)
+
+  * Changes to dependencies:
+
+    - lib_gpio: Removed dependency
+
+    - lib_locks: 2.0.0 -> 2.3.1
+
+    - lib_logging: 2.0.0 -> 3.3.1
+
+    - lib_otpinfo: Removed dependency
+
+    - lib_slicekit_support: Removed dependency
+
+    - lib_xassert: 2.0.0 -> 4.3.1
+
+3.5.0
+-----
+
+  * CHANGED: Use XMOS Public Licence Version 1
 
 3.4.0
 -----
@@ -13,6 +56,12 @@ Ethernet MAC library change log
     speed changes.
   * RESOLVED: Clean up code to fix compiler signed/unsigned warnings.
   * CHANGE: Prevent packet drop from RGMII LP queue when there is no HP queue.
+
+  * Changes to dependencies:
+
+    - lib_otpinfo: Added dependency 2.0.1
+
+    - lib_slicekit_support: Added dependency 2.0.1
 
 3.3.1
 -----

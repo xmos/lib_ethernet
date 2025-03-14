@@ -1,4 +1,5 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright 2015-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __HELPERS_H__
 #define __HELPERS_H__
 

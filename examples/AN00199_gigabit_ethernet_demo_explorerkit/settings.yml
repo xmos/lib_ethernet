@@ -1,0 +1,21 @@
+# This file relates to internal XMOS infrastructure and should be ignored by external users
+---
+an_number: AN00199
+project: '{{an_number}}'
+title: '{{an_number}}: XMOS Gigabit Ethernet application note (eXplorerKIT)'
+version: 1.1.0
+
+documentation:
+  substitutions_path: doc/substitutions.inc
+  exclude_patterns_path: doc/exclude_patterns.inc
+  root_doc: doc/rst/AN00199.rst
+  linkcheck_ignore_regex: ['.*xmos\.com\/file.*']
+  cognidox_part_number: XM-008188-AN
+  pdfs:
+    doc/rst/AN00199.rst:
+      pdf_title: '{{title}}'
+      pdf_filename: '{{an_number}}_v{{version}}'
+    README.rst:
+      pdf_title: '{{title}} (README)'
+      pdf_filename: '{{an_number}}_v{{version}}_readme'
+      pdf_short: yes

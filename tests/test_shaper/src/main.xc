@@ -1,40 +1,44 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
 #include "ethernet.h"
 #include "helpers.xc"
+#include <print.h>
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
 #define PACKET_BYTES 100
 #define PACKET_WORDS ((PACKET_BYTES+3)/4)
 
 #define VLAN_TAGGED 1
 
-#define MII_CREDIT_FRACTIONAL_BITS 16
-
 static int calc_idle_slope(int bps)
 {
   long long slope = ((long long) bps) << (MII_CREDIT_FRACTIONAL_BITS);
-  slope = slope / 100000000;
+  slope = slope / 100000000; // bits that should be sent per ref timer tick
 
   return (int) slope;
 }
 
-void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
+void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp, chanend c_packet_start_synch)
 {
-  // Request 5MB/s
+  // Request 5Mbits/sec
   i_cfg.set_egress_qav_idle_slope(0, calc_idle_slope(5 * 1024 * 1024));
-  
+
   // Indicate the test is not yet complete
   p_test_ctrl <: 0;
-  
+
   unsigned data[PACKET_WORDS];
   for (size_t i = 0; i < PACKET_WORDS; i++) {
     data[i] = i;
   }
-  
+
   // src/dst MAC addresses
   size_t j = 0;
   for (; j < 12; j++)
@@ -51,6 +55,9 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
   const int header_bytes = VLAN_TAGGED ? 18 : 14;
   ((char*)data)[j++] = (length - header_bytes) >> 8;
   ((char*)data)[j++] = (length - header_bytes) & 0xff;
+
+
+  c_packet_start_synch :> int _;
 
   while (1) {
     ethernet_send_hp_packet(c_tx_hp, (char *)data, length, ETHERNET_ALL_INTERFACES);
@@ -74,7 +81,7 @@ void hp_traffic(client ethernet_cfg_if i_cfg, streaming chanend c_tx_hp)
 #define MAX_INTER_PACKET_DELAY 0x3f
 #endif
 
-void lp_traffic(client ethernet_tx_if tx)
+void lp_traffic(client ethernet_tx_if tx, chanend c_packet_start_synch)
 {
   // Send a burst of frames to test the TX performance of the MAC layer and buffering
   // Just repeat the same frame numerous times to eliminate the frame setup time
@@ -113,6 +120,7 @@ void lp_traffic(client ethernet_tx_if tx)
     data[j] = x;
   }
 
+  c_packet_start_synch <: 1;
   while (1) {
     int do_burst = (random_get_random_number(rand) & 0xff) > 200;
     int len_index = random_get_random_number(rand) & (NUM_PACKET_LENGTHS - 1);
@@ -131,7 +139,7 @@ void lp_traffic(client ethernet_tx_if tx)
 
       tx.send_packet(data, length, ETHERNET_ALL_INTERFACES);
     }
-    
+
     int delay = random_get_random_number(rand) % MAX_INTER_PACKET_DELAY;
     delay_microseconds(delay);
   }
@@ -148,6 +156,7 @@ int main()
   ethernet_rx_if i_rx_lp[NUM_RX_LP_IF];
   ethernet_tx_if i_tx_lp[NUM_TX_LP_IF];
   streaming chan c_tx_hp;
+  chan c_packet_start_synch;
 
 #if RGMII
   streaming chan c_rgmii_cfg;
@@ -172,13 +181,14 @@ int main()
       t when timerafter(time + 5000) :> time;
 
       par {
-        hp_traffic(i_cfg[0], c_tx_hp);
-        lp_traffic(i_tx_lp[0]);
+        hp_traffic(i_cfg[0], c_tx_hp, c_packet_start_synch);
+        lp_traffic(i_tx_lp[0], c_packet_start_synch);
       }
     }
 
-    #else // RGMII
+    #else
 
+  #if MII
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
@@ -187,11 +197,31 @@ int main()
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_ENABLE_SHAPER);
+  #elif RMII
+    on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+                                    i_rx_lp, NUM_RX_LP_IF,
+                                    i_tx_lp, NUM_TX_LP_IF,
+                                    null, c_tx_hp,
+                                    p_eth_clk,
+                                    p_eth_rxd_0,
+                                    p_eth_rxd_1,
+                                    RX_PINS,
+                                    p_eth_rxdv,
+                                    p_eth_txen,
+                                    p_eth_txd_0,
+                                    p_eth_txd_1,
+                                    TX_PINS,
+                                    eth_rxclk,
+                                    eth_txclk,
+                                    port_timing,
+                                    4000, 4000,
+                                    ETHERNET_ENABLE_SHAPER);
+  #endif
     on tile[0]: filler(0x1111);
     on tile[0]: filler(0x3333);
 
-    on tile[0]: hp_traffic(i_cfg[0], c_tx_hp);
-    on tile[0]: lp_traffic(i_tx_lp[0]);
+    on tile[0]: hp_traffic(i_cfg[0], c_tx_hp, c_packet_start_synch);
+    on tile[0]: lp_traffic(i_tx_lp[0], c_packet_start_synch);
 
     #endif // RGMII
 

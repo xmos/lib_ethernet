@@ -1,4 +1,5 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright 2015-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #define NUM_PACKET_LENGTHS 64
 
@@ -158,7 +159,7 @@ int main()
                     eth_rxclk, eth_txclk, 2300)
     on tile[0]: test_rx(i_mii, i_ctrl[0]);
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
 
     on tile[0]: filler(0x22);
     on tile[0]: filler(0x33);

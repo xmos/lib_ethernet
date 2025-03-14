@@ -9,16 +9,21 @@
 #
 # You can also set MODULE_XCC_C_FLAGS, MODULE_XCC_XC_FLAGS etc..
 
-DEPENDENT_MODULES = lib_gpio(>=1.1.0) lib_locks(>=2.0.0) lib_logging(>=2.1.0) lib_xassert(>=3.0.0)
-
+DEPENDENT_MODULES = lib_locks(>=2.3.1) lib_logging(>=3.3.1) lib_xassert(>=4.3.1)
 OPTIONAL_HEADERS += ethernet_conf.h
 
 MODULE_XCC_FLAGS = $(XCC_FLAGS) -g -O3 -mno-dual-issue
 
-XCC_FLAGS_mii_master.xc = $(XCC_FLAGS) -O3 -fschedule -g0 -mno-dual-issue
+XCC_FLAGS_mii_master.xc = $(XCC_FLAGS) -O3 -fschedule -g -mno-dual-issue
 XCC_FLAGS_macaddr_filter.xc = $(MODULE_XCC_FLAGS) -Wno-reinterpret-alignment
-XCC_FLAGS_mii.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
-XCC_FLAGS_mii_ethernet_mac.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
+XCC_FLAGS_mii.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align -Wno-unusual-code
+XCC_FLAGS_mii_ethernet_mac.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align -Wno-unusual-code
 XCC_FLAGS_ethernet.xc = $(MODULE_XCC_FLAGS) -Wno-cast-align
+XCC_FLAGS_mii_ethernet_rt_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
+XCC_FLAGS_rgmii_buffering.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
+XCC_FLAGS_rgmii_ethernet_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
+XCC_FLAGS_rmii_ethernet_rt_mac.xc = $(MODULE_XCC_FLAGS) -Wno-unusual-code
+XCC_FLAGS_rmii_master.xc = $(MODULE_XCC_FLAGS) -mdual-issue -Wno-unusual-code
 
-VERSION = 3.4.0
+
+VERSION = 4.0.0

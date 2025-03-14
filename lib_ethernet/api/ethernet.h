@@ -1,14 +1,21 @@
-// Copyright (c) 2013-2017, XMOS Ltd, All rights reserved
+// Copyright 2013-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __ethernet__h__
 #define __ethernet__h__
 #include <xs1.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <xccompat.h>
+#include "doxygen.h"    // Sphynx Documentation Workarounds
 
-#define ETHERNET_ALL_INTERFACES  (-1)
-#define ETHERNET_MAX_PACKET_SIZE (1518)
 
-#define MACADDR_NUM_BYTES 6
+#define ETHERNET_ALL_INTERFACES     (-1)
+#define ETHERNET_MAX_PACKET_SIZE    (1518) /**< MAX packet size in bytes including src, dst, ether/tags but NOT preamble or CRC*/
+
+#define MACADDR_NUM_BYTES           (6) /**< Number of octets in MAC address */
+
+#define MII_CREDIT_FRACTIONAL_BITS  (16) /** Fractional bits for Qav credit based shaper setting */
+
 
 /** Type representing the type of packet from the MAC */
 typedef enum eth_packet_type_t {
@@ -51,22 +58,33 @@ typedef struct ethernet_macaddr_filter_t {
 
 /** Type representing the result of adding a filter entry to the Ethernet MAC */
 typedef enum ethernet_macaddr_filter_result_t {
-  ETHERNET_MACADDR_FILTER_SUCCESS,    /**< The filter entry was added succesfully */
+  ETHERNET_MACADDR_FILTER_SUCCESS,    /**< The filter entry was added successfully */
   ETHERNET_MACADDR_FILTER_TABLE_FULL  /**< The filter entry was not added because the filter table is full */
 } ethernet_macaddr_filter_result_t;
 
-#ifdef __XC__
+#if (defined(__XC__) || defined(__DOXYGEN__))
 
 /** Ethernet MAC configuration interface.
  *
  *  This interface allows clients to configure the Ethernet MAC.  */
+#ifdef __XC__
 typedef interface ethernet_cfg_if {
+#endif
+  /**
+   * \addtogroup ethernet_config_if
+   * @{
+   */
+
   /** Set the source MAC address of the Ethernet MAC
    *
    * \param ifnum       The index of the MAC interface to set
    * \param mac_address The six-octet MAC address to set
+   * Warning: The mac address set through this function is not used anywhere in the MAC other than for
+   * later retrieval by get_macaddr(). The client is expected to create the full packet including 
+   * src and dest mac address for transmission.
+   * For setting a mac address filter when receiving packets, use add_macaddr_filter
    */
-  void set_macaddr(size_t ifnum, uint8_t mac_address[MACADDR_NUM_BYTES]);
+  void set_macaddr(size_t ifnum, const uint8_t mac_address[MACADDR_NUM_BYTES]);
 
   /** Gets the source MAC address of the Ethernet MAC
    *
@@ -85,6 +103,26 @@ typedef interface ethernet_cfg_if {
    */
   void set_link_state(int ifnum, ethernet_link_state_t new_state, ethernet_speed_t speed);
 
+#if ENABLE_MAC_START_NOTIFICATION
+  /** Mac start notification.
+   */
+  XC_NOTIFICATION slave void mac_started();
+  /** Acknowledge a Mac start notification.
+   * Implement only if the client requires to be notified of mac start/restarts
+   */
+  XC_CLEARS_NOTIFICATION void ack_mac_start();
+#endif
+
+  /** Get the current link state.
+   *
+   *  This function Gets the current link state and speed of the PHY to the MAC.
+   *
+   *  \param ifnum      The index of the MAC interface to ge the link state for
+   *
+   *  \returns Ethernet link state and speed
+   */
+  void get_link_state(int ifnum, REFERENCE_PARAM(unsigned, link_state), REFERENCE_PARAM(unsigned, link_speed));
+
   /** Add MAC addresses to the filter. Only packets with the specified MAC address will be
    *  forwarded to the client.
    *
@@ -93,7 +131,7 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
-   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      High priority queuing is only available in the 10/100 Mb/s real-time
    *                      and 10/100/1000 Mb/s MACs.
    *  \param entry        The filter entry to add.
    *
@@ -124,7 +162,7 @@ typedef interface ethernet_cfg_if {
    *  \param is_hp        Indicates whether the RX client is high priority. There is
    *                      only one high priority client, so client_num must be 0 when
    *                      is_hp is set.
-   *                      High priority queueing is only available in the 10/100 Mb/s real-time
+   *                      High priority queuing is only available in the 10/100 Mb/s real-time
    *                      and 10/100/1000 Mb/s MACs.
    */
   void del_all_macaddr_filters(size_t client_num, int is_hp);
@@ -153,15 +191,38 @@ typedef interface ethernet_cfg_if {
    *  \param tile_id      The tile ID returned from the Ethernet MAC
    *  \param time_on_tile The current timer value from the Ethernet MAC
    */
-  void get_tile_id_and_timer_value(unsigned &tile_id, unsigned &time_on_tile);
+  void get_tile_id_and_timer_value(REFERENCE_PARAM(unsigned, tile_id), REFERENCE_PARAM(unsigned, time_on_tile));
 
-  /** Set the high-priority TX queue's credit based shaper idle slope.
+  /** Set the high-priority TX queue's credit based shaper idle slope value.
+   *  See also set_egress_qav_idle_slope_bps() where the argument is bits per second.
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
-   *  \param ifnum   The index of the MAC interface to set the slope
-   *  \param slope   The slope value
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
+   *  \param slope   The slope value in bits per 100 MHz ref timer tick in MII_CREDIT_FRACTIONAL_BITS Q format.
+   *
+   *
    */
   void set_egress_qav_idle_slope(size_t ifnum, unsigned slope);
+
+  /** Set the high-priority TX queue's credit based shaper idle slope in bits per second.
+   *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
+   *
+   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
+   *  \param slope   The maximum number of bits per second to be set
+   *
+   *
+   */
+  void set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second);
+
+
+  /** Sets the the high-priority TX queue's  Qav credit limit in units of frame size bytes
+   *
+   *  \param ifnum         The index of the MAC interface to set the slope (always 0)
+   *  \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
+   *                       not including preamble, CRC and IFG. Set to 0 for no limit (default)
+   *
+   */
+  void set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes);
 
   /** Set the ingress latency to correct for the offset between the timestamp
    *  measurement plane relative to the reference plane. See 802.1AS 8.4.3.
@@ -228,12 +289,34 @@ typedef interface ethernet_cfg_if {
    */
   void disable_link_status_notification(size_t client_num);
 
+  /** Exit ethernet MAC. Quits all of the associated sub tasks and frees memory.
+   * Allows the resources previously used by the MAC to be re-used by other tasks.
+   * Only supported on RMII real-time MACs. This command is ignored for
+   * other ethernet MACs.
+   *
+   */
+  void exit(void);
+
+#ifdef __XC__
 } ethernet_cfg_if;
+#endif
+
+/**@}*/ // END: addtogroup ethernet_config_if
+
+
+
 
 /** Ethernet MAC data transmit interface
  *
  *  This interface allows clients to send packets to the Ethernet MAC for transmission */
+ /**
+ * \addtogroup ethernet_tx_if
+ * @{
+ */
+#ifdef __XC__
 typedef interface ethernet_tx_if {
+#endif
+
   /** Internal API call. Do not use. */
   void _init_send_packet(size_t n, size_t ifnum);
   /** Internal API call. Do not use. */
@@ -241,9 +324,11 @@ typedef interface ethernet_tx_if {
                              int request_timestamp, size_t ifnum);
   /** Internal API call. Do not use. */
   unsigned _get_outgoing_timestamp();
+#ifdef __XC__
 } ethernet_tx_if;
 
 extends client interface ethernet_tx_if : {
+#endif
   /** Function to send an Ethernet packet on the specified interface.
    *
    *  The call will block until a transmit buffer is available and the packet
@@ -255,7 +340,7 @@ extends client interface ethernet_tx_if : {
    *  \param ifnum        The index of the MAC interface to send the packet
    *                      Use the ``ETHERNET_ALL_INTERFACES`` define to send to all interfaces.
    */
-  inline void send_packet(client ethernet_tx_if i, char packet[n], unsigned n,
+  inline void send_packet(CLIENT_INTERFACE(ethernet_tx_if, i), char packet[n], unsigned n,
                           unsigned ifnum) {
     i._init_send_packet(n, ifnum);
     i._complete_send_packet(packet, n, 0, ifnum);
@@ -275,13 +360,15 @@ extends client interface ethernet_tx_if : {
    *                      the egress time. May be corrected for egress latency, see
    *                      set_egress_timestamp_latency() on the ``ethernet_cfg_if`` interface.
    */
-  inline unsigned send_timed_packet(client ethernet_tx_if i, char packet[n],
+  inline unsigned send_timed_packet(CLIENT_INTERFACE(ethernet_tx_if, i), char packet[n],
                                     unsigned n,
                                     unsigned ifnum) {
     i._init_send_packet(n, ifnum);
     i._complete_send_packet(packet, n, 1, ifnum);
     return i._get_outgoing_timestamp();
   }
+/**@}*/ // END: addtogroup ethernet_tx_if
+#ifdef __XC__
 }
 
 
@@ -289,6 +376,12 @@ extends client interface ethernet_tx_if : {
  *
  *  This interface allows clients to receive packets from the Ethernet MAC. */
 typedef interface ethernet_rx_if {
+#endif
+  /**
+   * \addtogroup ethernet_rx_if
+   * @{
+   */
+
   /** Get the index of a given receiver client
    *
    */
@@ -308,7 +401,7 @@ typedef interface ethernet_rx_if {
     }
     \endverbatim
    */
-  [[notification]] slave void packet_ready();
+   XC_NOTIFICATION slave void packet_ready();
 
   /** Function to receive an Ethernet packet or status/control data from the MAC.
    *  Should be called after a packet_ready() notification.
@@ -318,10 +411,15 @@ typedef interface ethernet_rx_if {
    *  \param n          The number of bytes to receive. The ``data`` array must be
    *                    large enough to receive the number of bytes specified.
    */
-  [[clears_notification]] void get_packet(ethernet_packet_info_t &desc,
+  XC_CLEARS_NOTIFICATION void get_packet(REFERENCE_PARAM(ethernet_packet_info_t, desc),
                                           char packet[n],
                                           unsigned n);
+#ifdef __XC__
 } ethernet_rx_if;
+#endif
+
+/**@}*/ // END: addtogroup ethernet_rx_if
+
 
 /** Function to receive a priority-queued packet over a high priority channel
  *  from the 10/100 Mb/s real-time MAC.
@@ -335,9 +433,9 @@ typedef interface ethernet_rx_if {
  *
  */
 #pragma select handler
-inline void ethernet_receive_hp_packet(streaming chanend c_rx_hp,
+inline void ethernet_receive_hp_packet(streaming_chanend_t c_rx_hp,
                                        char packet[],
-                                       ethernet_packet_info_t &packet_info)
+                                       REFERENCE_PARAM(ethernet_packet_info_t, packet_info))
 {
   sin_char_array(c_rx_hp, (char *)&packet_info, sizeof(packet_info));
 
@@ -360,7 +458,7 @@ inline void ethernet_receive_hp_packet(streaming chanend c_rx_hp,
  *  \param ifnum       The index of the MAC interface to send the packet
  *                     Use the ``ETHERNET_ALL_INTERFACES`` define to send to all interfaces.
  */
-inline void ethernet_send_hp_packet(streaming chanend c_tx_hp,
+inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
                                     char packet[n],
                                     unsigned n,
                                     unsigned ifnum)
@@ -373,8 +471,8 @@ inline void ethernet_send_hp_packet(streaming chanend c_tx_hp,
  *  on the egress MAC port.
  */
 enum ethernet_enable_shaper_t {
-  ETHERNET_ENABLE_SHAPER, /**< Enable the credit based shaper */
-  ETHERNET_DISABLE_SHAPER /**< Disable the credit based shaper */
+  ETHERNET_DISABLE_SHAPER = 0, /**< Disable the credit based shaper */
+  ETHERNET_ENABLE_SHAPER       /**< Enable the credit based shaper */
 };
 
 /** Structure representing the port and clock resources required by RGMII
@@ -385,18 +483,18 @@ enum ethernet_enable_shaper_t {
     \endverbatim
 */
 typedef struct rgmii_ports_t {
-  in port p_rxclk;                      /**< RX clock port */
-  in buffered port:1 p_rxer;            /**< RX error port */
-  in buffered port:32 p_rxd_1000;       /**< 1Gb RX data port */
-  in buffered port:32 p_rxd_10_100;     /**< 10/100Mb RX data port */
-  in buffered port:4 p_rxd_interframe;  /**< Interframe RX data port */
-  in port p_rxdv;                       /**< RX data valid port */
-  in port p_rxdv_interframe;            /**< Interframe RX data valid port */
-  in port p_txclk_in;                   /**< TX clock input port */
-  out port p_txclk_out;                 /**< TX clock output port */
-  out port p_txer;                      /**< TX error port */
-  out port p_txen;                      /**< TX enable port */
-  out buffered port:32 p_txd;           /**< TX data port */
+  in_port_t p_rxclk;                    /**< RX clock port */
+  in_buffered_port_1_t p_rxer;          /**< RX error port */
+  in_buffered_port_32_t p_rxd_1000;     /**< 1Gb RX data port */
+  in_buffered_port_32_t p_rxd_10_100;   /**< 10/100Mb RX data port */
+  in_buffered_port_4_t p_rxd_interframe;/**< Interframe RX data port */
+  in_port_t p_rxdv;                     /**< RX data valid port */
+  in_port_t p_rxdv_interframe;          /**< Interframe RX data valid port */
+  in_port_t p_txclk_in;                 /**< TX clock input port */
+  out_port_t p_txclk_out;               /**< TX clock output port */
+  out_port_t p_txer;                    /**< TX error port */
+  out_port_t p_txen;                    /**< TX enable port */
+  out_buffered_port_32_t p_txd;         /**< TX data port */
   clock rxclk;                          /**< Clock used for receive timing */
   clock rxclk_interframe;               /**< Clock used for interframe receive timing */
   clock txclk;                          /**< Clock used for transmit timing */
@@ -445,12 +543,12 @@ typedef struct rgmii_ports_t {
  *                            or disable the 802.1Qav traffic shaper within the
  *                            MAC.
  */
-void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                        server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                        streaming chanend ? c_rx_hp,
-                        streaming chanend ? c_tx_hp,
-                        streaming chanend c_rgmii_cfg,
-                        rgmii_ports_t &rgmii_ports,
+void rgmii_ethernet_mac(SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                        SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                        nullable_streaming_chanend_t c_rx_hp,
+                        nullable_streaming_chanend_t c_tx_hp,
+                        streaming_chanend_t c_rgmii_cfg,
+                        REFERENCE_PARAM(rgmii_ports_t, rgmii_ports),
                         enum ethernet_enable_shaper_t shaper_enabled);
 
 /** RGMII Ethernet MAC configuration task
@@ -464,10 +562,10 @@ void rgmii_ethernet_mac(server ethernet_rx_if i_rx_lp[n_rx_lp], static const uns
  *  \param n                  The number of configuration clients connected
  *  \param c_rgmii_cfg        A streaming channel end connected to rgmii_ethernet_mac()
  */
-[[combinable]]
-void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
+XC_COMBINABLE
+void rgmii_ethernet_mac_config(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n]),
                                unsigned n,
-                               streaming chanend c_rgmii_cfg);
+                               streaming_chanend_t c_rgmii_cfg);
 
 
 /** 10/100 Mb/s real-time Ethernet MAC component to connect to an MII interface.
@@ -507,17 +605,17 @@ void rgmii_ethernet_mac_config(server ethernet_cfg_if i_cfg[n],
  *                             or disable the 802.1Qav traffic shaper within the
  *                             MAC.
  */
-void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                         server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                         server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                         streaming chanend ? c_rx_hp,
-                         streaming chanend ? c_tx_hp,
-                         in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
-                         in port p_txclk, out port p_txen, out port p_txd,
+void mii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                         SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                         SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                         nullable_streaming_chanend_t c_rx_hp,
+                         nullable_streaming_chanend_t c_tx_hp,
+                         in_port_t p_rxclk, in_port_t p_rxer, in_port_t p_rxd, in_port_t p_rxdv,
+                         in_port_t p_txclk, out_port_t p_txen, out_port_t p_txd,
                          clock rxclk,
                          clock txclk,
-                         static const unsigned rx_bufsize_words,
-                         static const unsigned tx_bufsize_words,
+                         static_const_unsigned_t rx_bufsize_words,
+                         static_const_unsigned_t tx_bufsize_words,
                          enum ethernet_enable_shaper_t shaper_enabled);
 
 /** 10/100 Mb/s Ethernet MAC component that connects to an MII interface.
@@ -550,15 +648,98 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
  */
-void mii_ethernet_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                      server ethernet_rx_if i_rx[n_rx], static const unsigned n_rx,
-                      server ethernet_tx_if i_tx[n_tx], static const unsigned n_tx,
-                      in port p_rxclk, in port p_rxer, in port p_rxd, in port p_rxdv,
-                      in port p_txclk, out port p_txen, out port p_txd,
+void mii_ethernet_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                      SERVER_INTERFACE(ethernet_rx_if, i_rx[n_rx]), static_const_unsigned_t n_rx,
+                      SERVER_INTERFACE(ethernet_tx_if, i_tx[n_tx]), static_const_unsigned_t n_tx,
+                      in_port_t p_rxclk, in_port_t p_rxer, in_port_t p_rxd, in_port_t p_rxdv,
+                      in_port_t p_txclk, out_port_t p_txen, out_port_t p_txd,
                       port p_timing,
                       clock rxclk,
                       clock txclk,
-                      static const unsigned rx_bufsize_words);
-#endif
+                      static_const_unsigned_t rx_bufsize_words);
+
+
+
+/** ENUM to determine which two bits of a four bit port are to be used as data lines
+ *  in the case that a four bit port is specified for RMII. The other two pins of the four bit
+ *  port cannot be used. For Rx the unused input bits are ignored. For Tx, the unused pins are always driven low. */
+typedef enum rmii_data_4b_pin_assignment_t{
+    USE_LOWER_2B = 0,                      /**< Use bit 0 and bit 1 of the four bit port for data bits 0 and 1*/
+    USE_UPPER_2B = 1                       /**< Use bit 2 and bit 3 of the four bit port for data bits 0 and 1*/
+} rmii_data_4b_pin_assignment_t;
+
+/** Struct containing the clock delay settings for the Rx and Tx pins. This is needed to adjust
+ *  port timings to ensure that the data is captured with sufficient setup and hold margin.
+ *  This is required due to the relatively fast 50 MHz clock.
+ *  Please consult the documentation for further details and suggested settings. */
+typedef struct rmii_port_timing_t{
+    unsigned clk_delay_tx_rising; /**< The number of core clock cycles to delay the capture clock*/
+    unsigned clk_delay_tx_falling; /**< The number of core clock cycles to delay the drive clock*/
+    unsigned clk_delay_rx_rising; /**< The number of core clock cycles to delay the capture clock*/
+    unsigned clk_delay_rx_falling; /**< The number of core clock cycles to delay the drive clock*/
+    unsigned pad_delay_rx; /**< The number of core clock cycles to delay the sampling of rx data and strobe*/
+}rmii_port_timing_t;
+
+/** 10/100 Mb/s real-time Ethernet MAC component to connect to an RMII interface.
+ *
+ *  This function implements a 10/100 Mb/s Ethernet MAC component, connected to an
+ *  RMII interface, with real-time features (priority queuing and traffic shaping).
+ *  Interaction to the component is via the connected configuration
+ *  and data interfaces.
+ *  Each of the 2 bit data ports may be defined either as half of a 4 bit port
+ *  (upper or lower 2 bits) or a pair of 1 bit ports.
+ *
+ *  \param i_cfg               Array of client configuration interfaces
+ *  \param n_cfg               The number of configuration clients connected
+ *
+ *  \param i_rx_lp             Array of low priority receive clients
+ *  \param n_rx_lp             The number of low priority receive clients connected
+ *
+ *  \param i_tx_lp             Array of low priority transmit clients
+ *  \param n_tx_lp             The number of low priority transmit clients connected
+ *
+ *  \param c_rx_hp             Streaming channel end for high priority receive data
+ *  \param c_tx_hp             Streaming channel end for high priority transmit data
+ *
+ *  \param p_clk               RMII clock input port
+ *  \param p_rxd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_rxd_1             Port for data bit 1 (1 bit option). Pass null if unused.
+ *  \param rx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
+ *  \param p_rxdv              RMII RX data valid port
+ *  \param p_txen              RMII TX enable port
+ *  \param p_txd_0             Port for data bit 0 (1 bit option) or entire port (4 bit option)
+ *  \param p_txd_1             Port for data bit 1 (1 bit option). Pass null if unused.
+ *  \param tx_pin_map          Which pins to use in 4 bit case. USE_LOWER_2B or USE_HIGHER_2B. Ignored if 1 bit ports used.
+ *  \param rxclk               Clock used for RMII receive timing
+ *  \param txclk               Clock used for RMII transmit timing
+ *  \param port_timing         Struct used for initialising the clock blocks to ensure setup and hold times are met
+ *
+ *  \param rx_bufsize_words    The number of words to used for a receive buffer.
+ *                             This should be at least 500 long words.
+ *  \param tx_bufsize_words    The number of words to used for a transmit buffer.
+ *                             This should be at least 500 long words.
+ *  \param shaper_enabled      This should be set to ``ETHERNET_ENABLE_SHAPER``
+ *                             or ``ETHERNET_DISABLE_SHAPER`` to either enable
+ *                             or disable the 802.1Qav traffic shaper within the
+ *                             MAC.
+ */
+void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), static_const_unsigned_t n_cfg,
+                          SERVER_INTERFACE(ethernet_rx_if, i_rx_lp[n_rx_lp]), static_const_unsigned_t n_rx_lp,
+                          SERVER_INTERFACE(ethernet_tx_if, i_tx_lp[n_tx_lp]), static_const_unsigned_t n_tx_lp,
+                          nullable_streaming_chanend_t c_rx_hp,
+                          nullable_streaming_chanend_t c_tx_hp,
+                          in_port_t p_clk,
+                          port p_rxd_0, NULLABLE_RESOURCE(port, p_rxd_1), rmii_data_4b_pin_assignment_t rx_pin_map,
+                          in_port_t p_rxdv,
+                          out_port_t p_txen,
+                          port p_txd_0, NULLABLE_RESOURCE(port, p_txd_1), rmii_data_4b_pin_assignment_t tx_pin_map,
+                          clock rxclk,
+                          clock txclk,
+                          rmii_port_timing_t port_timing,
+                          static_const_unsigned_t rx_bufsize_words,
+                          static_const_unsigned_t tx_bufsize_words,
+                          enum ethernet_enable_shaper_t shaper_enabled);
+
+#endif // __XC__ || __DOXYGEN__
 
 #endif // __ethernet__h__

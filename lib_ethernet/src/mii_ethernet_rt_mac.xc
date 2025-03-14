@@ -1,4 +1,5 @@
-// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
+// Copyright 2013-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <string.h>
 
 #include "ethernet.h"
@@ -13,6 +14,9 @@
 #include "xassert.h"
 #include "print.h"
 #include "server_state.h"
+#include "rmii_rx_pins_exit.h"
+#include "shaper.h"
+
 
 static inline unsigned int get_tile_id_from_chanend(chanend c) {
   unsigned int tile_id;
@@ -115,7 +119,7 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
 {
   for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
-    
+
     if (client_state.rd_index != client_state.wr_index) {
       unsigned client_rd_index = client_state.rd_index;
       unsigned packets_rd_index = (unsigned)client_state.fifo[client_rd_index];
@@ -202,22 +206,25 @@ unsafe static inline void handle_ts_queue(mii_ts_queue_t ts_queue,
   }
 }
 
-unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
-                                       mii_packet_queue_t rx_packets_lp,
-                                       mii_packet_queue_t rx_packets_hp,
-                                       unsigned * unsafe rx_rdptr,
-                                       mii_mempool_t tx_mem_lp,
-                                       mii_mempool_t tx_mem_hp,
-                                       mii_packet_queue_t tx_packets_lp,
-                                       mii_packet_queue_t tx_packets_hp,
-                                       mii_ts_queue_t ts_queue_lp,
-                                       server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
-                                       server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
-                                       server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
-                                       streaming chanend ? c_rx_hp,
-                                       streaming chanend ? c_tx_hp,
-                                       chanend c_macaddr_filter,
-                                       volatile ethernet_port_state_t * unsafe p_port_state)
+unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
+                                mii_packet_queue_t rx_packets_lp,
+                                mii_packet_queue_t rx_packets_hp,
+                                unsigned * unsafe rx_rdptr,
+                                mii_mempool_t tx_mem_lp,
+                                mii_mempool_t tx_mem_hp,
+                                mii_packet_queue_t tx_packets_lp,
+                                mii_packet_queue_t tx_packets_hp,
+                                mii_ts_queue_t ts_queue_lp,
+                                server ethernet_cfg_if i_cfg[n_cfg], static const unsigned n_cfg,
+                                server ethernet_rx_if i_rx_lp[n_rx_lp], static const unsigned n_rx_lp,
+                                server ethernet_tx_if i_tx_lp[n_tx_lp], static const unsigned n_tx_lp,
+                                streaming chanend ? c_rx_hp,
+                                streaming chanend ? c_tx_hp,
+                                chanend c_macaddr_filter,
+                                volatile ethernet_port_state_t * unsafe p_port_state,
+                                volatile int * unsafe running_flag_ptr,
+                                chanend c_rx_pins_exit,
+                                phy_100mb_t phy_type)
 {
   uint8_t mac_address[MACADDR_NUM_BYTES] = {0};
   rx_client_state_t rx_client_state_lp[n_rx_lp];
@@ -237,8 +244,16 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
 
   volatile unsigned * unsafe p_rx_rdptr = (volatile unsigned * unsafe)rx_rdptr;
 
+#if ENABLE_MAC_START_NOTIFICATION
+  for(int i=0; i<n_cfg; i++)
+  {
+    i_cfg[i].mac_started(); // The phy_driver clients will respond to this with a set_link_state(), others will ignore the notification
+                            // This is required so that if the mac restarts, it can request for the current link state from the phy_driver
+  }
+#endif
+
   int prioritize_rx = 0;
-  while (1) {
+  while (*running_flag_ptr) {
     if (prioritize_rx)
       prioritize_rx--;
 
@@ -279,6 +294,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
         int len = (n > buf->length ? buf->length : n);
         unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(rx_mem);
         unsigned * unsafe dptr = buf->data;
+
         int prewrap = ((char *) wrap_ptr - (char *) dptr);
         int len1 = prewrap > len ? len : prewrap;
         int len2 = prewrap > len ? 0 : len - prewrap;
@@ -316,16 +332,25 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       memcpy(r_mac_address, mac_address, sizeof mac_address);
       break;
 
-    case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+    case i_cfg[int i].set_macaddr(size_t ifnum, const uint8_t r_mac_address[MACADDR_NUM_BYTES]):
       memcpy(mac_address, r_mac_address, sizeof r_mac_address);
       break;
 
+#if ENABLE_MAC_START_NOTIFICATION
+    case i_cfg[int i].ack_mac_start():
+      break;
+#endif
     case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
       if (p_port_state->link_state != status) {
         p_port_state->link_state = status;
         p_port_state->link_speed = speed;
         update_client_state(rx_client_state_lp, i_rx_lp, n_rx_lp);
       }
+      break;
+
+    case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+      link_state = p_port_state->link_state;
+      link_speed = p_port_state->link_speed;
       break;
 
     case i_cfg[int i].add_macaddr_filter(size_t client_num, int is_hp,
@@ -398,11 +423,21 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       break;
     }
 
+    case i_cfg[int i].set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second): {
+      set_qav_idle_slope(p_port_state, bits_per_second);
+      break;
+    }
+
+    case i_cfg[int i].set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes): {
+      set_qav_credit_limit(p_port_state, payload_limit_bytes);
+      break;
+    }
+
     case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
       if (speed < 0 || speed >= NUM_ETHERNET_SPEEDS) {
         fail("Invalid Ethernet speed, must be a valid ethernet_speed_t enum value");
       }
-      p_port_state->ingress_ts_latency[speed] = value / 10;
+      p_port_state->ingress_ts_latency[speed] = value / 10; // div by 10 to get to timer ticks from nanonseconds
       break;
     }
 
@@ -438,6 +473,15 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
       if (tx_client_state_lp[i].send_buffer == null)
         tx_client_state_lp[i].requested_send_buffer_size = n;
       break;
+
+    case i_cfg[int i].exit(void): {
+      if(phy_type == ETH_MAC_IF_RMII){
+          *running_flag_ptr = 0;
+          rx_end_send_sig(c_rx_pins_exit);
+      }
+      // else do nothing - not supported on MII currently
+      break;
+    }
 
     [[independent_guard]]
     case (unsigned i = 0; i < n_tx_lp; i++)
@@ -535,7 +579,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
         drop_lp_packets(rx_packets_lp, rx_client_state_lp, n_rx_lp);
       }
     }
-    
+
     if (!isnull(c_tx_hp)) {
       if (!mii_packet_queue_full(tx_packets_hp)) {
         unsigned * unsafe rdptr = mii_get_rdptr(tx_packets_hp);
@@ -548,7 +592,7 @@ unsafe static void mii_ethernet_server(mii_mempool_t rx_mem,
     }
 
     handle_ts_queue(ts_queue_lp, tx_client_state_lp, n_tx_lp);
-  }
+  }// while (*running_flag_ptr)
 }
 
 
@@ -616,6 +660,12 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
 
     ethernet_port_state_t * unsafe p_port_state = (ethernet_port_state_t * unsafe)&port_state;
 
+    // Exit flag and chanend
+    int rmii_ethernet_rt_mac_running = 1;
+    int * unsafe running_flag_ptr = &rmii_ethernet_rt_mac_running;
+    chan c_rx_pins_exit;
+
+
     chan c_conf;
     par {
       mii_master_rx_pins(rx_mem,
@@ -633,7 +683,8 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
       mii_ethernet_filter(c_conf,
                           (mii_packet_queue_t)&incoming_packets,
                           (mii_packet_queue_t)&rx_packets_lp,
-                          (mii_packet_queue_t)&rx_packets_hp);
+                          (mii_packet_queue_t)&rx_packets_hp,
+                          running_flag_ptr);
 
       mii_ethernet_server(rx_mem,
                           (mii_packet_queue_t)&rx_packets_lp,
@@ -650,7 +701,10 @@ void mii_ethernet_rt_mac(server ethernet_cfg_if i_cfg[n_cfg], static const unsig
                           c_rx_hp,
                           c_tx_hp,
                           c_conf,
-                          p_port_state);
+                          p_port_state,
+                          running_flag_ptr,
+                          c_rx_pins_exit,
+                          ETH_MAC_IF_MII);
     }
   }
 }

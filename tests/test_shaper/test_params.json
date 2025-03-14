@@ -1,0 +1,11 @@
+{
+    "PROFILES": [
+        {"phy":"mii", "clk":"25MHz", "mac":"rt_hp", "arch":["xs2", "xs3"]},
+        {"phy":"rgmii", "clk":"25MHz", "mac":"hp", "arch":"xs2"},
+        {"phy":"rgmii", "clk":"125MHz", "mac":"hp", "arch":"xs2"},
+
+        {"phy":"rmii", "clk":"50MHz", "mac":"rt_hp", "arch":["xs3"], "tx_width":"4b_lower"},
+        {"phy":"rmii", "clk":"50MHz", "mac":"rt_hp", "arch":["xs3"], "tx_width":"4b_upper"},
+        {"phy":"rmii", "clk":"50MHz", "mac":"rt_hp", "arch":["xs3"], "tx_width":"1b"}
+        ]
+}

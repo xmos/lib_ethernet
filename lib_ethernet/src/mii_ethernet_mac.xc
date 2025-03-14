@@ -1,4 +1,5 @@
-// Copyright (c) 2015-2018, XMOS Ltd, All rights reserved
+// Copyright 2015-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include "ethernet.h"
 #include "default_ethernet_conf.h"
 #include "mii_master.h"
@@ -117,6 +118,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
 
     ethernet_init_filter_table(filter_info);
 
+
     while (1) {
       select {
       case i_rx[int i].get_index() -> size_t result:
@@ -159,7 +161,7 @@ static void mii_ethernet_aux(client mii_if i_mii,
         memcpy(r_mac_address, mac_address, sizeof mac_address);
         break;
 
-      case i_cfg[int i].set_macaddr(size_t ifnum, uint8_t r_mac_address[MACADDR_NUM_BYTES]):
+      case i_cfg[int i].set_macaddr(size_t ifnum, const uint8_t r_mac_address[MACADDR_NUM_BYTES]):
         memcpy(mac_address, r_mac_address, sizeof r_mac_address);
         break;
 
@@ -220,6 +222,16 @@ static void mii_ethernet_aux(client mii_if i_mii,
         fail("Shaper not supported in standard MII Ethernet MAC");
         break;
 
+      case i_cfg[int i].set_egress_qav_idle_slope_bps(size_t ifnum, unsigned bits_per_second): {
+        fail("Shaper not supported in standard MII Ethernet MAC");
+        break;
+      }
+
+      case i_cfg[int i].set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes): {
+        fail("Shaper not supported in standard MII Ethernet MAC");
+        break;
+      }
+
       case i_cfg[int i].set_ingress_timestamp_latency(size_t ifnum, ethernet_speed_t speed, unsigned value): {
         fail("Timestamp correction not supported in standard MII Ethernet MAC");
         break;
@@ -256,6 +268,11 @@ static void mii_ethernet_aux(client mii_if i_mii,
         client_state.status_update_state = STATUS_UPDATE_IGNORING;
         break;
 
+      case i_cfg[int i].exit(void): {
+        // Do nothing - exit not supported on this MAC
+        break;
+      }
+
       case i_tx[int i]._complete_send_packet(char data[n], unsigned n,
                                              int request_timestamp,
                                              unsigned dst_port):
@@ -265,6 +282,10 @@ static void mii_ethernet_aux(client mii_if i_mii,
         mii_packet_sent(mii_info);
         break;
 
+#if ENABLE_MAC_START_NOTIFICATION
+      case i_cfg[int i].ack_mac_start():
+        break;
+#endif
       case i_cfg[int i].set_link_state(int ifnum, ethernet_link_state_t status, ethernet_speed_t speed):
         if (link_status != status) {
           link_status = status;
@@ -272,6 +293,12 @@ static void mii_ethernet_aux(client mii_if i_mii,
           update_client_state(client_state, i_rx, n_rx);
         }
         break;
+
+      case i_cfg[int i].get_link_state(int ifnum, unsigned &link_state, unsigned &link_speed):
+        link_state = link_status;
+        link_speed = link_speed;
+        break;
+
       case mii_incoming_packet(mii_info):
         int * unsafe data;
         int nbytes;

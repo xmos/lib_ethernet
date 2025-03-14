@@ -1,4 +1,5 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
 #include <platform.h>
@@ -7,9 +8,13 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1A;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1A;
 #include "control.xc"
 
 #include "helpers.xc"
@@ -100,19 +105,52 @@ int main()
                                    ETHERNET_DISABLE_SHAPER);
     on tile[1]: rgmii_ethernet_mac_config(i_cfg, NUM_CFG_IF, c_rgmii_cfg);
 
+    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
+    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
+    on tile[0]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
+    on tile[0]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+
+
     #else // RGMII
 
     #if RT
 
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
-                                    i_rx_lp, NUM_RX_LP_IF,
-                                    i_tx_lp, NUM_TX_LP_IF,
-                                    c_rx_hp, null,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      c_rx_hp, null,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+      on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+                                        i_rx_lp, NUM_RX_LP_IF,
+                                        i_tx_lp, NUM_TX_LP_IF,
+                                        c_rx_hp, null,
+                                        p_eth_clk,
+                                        p_eth_rxd_0,
+                                        p_eth_rxd_1,
+                                        RX_PINS,
+                                        p_eth_rxdv,
+                                        p_eth_txen,
+                                        p_eth_txd_0,
+                                        p_eth_txd_1,
+                                        TX_PINS,
+                                        eth_rxclk,
+                                        eth_txclk,
+                                        port_timing,
+                                        4000, 4000,
+                                        ETHERNET_DISABLE_SHAPER);
+    #endif
     on tile[0]: filler(0x77);
+
+    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
+    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
+    on tile[1]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
+    on tile[1]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+
 
     #else
 
@@ -126,15 +164,15 @@ int main()
                                  1600);
     on tile[0]: filler(0x44);
 
+    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
+    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
+    on tile[1]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
+    on tile[1]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
+
     #endif // RT
     #endif // RGMII
 
-    on tile[0]: test_task(i_cfg[0], i_rx_lp[0], null, 0x1111, i_ctrl[0]);
-    on tile[0]: test_task(i_cfg[1], i_rx_lp[1], null, 0x2222, i_ctrl[1]);
-    on tile[RT]: test_task(i_cfg[2], i_rx_lp[2], c_rx_hp, 0x3333, i_ctrl[2]);
-    on tile[RT]: test_task(i_cfg[3], i_rx_lp[3], null, 0x4444, i_ctrl[3]);
-
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

@@ -1,11 +1,12 @@
-// Copyright (c) 2015-2017, XMOS Ltd, All rights reserved
+// Copyright 2015-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include "helpers.h"
 #include "random.xc"
 #include "random_init.c"
 
 #ifndef RANDOM_FAST_MODE
-#define RANDOM_FAST_MODE (1)
+#define RANDOM_FAST_MODE (0)
 #endif
 
 void filler(int seed)

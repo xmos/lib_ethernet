@@ -1,4 +1,5 @@
-// Copyright (c) 2014-2017, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #include <xs1.h>
 #include <platform.h>
 #include "ethernet.h"
@@ -7,9 +8,13 @@
 #include "syscall.h"
 #include "seed.inc"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1C;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1C;
 #include "control.xc"
 
 #include "helpers.xc"
@@ -19,7 +24,7 @@ port p_ctrl = on tile[0]: XS1_PORT_1C;
   #include "main_rgmii.h"
 #else
   #if RT
-    #include "main_mii_rt.h"
+    #include "main_mii_rt.h" // for both MII and RMII
   #else
     #include "main_mii_standard.h"
   #endif

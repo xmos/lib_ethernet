@@ -1,4 +1,5 @@
-// Copyright (c) 2014-2016, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
 #include <platform.h>
@@ -7,9 +8,13 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1A;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1A;
 #include "control.xc"
 
 #include "helpers.xc"
@@ -87,14 +92,35 @@ int main()
 
     #if RT
 
-    on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+    #if MII
+      on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      null, null,
+                                      p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
+                                      p_eth_txclk, p_eth_txen, p_eth_txd,
+                                      eth_rxclk, eth_txclk,
+                                      4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+      on tile[0]:rmii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
                                     null, null,
-                                    p_eth_rxclk, p_eth_rxerr, p_eth_rxd, p_eth_rxdv,
-                                    p_eth_txclk, p_eth_txen, p_eth_txd,
-                                    eth_rxclk, eth_txclk,
-                                    4000, 4000, ETHERNET_DISABLE_SHAPER);
+                                    p_eth_clk,
+                                    p_eth_rxd_0,
+                                    p_eth_rxd_1,
+                                    RX_PINS,
+                                    p_eth_rxdv,
+                                    p_eth_txen,
+                                    p_eth_txd_0,
+                                    p_eth_txd_1,
+                                    TX_PINS,
+                                    eth_rxclk,
+                                    eth_txclk,
+                                    port_timing,
+                                    4000, 4000,
+                                    ETHERNET_DISABLE_SHAPER);
+    #endif
     on tile[0]: filler(0x77);
 
     #else // RT
@@ -117,7 +143,7 @@ int main()
     on tile[0]: test_task(i_cfg[0], i_rx_lp[0], 0x1111, i_ctrl[0]);
     on tile[0]: test_task(i_cfg[1], i_rx_lp[1], 0x2222, i_ctrl[1]);
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

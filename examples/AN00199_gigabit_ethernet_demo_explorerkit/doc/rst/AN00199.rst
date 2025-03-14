@@ -1,12 +1,14 @@
-.. include:: ../../README.rst
 
 |newpage|
 
-Overview
---------
+####################################################
+XMOS Gigabit Ethernet application note (eXplorerKIT)
+####################################################
 
-Introduction
-............
+********
+Overview
+********
+
 
 The application note shows the use of the XMOS Ethernet library. The
 library allows multiple clients to access the Ethernet hardware. This
@@ -27,10 +29,8 @@ then routed by an Ethernet MAC layer to multiple processes running on
 the xCORE. SMI provides the management interface between the PHY and
 the xCORE device.
 
-Block Diagram
-.............
 
-.. figure:: images/block_diag.*
+.. figure:: images/block_diag.pdf
    :width: 80%
 
    Application block diagram
@@ -40,30 +40,15 @@ data interface to the PHY. A separate PHY driver configures the PHY
 via the SMI serial interface.
 
 
+|newpage|
+
+*****************************
 Gigabit Ethernet library demo
------------------------------
-
-
-The Makefile
-............
-
-The demo in this note uses the XMOS Ethernet library and shows a
-simple program communicating with the Ethernet library.
-
-To start using the Ethernet library, you need to add ``lib_ethernet``
-to you Makefile::
-
-  USED_MODULES = .. lib_ethernet ...
-
-This demo also gets the MAC address out of the xCORE OTP rom and is
-for the sliceKIT. So the Makefile also includes the OTP reading library
-(``lib_otpinfo``)::
-
-  USED_MODULES = .. lib_otpinfo ...
+*****************************
 
 
 Allocating hardware resources
-.............................
+=============================
 
 The Ethernet library requires the user to declare the ports that the
 RGMII MAC uses to communicate with the Ethernet PHY.
@@ -72,16 +57,13 @@ they are declared using the ``RGMII_PORTS_INITIALIZER`` macro provided
 by the library. This means the application just needs to declare a
 structure in ``main.xc`` to pass to the MAC component.
 
-.. literalinclude:: main.xc
-   :start-on: rgmii_ports_t
+.. literalinclude:: ../../src/main.xc
+   :start-at: rgmii_ports_t
    :end-before: p_smi_mdio
 
 The application needs to control the reset line of the PHY and
-configure the phy via the MDIO Serial Management Interface (SMI):
-
-.. literalinclude:: main.xc
-   :start-on: p_smi_mdio
-   :end-on: p_eth_reset
+configure the phy via the MDIO Serial Management Interface (SMI). These
+are declared within ``lib_board_support``.
 
 The final ports used in the application
 are the ones to access the internal OTP
@@ -89,19 +71,19 @@ memory on the xCORE. These ports are fixed and can be intialized with
 the ``OTP_PORTS_INITIALIZER`` macro supplied by the ``lib_otpinfo``
 OTP reading library.
 
-.. literalinclude:: main.xc
-   :start-on: // These ports are for accessing the OTP memory
-   :end-on: otp_ports
+.. literalinclude:: ../../src/main.xc
+   :start-at: // These ports are for accessing the OTP memory
+   :end-at: otp_ports
 
 |newpage|
 
 The application main() function
-...............................
+===============================
 
 The main function in the program sets up the tasks in the application.
 
-.. literalinclude:: main.xc
-   :start-on: int main
+.. literalinclude:: ../../src/main.xc
+   :start-at: int main
 
 The ``rgmii_ethernet_mac`` and ``rgmii_ethernet_mac_config`` tasks
 communicate with the PHY and connect to the
@@ -125,15 +107,11 @@ speed traffic (see the Ethernet library user guide for details).
 |newpage|
 
 The PHY driver
-..............
+==============
 
-The PHY drive task connects to both the Ethernet MAC (via the
+The PHY driver task connects to both the Ethernet MAC (via the
 ``ethernet_cfg_if`` interface for configuration) and the SMI driver
-(via the ``smi_if`` interface):
-
-.. literalinclude:: main.xc
-   :start-on: [[combinable]]
-   :end-before:  int main
+(via the ``smi_if`` interface). It is contained within ``lib_board_support``.
 
 The first action the drive does is wait for the PHY to power up and
 then configure the PHY. This is done via library functions provided by
@@ -146,38 +124,38 @@ this state via the ``eth.set_link_state`` call. This way the MAC can
 know about link up/down events or change of link speed.
 
 ICMP Packet Processing
-......................
+======================
 
 The packet processing in the application is handled by the
 ``icmp_server`` task which is defined in the file ``icmp.xc``. This
 function connects to the ethernet MAC via a transmit, receive and
 configuration interface:
 
-.. literalinclude:: icmp.xc
-   :start-on: [[combinable]]
-   :end-on: {
+.. literalinclude:: ../../src/icmp.xc
+   :start-at: [[combinable]]
+   :end-at: {
 
 The first thing the task performs is configuring its connection to the
 MAC. The MAC address is configured by reading a MAC address out of OTP
 (using the ``otp_board_info_get_mac`` function from the OTP reading
 library) and then calling the ``set_macaddr`` interface function:
 
-.. literalinclude:: icmp.xc
-   :start-on: unsigned char mac_address[MACADDR_NUM_BYTES];
-   :end-on: cfg.set_macaddr
+.. literalinclude:: ../../src/icmp.xc
+   :start-at: unsigned char mac_address[MACADDR_NUM_BYTES];
+   :end-at: cfg.set_macaddr
 
 After this, the task configures filters to determine which type of
 packets is will receive from the MAC:
 
-.. literalinclude:: icmp.xc
-   :start-on: memcpy(macaddr_filter.addr
+.. literalinclude:: ../../src/icmp.xc
+   :start-at: memcpy(macaddr_filter.addr
    :end-before: debug_printf
 
 The task then proceeds into an infinite loop that waits for a packet
 from the MAC and then processes it:
 
-.. literalinclude:: icmp.xc
-   :start-on: while (1)
+.. literalinclude:: ../../src/icmp.xc
+   :start-at: while (1)
 
 The xC ``select`` statement will wait for the event
 ``rx.packet_ready()`` which is a receive notification from the MAC
@@ -194,10 +172,9 @@ Details of the packet processing functions ``is_valid_arp_packet``,
 functions implement the ICMP protocol.
 
 |newpage|
-|appendix|
 
 Demo Hardware Setup
---------------------
+===================
 
  * To run the demo, connect the PC to the XTAG USB debug adapter to
    xCORE-200 explorer XSYS connector
@@ -205,57 +182,85 @@ Demo Hardware Setup
  * Connect the ethernet jack to the host PC or to the network switch
    using an ethernet cable.
 
-|newpage|
 
-Launching the demo device
--------------------------
+.. figure:: images/hardware_setup.png
+   :width: 80%
 
-Once the application source code is imported into the tools you can
-edit the demo to configure the IP address the ICMP code uses. This is
-declared as a data structure in ``main.xc`` (which is then passed to
-the ``icmp_server`` function)::
-
-  static unsigned char ip_address[4] = {192, 168, 1, 178};
-
-Alter this value to an IP address that works on your network.
-
-You can now build the project which will generate the binary file required to run the demo application.
-Once the application has been built you need to download the
-application code onto the xCORE-200 explorer.
-Here you use the tools to load the application over JTAG onto the xCORE device.
-
- * Select **Run Configuration**.
- * In **Main** menu, enable **xSCOPE** in Target I/O options.
- * In **XScope** menu, enable **Offline [XScope] Mode**.
- * Click **Apply** and then **Run**.
-
-When the processor has finished booting you will see the following text in the xTIMEcomposer console window when **ping**-ed from the host. 
-
-.. _fig_ping_response:
-
-.. figure:: images/ping_response.*
-   :scale: 85%
-   :align: center
-
-   Response on xTIMEcomposer console for **Ping**
+   Hardware Setup
 
 |newpage|
 
-.. figure:: images/host_ping_response.*
-   :scale: 85%
-   :align: center
+Building and running the demo device
+====================================
 
-   Response on Host PC for **Ping**
+The following section assumes you have downloaded and installed the `XMOS XTC tools <https://www.xmos.com/software-tools/>`_
+(see `README` for required version). Installation instructions can be found `here <https://xmos.com/xtc-install-guide>`_.
+Be sure to pay attention to the section `Installation of required third-party tools
+<https://www.xmos.com/documentation/XM-014363-PC-10/html/installation/install-configure/install-tools/install_prerequisites.html>`_.
 
-On the above `ping` response on host, out of 40 packets transmitted to device first 15 packet couldn't able to reach the device. During this period, device will respond as **ARP packet received**. 
-After that device (remaining 35 packets) responds as **ICMP packet received**. (:ref:`fig_ping_response`)
+The application uses the `xcommon-cmake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
+build system as bundled with the XTC tools.
+
+The file `CMakeLists.txt` contains the application build configuration.
+
+To configure the build run the following from an XTC command prompt::
+
+    cd AN00199_gigabit_ethernet_demo_explorerkit
+    cmake -G "Unix Makefiles" -B build
+
+Any missing dependencies will be downloaded by the build system as part of this configure step.
+
+Finally, the application binaries can be built using ``xmake``::
+
+    xmake -C build
+
+This will build the application binary ``AN00199_gigabit_ethernet_demo_explorerkit.xe`` in the ``AN00199_gigabit_ethernet_demo_explorerkit/bin`` directory.
+
+The example uses the MAC layer implementation in the ``lib_ethernet`` library. It depends on
+``lib_board_support`` for the PHY configuration on the ``xk_evk_xe216`` board.
+
+These dependencies are specified in the ``deps.cmake`` file, which is included in the application ``CMakeLists.txt``
+
+Once the ``AN00199_gigabit_ethernet_demo_explorerkit.xe`` application binary is compiled, it can be
+executed on the ``xk_evk_xe216`` board.
+
+The ``xrun`` tool is used from the command line to download and run the code on the xCore device.
+In a terminal with XTC tools sourced, from the ``AN00199_gigabit_ethernet_demo_explorerkit`` directory, run::
+
+   xrun --xscope bin/AN00199_gigabit_ethernet_demo_explorerkit.xe
+
+Once this command has executed the application will be running on the xCORE device. 
+
+From a new terminal window, now ping the target::
+
+   $ ping 192.168.1.178
+   PING 192.168.1.178 (192.168.1.178) 56(84) bytes of data.
+   64 bytes from 192.168.1.178: icmp_seq=1 ttl=64 time=0.589 ms
+   64 bytes from 192.168.1.178: icmp_seq=2 ttl=64 time=0.294 ms
+   64 bytes from 192.168.1.178: icmp_seq=3 ttl=64 time=0.298 ms
+   ...
+
+
+The ``xrun`` console will print the status of the ICMP server and show ARP and ICMP responses::
+
+   Test started
+   ARP packet received
+   ARP response sent
+   ICMP packet received
+   ICMP response sent
+   ICMP packet received
+   ICMP response sent
+   ICMP packet received
+   ICMP response sent
+   ...
+
 
 |newpage|
 
-References
-----------
+***************
+Further Reading
+***************
 
-.. nopoints::
 
  * XMOS Tools User Guide 
    
@@ -273,17 +278,9 @@ References
 
    http://standards.ieee.org/about/get/802/802.3.html
 
- * Ethernet Basics
-  
-   http://homepage.smc.edu/morgan_david/linux/n-protocol-09-ethernet.pdf
-
  * Ethernet Frame
   
    http://en.wikipedia.org/wiki/Ethernet_frame
- 
- * Ethernet Timestamps
-
-   http://m.eetindia.co.in/STATIC/PDF/200906/EEIOL_2009JUN03_NETD_TA_01.pdf?SOURCES=DOWNLOAD
 
  * MAC address
 
@@ -297,22 +294,5 @@ References
    
    http://en.wikipedia.org/wiki/Internet_Control_Message_Protocol
  
-|newpage|
-
-Full Source code listing
--------------------------
-
-Source code for main.xc
-.......................
-
-.. literalinclude:: main.xc
-   :largelisting:
-
-Source code for icmp.xc
-...........................
-
-.. literalinclude:: icmp.xc
-   :largelisting:
-
 |newpage|
 

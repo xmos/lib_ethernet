@@ -1,10 +1,13 @@
-// Copyright (c) 2015-2016, XMOS Ltd, All rights reserved
+// Copyright 2015-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __mii_h__
 #define __mii_h__
 #include <stddef.h>
 #include <xs1.h>
+#include <xccompat.h>
+#include "doxygen.h"    // Sphynx Documentation Workarounds
 
-#ifdef __XC__
+#if (defined(__XC__) || defined(__DOXYGEN__))
 
 /** Type containing internal state of the mii task.
  *
@@ -19,7 +22,13 @@ typedef struct mii_lite_data_t * unsafe mii_info_t;
 /** Interface allowing access to the MII packet layer.
  *
  */
+/**
+ * \addtogroup mii_if
+ * @{
+ */
+#ifdef __XC__
 typedef interface mii_if {
+#endif
   /** Initialize the MII layer
    *
    *  This function initializes the MII layer. In doing so it will setup
@@ -68,7 +77,11 @@ typedef interface mii_if {
    *  \param n    The number of bytes in the packet to send.
    */
   void send_packet(int * unsafe buf, size_t n);
+#ifdef __XC__
 } mii_if;
+#endif
+/**@}*/ // END: addtogroup mii_if
+
 
 
 /** Event on/wait for an incoming packet.
@@ -132,14 +145,14 @@ unsafe void mii_packet_sent(mii_info_t info);
  *  \param rx_bufsize_words The number of words to used for a receive buffer.
                             This should be at least 1500 words.
 */
-void mii(server mii_if i_mii,
-         in port p_rxclk, in port p_rxer, in port p_rxd,
-         in port p_rxdv,
-         in port p_txclk, out port p_txen, out port p_txd,
+void mii(SERVER_INTERFACE(mii_if, i_mii),
+         in_port_t p_rxclk, in_port_t p_rxer, in_port_t p_rxd,
+         in_port_t p_rxdv,
+         in_port_t p_txclk, out_port_t p_txen, out_port_t p_txd,
          port p_timing,
          clock rxclk,
          clock txclk,
-         static const unsigned rx_bufsize_words);
+         static_const_unsigned_t rx_bufsize_words);
 
 #endif
 

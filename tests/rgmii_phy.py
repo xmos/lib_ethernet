@@ -1,15 +1,16 @@
+# Copyright 2014-2025 XMOS LIMITED.
+# This Software is subject to the terms of the XMOS Public Licence: Version 1.
 import random
-import xmostest
+import Pyxsim as px
 import sys
 import zlib
-from itertools import izip
 from mii_phy import TxPhy, RxPhy
 from mii_packet import MiiPacket
 from mii_clock import Clock
 
 def pairwise(t):
     it = iter(t)
-    return izip(it,it)
+    return zip(it,it)
 
 
 class RgmiiTransmitter(TxPhy):
@@ -18,13 +19,13 @@ class RgmiiTransmitter(TxPhy):
     (LINK_UP, LINK_DOWN) = (0x1, 0x0)
 
     def __init__(self, rxd, rxd_100, rxdv, mode_rxd, mode_rxdv, rxer, clock,
-                 initial_delay=130000, verbose=False, test_ctrl=None,
+                 initial_delay_us=(130 * px.Xsi.get_xsi_tick_freq_hz())/1e6, verbose=False, test_ctrl=None,
                  do_timeout=True, complete_fn=None, expect_loopback=True,
-                 dut_exit_time=25000):
+                 dut_exit_time_us=(25 * px.Xsi.get_xsi_tick_freq_hz())/1e6):
         super(RgmiiTransmitter, self).__init__('rgmii', rxd, rxdv, rxer, clock,
-                                               initial_delay, verbose, test_ctrl,
+                                               initial_delay_us, verbose, test_ctrl,
                                                do_timeout, complete_fn, expect_loopback,
-                                               dut_exit_time)
+                                               dut_exit_time_us)
         self._mode_rxd = mode_rxd
         self._rxd_100 = rxd_100
         self._mode_rxdv = mode_rxdv
@@ -58,7 +59,7 @@ class RgmiiTransmitter(TxPhy):
             self.wait_until(xsi.get_time() + packet.inter_frame_gap)
 
             if self._verbose:
-                print "Sending packet {i}: {p}".format(i=i, p=packet)
+                print(f"Sending packet {i}: {packet}")
                 sys.stdout.write(packet.dump())
 
             if packet_rate == Clock.CLK_125MHz:
@@ -103,7 +104,7 @@ class RgmiiTransmitter(TxPhy):
             xsi.drive_port_pins(self._rxer, 0)
 
             if self._verbose:
-                print "Sent"
+                print("Sent")
 
         self.end_test()
 
@@ -191,7 +192,10 @@ class RgmiiReceiver(RxPhy):
                 sys.stdout.write(packet.dump())
 
             if self._packet_fn:
-                self._packet_fn(packet, self)
+                if self._test_ctrl:
+                    self._packet_fn(packet, self, self._test_ctrl)
+                else:
+                    self._packet_fn(packet, self)
 
             # Perform packet checks
             packet.check(self._clock)

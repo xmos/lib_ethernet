@@ -1,13 +1,19 @@
-#!/usr/bin/env python
+# Copyright 2014-2025 XMOS LIMITED.
+# This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 import random
 import copy
+import pytest
+from pathlib import Path
+import sys
+
 from mii_packet import MiiPacket
 from mii_clock import Clock
 from helpers import do_rx_test, packet_processing_time, get_dut_mac_address
-from helpers import choose_small_frame_size, check_received_packet, runall_rx
+from helpers import choose_small_frame_size, check_received_packet, run_parametrised_test_rx
+from helpers import generate_tests
 
-def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
+def do_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
@@ -77,9 +83,20 @@ def do_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, seed):
           inter_frame_gap=ifg
         ))
 
-    do_rx_test(mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed)
+    do_rx_test(capfd, mac, arch, rx_clk, rx_phy, tx_clk, tx_phy, packets, __file__, seed, override_dut_dir="test_rx")
 
-def runtest():
-    random.seed(19)
+    random.seed(1)
+
+test_params_file = Path(__file__).parent / "test_rx/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_rx_err(capfd, seed, params):
+    if params["phy"] == "rmii":
+      pytest.skip("RX_ER not supported on RMII")
+
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
+
+
     # Issue #30 - the standard MII ignores the RX_ER signal
-    runall_rx(do_test, exclude_standard=True)
+    run_parametrised_test_rx(capfd, do_test, params, exclude_standard=True, seed=seed)
+

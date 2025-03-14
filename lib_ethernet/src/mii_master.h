@@ -1,4 +1,5 @@
-// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
+// Copyright 2013-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __mii_master_h__
 #define __mii_master_h__
 #include "mii_buffering.h"

@@ -1,28 +1,42 @@
-#!/usr/bin/env python
+# Copyright 2014-2025 XMOS LIMITED.
+# This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
-import xmostest
 import os
-import random
 import sys
+from pathlib import Path
+import pytest
+import random
+import Pyxsim as px
+
 from mii_clock import Clock
 from mii_phy import MiiTransmitter, MiiReceiver
 from rgmii_phy import RgmiiTransmitter, RgmiiReceiver
 from mii_packet import MiiPacket
 from helpers import do_rx_test, get_dut_mac_address, check_received_packet, packet_processing_time
-from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy, run_on
+from helpers import get_sim_args, get_mii_tx_clk_phy, get_rgmii_tx_clk_phy
+from helpers import generate_tests
+from helpers import get_rmii_clk, get_rmii_tx_phy
 
-def do_test(mac, tx_clk, tx_phy):
-    resources = xmostest.request_resource("xsim")
 
+def do_test(capfd, mac, arch, tx_clk, tx_phy, seed, rx_width=None):
     testname = 'test_appdata'
 
-    binary = '{test}/bin/{mac}_{phy}/{test}_{mac}_{phy}.xe'.format(
-        test=testname, mac=mac, phy=tx_phy.get_name())
+    if rx_width:
+        profile = f'{mac}_{tx_phy.get_name()}_rx{rx_width}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy, rx_width {rx_width} at {tx_clk.get_name()}, (seed {seed})")
+    else:
+        profile = f'{mac}_{tx_phy.get_name()}_{arch}'
+        with capfd.disabled():
+            print(f"Running {testname}: {tx_phy.get_name()} phy at {tx_clk.get_name()}, (seed {seed})")
 
-    print "Running {test}: {phy} phy at {clk}".format(
-        test=testname, phy=tx_phy.get_name(), clk=tx_clk.get_name())
+    binary = f'{testname}/bin/{profile}/{testname}_{profile}.xe'
+    assert os.path.isfile(binary)
+
+
 
     rand = random.Random()
+    rand.seed(seed)
 
     dut_mac_address = get_dut_mac_address()
     packets = [
@@ -45,28 +59,53 @@ def do_test(mac, tx_clk, tx_phy):
 
     tx_phy.set_packets(packets)
 
-    tester = xmostest.ComparisonTester(open('test_appdata_{phy}_{mac}.expect'.format(phy=tx_phy.get_name(), mac=mac)),
-                                     'lib_ethernet', 'basic_tests', testname,
-                                      {'mac':mac, 'phy':tx_phy.get_name(), 'clk':tx_clk.get_name()}, ordered=False)
-
+    expect_file = f'test_appdata_{tx_phy.get_name()}_{mac}.expect'
+    if tx_phy.get_name() == "rmii": # for rmii use the same expect file as mii rt_hp
+        expect_file = 'test_appdata_mii_rt_hp.expect'
+    tester = px.testers.ComparisonTester(open(expect_file), ordered=False)
     simargs = get_sim_args(testname, mac, tx_clk, tx_phy)
-    tester.set_min_testlevel('nightly')
-    xmostest.run_on_simulator(resources['xsim'], binary,
-                              simthreads=[tx_clk, tx_phy],
-                              tester=tester,
-                              simargs=simargs)
 
-def runtest():
-    random.seed(1)
+    result = px.run_on_simulator_(  binary,
+                                    simthreads=[tx_clk, tx_phy],
+                                    tester=tester,
+                                    simargs=simargs,
+                                    do_xe_prebuild=False,
+                                    capfd=capfd
+                                )
 
-    # Test 100 MBit - MII
-    (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='mii', clk='25Mhz', mac='standard'):
-        do_test('standard', tx_clk_25, tx_mii)
-    if run_on(phy='mii', clk='25Mhz', mac='rt'):
-        do_test('rt', tx_clk_25, tx_mii)
+    assert result is True, f"{result}"
 
-    # Test 1000 MBit - RGMII
-    (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=True, test_ctrl="tile[0]:XS1_PORT_1A")
-    if run_on(phy='rgmii', clk='125Mhz', mac='rt'):
-        do_test('rt', tx_clk_125, tx_rgmii)
+test_params_file = Path(__file__).parent / "test_appdata/test_params.json"
+@pytest.mark.parametrize("params", generate_tests(test_params_file)[0], ids=generate_tests(test_params_file)[1])
+def test_appdata(capfd, seed, params):
+    if seed == None:
+        seed = random.randint(0, sys.maxsize)
+
+    verbose = True
+    # Test 100 MBit - MII XS2
+    if params["phy"] == "mii":
+        (tx_clk_25, tx_mii) = get_mii_tx_clk_phy(verbose=verbose, test_ctrl="tile[0]:XS1_PORT_1A")
+        do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_mii, seed)
+    elif params["phy"] == "rmii":
+        rmii_clk = get_rmii_clk(Clock.CLK_50MHz)
+        tx_rmii_phy = get_rmii_tx_phy(params['rx_width'],
+                                      rmii_clk,
+                                      verbose=verbose,
+                                      test_ctrl="tile[0]:XS1_PORT_1M"
+                                     )
+        do_test(capfd, params["mac"], params["arch"], rmii_clk, tx_rmii_phy, seed, rx_width=params["rx_width"])
+
+    elif params["phy"] == "rgmii":
+        # Test 100 MBit - RGMII
+        if params["clk"] == "25MHz":
+            (tx_clk_25, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_25MHz, verbose=verbose, test_ctrl="tile[0]:XS1_PORT_1A")
+            do_test(capfd, params["mac"], params["arch"], tx_clk_25, tx_rgmii, seed)
+        # Test 1000 MBit - RGMII
+        elif params["clk"] == "125MHz":
+            (tx_clk_125, tx_rgmii) = get_rgmii_tx_clk_phy(Clock.CLK_125MHz, verbose=verbose, test_ctrl="tile[0]:XS1_PORT_1A")
+            do_test(capfd, params["mac"], params["arch"], tx_clk_125, tx_rgmii, seed)
+        else:
+            assert 0, f"Invalid params: {params}"
+
+    else:
+        assert 0, f"Invalid params: {params}"

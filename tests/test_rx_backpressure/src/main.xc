@@ -1,4 +1,6 @@
-// Copyright (c) 2014-2018, XMOS Ltd, All rights reserved
+// Copyright 2014-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
+
 /*
  * Simply receive packets with a level of backpressure so that some are dropped.
  * The backpressure needs to be applied in a way that doesn't stop the check for
@@ -14,16 +16,20 @@
 #include "debug_print.h"
 #include "syscall.h"
 
+#if RMII
+#include "ports_rmii.h"
+#else
 #include "ports.h"
+port p_test_ctrl = on tile[0]: XS1_PORT_1A;
+#endif
 
-port p_ctrl = on tile[0]: XS1_PORT_1A;
 #include "control.xc"
 
 #include "helpers.xc"
 
 #define N_BACKPRESSURE_DELAYS 1
 const int backpressure_ticks[N_BACKPRESSURE_DELAYS] = {
-  100000
+  10000
 };
 
 
@@ -189,6 +195,7 @@ int main()
 
     #if RT
 
+    #if MII
     on tile[0]: mii_ethernet_rt_mac(i_cfg, NUM_CFG_IF,
                                     i_rx_lp, NUM_RX_LP_IF,
                                     i_tx_lp, NUM_TX_LP_IF,
@@ -197,6 +204,26 @@ int main()
                                     p_eth_txclk, p_eth_txen, p_eth_txd,
                                     eth_rxclk, eth_txclk,
                                     4000, 4000, ETHERNET_DISABLE_SHAPER);
+    #elif RMII
+    on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+                                      i_rx_lp, NUM_RX_LP_IF,
+                                      i_tx_lp, NUM_TX_LP_IF,
+                                      c_rx_hp, c_tx_hp,
+                                      p_eth_clk,
+                                      p_eth_rxd_0,
+                                      p_eth_rxd_1,
+                                      RX_PINS,
+                                      p_eth_rxdv,
+                                      p_eth_txen,
+                                      p_eth_txd_0,
+                                      p_eth_txd_1,
+                                      TX_PINS,
+                                      eth_rxclk,
+                                      eth_txclk,
+                                      port_timing,
+                                      4000, 4000,
+                                      ETHERNET_DISABLE_SHAPER);
+    #endif
 
     on tile[0]: filler(0x1111);
     #if ETHERNET_SUPPORT_HP_QUEUES
@@ -226,7 +253,7 @@ int main()
     #endif // RT
     #endif // RGMII
 
-    on tile[0]: control(p_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
+    on tile[0]: control(p_test_ctrl, i_ctrl, NUM_CFG_IF, NUM_CFG_IF);
   }
   return 0;
 }

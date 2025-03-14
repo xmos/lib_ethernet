@@ -1,4 +1,5 @@
-// Copyright (c) 2013-2018, XMOS Ltd, All rights reserved
+// Copyright 2013-2025 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
 #ifndef __mii_buffering_h__
 #define __mii_buffering_h__
 #include "ethernet.h"
@@ -93,6 +94,7 @@ typedef unsigned * mii_packet_queue_t;
 void mii_init_packet_queue(mii_packet_queue_t queue);
 mii_mempool_t mii_init_mempool(unsigned *buffer, int size);
 void mii_init_lock();
+void mii_deinit_lock();
 
 int mii_packet_queue_full(mii_packet_queue_t queue);
 
