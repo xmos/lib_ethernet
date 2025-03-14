@@ -1,6 +1,11 @@
 lib_ethernet change log
 =======================
 
+4.0.1
+-----
+
+  * RESOLVED: Use correct PHY1 timings in RMII hw tests
+
 4.0.0
 -----
 
