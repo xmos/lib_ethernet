@@ -1,6 +1,6 @@
 // This file relates to internal XMOS infrastructure and should be ignored by external users
 
-@Library('xmos_jenkins_shared_library@v0.36.0') _
+@Library('xmos_jenkins_shared_library@v0.38.0') _
 
 def clone_test_deps() {
   dir("${WORKSPACE}") {
@@ -15,6 +15,12 @@ def clone_test_deps() {
   }
 }
 
+def archiveLib(String repoName) {
+    sh "git -C ${repoName} clean -xdf"
+    sh "zip ${repoName}_sw.zip -r ${repoName}"
+    archiveArtifacts artifacts: "${repoName}_sw.zip", allowEmptyArchive: false
+}
+
 getApproval()
 
 pipeline {
@@ -27,12 +33,12 @@ pipeline {
   parameters {
     string(
       name: 'TOOLS_VERSION',
-      defaultValue: '15.3.0',
+      defaultValue: '15.3.1',
       description: 'The XTC tools version'
     )
     string(
       name: 'XMOSDOC_VERSION',
-      defaultValue: 'v6.2.0',
+      defaultValue: 'v6.3.1',
       description: 'The xmosdoc version'
     )
     string(
@@ -45,6 +51,7 @@ pipeline {
   }
   environment {
     REPO = 'lib_ethernet'
+    REPO_NAME = 'lib_ethernet'
     PIP_VERSION = "24.0"
     SEED = "12345"
   }
@@ -89,13 +96,15 @@ pipeline {
             }
           }
         }
-
         stage('Documentation') {
           steps {
             dir("${REPO}") {
               warnError("Docs") {
                 buildDocs()
-                dir("examples/app_rmii_100Mbit_icmp") {
+                dir("examples/AN00120_100Mbit_ethernet_demo_rmii") {
+                  buildDocs()
+                }
+                dir("examples/AN00199_gigabit_ethernet_demo_explorerkit") {
                   buildDocs()
                 }
               }
@@ -116,6 +125,11 @@ pipeline {
             } // dir("${REPO}")
           } // steps
         } // stage('Build tests')
+        stage("Archive Lib") {
+          steps {
+            archiveLib(REPO)
+          }
+        } //stage("Archive Lib")
       } // stages
       post {
         cleanup {

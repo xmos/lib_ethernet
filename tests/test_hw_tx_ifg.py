@@ -1,25 +1,14 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 from scapy.all import *
-import threading
 from pathlib import Path
-import random
-import copy
-from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, calc_time_diff, hw_eth_debugger
-from hw_helpers import load_packet_file, rdpcap_to_packet_summary, parse_packet_summary
-from hw_helpers import packet_overhead, line_speed
+from hw_helpers import hw_eth_debugger
+from hw_helpers import rdpcap_to_packet_summary, parse_packet_summary
+from hw_helpers import line_speed
 from hw_helpers import log_ifg_summary
 import pytest
-from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
-from socket_host import SocketHost
-import re
-import subprocess
-import platform
-import struct
 from collections import defaultdict
 
 pkg_dir = Path(__file__).parent
@@ -96,9 +85,6 @@ def test_hw_tx_ifg(request, dut_timestamp_probe, packet_type):
     test_duration_s = 30 # hardcoded. this is the duration in which we expect the DUT to complete sending all the packets
 
     verbose = False
-    seed = 0
-    rand = random.Random()
-    rand.seed(seed)
 
     # Create pesky file names
     if packet_type == "sweep":

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
-project(app_rmii_100Mbit_icmp)
+project(AN00120_100Mbit_ethernet_demo_rmii)
 
 set(APP_HW_TARGET           xk-eth-xu316-dual-100m.xn)
 

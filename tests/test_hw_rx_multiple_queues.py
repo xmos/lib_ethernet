@@ -1,27 +1,21 @@
 # Copyright 2025 XMOS LIMITED.
 # This Software is subject to the terms of the XMOS Public Licence: Version 1.
 from scapy.all import *
-import threading
 from pathlib import Path
 import random
-import copy
-from mii_packet import MiiPacket
-from hardware_test_tools.XcoreApp import XcoreApp
-from hw_helpers import mii2scapy, scapy2mii, get_mac_address, hw_eth_debugger
+from hw_helpers import get_mac_address, hw_eth_debugger
 import pytest
-from contextlib import nullcontext
 import time
 from xcore_app_control import XcoreAppControl
 from socket_host import SocketHost
 import re
-import subprocess
 import platform
 
 
 pkg_dir = Path(__file__).parent
 
 @pytest.mark.parametrize('send_method', ['socket'])
-def test_hw_rx_multiple_queues(request, send_method):
+def test_hw_rx_multiple_queues(request, send_method, seed):
     """
     Test that when there are multiple LP RX clients and one HP RX client in the device, when receiving data, the HP
     traffic never gets dropped in the device.
@@ -46,7 +40,6 @@ def test_hw_rx_multiple_queues(request, send_method):
     test_duration_s = float(test_duration_s)
 
     verbose = False
-    seed = 0
     rand = random.Random()
     rand.seed(seed)
 
