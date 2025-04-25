@@ -1,6 +1,11 @@
 lib_ethernet change log
 =======================
 
+UNRELEASED
+----------
+
+  * ADDED: Fix for out of range relocation when loading from constant or data pool
+
 4.0.1
 -----
 

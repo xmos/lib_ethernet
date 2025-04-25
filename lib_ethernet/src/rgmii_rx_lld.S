@@ -34,32 +34,32 @@
 #define SP_RX_ERR        (SP_NUM_WORDS + 3)
 #define SP_RX_DV         (SP_NUM_WORDS + 2)
 
-.section .dp.data, "awd", @progbits
-.cc_top rxconsts.data
-
+.section .cp.rodata,     "ac", @progbits
 .align 4
+.cc_top rgmiiconsts.data
 .globl sof_value
 sof_value:
-.word 0xd5
+    .word 0xd5
+
 .globl crc_poly
 crc_poly:
-.word 0xEDB88320
+    .word 0xEDB88320
 
 // The byte-reversed version of the tag
-.globl vlan_prio_tag
 vlan_prio_tag:
-.word 0x0081
-
-// The cutoff point between length and type in the Length/Type field
-.globl max_packet_len
-max_packet_len:
-.word 1536
+    .word 0x0081
 
 // The maximum number of bytes in a valid packet
-.globl max_num_bytes
 max_num_bytes:
-.word ETHERNET_MAX_PACKET_SIZE
+    .word ETHERNET_MAX_PACKET_SIZE
 
+// The cutoff point between length and type in the Length/Type field
+max_packet_len:
+.word 1536
+.cc_bottom rgmiiconsts.data
+
+.section .dp.data, "awd", @progbits
+.cc_top rxconsts.data
 // Error counts
 .align 4
 .globl mii_count_crc_error
@@ -135,8 +135,7 @@ start_gigabit_rx:
         { stw r1, sp[SP_PING_PONG]        ; mov tmp1, r1 }
 
         // Setup the CRC polynomial
-        ldap r11, crc_poly
-        ldw poly, r11[0]
+        ldw poly, cp[crc_poly]
 
         // Receive address of packet buffer // Get RXD off the stack
         { in base, res[chan]              ; ldw p_rxd, sp[SP_NUM_WORDS + 1] }
@@ -149,8 +148,7 @@ start_gigabit_rx:
         bt r2, rx_sof
 
         // Setup the RXD data pattern (SOF)
-        ldap r11, sof_value
-        ldw r11, r11[0]
+        ldw r11, cp[sof_value]
         setd res[p_rxd], r11
 
         // Setup the RXER port to detect the port going high
@@ -1070,10 +1068,12 @@ rx_shared:
         { mkmsk tmp5, 16                  ; ldw tmp1, base[tmp1] }
 
         //                                // Load the constant to compare against
-        { and tmp1, tmp1, tmp5            ; ldw tmp3, dp[vlan_prio_tag] }
+        and tmp1, tmp1, tmp5
+        ldw tmp3, cp[vlan_prio_tag]
 
         //                                // Load the length/type field
-        { eq tmp3, tmp1, tmp3             ; ldw tmp5, dp[max_packet_len] }
+        eq tmp3, tmp1, tmp3
+        ldw tmp5, cp[max_packet_len]
 
         // Packet overhead to discount    // Branch if this isn't vlan tagged
         { ldc tmp3, 18                    ; bf tmp3, rx_test_length }
@@ -1104,7 +1104,8 @@ rx_test_length:
 
 rx_test_max_len:
         // Ignore crc word in byte count  // Load the maximum permissible length
-        { sub tmp2, tmp2, 4               ; ldw tmp3, dp[max_num_bytes] }
+        sub tmp2, tmp2, 4
+        ldw tmp3, cp[max_num_bytes]
 
         // Compare actual length with max // If crc is wrong then return pointer
         { lsu tmp3, tmp3, tmp2            ; bt crc, rx_error_crc }
@@ -1134,19 +1135,19 @@ rx_error_too_long:
 rx_length_error:
 rx_error_runt:
         // Increment the length error count
-        { nop                             ; ldw tmp3, dp[mii_count_len_error] }
+        ldw tmp3, dp[mii_count_len_error]
         //                                // Restore the ping-pong channel ID
         { add tmp3, tmp3, 1               ; ldw tmp1, sp[SP_PING_PONG] }
-        { nop                             ; stw tmp3, dp[mii_count_len_error] }
+        stw tmp3, dp[mii_count_len_error]
         bu rx_sof
 
 .align 16
 rx_error_crc:
         // Increment the length error count
-        { nop                             ; ldw tmp3, dp[mii_count_crc_error] }
+        ldw tmp3, dp[mii_count_crc_error]
         //                                // Restore the ping-pong channel ID
         { add tmp3, tmp3, 1               ; ldw tmp1, sp[SP_PING_PONG] }
-        { nop                             ; stw tmp3, dp[mii_count_crc_error] }
+        stw tmp3, dp[mii_count_crc_error]
         bu rx_sof
 
 .align 16

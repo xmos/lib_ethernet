@@ -105,12 +105,10 @@ start_gigabit_tx:
         { mov tmp6, tmp5                  ; stw tmp5, sp[SP_CHAN_ID] }
 
         // Setup the CRC polynomial
-        ldap r11, crc_poly
-        ldw poly, r11[0]
+        ldw poly, cp[crc_poly]
 
         // Setup the RXD data pattern (SOF)
-        ldap r11, sof_value
-        ldw r11, r11[0]
+        ldw r11, cp[sof_value]
         setd res[p_txd], r11
 
         // Load data_values pointer into DP
