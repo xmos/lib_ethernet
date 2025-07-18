@@ -23,7 +23,7 @@ typedef struct mii_ts_queue_info_t {
 
 typedef mii_ts_queue_info_t *mii_ts_queue_t;
 
-mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, mii_ts_queue_entry_t *buf, int n);
+mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, mii_ts_queue_entry_t *buf, unsigned int n);
 
 void mii_ts_queue_add_entry(mii_ts_queue_t q, unsigned id, unsigned timestamp);
 

@@ -463,6 +463,7 @@ inline void ethernet_send_hp_packet(streaming_chanend_t c_tx_hp,
                                     unsigned n,
                                     unsigned ifnum)
 {
+  (void)ifnum;
   c_tx_hp <: n;
   sout_char_array(c_tx_hp, packet, n);
 }

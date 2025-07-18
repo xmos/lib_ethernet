@@ -11,6 +11,12 @@ set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.1)"
 
 set(LIB_COMPILER_FLAGS      -g
                             -O3
+                            -Wall
+                            -Wextra
+                            -Wconversion
+                            -Wdiv-by-zero
+                            -Wfloat-equal
+                            -Wsign-compare
                             -mno-dual-issue)
 
 set(LIB_OPTIONAL_HEADERS    ethernet_conf.h)

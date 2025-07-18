@@ -225,6 +225,8 @@ unsafe void rgmii_10_100_master_rx_pins(streaming chanend c,
       "zip %0, %1, 2" : "=&r"(tmp1), "=&r"(tmp2) : "r"(a), "r"(b));
   return {tmp1, tmp2};
 #else
+  (void)a;
+  (void)b;
   __builtin_trap();
   return {0, 0};
 #endif
