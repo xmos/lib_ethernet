@@ -1,6 +1,6 @@
 // This file relates to internal XMOS infrastructure and should be ignored by external users
 
-@Library('xmos_jenkins_shared_library@v0.38.0') _
+@Library('xmos_jenkins_shared_library@v0.39.0') _
 
 def clone_test_deps() {
   dir("${WORKSPACE}") {
@@ -11,7 +11,7 @@ def clone_test_deps() {
     sh "git -C hardware_test_tools checkout 2f9919c956f0083cdcecb765b47129d846948ed4"
 
     sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
-    sh "git -C xtagctl checkout v2.0.0"
+    sh "git -C xtagctl checkout v2.2.0"
   }
 }
 
@@ -38,12 +38,12 @@ pipeline {
     )
     string(
       name: 'XMOSDOC_VERSION',
-      defaultValue: 'v6.3.1',
+      defaultValue: 'v7.3.0',
       description: 'The xmosdoc version'
     )
     string(
         name: 'INFR_APPS_VERSION',
-        defaultValue: 'v2.0.1',
+        defaultValue: 'v2.2.0',
         description: 'The infr_apps version'
     )
     choice(name: 'TEST_TYPE', choices: ['smoke', 'nightly'],
