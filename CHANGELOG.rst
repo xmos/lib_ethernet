@@ -5,6 +5,7 @@ UNRELEASED
 ----------
 
   * ADDED: Fix for out of range relocation when loading from constant or data pool
+  * FIXED: Build warnings (when built with -Wextra)
 
 4.0.1
 -----
