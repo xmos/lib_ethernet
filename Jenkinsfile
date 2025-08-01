@@ -11,7 +11,7 @@ def clone_test_deps() {
     sh "git -C hardware_test_tools checkout 2f9919c956f0083cdcecb765b47129d846948ed4"
 
     sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
-    sh "git -C xtagctl checkout v2.2.0"
+    sh "git -C xtagctl checkout v3.0.0"
   }
 }
 
