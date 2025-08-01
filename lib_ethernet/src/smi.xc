@@ -300,7 +300,7 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
 
     switch (speed_mbps) {
     #pragma fallthrough
-      case LINK_1000_MBPS_FULL_DUPLEX: gige_control_reg |= 1 << AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX;
+      case LINK_1000_MBPS_FULL_DUPLEX: gige_control_reg |= 1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX;
     #pragma fallthrough
       case LINK_100_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX;
       case LINK_10_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX; break;
@@ -323,9 +323,9 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
   else {
     // set duplex mode, clear autoneg and speed
     basic_control |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
-    basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
-                          (1 << BASIC_CONTROL_100_MBPS_BIT)|
-                         (1 << BASIC_CONTROL_1000_MBPS_BIT));
+    basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT) |
+                        (1 << BASIC_CONTROL_100_MBPS_BIT) |
+                        (1 << BASIC_CONTROL_1000_MBPS_BIT) );
 
     if (speed_mbps == LINK_100_MBPS_FULL_DUPLEX) {
       basic_control |= 1 << BASIC_CONTROL_100_MBPS_BIT;
@@ -355,5 +355,42 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable)
 
 ethernet_link_state_t smi_get_link_state(client smi_if smi, uint8_t phy_address) {
   unsigned link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
-  return link_up ? ETHERNET_LINK_UP : ETHERNET_LINK_DOWN;;
+  return link_up ? ETHERNET_LINK_UP : ETHERNET_LINK_DOWN;
+}
+
+ethernet_speed_t smi_get_link_speed(client smi_if smi, uint8_t phy_address) {
+  ethernet_speed_t link_speed = NUM_ETHERNET_SPEEDS;
+  unsigned status_reg = smi.read_reg(phy_address, BASIC_STATUS_REG);
+
+  if (status_reg & (1 << BASIC_STATUS_EXTENDED_STATUS_BIT)) {
+    // Extended status is available, check for 1000 Mbps
+    unsigned gigabit_control = smi.read_reg(phy_address, GIGE_CONTROL_REG);
+    unsigned gigabit_status = smi.read_reg(phy_address, GIGE_STATUS_REG);
+
+    if ((gigabit_control & (1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX)) &&
+        (gigabit_status & (1 << GIGE_STATUS_1000BASE_T_FULL_DUPLEX))) {
+      link_speed = LINK_1000_MBPS_FULL_DUPLEX;
+    }
+  }
+
+  // Check basic control register if not gigabit
+  if (link_speed == NUM_ETHERNET_SPEEDS) {
+
+    unsigned autoneg_reg = smi.read_reg(phy_address, AUTONEG_ADVERT_REG);
+    unsigned link_reg = smi.read_reg(phy_address, AUTONEG_LINK_REG);
+
+    if ((autoneg_reg & (1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX)) && 
+        (link_reg & (1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX))) {
+      link_speed = LINK_100_MBPS_FULL_DUPLEX;
+
+    } else if ((autoneg_reg & (1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX)) && 
+               (link_reg & (1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX))) {
+      link_speed = LINK_10_MBPS_FULL_DUPLEX;
+
+    } else {
+      link_speed = LINK_10_MBPS_FULL_DUPLEX;
+    }
+  }
+
+  return link_speed;
 }
