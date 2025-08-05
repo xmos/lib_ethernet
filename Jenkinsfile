@@ -1,6 +1,6 @@
 // This file relates to internal XMOS infrastructure and should be ignored by external users
 
-@Library('xmos_jenkins_shared_library@v0.39.0') _
+@Library('xmos_jenkins_shared_library@v0.41.1') _
 
 def clone_test_deps() {
   dir("${WORKSPACE}") {
@@ -13,12 +13,6 @@ def clone_test_deps() {
     sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
     sh "git -C xtagctl checkout v3.0.0"
   }
-}
-
-def archiveLib(String repoName) {
-    sh "git -C ${repoName} clean -xdf"
-    sh "zip ${repoName}_sw.zip -r ${repoName}"
-    archiveArtifacts artifacts: "${repoName}_sw.zip", allowEmptyArchive: false
 }
 
 getApproval()
@@ -38,19 +32,18 @@ pipeline {
     )
     string(
       name: 'XMOSDOC_VERSION',
-      defaultValue: 'v7.3.0',
+      defaultValue: 'v7.4.0',
       description: 'The xmosdoc version'
     )
     string(
         name: 'INFR_APPS_VERSION',
-        defaultValue: 'v2.2.0',
+        defaultValue: 'v3.1.1',
         description: 'The infr_apps version'
     )
     choice(name: 'TEST_TYPE', choices: ['smoke', 'nightly'],
           description: 'Run tests with either a fixed seed or a randomly generated seed')
   }
   environment {
-    REPO = 'lib_ethernet'
     REPO_NAME = 'lib_ethernet'
     PIP_VERSION = "24.0"
     SEED = "12345"
@@ -58,7 +51,7 @@ pipeline {
   stages {
     stage('Build + Documentation') {
       agent {
-        label 'documentation&&linux&&x86_64'
+        label 'documentation && linux && x86_64'
       }
       stages {
         stage('Checkout') {
@@ -67,7 +60,7 @@ pipeline {
           }
           steps {
             println "Stage running on: ${env.NODE_NAME}"
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               checkoutScmShallow()
               createVenv()
               installPipfile(false)
@@ -78,7 +71,7 @@ pipeline {
         stage('Build examples') {
           steps {
             withTools(params.TOOLS_VERSION) {
-              dir("${REPO}/examples") {
+              dir("${REPO_NAME}/examples") {
                 script {
                   echo "Test Stage: SEED is ${env.SEED}"
                   // Build all apps in the examples directory
@@ -92,13 +85,13 @@ pipeline {
         stage('Library checks') {
           steps {
             warnError("lib checks") {
-              runLibraryChecks("${WORKSPACE}/${REPO}", "${params.INFR_APPS_VERSION}")
+              runLibraryChecks("${WORKSPACE}/${REPO_NAME}", "${params.INFR_APPS_VERSION}")
             }
           }
         }
         stage('Documentation') {
           steps {
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               warnError("Docs") {
                 buildDocs()
                 dir("examples/AN00120_100Mbit_ethernet_demo_rmii") {
@@ -113,7 +106,7 @@ pipeline {
         }
         stage('Build tests') {
           steps {
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               withVenv {
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
@@ -122,12 +115,12 @@ pipeline {
                   }
                 } // withTools(params.TOOLS_VERSION)
               } // withVenv
-            } // dir("${REPO}")
+            } // dir("${REPO_NAME}")
           } // steps
         } // stage('Build tests')
         stage("Archive Lib") {
           steps {
-            archiveLib(REPO)
+            archiveSandbox(REPO_NAME)
           }
         } //stage("Archive Lib")
       } // stages
@@ -147,13 +140,13 @@ pipeline {
             label 'linux && x86_64'
           }
           steps {
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               checkoutScmShallow()
               createVenv()
               installPipfile(false)
             }
             clone_test_deps()
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               withVenv {
                 sh "pip install -e ../test_support"
                 sh "pip install -e ../hardware_test_tools"
@@ -177,11 +170,11 @@ pipeline {
                   } // dir("tests")
                 } // withTools
               } // withVenv
-            } // dir("${REPO}")
+            } // dir("${REPO_NAME}")
           } // steps
           post {
             always {
-              archiveArtifacts artifacts: "${REPO}/tests/ifg_*.txt", fingerprint: true, allowEmptyArchive: true
+              archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
             xcoreCleanSandbox()
@@ -196,7 +189,7 @@ pipeline {
             PYTHON_VERSION = "3.12.3"
           }
           steps {
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               checkoutScmShallow()
               createVenv()
               installPipfile(false)
@@ -204,7 +197,7 @@ pipeline {
 
             clone_test_deps()
 
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               withVenv {
                 sh "pip install -e ../test_support"
                 sh "pip install -e ../hardware_test_tools"
@@ -227,12 +220,12 @@ pipeline {
                   } // dir("tests")
                 } // withTools
               } // withVenv
-            } // dir("${REPO}")
+            } // dir("${REPO_NAME}")
           } // steps
           post {
             always {
-              archiveArtifacts artifacts: "${REPO}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
-              archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+              archiveArtifacts artifacts: "${REPO_NAME}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
+              archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
               xcoreCleanSandbox()
@@ -247,7 +240,7 @@ pipeline {
             PYTHON_VERSION = "3.12.3"
           }
           steps {
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               checkoutScmShallow()
               createVenv()
               installPipfile(false)
@@ -255,7 +248,7 @@ pipeline {
 
             clone_test_deps()
 
-            dir("${REPO}") {
+            dir("${REPO_NAME}") {
               withVenv {
                 sh "pip install -e ../test_support"
                 sh "pip install -e ../hardware_test_tools"
@@ -278,12 +271,12 @@ pipeline {
                   } // dir("tests")
                 } // withTools
               } // withVenv
-            } // dir("${REPO}")
+            } // dir("${REPO_NAME}")
           } // steps
           post {
             always {
-              archiveArtifacts artifacts: "${REPO}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
-              archiveArtifacts artifacts: "${REPO}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
+              archiveArtifacts artifacts: "${REPO_NAME}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
+              archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
               xcoreCleanSandbox()
