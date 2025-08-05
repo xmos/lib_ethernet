@@ -2,19 +2,6 @@
 
 @Library('xmos_jenkins_shared_library@v0.41.1') _
 
-def clone_test_deps() {
-  dir("${WORKSPACE}") {
-    sh "git clone git@github.com:xmos/test_support"
-    sh "git -C test_support checkout v2.0.0"
-
-    sh "git clone git@github.com:xmos/hardware_test_tools"
-    sh "git -C hardware_test_tools checkout 984b1e1176003fd55be08001db27aeb58f7a10c9"
-
-    sh "git clone git@github0.xmos.com:xmos-int/xtagctl"
-    sh "git -C xtagctl checkout v3.0.0"
-  }
-}
-
 getApproval()
 
 pipeline {
@@ -85,7 +72,7 @@ pipeline {
         stage('Library checks') {
           steps {
             warnError("lib checks") {
-              runLibraryChecks("${WORKSPACE}/${REPO_NAME}", "${params.INFR_APPS_VERSION}")
+              runRepoChecks("${WORKSPACE}/${REPO_NAME}")
             }
           }
         }
@@ -94,12 +81,6 @@ pipeline {
             dir("${REPO_NAME}") {
               warnError("Docs") {
                 buildDocs()
-                dir("examples/AN00120_100Mbit_ethernet_demo_rmii") {
-                  buildDocs()
-                }
-                dir("examples/AN00199_gigabit_ethernet_demo_explorerkit") {
-                  buildDocs()
-                }
               }
             }
           }
@@ -145,11 +126,8 @@ pipeline {
               createVenv()
               installPipfile(false)
             }
-            clone_test_deps()
             dir("${REPO_NAME}") {
               withVenv {
-                sh "pip install -e ../test_support"
-                sh "pip install -e ../hardware_test_tools"
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
                     unstash 'test_bin'
@@ -195,13 +173,8 @@ pipeline {
               installPipfile(false)
             }
 
-            clone_test_deps()
-
             dir("${REPO_NAME}") {
               withVenv {
-                sh "pip install -e ../test_support"
-                sh "pip install -e ../hardware_test_tools"
-                sh "pip install -e ../xtagctl"
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
                     // Build all apps in the examples directory
@@ -246,13 +219,8 @@ pipeline {
               installPipfile(false)
             }
 
-            clone_test_deps()
-
             dir("${REPO_NAME}") {
               withVenv {
-                sh "pip install -e ../test_support"
-                sh "pip install -e ../hardware_test_tools"
-                sh "pip install -e ../xtagctl"
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
                     // Build all apps in the examples directory

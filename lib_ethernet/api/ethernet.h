@@ -117,9 +117,9 @@ typedef interface ethernet_cfg_if {
    *
    *  This function Gets the current link state and speed of the PHY to the MAC.
    *
-   *  \param ifnum      The index of the MAC interface to ge the link state for
-   *
-   *  \returns Ethernet link state and speed
+   *  \param ifnum      The index of the MAC interface to get the link state for
+   *  \param link_state The current link state of the port.
+   *  \param link_speed The current link speed.
    */
   void get_link_state(int ifnum, REFERENCE_PARAM(unsigned, link_state), REFERENCE_PARAM(unsigned, link_speed));
 
@@ -207,8 +207,8 @@ typedef interface ethernet_cfg_if {
   /** Set the high-priority TX queue's credit based shaper idle slope in bits per second.
    *  This function is only available in the 10/100 Mb/s real-time and 10/100/1000 Mb/s MACs.
    *
-   *  \param ifnum   The index of the MAC interface to set the slope (always 0)
-   *  \param slope   The maximum number of bits per second to be set
+   *  \param ifnum            The index of the MAC interface to set the slope (always 0)
+   *  \param bits_per_second  The maximum number of bits per second to be set
    *
    *
    */
@@ -217,9 +217,9 @@ typedef interface ethernet_cfg_if {
 
   /** Sets the the high-priority TX queue's  Qav credit limit in units of frame size bytes
    *
-   *  \param ifnum         The index of the MAC interface to set the slope (always 0)
-   *  \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
-   *                       not including preamble, CRC and IFG. Set to 0 for no limit (default)
+   *  \param ifnum                The index of the MAC interface to set the slope (always 0)
+   *  \param payload_limit_bytes  The credit limit in units of payload size in bytes to set as a credit limit,
+   *                              not including preamble, CRC and IFG. Set to 0 for no limit (default)
    *
    */
   void set_egress_qav_credit_limit(size_t ifnum, int payload_limit_bytes);

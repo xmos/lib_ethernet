@@ -42,10 +42,10 @@ Various MAC blocks are available depending on the XMOS architecture selected, de
 
 The MII MAC is available as two types; a low resource usage version which provides standard layer 2 data access to an array of clients, and a real-time version which offers additional hardware features including:
 
- * Hardware time-stamping of point of ingress and egress of frames supporting standards such as IEEE 802.1AS.
- * Support for high priority send and receive queues and receive filtering. This allows time sensitive traffic to be prioritised over other traffic.
- * Traffic shaping on egress using an IEEE 802.1Qav compliant credit based shaper.
- * Configurable VLAN tag stripping on received frames.
+* Hardware time-stamping of point of ingress and egress of frames supporting standards such as IEEE 802.1AS.
+* Support for high priority send and receive queues and receive filtering. This allows time sensitive traffic to be prioritised over other traffic.
+* Traffic shaping on egress using an IEEE 802.1Qav compliant credit based shaper.
+* Configurable VLAN tag stripping on received frames.
 
 All RMII and RGMII implementations offer the 'real-time' features as standard. See the :ref:`rt_mac_section` section for more details.
 
@@ -60,9 +60,13 @@ Usage
 
 To use ``lib_ethernet`` in an application, add ``lib_ethernet``, to the list of dependent modules in the application's `CMakeLists.txt` file.
 
+.. code-block:: cmake
+
   set(APP_DEPENDENT_MODULES "lib_ethernet")
 
-All `lib_ethernet` functions can be accessed via the ``ethernet.h`` header file::
+All `lib_ethernet` functions can be accessed via the ``ethernet.h`` header file
+
+.. code-block:: C
 
   #include <ethernet.h>
 
@@ -152,12 +156,12 @@ Feature Overview
 
 All MACs in this library support a number of useful features which can be configured by clients.
 
-  * Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
-  * Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries is configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
-  * Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
-  * Link state detection allowing action to be taken by higher layers in the case of link state change.
-  * Separately configurable Rx and Tx buffer sizes (queues).
-  * VLAN aware received packet length calculation. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
+* Support for multiple clients (Rx and Tx) allowing many tasks to share the MAC.
+* Configurable Ethertype and MAC address filters for unicast, multicast and broadcast addresses and is configurable per client. The number of entries is configurable using ``ETHERNET_MACADDR_FILTER_TABLE_SIZE``.
+* Configurable source MAC address. This may be used in conjunction with, for example, lib_otp to provide a unique MAC address per XMOS chip.
+* Link state detection allowing action to be taken by higher layers in the case of link state change.
+* Separately configurable Rx and Tx buffer sizes (queues).
+* VLAN aware received packet length calculation. If the VLAN tag (0x8100) is seen the header length is automatically extended by 4 octets to support the Tag Protocol Identifier (TPID) and Tag Control Information (TCI).
 
 Transmission of packets is via an API that blocks until the frame has been copied into the transmit queue. This means the buffer size should be appropriately sized for your application or the application should tolerate blocking.
 
@@ -224,9 +228,9 @@ The Credit Based Shaper (CBS), in conjunction with the HP queue, limits the band
 
 The CBS uses the following mechanisms to manage egress rate:
 
-  * Credits: The high priority queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
-  * Idle Slope: Determines how quickly credit increases when the queue is idle (i.e., waiting to transmit).
-  * Transmission of data decreases credit proportionally to the number of bits sent.
+* Credits: The high priority queue is assigned a "credit" that increases or decreases over time based on the network's traffic conditions.
+* Idle Slope: Determines how quickly credit increases when the queue is idle (i.e., waiting to transmit).
+* Transmission of data decreases credit proportionally to the number of bits sent.
 
 If the credit is positive, the high priority stream is eligible for transmission and will always be transmitted before any low priority traffic. If the credit is negative, the high priority stream is paused until the credit returns to a positive state. By spreading traffic out evenly over time using a CBS, the queue size in each bridge and endpoint can be shorter, which in turn reduces the latency experienced by traffic as it flows through the system.
 
@@ -381,11 +385,11 @@ The detail for how to set the values is outside the scope of this document, howe
 
 In summary, the fields (and their uses) in the ``port_timing`` structure are as follows:
 
- * clk_delay_tx_rising - The number of core clock cycles to delay the capture clock. Since no signal capture occurs in the TX section this value is not critical, however it should be set to the same as clk_delay_tx_falling.
- * clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock.
- * clk_delay_rx_rising - The number of core clock cycles to delay the capture clock. Increasing this value delays the point at which the RX data and RXDV are sampled relative to the external ethernet clock.
- * clk_delay_rx_falling - The number of core clock cycles to delay the drive clock. Since no signal drive occurs in the RX section this value is not critical, however it should be set to the same as clk_delay_rx_rising.
- * pad_delay_rx - The number of core clock cycles to delay the sampling of RX data and strobe. Because this setting delays the data and not the clock, it has the effect of adding negative clock delay, which can be useful in some cases.
+* clk_delay_tx_rising - The number of core clock cycles to delay the capture clock. Since no signal capture occurs in the TX section this value is not critical, however it should be set to the same as clk_delay_tx_falling.
+* clk_delay_tx_falling - The number of core clock cycles to delay the drive clock falling edge. Increasing this value delays the presentation of the TX data and TXEN signal relative to the external ethernet clock.
+* clk_delay_rx_rising - The number of core clock cycles to delay the capture clock. Increasing this value delays the point at which the RX data and RXDV are sampled relative to the external ethernet clock.
+* clk_delay_rx_falling - The number of core clock cycles to delay the drive clock. Since no signal drive occurs in the RX section this value is not critical, however it should be set to the same as clk_delay_rx_rising.
+* pad_delay_rx - The number of core clock cycles to delay the sampling of RX data and strobe. Because this setting delays the data and not the clock, it has the effect of adding negative clock delay, which can be useful in some cases.
 
 
 
@@ -477,9 +481,9 @@ Other IO pins and ports are unaffected.
 |newpage|
 
 
-*****
-Usage
-*****
+**********************
+Using ``lib_ethernet``
+**********************
 
 10/100 Mb/s Ethernet MAC operation
 ==================================
@@ -505,7 +509,9 @@ can connect via a transmit, receive and configuration interface connection using
 
    10/100 Mb/s Ethernet MAC task diagram
 
-For example, the following code instantiates a standard Ethernet MAC component using MII and connects to it::
+For example, the following code instantiates a standard Ethernet MAC component using MII and connects to it.
+
+.. code-block:: c
 
   port p_eth_rxclk  = XS1_PORT_1J;
   port p_eth_rxd    = XS1_PORT_4E;
@@ -536,7 +542,9 @@ For example, the following code instantiates a standard Ethernet MAC component u
 Note that the connections are arrays of interfaces, so several tasks can connect to the same component instance.
 
 The application can use the client end of the interface connections to
-perform Ethernet MAC operations e.g.::
+perform Ethernet MAC operations e.g.
+
+.. code-block:: c
 
   void application(client ethernet_cfg_if i_cfg,
                    client ethernet_rx_if i_rx,
@@ -560,7 +568,6 @@ perform Ethernet MAC operations e.g.::
     }
   }
 
-
 |newpage|
 
 10/100 Mb/s real-time Ethernet MAC
@@ -582,7 +589,9 @@ receiving high-priority Ethernet traffic, as shown in :numref:`rt_mac_task_diagr
    10/100 Mb/s real-time Ethernet MAC task diagram
 
 For example, the following code instantiates a real-time Ethernet MAC component with connected via MII high and low-priority
-interfaces and connects to it::
+interfaces and connects to it
+
+.. code-block:: c
 
   port p_eth_rxclk  = XS1_PORT_1J;
   port p_eth_rxd    = XS1_PORT_4E;
@@ -613,7 +622,9 @@ interfaces and connects to it::
 
 
 
-Similarly the RMII real-time MAC may be instantiated (four bit port version shown)::
+Similarly the RMII real-time MAC may be instantiated (four bit port version shown).
+
+.. code-block:: c
 
     port p_eth_clk = XS1_PORT_1J;
     port p_eth_txd = XS1_PORT_4B;
@@ -647,7 +658,9 @@ Similarly the RMII real-time MAC may be instantiated (four bit port version show
 
 
 
-The application can use the other end of the streaming channels to send and receive high-priority traffic e.g.::
+The application can use the other end of the streaming channels to send and receive high-priority traffic e.g.
+
+.. code-block:: c
 
   void application(client ethernet_cfg_if i_cfg,
                    client ethernet_rx_if i_rx,
@@ -693,7 +706,9 @@ and the user application run on Tile 0, as shown in :numref:`rgmii_mac_task_diag
 
 
 For example, the following code instantiates a 10/100/1000 Mb/s Ethernet MAC component with high and low-priority
-interfaces and connects to it::
+interfaces and connects to it
+
+.. code-block:: c
 
   rgmii_ports_t rgmii_ports = on tile[1]: RGMII_PORTS_INITIALIZER;
 
@@ -735,7 +750,9 @@ consumes some of the MIPs on that core in addition to the core :ref:`mii` is run
 
    MII task diagram
 
-For example, the following code instantiates a MII component and connects to it::
+For example, the following code instantiates a MII component and connects to it.
+
+.. code-block:: c
 
   port p_eth_rxclk  = XS1_PORT_1J;
   port p_eth_rxd    = XS1_PORT_4E;
@@ -780,9 +797,11 @@ The interface uses two pins to communicate and there are two variants of the API
 .. note::
     The standard SMI/MDIO specification requires use of a pull-up resistor on MDIO (typically 4.7 kOhm for a single PHY in a 3.3 V system). If using the single-port version then it is necessary to also connect a pull-up to the MDC line (typically 4.7 kOhm for 3.3 V systems). The reason for this is that xcore ports have only a single direction bit. So in order to sample the MDIO line with a known MDC state, an external resistor is required.
 
-The speed of the interface is set conservatively at 1.66 MHz which supports slower PHY SMI interfaces (eg. LAN8710A) that have a relatively slow time to data valid. This speed is also chosen to support the single port version which has to sample read data at the falling edge, effectively reducing the maximum bit clock by a factor of two. If faster access is required and supported by the PHY, or the two port version is used, then it is possible to adjust the following define in ``smi.xc`` up to a maximum of around 4 MHz for xCORE-200 and 5 MHz for xcore.ai::
+The speed of the interface is set conservatively at 1.66 MHz which supports slower PHY SMI interfaces (eg. LAN8710A) that have a relatively slow time to data valid. This speed is also chosen to support the single port version which has to sample read data at the falling edge, effectively reducing the maximum bit clock by a factor of two. If faster access is required and supported by the PHY, or the two port version is used, then it is possible to adjust the following define in ``smi.xc`` up to a maximum of around 4 MHz for xCORE-200 and 5 MHz for xcore.ai.
 
-    #define SMI_BIT_CLOCK_HZ 1660000
+.. code-block:: c
+
+  #define SMI_BIT_CLOCK_HZ 1660000
 
 Increasing the bit clock may require use of smaller pull-up resistor(s) depending on board layout to ensure that the signal rise time is sufficient. If in doubt, either test operation using lower the bit rate by setting a smaller ``SMI_BIT_CLOCK_HZ`` or check with an oscilloscope to ensure that the MDC and MDIO lines are fully reaching the logic high state.
 
@@ -794,12 +813,14 @@ Increasing the bit clock may require use of smaller pull-up resistor(s) dependin
 API
 ***
 
-All Ethernet functions can be accessed via the ``ethernet.h`` header::
+All Ethernet functions can be accessed via the ``ethernet.h`` header.
+
+.. code-block:: c
 
   #include <ethernet.h>
 
 You will also have to add ``lib_ethernet`` to the
-``USED_MODULES`` field of your application Makefile.
+``APP_DEPENDENT_MODULES`` field of your application `CmakeLists.txt` file.
 
 Creating a 10/100 Mb/s Ethernet MAC instance
 ============================================
@@ -834,6 +855,8 @@ Creating a 10/100/1000 Mb/s Ethernet MAC instance
 .. doxygenfunction:: rgmii_ethernet_mac_config
 
 |newpage|
+
+.. c:namespace-push:: ethernet_namespace
 
 .. _ethernet_cfg_if:
 
@@ -876,12 +899,18 @@ The Ethernet MAC high-priority data handling interface
 
 .. doxygenfunction:: ethernet_receive_hp_packet
 
+.. c:namespace-pop::
+
 |newpage|
+
+.. c:namespace-push:: mii_namespace
 
 Creating a raw MII instance
 ===========================
 
-All raw MII functions can be accessed via the ``mii.h`` header::
+All raw MII functions can be accessed via the ``mii.h`` header.
+
+.. code-block:: c
 
   #include <mii.h>
 
@@ -892,7 +921,7 @@ The MII interface
 
 .. _mii_if_section:
 
-.. doxygengroup:: mii_if
+.. doxygengroup::  mii_if
 
 .. doxygenfunction:: mii_incoming_packet
 
@@ -905,8 +934,10 @@ The MII interface
 Creating an SMI/MDIO instance
 =============================
 
-All SMI functions can be accessed via the ``smi.h`` header::
+All SMI functions can be accessed via the ``smi.h`` header.
 
+.. code-block:: c
+  
   #include <smi.h>
 
 .. doxygenfunction:: smi
@@ -936,3 +967,5 @@ SMI PHY configuration helper functions
 .. doxygenfunction:: smi_phy_is_powered_down
 
 .. doxygenfunction:: smi_get_link_state
+
+.. c:namespace-pop::

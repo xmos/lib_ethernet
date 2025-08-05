@@ -36,9 +36,9 @@ void set_qav_idle_slope(volatile ethernet_port_state_t * unsafe port_state, unsi
 
 /** Sets the Qav credit limit in units of frame size byte
  *
- *   \param port_state    Pointer to the port state to be modified
- *   \param limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
- *                        not including preamble, CRC and IFG. Set to 0 for no limit (default)
+ *   \param port_state            Pointer to the port state to be modified
+ *   \param payload_limit_bytes   The credit limit in units of payload size in bytes to set as a credit limit,
+ *                                not including preamble, CRC and IFG. Set to 0 for no limit (default)
  *
  */
 void set_qav_credit_limit(volatile ethernet_port_state_t * unsafe port_state, int payload_limit_bytes);
