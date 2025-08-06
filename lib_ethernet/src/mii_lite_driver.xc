@@ -90,6 +90,7 @@ static int CRCBad(int base, int end) {
 }
 
 static int packet_good(struct mii_lite_data_t &this, int base, int end) {
+  UNUSED(this);
   int length = CRCBad(base, end);
   return length;
 }

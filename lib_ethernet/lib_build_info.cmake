@@ -7,10 +7,16 @@ set(LIB_INCLUDES            api
 
 set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.1)"
                             "lib_logging(3.3.1)"
-                            "lib_xassert(4.3.1)")
+                            "lib_xassert(4.3.2)")
 
 set(LIB_COMPILER_FLAGS      -g
                             -O3
+                            -Wall
+                            -Wextra
+                            -Wconversion
+                            -Wdiv-by-zero
+                            -Wfloat-equal
+                            -Wsign-compare
                             -mno-dual-issue)
 
 set(LIB_OPTIONAL_HEADERS    ethernet_conf.h)
