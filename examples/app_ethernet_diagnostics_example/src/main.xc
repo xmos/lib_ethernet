@@ -1,13 +1,17 @@
 // Copyright 2014-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
+
 #include <xs1.h>
 #include <platform.h>
-#include "otp_board_info.h"
+
+// Library headers
 #include "ethernet.h"
-#include "icmp.h"
 #include "smi.h"
-#include "xk_eth_xu316_dual_100m/board.h"
+#include "xk_eth_316_dual/board.h"
 #include "debug_print.h"
+
+// Application headers
+#include "ethernet_traffic.h"
 
 
 port p_smi_mdio = MDIO;
@@ -17,21 +21,20 @@ port p_phy_rxd = PHY_0_RXD_4BIT;
 port p_phy_txd = PHY_0_TXD_4BIT;
 port p_phy_rxdv = PHY_0_RXDV;
 port p_phy_txen = PHY_0_TX_EN;
-port p_phy_clk = PHY_1_CLK_50M;
+port p_phy_clk = PHY_CLK_50M;
 
 clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
 
 
-// An enum to manage the array of connections from the ethernet component
-// to its clients.
+// An enum to manage the array of connections from the ethernet component to its clients.
 enum eth_clients {
-  ETH_TO_ICMP,
+  ETH_TO_TRAFFIC,
   NUM_ETH_CLIENTS
 };
 
 enum cfg_clients {
-  CFG_TO_ICMP,
+  CFG_TO_TRAFFIC,
   CFG_TO_PHY_DRIVER,
   NUM_CFG_CLIENTS
 };
@@ -67,15 +70,15 @@ int main()
                                       USE_UPPER_2B,
                                       phy_rxclk,
                                       phy_txclk,
-                                      get_port_timings(0),
+                                      get_port_timings(PHY0_PORT_TIMINGS),
                                       ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                       ETHERNET_DISABLE_SHAPER);
 
-    on tile[1]: dual_dp83826e_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], null);
+    on tile[1]: dual_ethernet_phy_driver(i_smi, i_cfg[CFG_TO_PHY_DRIVER], null);
     on tile[1]: smi(i_smi, p_smi_mdio, p_smi_mdc);
-    on tile[0]: icmp_server(i_cfg[CFG_TO_ICMP],
-                            i_rx[ETH_TO_ICMP], i_tx[ETH_TO_ICMP],
-                            ip_address, mac_address_phy);
+    on tile[0]: ethernet_traffic(i_cfg[CFG_TO_TRAFFIC],
+                                 i_rx[ETH_TO_TRAFFIC], i_tx[ETH_TO_TRAFFIC],
+                                 ip_address, mac_address_phy);
   }
   return 0;
 }

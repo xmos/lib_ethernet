@@ -24,7 +24,7 @@ the xCORE device.
 
 The application communicates with the Ethernet MAC that drives the RMII
 data interface to the PHY. A separate PHY driver configures the PHY
-via the SMI serial interface. The application is tested on the ``xk_eth_xu316_dual_100m``
+via the SMI serial interface. The application is tested on the ``XK-ETH-316-DUAL``
 board which is an xcore.ai based board. It has two `TI DP83826E <https://www.ti.com/product/DP83826E>`_ PHYs
 connected to it and can support applications requiring up to two ethernet ports.
 This application instantiates one RMII MAC port that connects to 
@@ -77,7 +77,7 @@ Finally, the application binaries can be built using ``xmake``::
 This will build the application binary ``AN00120_100Mbit_ethernet_demo_rmii.xe`` in the ``AN00120_100Mbit_ethernet_demo_rmii/bin`` directory.
 
 The example uses the MAC layer implementation in the ``lib_ethernet`` library. It depends on
-``lib_board_support`` for the PHY configuration on the ``xk_eth_xu316_dual_100m`` board.
+``lib_board_support`` for the PHY configuration on the ``XK-ETH-316-DUAL`` board.
 
 These dependencies are specified in the ``deps.cmake`` file, which is included in the application ``CMakeLists.txt``
 
@@ -86,11 +86,11 @@ Allocating hardware resources
 
 The Ethernet library requires several ports to communicate with the
 Ethernet PHY. These ports are declared in the main program file
-(``main.xc``). In this examples the ports are set up for the PHY 0 on the ``xk_eth_xu316_dual_100m``
+(``main.xc``). In this examples the ports are set up for the PHY 0 on the ``XK-ETH-316-DUAL``
 board which is the PHY in the top left corner of the board. Note that, in the default hardware configuration,
 it is also necessary to populate PHY_1 (top middle of the board) due to the way the 50 MHz ethernet clock is distributed.
 
-Actual port names such as ``XS1_PORT_1A`` are specified in the XN file ``xk-eth-xu316-dual-100m.xn`` and the source code refers
+Actual port names such as ``XS1_PORT_1A`` are specified in the XN file ``xk-eth-316-dual-100m.xn`` and the source code refers
 to them with symbolic names such as ``PHY_0_TX_EN``, with the actual to symbolic name mapping being specified in the XN file:
 
 .. literalinclude:: ../../src/main.xc
@@ -224,7 +224,7 @@ functions implement the ICMP protocol.
 Demo Hardware Setup
 ===================
 
-The demo uses the ``xk_eth_xu316_dual_100m`` board. By default, the board will
+The demo uses the ``XK-ETH-316-DUAL`` board. By default, the board will
 expect both PHY daughter boards to be populated and the central xcore.ai ``explorer``
 board header to be used. In this configuration, the 50 MHz PHY clock will be provided by
 PHY_1 (which is buffered from PHY_0 where it is generated).
@@ -244,7 +244,7 @@ Running the application
 =======================
 
 Once the ``AN00120_100Mbit_ethernet_demo_rmii.xe`` application binary is compiled, it can be
-executed on the ``xk_eth_xu316_dual_100m`` board.
+executed on the ``XK-ETH-316-DUAL`` board.
 
 The ``xrun`` tool is used from the command line to download and run the code on the xCore device.
 In a terminal with XTC tools sourced, from the ``AN00120_100Mbit_ethernet_demo_rmii`` directory, run::

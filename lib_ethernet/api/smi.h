@@ -8,55 +8,60 @@
 #include "doxygen.h"    // Sphynx Documentation Workarounds
 
 // SMI Registers
-#define BASIC_CONTROL_REG                   0x0
-#define BASIC_STATUS_REG                    0x1
-#define PHY_ID1_REG                         0x2
-#define PHY_ID2_REG                         0x3
-#define AUTONEG_ADVERT_REG                  0x4
-#define AUTONEG_LINK_REG                    0x5
-#define AUTONEG_EXP_REG                     0x6
-#define GIGE_CONTROL_REG                    0x9
-#define GIGE_STATUS_REG                     0xA
+#define BASIC_CONTROL_REG                       0x0
+#define BASIC_STATUS_REG                        0x1
+#define PHY_ID1_REG                             0x2
+#define PHY_ID2_REG                             0x3
+#define AUTONEG_ADVERT_REG                      0x4
+#define AUTONEG_LINK_REG                        0x5
+#define AUTONEG_EXP_REG                         0x6
+#define NEXT_PAGE_REG                           0x7
+#define LINK_PARTNER_NEXT_PAGE_REG              0x8
+#define GIGE_CONTROL_REG                        0x9
+#define GIGE_STATUS_REG                         0xA
+#define EXTENDED_STATUS_REG                     0xF
 // Only up to 0xf are IEEE-compliant. Above this they are vendor specific
-#define RMII_AND_STATUS_REG                 0x17
-
-#define IO_CONFIG_1_REG                     0x302
 
 // Basic control register bits (0x00)
-#define BASIC_CONTROL_RESET_BIT             15
-#define BASIC_CONTROL_LOOPBACK_BIT          14
-#define BASIC_CONTROL_100_MBPS_BIT          13
-#define BASIC_CONTROL_1000_MBPS_BIT         6
-#define BASIC_CONTROL_AUTONEG_EN_BIT        12
-#define BASIC_CONTROL_POWER_DOWN_BIT        11
-#define BASIC_CONTROL_RESTART_AUTONEG_BIT   9
-#define BASIC_CONTROL_FULL_DUPLEX_BIT       8
+#define BASIC_CONTROL_RESET_BIT                 15
+#define BASIC_CONTROL_LOOPBACK_BIT              14
+#define BASIC_CONTROL_100_MBPS_BIT              13
+#define BASIC_CONTROL_1000_MBPS_BIT             6
+#define BASIC_CONTROL_AUTONEG_EN_BIT            12
+#define BASIC_CONTROL_POWER_DOWN_BIT            11
+#define BASIC_CONTROL_RESTART_AUTONEG_BIT       9
+#define BASIC_CONTROL_FULL_DUPLEX_BIT           8
 
 // Basic status register bits (0x01)
-#define BASIC_STATUS_100_BASE_FULL_DUPLEX_BIT 14
-#define BASIC_STATUS_100_BASE_HALF_DUPLEX_BIT 13
-#define BASIC_STATUS_10_BASE_FULL_DUPLEX_BIT  12
-#define BASIC_STATUS_10_BASE_HALF_DUPLEX_BIT  11
-#define BASIC_STATUS_EXTENDED_STATUS_BIT      8
-#define BASIC_STATUS_AUTONEG_COMPLETE_BIT     5
-#define BASIC_STATUS_LINK_BIT                 2
-
-#define IO_CFG_CRS_RX_DV_BIT                8
+#define BASIC_STATUS_100_BASE_FULL_DUPLEX_BIT   14
+#define BASIC_STATUS_100_BASE_HALF_DUPLEX_BIT   13
+#define BASIC_STATUS_10_BASE_FULL_DUPLEX_BIT    12
+#define BASIC_STATUS_10_BASE_HALF_DUPLEX_BIT    11
+#define BASIC_STATUS_EXTENDED_STATUS_BIT        8
+#define BASIC_STATUS_AUTONEG_COMPLETE_BIT       5
+#define BASIC_STATUS_LINK_BIT                   2
 
 // Auto-negotiation advertisement register bits (0x04) and link partner ability register (0x05)
-#define AUTONEG_ADVERT_100BASE_T4_DUPLEX                  9
-#define AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX             8
-#define AUTONEG_ADVERT_100BASE_TX_HALF_DUPLEX             7
-#define AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX              6
-#define AUTONEG_ADVERT_10BASE_TX_HALF_DUPLEX              5
+#define AUTONEG_ADVERT_100BASE_T4_DUPLEX              9
+#define AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX         8
+#define AUTONEG_ADVERT_100BASE_TX_HALF_DUPLEX         7
+#define AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX          6
+#define AUTONEG_ADVERT_10BASE_TX_HALF_DUPLEX          5
 
 // Gigabit control register bits (0x09)
-#define GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX       9
-#define GIGE_CONTROL_AUTONEG_1000BASE_T_HALF_DUPLEX       8
+#define GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX   9
+#define GIGE_CONTROL_AUTONEG_1000BASE_T_HALF_DUPLEX   8
 
 // Gigabit status register bits (0x0A)
-#define GIGE_STATUS_1000BASE_T_FULL_DUPLEX  11
-#define GIGE_STATUS_1000BASE_T_HALF_DUPLEX  10
+#define GIGE_STATUS_1000BASE_T_FULL_DUPLEX            11
+#define GIGE_STATUS_1000BASE_T_HALF_DUPLEX            10
+
+// Extended status register bits (0x0F) RGMII and SGMII only
+#define EXTENDED_STATUS_1000BASE_X_FULL_DUPLEX        15
+#define EXTENDED_STATUS_1000BASE_X_HALF_DUPLEX        14
+#define EXTENDED_STATUS_1000BASE_T_FULL_DUPLEX        13
+#define EXTENDED_STATUS_1000BASE_T_HALF_DUPLEX        12
+
 
 /** Type representing PHY auto negotiation enable/disable flags */
 typedef enum smi_autoneg_t {
