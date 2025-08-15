@@ -4,7 +4,7 @@ project(hw_test_rmii)
 
 set(APP_HW_TARGET           xk-eth-xu316-dual-100m.xn)
 
-include(${CMAKE_CURRENT_LIST_DIR}/../../examples/deps.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../test_deps_hw.cmake)
 
 set(APP_PCA_ENABLE ON)
 
