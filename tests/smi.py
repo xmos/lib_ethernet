@@ -6,21 +6,21 @@ from bitstring import BitArray, BitStream
 
 VERBOSE = False
 
-BIT_SOF_START = 0
-BIT_SOF_END = 1
-BIT_OP_END = 3
-BIT_PHY_ADDR_END = 8
-BIT_REG_ADDR_END = 13
-BIT_TURN_START = 14
-BIT_TURN_END = 15
-BIT_DATA_END = 31
-
 
 class smi_master_checker(px.SimThread):
     """"
     This simulator thread will act as SMI slave and check any transactions
     sent by the master.
     """
+
+    BIT_SOF_START = 0
+    BIT_SOF_END = 1
+    BIT_OP_END = 3
+    BIT_PHY_ADDR_END = 8
+    BIT_REG_ADDR_END = 13
+    BIT_TURN_START = 14
+    BIT_TURN_END = 15
+    BIT_DATA_END = 31
 
     def __init__(self, mdc_port, mdio_port, rst_n_port, expected_speed_hz, tx_data=[], mdc_mdio_bit_pos=None):
       # ports and data
@@ -201,7 +201,7 @@ class smi_master_checker(px.SimThread):
 
           else:
               # mdio 0, found start-of-frame? Check preamble length
-              self._bit_num = BIT_SOF_START
+              self._bit_num = self.BIT_SOF_START
 
               if self._preamble_bit_count >= 32:
                   self._state = "start_of_frame"
@@ -212,7 +212,7 @@ class smi_master_checker(px.SimThread):
                   self._data = []
 
       # end of SoF
-      elif self._bit_num == BIT_SOF_END:
+      elif self._bit_num == self.BIT_SOF_END:
           self._start_of_frame = self._data
           self._data = []
           if self._start_of_frame != [0, 1]:
@@ -220,7 +220,7 @@ class smi_master_checker(px.SimThread):
           self._state = "op_code"
       
       # end of opcode
-      elif self._bit_num == BIT_OP_END:
+      elif self._bit_num == self.BIT_OP_END:
           self._op_code = self._data
           self._data = []
 
@@ -238,19 +238,19 @@ class smi_master_checker(px.SimThread):
           self._state = "phy_address"
 
       # end of phy_address
-      elif self._bit_num == BIT_PHY_ADDR_END:
+      elif self._bit_num == self.BIT_PHY_ADDR_END:
           self._phy_addr = self._data
           self._data = []
           self._state = "reg_address"
 
       #end of reg address
-      elif self._bit_num == BIT_REG_ADDR_END:
+      elif self._bit_num == self.BIT_REG_ADDR_END:
           self._reg_addr = self._data
           self._data = []
           self._state = "turnaround"
 
       # Turnaround
-      elif self._bit_num == BIT_TURN_END:
+      elif self._bit_num == self.BIT_TURN_END:
           self._turnaround = self._data
           self._data = []
           if self._op_code == [1, 0]:
@@ -260,7 +260,7 @@ class smi_master_checker(px.SimThread):
           else:
               self._state = "invalid_op_code"
 
-      elif self._bit_num == BIT_DATA_END:
+      elif self._bit_num == self.BIT_DATA_END:
           if self._state == "write":
               self._write_data = self._data
               self._data = []
@@ -279,7 +279,7 @@ class smi_master_checker(px.SimThread):
 
     def drive_frame_on_rising(self):
       # Start read 
-      if self._bit_num >= BIT_TURN_START and self._state == "read":
+      if self._bit_num >= self.BIT_TURN_START and self._state == "read":
         value = self._tx_word[0]
         self.drive_mdio(value)
         # print(f"sending mdio: {value} {self.xsi.get_time()/1e9:.2f}us driving: {self.xsi.is_port_driving(self._mdio_port)}")
