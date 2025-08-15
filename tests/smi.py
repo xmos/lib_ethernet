@@ -200,15 +200,16 @@ class smi_master_checker(px.SimThread):
               self._preamble_bit_count += 1
 
           else:
-              # mdio 0, found start-of-frame? Check preamble length
+              # `mdio` is 0, found start-of-frame? Check preamble length
               self._bit_num = self.BIT_SOF_START
 
+              # Valid preamble is currently at least 32 bits of '1'. this may be reduced in future.
               if self._preamble_bit_count >= 32:
                   self._state = "start_of_frame"
                   self._data = [0]
               else:
                   self._state = "idle"
-                  self.error(f"Invalid preamble ({self._preamble_bit_count}): {self._data}")
+                  self.error(f"Invalid preamble ({self._preamble_bit_count}), expected 32 bits")
                   self._data = []
 
       # end of SoF
@@ -216,8 +217,10 @@ class smi_master_checker(px.SimThread):
           self._start_of_frame = self._data
           self._data = []
           if self._start_of_frame != [0, 1]:
-             self.error(f"Invalid start_of_frame: {self._start_of_frame}")
-          self._state = "op_code"
+              self.error(f"Invalid start_of_frame: {self._start_of_frame}")
+              self._state = "idle"
+          else:
+              self._state = "op_code"
       
       # end of opcode
       elif self._bit_num == self.BIT_OP_END:
