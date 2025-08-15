@@ -6,7 +6,7 @@ set(LIB_INCLUDES            api
                             src)
 
 set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.1)"
-                            "lib_logging(3.3.1)"
+                            "lib_logging(3.3.2)"
                             "lib_xassert(4.3.2)")
 
 set(LIB_COMPILER_FLAGS      -g

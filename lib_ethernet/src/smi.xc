@@ -248,13 +248,13 @@ unsigned smi_get_id(client smi_if smi, uint8_t phy_address) {
 
 void smi_phy_reset(client smi_if smi, uint8_t phy_address)
 {
-  smi.write_reg(phy_address, BASIC_CONTROL_REG, 1 << 15);
+  smi.write_reg(phy_address, BASIC_CONTROL_REG, 1 << BASIC_CONTROL_RESET_BIT);
   delay_microseconds(500);
   int control_reg;
 
   do {
     control_reg = smi.read_reg(phy_address, BASIC_CONTROL_REG);
-  } while ((control_reg >> 15) & 1);
+  } while ((control_reg >> BASIC_CONTROL_RESET_BIT) & 1);
 }
 
 unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
@@ -290,26 +290,39 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
   }
 
   if (auto_neg == SMI_ENABLE_AUTONEG) {
+    
+    unsigned status_reg = smi.read_reg(phy_address, BASIC_STATUS_REG);
+    if (status_reg & (1 << BASIC_STATUS_EXTENDED_STATUS_BIT)) {
+
+      uint16_t gige_control_reg = smi.read_reg(phy_address, GIGE_CONTROL_REG);
+      gige_control_reg &= ~(1 << GIGE_CONTROL_AUTONEG_1000BASE_T_HALF_DUPLEX);
+
+      if (speed_mbps == LINK_1000_MBPS_FULL_DUPLEX) {
+        gige_control_reg |= (1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX);
+      } else {
+        gige_control_reg &= ~(1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX);
+      }
+
+      smi.write_reg(phy_address, GIGE_CONTROL_REG, gige_control_reg);
+    } else {
+      if (speed_mbps == LINK_1000_MBPS_FULL_DUPLEX) {
+        fail("1000 Mbps mode not supported by PHY");
+      }
+    }
+    
     uint16_t auto_neg_advert_100_reg = smi.read_reg(phy_address, AUTONEG_ADVERT_REG);
-    uint16_t gige_control_reg = smi.read_reg(phy_address, GIGE_CONTROL_REG);
 
-    // Clear bits [9:5]
-    auto_neg_advert_100_reg &= 0xfc1f;
-    // Clear bits [9:8]
-    gige_control_reg &= 0xfcff;
+    // Clear mode bits that are not relevant for operation in 10/100 Mbps mode
+    auto_neg_advert_100_reg &= ~((1 << AUTONEG_ADVERT_100BASE_T4_DUPLEX) |
+                                 (1 << AUTONEG_ADVERT_100BASE_TX_HALF_DUPLEX) |
+                                 (1 << AUTONEG_ADVERT_10BASE_TX_HALF_DUPLEX));
 
-    switch (speed_mbps) {
-    #pragma fallthrough
-      case LINK_1000_MBPS_FULL_DUPLEX: gige_control_reg |= 1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX;
-    #pragma fallthrough
-      case LINK_100_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX;
-      case LINK_10_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX; break;
-      default: __builtin_unreachable(); break;
+    if (speed_mbps == LINK_10_MBPS_FULL_DUPLEX) {
+      auto_neg_advert_100_reg &= ~(1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX);
     }
 
     // Write back
     smi.write_reg(phy_address, AUTONEG_ADVERT_REG, auto_neg_advert_100_reg);
-    smi.write_reg(phy_address, GIGE_CONTROL_REG, gige_control_reg);
   }
 
   uint16_t basic_control = smi.read_reg(phy_address, BASIC_CONTROL_REG);
@@ -319,8 +332,8 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
     smi.write_reg(phy_address, BASIC_CONTROL_REG, basic_control);
     // restart autoneg
     basic_control |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
-  }
-  else {
+
+  } else {
     // set duplex mode, clear autoneg and speed
     basic_control |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
     basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT) |

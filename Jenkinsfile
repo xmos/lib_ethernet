@@ -7,7 +7,7 @@ getApproval()
 pipeline {
   agent none
   options {
-    buildDiscarder(xmosDiscardBuildSettings())
+    buildDiscarder(xmosDiscardBuildSettings(onlyArtifacts = false))
     skipDefaultCheckout()
     timestamps()
   }
@@ -143,7 +143,6 @@ pipeline {
                         echo "Running tests with random seed"
                         sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
                       }
-                      junit "pytest_result.xml"
                     } // script
                   } // dir("tests")
                 } // withTools
@@ -152,6 +151,7 @@ pipeline {
           } // steps
           post {
             always {
+              junit "${REPO_NAME}/tests/pytest_result.xml"
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
@@ -189,7 +189,6 @@ pipeline {
                           } // withXTAG
                         } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                     } // script
-                    junit "pytest_result.xml"
                   } // dir("tests")
                 } // withTools
               } // withVenv
@@ -197,6 +196,7 @@ pipeline {
           } // steps
           post {
             always {
+              junit "${REPO_NAME}/tests/pytest_result.xml"
               archiveArtifacts artifacts: "${REPO_NAME}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
@@ -235,7 +235,6 @@ pipeline {
                           } // withXTAG
                         } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                     } // script
-                    junit "pytest_result.xml"
                   } // dir("tests")
                 } // withTools
               } // withVenv
@@ -243,6 +242,7 @@ pipeline {
           } // steps
           post {
             always {
+              junit "${REPO_NAME}/tests/pytest_result.xml"
               archiveArtifacts artifacts: "${REPO_NAME}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
@@ -253,5 +253,11 @@ pipeline {
         } // stage('HW tests')
       } // parallel
     } // stage('Tests')
+    
+    stage('🚀 Release') {
+      steps {
+        triggerRelease()
+      }
+    }
   } // stages
 } // pipeline
