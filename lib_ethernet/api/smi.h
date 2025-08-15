@@ -22,6 +22,10 @@
 #define EXTENDED_STATUS_REG                     0xF
 // Only up to 0xf are IEEE-compliant. Above this they are vendor specific
 
+// Defines to shortly become redundant
+#define IO_CONFIG_1_REG                     0x302
+#define IO_CFG_CRS_RX_DV_BIT                8
+
 // Basic control register bits (0x00)
 #define BASIC_CONTROL_RESET_BIT                 15
 #define BASIC_CONTROL_LOOPBACK_BIT              14

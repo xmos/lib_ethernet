@@ -6,6 +6,7 @@ UNRELEASED
 
   * ADDED: Fix for out of range relocation when loading from constant or data pool
   * FIXED: Build warnings (when built with -Wextra)
+  * CHANGED: Added clock pulse to end of SMI transfer, required by some PHYs
 
 4.0.1
 -----

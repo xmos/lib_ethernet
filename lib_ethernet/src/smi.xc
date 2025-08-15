@@ -168,10 +168,8 @@ void smi(server interface smi_if i,
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
       res = smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
-
-      // Ensure MDIO is pull high at end after 100ns at end of transaction
-      delay_ticks(10);
-      p_smi_mdio :> void;
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, 1, 1, SMI_READ, 0, 0);
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int is_read = 0;
@@ -185,10 +183,8 @@ void smi(server interface smi_if i,
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
       (void) smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
-      
-      // Ensure MDIO is pull high at end after 100ns at end of transaction
-      delay_ticks(10);
-      p_smi_mdio :> void;
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, 1, 1, SMI_READ, 0, 0);
       break;
     }
   }
@@ -216,8 +212,8 @@ void smi_singleport(server interface smi_if i,
       smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       res = smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
-
-      // port already high so MDC and MDIO will be pulled high
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi, null, 1, 1, SMI_READ, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int is_read = 0;
@@ -231,10 +227,8 @@ void smi_singleport(server interface smi_if i,
       smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       (void) smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
-
-      // Ensure MDIO is pull high at end after 100ns at end of transaction
-      delay_ticks(10);
-      p_smi :> void;
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi, null, 1, 1, SMI_READ, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
     }
   }
@@ -264,7 +258,7 @@ unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
 
 void smi_mmd_write(client smi_if smi, uint8_t phy_address,
                    uint16_t mmd_dev, uint16_t mmd_reg,
-		               uint16_t value)
+                   uint16_t value)
 {
   smi.write_reg(phy_address, MMD_ACCESS_CONTROL, mmd_dev);
   smi.write_reg(phy_address, MMD_ACCESS_DATA, mmd_reg);
