@@ -5,6 +5,11 @@
 #include "mii_master.h"
 #include "mii_lite_driver.h"
 
+#ifndef UNUSED_CHANEND
+// A macro to avoid unused chanend warnings.
+#define UNUSED_CHANEND(c) do { unsafe { (void)(unsigned)(c); } } while (0)
+#endif
+
 // Note that the c_notif chanend is not used in this function because only one
 // end of the channel is used by the assembler to generate notification
 // interrupts.
@@ -16,6 +21,8 @@ void mii_driver(in port p_rxclk, in port p_rxer0, in port p_rxd0,
                 clock txclk,
                 chanend c_in, chanend c_out, chanend c_notif)
 {
+  UNUSED_CHANEND(c_notif);
+
   in port * movable pp_rxd0 = &p_rxd0;
   in buffered port:32 * movable pp_rxd = reconfigure_port(move(pp_rxd0), in buffered port:32);
   in buffered port:32 &p_rxd = *pp_rxd;
