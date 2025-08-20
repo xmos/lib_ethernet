@@ -364,16 +364,16 @@ static void debug_ip_request(unsigned char rxbuf[])
 
   if (rxbuf[IP_PROTOCOL_IDX] == IP_ICMP_PROTOCOL)
   {
-    debug_printf("ICMP packet received (0x%02X)\n", IP_PROTOCOL_IDX);
+    debug_printf("ICMP packet received (0x%02X)\n", rxbuf[IP_PROTOCOL_IDX]);
     debug_icmp_packet(rxbuf, datalen);
   }
   else if (rxbuf[IP_PROTOCOL_IDX] == IP_TCP_PROTOCOL)
   {
-    debug_printf("TCP packet received (0x%02X)\n", IP_PROTOCOL_IDX);
+    debug_printf("TCP packet received (0x%02X)\n", rxbuf[IP_PROTOCOL_IDX]);
   }
   else if (rxbuf[IP_PROTOCOL_IDX] == IP_UDP_PROTOCOL)
   {
-    debug_printf("UDP packet received (0x%02X)\n", IP_PROTOCOL_IDX);
+    debug_printf("UDP packet received (0x%02X)\n", rxbuf[IP_PROTOCOL_IDX]);
     debug_udp_packet(rxbuf);
   }
   else
