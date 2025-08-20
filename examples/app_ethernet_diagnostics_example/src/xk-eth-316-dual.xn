@@ -3,7 +3,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://www.xmos.com http://www.xmos.com">
   <Type>Board</Type>
-  <Name>xcore.ai Daisy Chain Ethernet</Name>
+  <Name>xcore.ai Ethernet Development Kit</Name>
 
   <Declarations>
     <Declaration>tileref tile[2]</Declaration>
@@ -22,21 +22,34 @@
             <Port Location="XS1_PORT_4B"  Name="PORT_SQI_SIO"/>
             
             <!-- PHY 0 Uses upper 2 bits of 4b ports for Data -->
-            <Port Location="XS1_PORT_1A" Name="PHY_0_TX_EN"/>
-            <Port Location="XS1_PORT_4F" Name="PHY_0_TXD_4BIT"/>
-            <Port Location="XS1_PORT_1D" Name="PHY_0_RXDV"/>
-            <Port Location="XS1_PORT_4E" Name="PHY_0_RXD_4BIT"/>
-            
+            <Port Location="XS1_PORT_1A" Name="RMII_PHY_0_TX_EN"/>
+            <Port Location="XS1_PORT_4F" Name="RMII_PHY_0_TXD_4BIT"/> <!-- TXD0/1 on P4F2/3 -->
+            <Port Location="XS1_PORT_1D" Name="RMII_PHY_0_RXDV"/>
+            <Port Location="XS1_PORT_4E" Name="RMII_PHY_0_RXD_4BIT"/> <!-- RXD0/1 on P4E2/3 -->
+
             <!-- PHY 1 Uses 1b ports for Rx Data and 8b port for Tx Data -->
-            <Port Location="XS1_PORT_1L" Name="PHY_1_TX_EN"/>
-            <Port Location="XS1_PORT_8D" Name="PHY_1_TXD_8BIT"/>
-            <Port Location="XS1_PORT_1M" Name="PHY_1_RXDV"/>
-            <Port Location="XS1_PORT_1N" Name="PHY_1_RXD_0"/>
-            <Port Location="XS1_PORT_1O" Name="PHY_1_RXD_1"/>
-            
-            <Port Location="XS1_PORT_1P" Name="PHY_CLK_50M"/>
+            <Port Location="XS1_PORT_1L" Name="RMII_PHY_1_TX_EN"/>
+            <Port Location="XS1_PORT_8D" Name="RMII_PHY_1_TXD_8BIT"/> <!-- TXD0/1 on P8D6/7 -->
+            <Port Location="XS1_PORT_1M" Name="RMII_PHY_1_RXDV"/>
+            <Port Location="XS1_PORT_1N" Name="RMII_PHY_1_RXD_0"/>
+            <Port Location="XS1_PORT_1O" Name="RMII_PHY_1_RXD_1"/>
+
+            <Port Location="XS1_PORT_1P" Name="RMII_PHY_CLK_50M"/>
+
+            <!-- I2C - shared with RMII PHY1 TXD -->
+            <Port Location="XS1_PORT_8D" Name="I2C_SDA_SCL"/> <!-- SCL on P8D4, SDA on P8D5 -->
+
           </Tile>
           <Tile Number="1" Reference="tile[1]">
+            <!-- Codec I2S signals -->
+            <Port Location="XS1_PORT_1A"  Name="I2S_DAC_DATA"/>
+            <Port Location="XS1_PORT_1K"  Name="I2S_ADC_DATA"/>
+            <Port Location="XS1_PORT_1B"  Name="I2S_LRCK"/>
+            <Port Location="XS1_PORT_1C"  Name="I2S_BCLK"/>
+
+            <!-- Main clock -->
+            <Port Location="XS1_PORT_1D"  Name="MCLK"/>
+            
             <!-- Shared config pins for both PHYs -->
             <Port Location="XS1_PORT_1F"  Name="MDC"/>
             <Port Location="XS1_PORT_1G"  Name="MDIO"/>

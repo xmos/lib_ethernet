@@ -17,11 +17,12 @@
 port p_smi_mdio = MDIO;
 port p_smi_mdc = MDC;
 
-port p_phy_rxd = PHY_0_RXD_4BIT;
-port p_phy_txd = PHY_0_TXD_4BIT;
-port p_phy_rxdv = PHY_0_RXDV;
-port p_phy_txen = PHY_0_TX_EN;
-port p_phy_clk = PHY_CLK_50M;
+port p_phy_rxd = RMII_PHY_0_RXD_4BIT;
+port p_phy_txd = RMII_PHY_0_TXD_4BIT;
+port p_phy_rxdv = RMII_PHY_0_RXDV;
+port p_phy_txen = RMII_PHY_0_TX_EN;
+
+port p_phy_clk = RMII_PHY_CLK_50M;
 
 clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
