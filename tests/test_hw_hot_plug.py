@@ -65,7 +65,7 @@ def test_hw_hot_plug(request, seed):
     lp_client_id = 0
     hp_client_id = 1
 
-    xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"tx_{phy}" / f"hw_test_rmii_tx_{phy}.xe"
+    xe_name = pkg_dir / "hw_test_rmii_tx" / "bin" / f"{phy}" / f"hw_test_rmii_tx_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         if dbg.wait_for_links_up():
             print("Links up")

@@ -39,9 +39,9 @@ set(COMPILER_FLAGS_COMMON   -g
 
 foreach(phy PHY0 PHY1) # compile for each phy
     string(TOLOWER ${phy} phy_lower)
-    set(APP_COMPILER_FLAGS_tx_${phy_lower}                             ${COMPILER_FLAGS_COMMON} -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
-    set(APP_COMPILER_FLAGS_tx_single_client_${phy_lower}                    ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DUSE_${phy}=1)
-    set(APP_COMPILER_FLAGS_tx_single_client_with_ts_probe_${phy_lower}     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DPROBE_TX_TIMESTAMPS=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_${phy_lower}                                 ${COMPILER_FLAGS_COMMON} -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_single_client_${phy_lower}                   ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_single_client_with_ts_probe_${phy_lower}     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DPROBE_TX_TIMESTAMPS=1 -DUSE_${phy}=1)
 endforeach()
 
 set(APP_XSCOPE_SRCS ../hw_test_rmii_rx/src/xscope_control/config.xscope)

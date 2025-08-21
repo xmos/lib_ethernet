@@ -39,8 +39,8 @@ set(COMPILER_FLAGS_COMMON   -g
 
 foreach(phy PHY0 PHY1) # compile for each phy
     string(TOLOWER ${phy} phy_lower)
-    set(APP_COMPILER_FLAGS_rx_${phy_lower}                 ${COMPILER_FLAGS_COMMON} -DUSE_${phy}=1)
-    set(APP_COMPILER_FLAGS_rx_multiple_queues_${phy_lower}      ${COMPILER_FLAGS_COMMON} -DMULTIPLE_QUEUES=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_${phy_lower}                     ${COMPILER_FLAGS_COMMON} -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_multiple_queues_${phy_lower}     ${COMPILER_FLAGS_COMMON} -DMULTIPLE_QUEUES=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
 endforeach()
 
 set(APP_XSCOPE_SRCS src/xscope_control/config.xscope)
