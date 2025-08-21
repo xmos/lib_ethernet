@@ -155,7 +155,7 @@ pipeline {
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
-            xcoreCleanSandbox()
+              xcoreCleanSandbox()
             } // cleanup
           } // post
         } // stage('Simulator tests')
