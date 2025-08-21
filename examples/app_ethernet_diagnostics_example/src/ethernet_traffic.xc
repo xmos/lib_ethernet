@@ -9,6 +9,9 @@
 // Library headers
 #include "ethernet.h"
 
+#define ETHERNET_LINK_IDX   0
+#define ETHERNET_SPEED_IDX  1
+
 #define PACKET_FOR_US       1
 #define PACKET_NULL         0
 #define PACKET_FOR_OTHER    -1
@@ -443,12 +446,12 @@ void ethernet_traffic(client ethernet_cfg_if cfg,
       rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
 
       if (packet_info.type != ETH_DATA) {
-        // convert ethernet_speed_t to Mbps
+        // convert ethernet_speed_t to Mbps, where 0 == 10 Mbps
         int speed = 10;
-        for (int i = 0; i < (int)rxbuf[1]; i++) {
+        for (int i = 0; i < (int)rxbuf[ETHERNET_SPEED_IDX]; i++) {
           speed = speed * 10;
         }
-        debug_printf("Link: %s, speed: %d Mbps\n", rxbuf[0] ? "up" : "down", speed);
+        debug_printf("Link: %s, speed: %d Mbps\n", rxbuf[ETHERNET_LINK_IDX] ? "up" : "down", speed);
 
       } else {
         // Data received
