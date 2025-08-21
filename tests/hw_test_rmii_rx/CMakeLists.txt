@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
-project(hw_test_rmii)
+project(hw_test_rmii_rx)
+
+include(${CMAKE_CURRENT_LIST_DIR}/../board_support/board_support.cmake)
 
 set(APP_HW_TARGET           xk-eth-xu316-dual-100m.xn)
 
@@ -31,7 +33,7 @@ set(COMPILER_FLAGS_COMMON   -g
                             -Os
                             -Wno-reinterpret-alignment
                             -fxscope
-                            -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
+                            -DTEST_BOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
                             -DENABLE_MAC_START_NOTIFICATION=1
                             )
 
@@ -43,7 +45,10 @@ endforeach()
 
 set(APP_XSCOPE_SRCS src/xscope_control/config.xscope)
 
-set(APP_INCLUDES src/xscope_control src/xu316_dual_100m_ports ${REL_AUTOGEN_DIR})
+set(APP_INCLUDES src/xscope_control src/xu316_dual_100m_ports ${test_board_support_INC} ${REL_AUTOGEN_DIR})
+
+file(GLOB_RECURSE XC_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} "src/*.xc")
+set(APP_XC_SRCS ${XC_SOURCES} ${test_board_support_SRCS})
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
