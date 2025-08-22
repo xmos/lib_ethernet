@@ -13,6 +13,8 @@ for the Ethernet stack.
 
 Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed, as described in :numref:`ethernet_supported_macs`.
 
+To skip to ``lib_ethernet`` usage and getting-started please see :ref:`usage_section` and :ref:`getting_started_section`.
+
 .. _ethernet_supported_macs:
 .. list-table:: Ethernet MAC support by XMOS device family
  :widths: 30 20 20 20 20
@@ -50,25 +52,6 @@ The MII MAC is available as two types; a low resource usage version which provid
 All RMII and RGMII implementations offer the 'real-time' features as standard. See the :ref:`rt_mac_section` section for more details.
 
 In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
-
-*****
-Usage
-*****
-
-``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
-, the `XMOS` application build and dependency management system.
-
-To use ``lib_ethernet`` in an application, add ``lib_ethernet``, to the list of dependent modules in the application's `CMakeLists.txt` file.
-
-.. code-block:: cmake
-
-  set(APP_DEPENDENT_MODULES "lib_ethernet")
-
-All `lib_ethernet` functions can be accessed via the ``ethernet.h`` header file
-
-.. code-block:: C
-
-  #include <ethernet.h>
 
 |newpage|
 
@@ -480,10 +463,35 @@ Other IO pins and ports are unaffected.
 
 |newpage|
 
+.. _usage_section:
 
-**********************
+*****
+Usage
+*****
+
 Using ``lib_ethernet``
-**********************
+======================
+
+``lib_ethernet`` is intended to be used with `XCommon CMake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
+, the `XMOS` application build and dependency management system.
+
+To use ``lib_ethernet`` in an application, add ``lib_ethernet``, to the list of dependent modules in the application's `CMakeLists.txt` file.
+
+.. code-block:: cmake
+
+  set(APP_DEPENDENT_MODULES "lib_ethernet")
+
+All `lib_ethernet` functions can be accessed via the ``ethernet.h`` header file
+
+.. code-block:: C
+
+  #include <ethernet.h>
+
+
+`xcore` and PHY compatibility
+=============================
+
+Please see :numref:`ethernet_supported_macs` for details of supported `xcore` architectures and PHY interfaces.
 
 10/100 Mb/s Ethernet MAC operation
 ==================================
@@ -804,6 +812,91 @@ The speed of the interface is set conservatively at 1.66 MHz which supports slow
   #define SMI_BIT_CLOCK_HZ 1660000
 
 Increasing the bit clock may require use of smaller pull-up resistor(s) depending on board layout to ensure that the signal rise time is sufficient. If in doubt, either test operation using lower the bit rate by setting a smaller ``SMI_BIT_CLOCK_HZ`` or check with an oscilloscope to ensure that the MDC and MDIO lines are fully reaching the logic high state.
+
+.. _getting_started_section:
+
+Getting Started
+===============
+
+The `app_ethernet_diagnostics` example is provided to show how the library can 
+receive and process Ethernet traffic for simple packet diagnostics output.
+
+The example targets the `XK-ETH-316-DUAL` development kit and 100 BASE-T ethernet using an RMII PHY. The SMI features are used via
+the ``lib_board_support`` API for the `XK-ETH-316-DUAL`.
+
+The IP address for the `xcore` will be statically assigned using a char array in ``main.xc``, if needed modify the IPv4
+address in:
+
+.. literalinclude:: ../../examples/app_ethernet_diagnostics/src/main.xc
+  :language: c
+  :start-at: Set to your desired IP address
+  :end-at: unsigned char ip_address
+
+The excerpt from the example ethernet traffic diagnostics application shown below shows how to configure the
+``lib_ethernet`` server with the application client here as `ethernet_traffic`.
+
+.. literalinclude:: ../../examples/app_ethernet_diagnostics/src/main.xc
+  :language: c
+  :start-at: int main()
+
+.. c:namespace-push:: ethernet_namespace
+
+The function `ethernet_traffic`, called from main will listen for Ethernet traffic
+and shows an example of handling the events and data flowing to and from the Ethernet library.
+For details of the possible notifications please see enum :c:enum:`eth_packet_type_t`.
+
+.. c:namespace-pop::
+
+The traffic analysis is performed on only those Ethernet frames that match the EtherType filters and MAC address filters assigned to ``lib_ethernet``.
+The MAC address filters are assigned early in the function `ethernet_traffic`:
+
+.. literalinclude:: ../../examples/app_ethernet_diagnostics/src/ethernet_traffic.xc
+  :language: c
+  :start-at: void ethernet_traffic
+  :end-before: // Only allow ARP
+
+The EtherTypes are then assigned:
+
+.. literalinclude:: ../../examples/app_ethernet_diagnostics/src/ethernet_traffic.xc
+  :language: c
+  :start-at: // Only allow ARP
+  :end-at: (index, ETH_FRAME_TYPE_IP)
+
+The client will then wait on events from ``lib_ethernet``:
+
+.. literalinclude:: ../../examples/app_ethernet_diagnostics/src/ethernet_traffic.xc
+  :language: c
+  :start-at: while (1)
+  :end-at: rx.get_packet
+
+When data is received it will be decoded according to the EtherType and output to xscope.
+
+.. literalinclude:: ../../examples/app_ethernet_diagnostics/src/ethernet_traffic.xc
+  :language: c
+  :start-at: int eth_type
+  :end-at: process_ip_packet
+
+The project supports CMake by default, to build the project first configure then 
+build with,
+
+.. code-block:: shell
+
+  cd lib_ethernet
+  cd examples
+
+  cmake -B build -G "Unix Makefiles"
+  
+  xmake -j -C build
+
+Once built run with,
+
+.. code-block:: shell
+
+  xrun --xscope app_ethernet_diagnostics/bin/app_ethernet_diagnostics.xe
+
+When running and with the development kit connected to the same network as the computer,
+the xscope output in the terminal will output details of each Ethernet frame received.
+
 
 |newpage|
 

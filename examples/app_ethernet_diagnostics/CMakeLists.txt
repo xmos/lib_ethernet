@@ -8,7 +8,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../deps.cmake)
 
 set(APP_PCA_ENABLE ON)
 
-set(COMPILER_FLAGS_COMMON   -g
+set(APP_COMPILER_FLAGS      -g
                             -Os
                             -Wall
                             -Wdiv-by-zero
@@ -18,8 +18,6 @@ set(COMPILER_FLAGS_COMMON   -g
                             -DDEBUG_PRINT_ENABLE=1
                             -DDEBUG_PRINT_ENABLE_xk_eth_316_dual=1
                             -DXASSERT_ENABLE_DEBUG=1)
-
-set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})
 
 set(APP_XSCOPE_SRCS         src/config.xscope)
 

@@ -5,7 +5,7 @@ set(LIB_VERSION             4.0.1)
 set(LIB_INCLUDES            api
                             src)
 
-set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.1)"
+set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.2)"
                             "lib_logging(3.4.0)"
                             "lib_xassert(4.3.2)")
 
