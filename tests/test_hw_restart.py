@@ -59,7 +59,7 @@ def test_hw_restart(request, send_method):
         assert False, f"Invalid send_method {send_method}"
 
 
-    xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"loopback_{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
+    xe_name = pkg_dir / "hw_test_rmii_loopback" / "bin" / f"{phy}" / f"hw_test_rmii_loopback_{phy}.xe"
     with XcoreAppControl(adapter_id, xe_name, verbose=verbose) as xcoreapp, hw_eth_debugger() as dbg:
         print("Wait for DUT to be ready")
         if not no_debugger:
