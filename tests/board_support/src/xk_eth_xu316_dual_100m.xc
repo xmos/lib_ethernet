@@ -43,7 +43,7 @@ void reset_eth_phys()
     p_phy_rst_n <: 0x00;
     delay_microseconds(100); // dp83826e datasheet says 25us min
     p_phy_rst_n <: 0x08;     // Set bit 3 high
-    delay_milliseconds(2);
+    delay_milliseconds(55);  // dp83826e datasheet says 50ms min
 }
 
 rmii_port_timing_t get_port_timings(port_timing_index_t phy_idx){
@@ -106,6 +106,7 @@ void dual_dp83826e_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
 
     reset_eth_phys();
 
+    const ethernet_speed_t TARGET_LINK_SPEED = LINK_100_MBPS_FULL_DUPLEX;
     ethernet_link_state_t link_state[2] = {ETHERNET_LINK_DOWN, ETHERNET_LINK_DOWN};
     ethernet_speed_t link_speed[2] = {LINK_100_MBPS_FULL_DUPLEX, LINK_100_MBPS_FULL_DUPLEX};
     const int link_poll_period_ms = 1000;
@@ -122,6 +123,8 @@ void dual_dp83826e_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
         while(smi_phy_is_powered_down(i_smi, phy_address));
 
         debug_printf("Started PHY %d\n", phy_idx);
+
+        smi_configure(i_smi, phy_address, TARGET_LINK_SPEED, SMI_ENABLE_AUTONEG);
 
         // Set LED config to light the SPEED100M LED correctly. LEDCFG register (0x0460). LED2. Want to set bits 11-8 to 0x5.
         // Datasheet says LED control is on bits 11-8 but I think it's really bits 4-7.
@@ -165,6 +168,9 @@ void dual_dp83826e_phy_driver(CLIENT_INTERFACE(smi_if, i_smi),
 
                     if (new_state != link_state[phy_idx]) {
                         link_state[phy_idx] = new_state;
+                        if (new_state == ETHERNET_LINK_UP) {
+                            link_speed[phy_idx] = smi_get_link_speed(i_smi, phy_address);
+                        }
                         if(phy_idx == 0){
                             i_eth_phy0.set_link_state(0, new_state, link_speed[phy_idx]);
                         } else {
