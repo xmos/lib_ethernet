@@ -394,6 +394,7 @@ The Ethernet MAC implements ID mode as specified by RGMII. TX clock from xCORE t
 is 500MHz):
 
 .. literalinclude:: ../../lib_ethernet/src/rgmii_consts.h
+   :language: c
    :start-at: RGMII_DELAY
    :end-at: RGMII_DELAY_100M
 
@@ -813,10 +814,16 @@ The speed of the interface is set conservatively at 1.66 MHz which supports slow
 
 Increasing the bit clock may require use of smaller pull-up resistor(s) depending on board layout to ensure that the signal rise time is sufficient. If in doubt, either test operation using lower the bit rate by setting a smaller ``SMI_BIT_CLOCK_HZ`` or check with an oscilloscope to ensure that the MDC and MDIO lines are fully reaching the logic high state.
 
+|newpage|
+
 .. _getting_started_section:
 
+***************
 Getting Started
-===============
+***************
+
+Example Introduction
+====================
 
 The `app_ethernet_diagnostics` example is provided to show how the library can 
 receive and process Ethernet traffic for simple packet diagnostics output.
@@ -832,6 +839,9 @@ address in:
   :start-at: Set to your desired IP address
   :end-at: unsigned char ip_address
 
+Source Code and Configuration
+=============================
+
 The excerpt from the example ethernet traffic diagnostics application shown below shows how to configure the
 ``lib_ethernet`` server with the application client here as `ethernet_traffic`.
 
@@ -846,6 +856,8 @@ and shows an example of handling the events and data flowing to and from the Eth
 For details of the possible notifications please see enum :c:enum:`eth_packet_type_t`.
 
 .. c:namespace-pop::
+
+|newpage|
 
 The traffic analysis is performed on only those Ethernet frames that match the EtherType filters and MAC address filters assigned to ``lib_ethernet``.
 The MAC address filters are assigned early in the function `ethernet_traffic`:
@@ -876,6 +888,9 @@ When data is received it will be decoded according to the EtherType and output t
   :start-at: int eth_type
   :end-at: process_ip_packet
 
+Building and Running
+====================
+
 The project supports CMake by default, to build the project first configure then 
 build with,
 
@@ -897,6 +912,57 @@ Once built run with,
 When running and with the development kit connected to the same network as the computer,
 the xscope output in the terminal will output details of each Ethernet frame received.
 
+Example output is shown below. The output includes the MAC address and IP address of the diagnostic server,
+as well as the status of the PHY. The Link status and speed is also shown when the link comes up. Note,
+the first packet is often received before the link status is reported.
+
+Depending on the network configuration, the first few packets received may be ARP requests:
+
+.. code-block:: console
+
+  Diagnostic server started at MAC 0:22:97:1:2:3, IP 192.168.1.178
+  Starting PHY 0
+
+  -------------------
+  ARP packet received
+  - Ethernet source: xx:xx:xx:xx:xx:xx,   Ethernet destination: FF:FF:FF:FF:FF:FF,   Ethernet type: ARP (0x806)
+  - An ARP request
+  - ARP hardware: 1, protocol: 0x800, length: 6
+  - ARP source: xx:xx:xx:xx:xx:xx, IP: 0.0.0.0
+  - ARP target: 0:0:0:0:0:0,       IP: 192.168.1.99
+  Link: up, speed: 100 Mbps
+
+Some hosts will output NetBIOS packets. These can be identified as they use port 137:
+
+.. code-block:: console
+
+  -------------------
+  IPv4 packet received
+  Not for us
+  - Ethernet source: xx:xx:xx:xx:xx:xx,   Ethernet destination: FF:FF:FF:FF:FF:FF,   Ethernet type: IP (0x800)
+  - IP version: 0x45, length: 96, checksum: 0x5E8F, ok
+  - IP source: 192.168.200.99
+  - IP destination: 192.168.200.255
+  UDP packet received (0x11)
+  - UDP src port: 137, dst port: 137, length: 76, checksum: 0x7217
+  - UDP data: 0xBEE2 ...
+
+When ping is run targeting the `xcore` device, the following packets may also be received:
+
+.. code-block:: console
+
+  -------------------
+  IPv4 packet received
+  - Ethernet source: xx:xx:xx:xx:xx:xx,   Ethernet destination: 0:22:97:1:2:3,   Ethernet type: IP (0x800)
+  - IP version: 0x45, length: 60, checksum: 0x7FC3, ok
+  - IP source: 192.168.1.99
+  - IP destination: 192.168.1.178
+  ICMP packet received (0x1)
+  - An ICMP echo request
+  - ICMP type: 8
+  - ICMP code: 0
+  - ICMP checksum: 0x4D51
+  - ICMP data: 61 62 63 64 65 66 67 68 69 6A 6B 6C 6D 6E 6F 70 71 72 73 74 75 76 77 61 62 63 64 65 66 67 68 69
 
 |newpage|
 
