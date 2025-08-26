@@ -4,4 +4,4 @@ include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
 
 project(lib_ethernet_examples)
 
-add_subdirectory(app_ethernet_diagnostics_example)
+add_subdirectory(app_ethernet_diagnostics)
