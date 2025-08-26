@@ -13,8 +13,6 @@ for the Ethernet stack.
 
 Various MAC blocks are available depending on the XMOS architecture selected, desired PHY interface and line speed, as described in :numref:`ethernet_supported_macs`.
 
-To skip to ``lib_ethernet`` usage and getting-started please see :ref:`usage_section` and :ref:`getting_started_section`.
-
 .. _ethernet_supported_macs:
 .. list-table:: Ethernet MAC support by XMOS device family
  :widths: 30 20 20 20 20
@@ -52,6 +50,11 @@ The MII MAC is available as two types; a low resource usage version which provid
 All RMII and RGMII implementations offer the 'real-time' features as standard. See the :ref:`rt_mac_section` section for more details.
 
 In addition, all MACs support client specific filtering for both source MAC address and Ethertype. See the :ref:`standard_mac_section` section for more details.
+
+The :ref:`usage_section` section provides information on how to use the library from a developers' perspective. From using CMake to refer to ``lib_ethernet``, 
+setting up `main()`, and setting up a client application.
+
+To see a working example that uses ``lib_ethernet`` and how the library can be used in practice, see the :ref:`example_section` section.
 
 |newpage|
 
@@ -816,11 +819,11 @@ Increasing the bit clock may require use of smaller pull-up resistor(s) dependin
 
 |newpage|
 
-.. _getting_started_section:
+.. _example_section:
 
-***************
-Getting Started
-***************
+*******************
+Example Application
+*******************
 
 Example Introduction
 ====================
@@ -888,26 +891,63 @@ When data is received it will be decoded according to the EtherType and output t
   :start-at: int eth_type
   :end-at: process_ip_packet
 
-Building and Running
+Building the example
 ====================
 
-The project supports CMake by default, to build the project first configure then 
-build with,
+This section assumes that the `XMOS XTC Tools <https://www.xmos.com/software-tools/>`_ have been
+downloaded and installed. The required version is specified in the accompanying ``README``.
+
+Installation instructions can be found `here <https://xmos.com/xtc-install-guide>`_.
+
+Special attention should be paid to the section on
+`Installation of Required Third-Party Tools <https://www.xmos.com/documentation/XM-014363-PC/html/installation/install-configure/install-tools/install_prerequisites.html>`_.
+
+The application is built using the `xcommon-cmake <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
+build system, which is provided with the XTC tools and is based on `CMake <https://cmake.org/>`_.
+
+The ``lib_ethernet`` software ZIP package should be downloaded and extracted to a chosen working
+directory.
+
+|newpage|
+
+To configure the build, the following commands should be run from an XTC command prompt:
 
 .. code-block:: shell
 
-  cd lib_ethernet
-  cd examples
+  cd lib_ethernet/examples/app_ethernet_diagnostics
 
   cmake -B build -G "Unix Makefiles"
   
-  xmake -j -C build
+If any dependencies are missing they will be retrieved automatically during this step.
 
-Once built run with,
+The application binaries should then be built using ``xmake``:
 
 .. code-block:: shell
 
-  xrun --xscope app_ethernet_diagnostics/bin/app_ethernet_diagnostics.xe
+  xmake -j -C build
+
+Binary artifacts (.xe files) will be generated under the appropriate subdirectories of the
+``app_ethernet_diagnostics/bin`` directory — one for each supported build configuration.
+
+For subsequent builds, the ``cmake`` step may be omitted.
+If ``CMakeLists.txt`` or other build files are modified, ``cmake`` will be re-run automatically
+by ``xmake`` as needed.
+
+Running the example
+===================
+
+From an XTC command prompt, the following command should be run from the ``examples/app_ethernet_diagnostics``
+directory:
+
+.. code-block:: console
+
+  xrun --xscope ./bin/app_ethernet_diagnostics.xe
+
+Alternatively, the application can be programmed into flash memory for standalone execution:
+
+.. code-block:: console
+
+  xflash ./bin/app_ethernet_diagnostics.xe
 
 When running and with the development kit connected to the same network as the computer,
 the xscope output in the terminal will output details of each Ethernet frame received.
@@ -931,6 +971,8 @@ Depending on the network configuration, the first few packets received may be AR
   - ARP source: xx:xx:xx:xx:xx:xx, IP: 0.0.0.0
   - ARP target: 0:0:0:0:0:0,       IP: 192.168.1.99
   Link: up, speed: 100 Mbps
+
+|newpage|
 
 Some hosts will output NetBIOS packets. These can be identified as they use port 137:
 
