@@ -5,7 +5,9 @@
 getApproval()
 
 pipeline {
+
   agent none
+
   options {
     buildDiscarder(xmosDiscardBuildSettings(onlyArtifacts = false))
     skipDefaultCheckout()
@@ -31,41 +33,39 @@ pipeline {
           description: 'Run tests with either a fixed seed or a randomly generated seed')
   }
   environment {
-    REPO_NAME = 'lib_ethernet'
-    PIP_VERSION = "24.0"
     SEED = "12345"
   }
+
   stages {
     stage('Build + Documentation') {
       agent {
         label 'documentation && linux && x86_64'
       }
+
       stages {
         stage('Checkout') {
-          environment {
-            PYTHON_VERSION = "3.12.1"
-          }
           steps {
             println "Stage running on: ${env.NODE_NAME}"
-            dir("${REPO_NAME}") {
+
+            script {
+                def (server, user, repo) = extractFromScmUrl()
+                env.REPO_NAME = repo
+            }
+
+            dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv()
-              installPipfile(false)
+              createVenv(reqFile: "requirements.txt")
             }
           }
         }  // Get sandbox
 
         stage('Build examples') {
           steps {
-            withTools(params.TOOLS_VERSION) {
-              dir("${REPO_NAME}/examples") {
-                script {
-                  echo "Test Stage: SEED is ${env.SEED}"
-                  // Build all apps in the examples directory
-                  xcoreBuild()
-                } // script
-              } // dir
-            } //withTools
+            dir("${REPO_NAME}/examples") {
+              println "Test Stage: SEED is ${env.SEED}"
+              // Build all apps in the examples directory
+              xcoreBuild()
+            } // dir
           } // steps
         }  // Build examples
 
@@ -76,57 +76,56 @@ pipeline {
             }
           }
         }
+
         stage('Documentation') {
           steps {
-            dir("${REPO_NAME}") {
-              warnError("Docs") {
-                buildDocs()
-              }
+            dir(REPO_NAME) {
+              buildDocs()
             }
           }
         }
+
         stage('Build tests') {
           steps {
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               withVenv {
-                withTools(params.TOOLS_VERSION) {
-                  dir("tests") {
-                    xcoreBuild()
-                    stash includes: '**/*.xe', name: 'test_bin', useDefaultExcludes: false
-                  }
-                } // withTools(params.TOOLS_VERSION)
+                dir("tests") {
+                  xcoreBuild()
+                  stash includes: '**/*.xe', name: 'test_bin', useDefaultExcludes: false
+                }
               } // withVenv
-            } // dir("${REPO_NAME}")
+            } // dir(REPO_NAME)
           } // steps
         } // stage('Build tests')
+
         stage("Archive Lib") {
           steps {
             archiveSandbox(REPO_NAME)
           }
         } //stage("Archive Lib")
       } // stages
+
       post {
         cleanup {
           xcoreCleanSandbox()
         } // cleanup
       } // post
     } // stage('Build + Documentation')
+
     stage('Tests') {
       parallel {
+        
         stage('Simulator tests') {
-          environment {
-              PYTHON_VERSION = "3.12.1"
-            }
           agent {
             label 'linux && x86_64'
           }
+
           steps {
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv()
-              installPipfile(false)
+              createVenv(reqFile: "requirements.txt")
             }
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               withVenv {
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
@@ -147,7 +146,7 @@ pipeline {
                   } // dir("tests")
                 } // withTools
               } // withVenv
-            } // dir("${REPO_NAME}")
+            } // dir(REPO_NAME)
           } // steps
           post {
             always {
@@ -159,21 +158,19 @@ pipeline {
             } // cleanup
           } // post
         } // stage('Simulator tests')
+
         stage('HW tests - PHY0') {
           agent {
             label 'sw-hw-eth-ubu0'
           }
-          environment {
-            PYTHON_VERSION = "3.12.3"
-          }
+
           steps {
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv()
-              installPipfile(false)
+              createVenv(reqFile: "requirements.txt")
             }
 
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               withVenv {
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
@@ -192,7 +189,7 @@ pipeline {
                   } // dir("tests")
                 } // withTools
               } // withVenv
-            } // dir("${REPO_NAME}")
+            } // dir(REPO_NAME)
           } // steps
           post {
             always {
@@ -205,21 +202,19 @@ pipeline {
             } // cleanup
           } // post
         } // stage('HW tests - PHY0')
+
         stage('HW tests - PHY1') {
           agent {
             label 'sw-hw-eth-ubu1'
           }
-          environment {
-            PYTHON_VERSION = "3.12.3"
-          }
+          
           steps {
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv()
-              installPipfile(false)
+              createVenv(reqFile: "requirements.txt")
             }
 
-            dir("${REPO_NAME}") {
+            dir(REPO_NAME) {
               withVenv {
                 withTools(params.TOOLS_VERSION) {
                   dir("tests") {
@@ -238,7 +233,7 @@ pipeline {
                   } // dir("tests")
                 } // withTools
               } // withVenv
-            } // dir("${REPO_NAME}")
+            } // dir(REPO_NAME)
           } // steps
           post {
             always {
