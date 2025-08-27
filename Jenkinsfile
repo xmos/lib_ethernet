@@ -54,7 +54,6 @@ pipeline {
 
             dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv(reqFile: "requirements.txt")
             }
           }
         }  // Get sandbox
@@ -87,14 +86,13 @@ pipeline {
 
         stage('Build tests') {
           steps {
-            dir(REPO_NAME) {
+            dir("${REPO_NAME}/tests") {
+              createVenv(reqFile: "requirements.txt")
               withVenv {
-                dir("tests") {
                   xcoreBuild()
                   stash includes: '**/*.xe', name: 'test_bin', useDefaultExcludes: false
-                }
               } // withVenv
-            } // dir(REPO_NAME)
+            } // dir("${REPO_NAME}/tests")
           } // steps
         } // stage('Build tests')
 
@@ -114,36 +112,34 @@ pipeline {
 
     stage('Tests') {
       parallel {
-        
+
         stage('Simulator tests') {
           agent {
             label 'linux && x86_64'
           }
-
           steps {
             dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv(reqFile: "requirements.txt")
             }
-            dir(REPO_NAME) {
+            
+            dir("${REPO_NAME}/tests") {
+              createVenv(reqFile: "requirements.txt")
               withVenv {
                 withTools(params.TOOLS_VERSION) {
-                  dir("tests") {
-                    unstash 'test_bin'
-                    script {
-                    // Build all apps in the examples directory
-                      if(params.TEST_TYPE == 'smoke')
-                      {
-                        echo "Running tests with fixed seed ${env.SEED}"
-                        sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw and not tx_ifg' "
-                      }
-                      else
-                      {
-                        echo "Running tests with random seed"
-                        sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
-                      }
-                    } // script
-                  } // dir("tests")
+                  unstash 'test_bin'
+                  script {
+                  // Build all apps in the examples directory
+                    if(params.TEST_TYPE == 'smoke')
+                    {
+                      echo "Running tests with fixed seed ${env.SEED}"
+                      sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw and not tx_ifg' "
+                    }
+                    else
+                    {
+                      echo "Running tests with random seed"
+                      sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
+                    }
+                  } // script
                 } // withTools
               } // withVenv
             } // dir(REPO_NAME)
@@ -163,30 +159,26 @@ pipeline {
           agent {
             label 'sw-hw-eth-ubu0'
           }
-
           steps {
             dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv(reqFile: "requirements.txt")
             }
-
-            dir(REPO_NAME) {
+            dir("${REPO_NAME}/tests") {
+              createVenv(reqFile: "requirements.txt")
               withVenv {
                 withTools(params.TOOLS_VERSION) {
-                  dir("tests") {
-                    // Build all apps in the examples directory
-                    unstash 'test_bin'
-                    script {
-                        // Set environment variable based on condition
-                        def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
-                        // Use withEnv to pass the variable to the shell
-                        withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
-                          withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw' --timeout=600 --session-timeout=3600"
-                          } // withXTAG
-                        } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
-                    } // script
-                  } // dir("tests")
+                  // Build all apps in the examples directory
+                  unstash 'test_bin'
+                  script {
+                      // Set environment variable based on condition
+                      def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
+                      // Use withEnv to pass the variable to the shell
+                      withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
+                        withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
+                          sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw' --timeout=600 --session-timeout=3600"
+                        } // withXTAG
+                      } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
+                  } // script
                 } // withTools
               } // withVenv
             } // dir(REPO_NAME)
@@ -207,30 +199,27 @@ pipeline {
           agent {
             label 'sw-hw-eth-ubu1'
           }
-          
           steps {
             dir(REPO_NAME) {
               checkoutScmShallow()
-              createVenv(reqFile: "requirements.txt")
             }
-
-            dir(REPO_NAME) {
+            
+            dir("${REPO_NAME}/tests") {
+              createVenv(reqFile: "requirements.txt")
               withVenv {
                 withTools(params.TOOLS_VERSION) {
-                  dir("tests") {
-                    // Build all apps in the examples directory
-                    unstash 'test_bin'
-                    script {
-                        // Set environment variable based on condition
-                        def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
-                        // Use withEnv to pass the variable to the shell
-                        withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
-                          withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                            sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw' --timeout=600 --session-timeout=3600"
-                          } // withXTAG
-                        } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
-                    } // script
-                  } // dir("tests")
+                  // Build all apps in the examples directory
+                  unstash 'test_bin'
+                  script {
+                      // Set environment variable based on condition
+                      def hwTestDuration = (params.TEST_TYPE == 'smoke') ? "20" : "60"
+                      // Use withEnv to pass the variable to the shell
+                      withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
+                        withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
+                          sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw' --timeout=600 --session-timeout=3600"
+                        } // withXTAG
+                      } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
+                  } // script
                 } // withTools
               } // withVenv
             } // dir(REPO_NAME)

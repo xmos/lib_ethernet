@@ -5,8 +5,14 @@ UNRELEASED
 ----------
 
   * ADDED: Fix for out of range relocation when loading from constant or data pool
+  * ADDED: Generic function to read PHY auto-negotiated link-speed smi_link_speed()
+  * ADDED: New example for Ethernet traffic diagnostics
   * FIXED: Build warnings (when built with -Wextra)
   * CHANGED: Added clock pulse to end of SMI transfer, required by some PHYs
+  * CHANGED: Updated function smi_configure() to work with all speed grades of PHY
+  * CHANGED: Documentation updates
+  * REMOVED: Application notes from examples folder. Instead see
+    https://www.xmos.com/application-notes/
 
 4.0.1
 -----
