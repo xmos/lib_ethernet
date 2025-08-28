@@ -1,6 +1,6 @@
 // This file relates to internal XMOS infrastructure and should be ignored by external users
 
-@Library('xmos_jenkins_shared_library@v0.41.1') _
+@Library('xmos_jenkins_shared_library@v0.42.0') _
 
 getApproval()
 
@@ -239,6 +239,10 @@ pipeline {
     } // stage('Tests')
     
     stage('🚀 Release') {
+      when {
+        expression { triggerRelease.isReleasable() }
+      }
+
       steps {
         triggerRelease()
       }
