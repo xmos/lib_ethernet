@@ -5,7 +5,7 @@ lib_ethernet: Ethernet library
 ##############################
 
 :vendor: XMOS
-:version: 4.0.1
+:version: 4.1.0
 :scope: General Use
 :description: XMOS Ethernet Library
 :category: Networking
@@ -46,7 +46,7 @@ Known issues
 * RMII MAC implementation is not tested for 10Mbps operation (`#87 <https://github.com/xmos/lib_ethernet/issues/87>`_)
 * MII/RMII buffering uses a global for the lock meaning lib is not re-entrant. This may cause problems when running 2 instances of the
   MAC on the same tile (`#126 <https://github.com/xmos/lib_ethernet/issues/126>`_)
-
+* RMII implementation does not support 8bit TX operation. This impacts `XK-ETH-316-DUAL` PHY1 (`#88 <https://github.com/xmos/lib_ethernet/issues/88>`_)
 
 ****************
 Development repo

@@ -1,18 +1,29 @@
 lib_ethernet change log
 =======================
 
-UNRELEASED
-----------
+4.1.0
+-----
 
-  * ADDED: Fix for out of range relocation when loading from constant or data pool
-  * ADDED: Generic function to read PHY auto-negotiated link-speed smi_link_speed()
+  * ADDED: Fix for out of range relocation when loading from constant or data
+    pool
+  * ADDED: Generic function to read PHY auto-negotiated link-speed
+    smi_link_speed()
   * ADDED: New example for Ethernet traffic diagnostics
   * FIXED: Build warnings (when built with -Wextra)
   * CHANGED: Added clock pulse to end of SMI transfer, required by some PHYs
-  * CHANGED: Updated function smi_configure() to work with all speed grades of PHY
+  * CHANGED: Updated function smi_configure() to work with all speed grades of
+    PHY
   * CHANGED: Documentation updates
   * REMOVED: Application notes from examples folder. Instead see
     https://www.xmos.com/application-notes/
+
+  * Changes to dependencies:
+
+    - lib_locks: 2.3.1 -> 2.3.2
+
+    - lib_logging: 3.3.1 -> 3.4.0
+
+    - lib_xassert: 4.3.1 -> 4.3.2
 
 4.0.1
 -----
