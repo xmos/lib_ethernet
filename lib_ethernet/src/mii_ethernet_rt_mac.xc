@@ -245,7 +245,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
   volatile unsigned * unsafe p_rx_rdptr = (volatile unsigned * unsafe)rx_rdptr;
 
 #if ENABLE_MAC_START_NOTIFICATION
-  for(int i=0; i<n_cfg; i++)
+  for(unsigned i=0; i<n_cfg; i++)
   {
     i_cfg[i].mac_started(); // The phy_driver clients will respond to this with a set_link_state(), others will ignore the notification
                             // This is required so that if the mac restarts, it can request for the current link state from the phy_driver

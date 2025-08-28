@@ -41,9 +41,11 @@ int main()
 #if USE_PHY0
   #define CFG_IF_PHY0 i_cfg[0]
   #define CFG_IF_PHY1 null
+  #define PHY_IDX 0
 #else
   #define CFG_IF_PHY0 null
   #define CFG_IF_PHY1 i_cfg[0]
+  #define PHY_IDX 1
 #endif
 
   par {
@@ -70,7 +72,7 @@ int main()
                                         TX_PINS,
                                         phy_rxclk,
                                         phy_txclk,
-                                        get_port_timings(0),
+                                        get_port_timings(PHY_IDX),
                                         ETH_RX_BUFFER_SIZE_WORDS, ETH_RX_BUFFER_SIZE_WORDS,
                                         ETHERNET_DISABLE_SHAPER);
             test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], i_loopback);

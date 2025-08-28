@@ -1,16 +1,22 @@
 set(LIB_NAME                lib_ethernet)
 
-set(LIB_VERSION             4.0.0)
+set(LIB_VERSION             4.0.1)
 
 set(LIB_INCLUDES            api
                             src)
 
-set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.1)"
-                            "lib_logging(3.3.1)"
-                            "lib_xassert(4.3.1)")
+set(LIB_DEPENDENT_MODULES   "lib_locks(2.3.2)"
+                            "lib_logging(3.4.0)"
+                            "lib_xassert(4.3.2)")
 
 set(LIB_COMPILER_FLAGS      -g
                             -O3
+                            -Wall
+                            -Wextra
+                            -Wconversion
+                            -Wdiv-by-zero
+                            -Wfloat-equal
+                            -Wsign-compare
                             -mno-dual-issue)
 
 set(LIB_OPTIONAL_HEADERS    ethernet_conf.h)

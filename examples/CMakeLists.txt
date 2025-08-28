@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
+
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
+
 project(lib_ethernet_examples)
-add_subdirectory(AN00199_gigabit_ethernet_demo_explorerkit)
-add_subdirectory(AN00120_100Mbit_ethernet_demo_rmii)
+
+add_subdirectory(app_ethernet_diagnostics)

@@ -11,7 +11,7 @@ set(APP_PCA_ENABLE          ON)
 
 set(COMPILER_FLAGS_COMMON   -g
                             -report
-                            -DDEBUG_PRINT_ENABLE
+                            -DDEBUG_PRINT_ENABLE=1
                             -Os)
 
 set(APP_COMPILER_FLAGS      ${COMPILER_FLAGS_COMMON})

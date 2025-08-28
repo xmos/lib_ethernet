@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
-project(hw_test_rmii)
+project(hw_test_rmii_tx)
+
+include(${CMAKE_CURRENT_LIST_DIR}/../board_support/board_support.cmake)
 
 set(APP_HW_TARGET           xk-eth-xu316-dual-100m.xn)
 
-include(${CMAKE_CURRENT_LIST_DIR}/../../examples/deps.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../test_deps_hw.cmake)
 
 set(APP_PCA_ENABLE ON)
 
@@ -31,15 +33,15 @@ set(COMPILER_FLAGS_COMMON   -g
                             -Os
                             -Wno-reinterpret-alignment
 							-fxscope
-                            -DBOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
+                            -DTEST_BOARD_SUPPORT_BOARD=XK_ETH_XU316_DUAL_100M
                             -DENABLE_MAC_START_NOTIFICATION=1
                             )
 
 foreach(phy PHY0 PHY1) # compile for each phy
     string(TOLOWER ${phy} phy_lower)
-    set(APP_COMPILER_FLAGS_tx_${phy_lower}                             ${COMPILER_FLAGS_COMMON} -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
-    set(APP_COMPILER_FLAGS_tx_single_client_${phy_lower}                    ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DUSE_${phy}=1)
-    set(APP_COMPILER_FLAGS_tx_single_client_with_ts_probe_${phy_lower}     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DPROBE_TX_TIMESTAMPS=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_${phy_lower}                                 ${COMPILER_FLAGS_COMMON} -DETHERNET_SUPPORT_TRAFFIC_SHAPER=1 -DETHERNET_SUPPORT_HP_QUEUES=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_single_client_${phy_lower}                   ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DUSE_${phy}=1)
+    set(APP_COMPILER_FLAGS_single_client_with_ts_probe_${phy_lower}     ${COMPILER_FLAGS_COMMON} -DSINGLE_CLIENT=1 -DPROBE_TX_TIMESTAMPS=1 -DUSE_${phy}=1)
 endforeach()
 
 set(APP_XSCOPE_SRCS ../hw_test_rmii_rx/src/xscope_control/config.xscope)
@@ -50,8 +52,8 @@ file(GLOB COMMON_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR}
 
 list(APPEND XC_SOURCES ${COMMON_SOURCES}  "../include/log_tx_ts.c")
 
-set(APP_XC_SRCS ${XC_SOURCES})
-set(APP_INCLUDES src ../hw_test_rmii_rx/src/xscope_control ../hw_test_rmii_rx/src/xu316_dual_100m_ports ${REL_AUTOGEN_DIR} ../include)
+set(APP_XC_SRCS ${XC_SOURCES} ${test_board_support_SRCS})
+set(APP_INCLUDES src ../hw_test_rmii_rx/src/xscope_control ../hw_test_rmii_rx/src/xu316_dual_100m_ports ${test_board_support_INC} ${REL_AUTOGEN_DIR} ../include)
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 

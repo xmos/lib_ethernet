@@ -22,6 +22,8 @@ void enable_rgmii(unsigned delay, unsigned divide) {
         XS1_XCORE_CTRL0_RGMII_DIVIDE_SET(
           XS1_XCORE_CTRL0_RGMII_ENABLE_SET(rdata, 0x1), divide), delay));
 #else
+  (void)delay;
+  (void)divide;
   fail("RGMII not available on XS1");
 #endif
 }

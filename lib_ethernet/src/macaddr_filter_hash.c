@@ -52,15 +52,15 @@ void mii_macaddr_set_num_active_filters(unsigned num_active)
 static inline void entry_to_keys(ethernet_macaddr_filter_t entry,
                                  unsigned *key0, unsigned *key1)
 {
-  *key0 = entry.addr[0] <<  0 |
-          entry.addr[1] <<  8 |
-          entry.addr[2] << 16 |
-          entry.addr[3] << 24;
-  *key1 = entry.addr[4] <<  0 |
-          entry.addr[5] <<  8;
+  *key0 = (unsigned)entry.addr[0] <<  0 |
+          (unsigned)entry.addr[1] <<  8 |
+          (unsigned)entry.addr[2] << 16 |
+          (unsigned)entry.addr[3] << 24;
+  *key1 = (unsigned)entry.addr[4] <<  0 |
+          (unsigned)entry.addr[5] <<  8;
 }
 
-static inline int hash(int key0, int key1, int poly)
+static inline unsigned int hash(unsigned int key0, unsigned int key1, unsigned int poly)
 {
   unsigned int x = key0;
 
@@ -140,7 +140,7 @@ static int insert(unsigned key0, unsigned key1,
   current.result = result;
   current.appdata = appdata;
   do {
-    int index = hash(current.id[0], current.id[1], backup_table->polys[hashtype]);
+    unsigned int index = hash(current.id[0], current.id[1], backup_table->polys[hashtype]);
 
     int empty = 0;
     if (!contains_different_entry(index, current.id, &empty)) {

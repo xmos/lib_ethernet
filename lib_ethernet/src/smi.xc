@@ -168,10 +168,8 @@ void smi(server interface smi_if i,
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
       res = smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
-
-      // Ensure MDIO is pull high at end after 100ns at end of transaction
-      delay_ticks(10);
-      p_smi_mdio :> void;
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, 1, 1, SMI_READ, 0, 0);
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int is_read = 0;
@@ -185,10 +183,8 @@ void smi(server interface smi_if i,
       smi_bit_shift(p_smi_mdc, p_smi_mdio, 2, 2, is_read,
                     0, 0);
       (void) smi_bit_shift(p_smi_mdc, p_smi_mdio, val, 16, is_read, 0, 0);
-      
-      // Ensure MDIO is pull high at end after 100ns at end of transaction
-      delay_ticks(10);
-      p_smi_mdio :> void;
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi_mdc, p_smi_mdio, 1, 1, SMI_READ, 0, 0);
       break;
     }
   }
@@ -216,8 +212,8 @@ void smi_singleport(server interface smi_if i,
       smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       res = smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
-
-      // port already high so MDC and MDIO will be pulled high
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi, null, 1, 1, SMI_READ, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
     case i.write_reg(uint8_t phy_addr, uint8_t reg_addr, uint16_t val):
       int is_read = 0;
@@ -231,10 +227,8 @@ void smi_singleport(server interface smi_if i,
       smi_bit_shift(p_smi, null, 2, 2, is_read,
                     SMI_MDIO_BIT, SMI_MDC_BIT);
       (void) smi_bit_shift(p_smi, null, val, 16, is_read, SMI_MDIO_BIT, SMI_MDC_BIT);
-
-      // Ensure MDIO is pull high at end after 100ns at end of transaction
-      delay_ticks(10);
-      p_smi :> void;
+      // Make MDIO high-z (idle) and provide an extra clock cycle required by some phys
+      smi_bit_shift(p_smi, null, 1, 1, SMI_READ, SMI_MDIO_BIT, SMI_MDC_BIT);
       break;
     }
   }
@@ -248,13 +242,13 @@ unsigned smi_get_id(client smi_if smi, uint8_t phy_address) {
 
 void smi_phy_reset(client smi_if smi, uint8_t phy_address)
 {
-  smi.write_reg(phy_address, BASIC_CONTROL_REG, 1 << 15);
+  smi.write_reg(phy_address, BASIC_CONTROL_REG, 1 << BASIC_CONTROL_RESET_BIT);
   delay_microseconds(500);
   int control_reg;
 
   do {
     control_reg = smi.read_reg(phy_address, BASIC_CONTROL_REG);
-  } while ((control_reg >> 15) & 1);
+  } while ((control_reg >> BASIC_CONTROL_RESET_BIT) & 1);
 }
 
 unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
@@ -264,7 +258,7 @@ unsigned smi_phy_is_powered_down(client smi_if smi, uint8_t phy_address)
 
 void smi_mmd_write(client smi_if smi, uint8_t phy_address,
                    uint16_t mmd_dev, uint16_t mmd_reg,
-		               uint16_t value)
+                   uint16_t value)
 {
   smi.write_reg(phy_address, MMD_ACCESS_CONTROL, mmd_dev);
   smi.write_reg(phy_address, MMD_ACCESS_DATA, mmd_reg);
@@ -290,26 +284,39 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
   }
 
   if (auto_neg == SMI_ENABLE_AUTONEG) {
+    
+    unsigned status_reg = smi.read_reg(phy_address, BASIC_STATUS_REG);
+    if (status_reg & (1 << BASIC_STATUS_EXTENDED_STATUS_BIT)) {
+
+      uint16_t gige_control_reg = smi.read_reg(phy_address, GIGE_CONTROL_REG);
+      gige_control_reg &= ~(1 << GIGE_CONTROL_AUTONEG_1000BASE_T_HALF_DUPLEX);
+
+      if (speed_mbps == LINK_1000_MBPS_FULL_DUPLEX) {
+        gige_control_reg |= (1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX);
+      } else {
+        gige_control_reg &= ~(1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX);
+      }
+
+      smi.write_reg(phy_address, GIGE_CONTROL_REG, gige_control_reg);
+    } else {
+      if (speed_mbps == LINK_1000_MBPS_FULL_DUPLEX) {
+        fail("1000 Mbps mode not supported by PHY");
+      }
+    }
+    
     uint16_t auto_neg_advert_100_reg = smi.read_reg(phy_address, AUTONEG_ADVERT_REG);
-    uint16_t gige_control_reg = smi.read_reg(phy_address, GIGE_CONTROL_REG);
 
-    // Clear bits [9:5]
-    auto_neg_advert_100_reg &= 0xfc1f;
-    // Clear bits [9:8]
-    gige_control_reg &= 0xfcff;
+    // Clear mode bits that are not relevant for operation in 10/100 Mbps mode
+    auto_neg_advert_100_reg &= ~((1 << AUTONEG_ADVERT_100BASE_T4_DUPLEX) |
+                                 (1 << AUTONEG_ADVERT_100BASE_TX_HALF_DUPLEX) |
+                                 (1 << AUTONEG_ADVERT_10BASE_TX_HALF_DUPLEX));
 
-    switch (speed_mbps) {
-    #pragma fallthrough
-      case LINK_1000_MBPS_FULL_DUPLEX: gige_control_reg |= 1 << AUTONEG_ADVERT_1000BASE_T_FULL_DUPLEX;
-    #pragma fallthrough
-      case LINK_100_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX;
-      case LINK_10_MBPS_FULL_DUPLEX: auto_neg_advert_100_reg |= 1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX; break;
-      default: __builtin_unreachable(); break;
+    if (speed_mbps == LINK_10_MBPS_FULL_DUPLEX) {
+      auto_neg_advert_100_reg &= ~(1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX);
     }
 
     // Write back
     smi.write_reg(phy_address, AUTONEG_ADVERT_REG, auto_neg_advert_100_reg);
-    smi.write_reg(phy_address, GIGE_CONTROL_REG, gige_control_reg);
   }
 
   uint16_t basic_control = smi.read_reg(phy_address, BASIC_CONTROL_REG);
@@ -319,13 +326,13 @@ void smi_configure(client smi_if smi, uint8_t phy_address, ethernet_speed_t spee
     smi.write_reg(phy_address, BASIC_CONTROL_REG, basic_control);
     // restart autoneg
     basic_control |= 1 << BASIC_CONTROL_RESTART_AUTONEG_BIT;
-  }
-  else {
+
+  } else {
     // set duplex mode, clear autoneg and speed
     basic_control |= 1 << BASIC_CONTROL_FULL_DUPLEX_BIT;
-    basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT)|
-                          (1 << BASIC_CONTROL_100_MBPS_BIT)|
-                         (1 << BASIC_CONTROL_1000_MBPS_BIT));
+    basic_control &= ~( (1 << BASIC_CONTROL_AUTONEG_EN_BIT) |
+                        (1 << BASIC_CONTROL_100_MBPS_BIT) |
+                        (1 << BASIC_CONTROL_1000_MBPS_BIT) );
 
     if (speed_mbps == LINK_100_MBPS_FULL_DUPLEX) {
       basic_control |= 1 << BASIC_CONTROL_100_MBPS_BIT;
@@ -355,5 +362,42 @@ void smi_set_loopback_mode(client smi_if smi, uint8_t phy_address, int enable)
 
 ethernet_link_state_t smi_get_link_state(client smi_if smi, uint8_t phy_address) {
   unsigned link_up = ((smi.read_reg(phy_address, BASIC_STATUS_REG) >> BASIC_STATUS_LINK_BIT) & 1);
-  return link_up ? ETHERNET_LINK_UP : ETHERNET_LINK_DOWN;;
+  return link_up ? ETHERNET_LINK_UP : ETHERNET_LINK_DOWN;
+}
+
+ethernet_speed_t smi_get_link_speed(client smi_if smi, uint8_t phy_address) {
+  ethernet_speed_t link_speed = NUM_ETHERNET_SPEEDS;
+  unsigned status_reg = smi.read_reg(phy_address, BASIC_STATUS_REG);
+
+  if (status_reg & (1 << BASIC_STATUS_EXTENDED_STATUS_BIT)) {
+    // Extended status is available, check for 1000 Mbps
+    unsigned gigabit_control = smi.read_reg(phy_address, GIGE_CONTROL_REG);
+    unsigned gigabit_status = smi.read_reg(phy_address, GIGE_STATUS_REG);
+
+    if ((gigabit_control & (1 << GIGE_CONTROL_AUTONEG_1000BASE_T_FULL_DUPLEX)) &&
+        (gigabit_status & (1 << GIGE_STATUS_1000BASE_T_FULL_DUPLEX))) {
+      link_speed = LINK_1000_MBPS_FULL_DUPLEX;
+    }
+  }
+
+  // Check basic control register if not gigabit
+  if (link_speed == NUM_ETHERNET_SPEEDS) {
+
+    unsigned autoneg_reg = smi.read_reg(phy_address, AUTONEG_ADVERT_REG);
+    unsigned link_reg = smi.read_reg(phy_address, AUTONEG_LINK_REG);
+
+    if ((autoneg_reg & (1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX)) && 
+        (link_reg & (1 << AUTONEG_ADVERT_100BASE_TX_FULL_DUPLEX))) {
+      link_speed = LINK_100_MBPS_FULL_DUPLEX;
+
+    } else if ((autoneg_reg & (1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX)) && 
+               (link_reg & (1 << AUTONEG_ADVERT_10BASE_TX_FULL_DUPLEX))) {
+      link_speed = LINK_10_MBPS_FULL_DUPLEX;
+
+    } else {
+      link_speed = LINK_10_MBPS_FULL_DUPLEX;
+    }
+  }
+
+  return link_speed;
 }

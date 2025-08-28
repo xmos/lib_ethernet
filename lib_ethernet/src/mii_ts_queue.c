@@ -3,7 +3,7 @@
 #include "mii_ts_queue.h"
 #include "mii_buffering.h"
 
-mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, mii_ts_queue_entry_t *buf, int n)
+mii_ts_queue_t mii_ts_queue_init(mii_ts_queue_info_t *q, mii_ts_queue_entry_t *buf, unsigned int n)
 {
   q->num_entries = n;
   q->fifo = (mii_ts_queue_entry_t *)buf;
@@ -50,7 +50,7 @@ int mii_ts_queue_get_entry(mii_ts_queue_t q, unsigned *id, unsigned *timestamp)
     swlock_acquire((swlock_t *) q->lock);
   }
 
-  unsigned found = 0;
+  int found = 0;
   unsigned rd_index = q->rd_index;
   if (rd_index != q->wr_index) {
     found = 1;
