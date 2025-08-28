@@ -1041,7 +1041,7 @@ Real-time Ethernet MAC supporting typedefs
 
 .. doxygenenum:: ethernet_enable_shaper_t
 .. doxygenstruct:: rmii_port_timing_t
-.. doxygenenum:: rmii_data_4b_pin_assignment_t
+.. doxygenenum:: rmii_data_pin_assignment_t
 
 
 |newpage|
