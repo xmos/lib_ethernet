@@ -29,4 +29,7 @@ add_subdirectory(hw_test_rmii_rx)
 add_subdirectory(hw_test_rmii_tx)
 add_subdirectory(hw_test_rmii_loopback)
 
+# Manual test app, built here to check its up to date
+add_subdirectory(bringup_xk_eth_xu316_dual_100m)
+
 
