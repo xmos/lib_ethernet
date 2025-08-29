@@ -29,7 +29,7 @@ port p_phy0_clk = PHY_0_CLK_50M;
 // PHY 1 - Clock slave
 port p_phy1_rxd_0 = PHY_1_RXD_0;
 port p_phy1_rxd_1 = PHY_1_RXD_1;
-#if PHY1_USE_8B
+#if PHY1_8B_TX
     port p_phy1_txd_0 = PHY_1_TXD_8BIT;
     in port p_unused_0 = PHY_1_TXD_0; // set to Hi-Z
     in port p_unused_1 = PHY_1_TXD_1;
@@ -133,7 +133,7 @@ int main()
 #if PHY1
                 {
                     // If Tx pins for 8b and 1b commoned, then ensure unused ports are Hi-Z
-#if PHY1_USE_8B
+#if PHY1_8B_TX
                     p_unused_0 :> void;
                     p_unused_1 :> void;
 #else
