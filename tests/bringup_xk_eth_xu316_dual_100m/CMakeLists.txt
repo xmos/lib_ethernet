@@ -6,8 +6,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../board_support/board_support.cmake)
 
 set(APP_HW_TARGET                   xk-eth-xu316-dual-100m.xn)
 
-set(APP_DEPENDENT_MODULES           lib_ethernet
-                                    "lib_board_support(1.3.0)")
+set(APP_DEPENDENT_MODULES           lib_ethernet)
 set(APP_PCA_ENABLE ON)
 
 set(COMPILER_FLAGS_COMMON           -g
