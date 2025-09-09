@@ -132,12 +132,12 @@ pipeline {
                     if(params.TEST_TYPE == 'smoke')
                     {
                       echo "Running tests with fixed seed ${env.SEED}"
-                      sh "pytest -v -n auto --junitxml=pytest_result.xml --seed ${env.SEED} -k 'not hw and not tx_ifg' "
+                      runPytest("-v -n=auto --seed ${env.SEED} -k 'not hw and not tx_ifg and not pc' ")
                     }
                     else
                     {
                       echo "Running tests with random seed"
-                      sh "pytest -v -n auto --junitxml=pytest_result.xml -k 'not hw' "
+                      runPytest("-v -n=auto --seed ${env.SEED} -k 'not hw and not pc' ")
                     }
                   } // script
                 } // withTools
@@ -146,7 +146,6 @@ pipeline {
           } // steps
           post {
             always {
-              junit "${REPO_NAME}/tests/pytest_result.xml"
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_*.txt", fingerprint: true, allowEmptyArchive: true
             }
             cleanup {
@@ -175,7 +174,7 @@ pipeline {
                       // Use withEnv to pass the variable to the shell
                       withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
                         withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                          sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw' --timeout=600 --session-timeout=3600"
+                          runPytest("-v -n=1 --adapter-id ${xtagIds[0]} --eth-intf eno1 --test-duration ${env.HW_TEST_DURATION} --phy phy0 -k 'hw or pc' --timeout=600 --session-timeout=3600")
                         } // withXTAG
                       } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                   } // script
@@ -185,7 +184,6 @@ pipeline {
           } // steps
           post {
             always {
-              junit "${REPO_NAME}/tests/pytest_result.xml"
               archiveArtifacts artifacts: "${REPO_NAME}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
@@ -216,7 +214,7 @@ pipeline {
                       // Use withEnv to pass the variable to the shell
                       withEnv(["HW_TEST_DURATION=${hwTestDuration}"]) {
                         withXTAG(["xk-eth-xu316-dual-100m"]) { xtagIds ->
-                          sh "pytest -v --junitxml=pytest_result.xml --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw' --timeout=600 --session-timeout=3600"
+                          runPytest("-v -n=1 --adapter-id ${xtagIds[0]} --eth-intf enp110s0 --test-duration ${env.HW_TEST_DURATION} --phy phy1 -k 'hw or pc' --timeout=600 --session-timeout=3600")
                         } // withXTAG
                       } // withEnv(["HW_TEST_DURATION=${hwTestDuration}"])
                   } // script
@@ -226,7 +224,6 @@ pipeline {
           } // steps
           post {
             always {
-              junit "${REPO_NAME}/tests/pytest_result.xml"
               archiveArtifacts artifacts: "${REPO_NAME}/tests/*_fail.pcapng", fingerprint: true, allowEmptyArchive: true
               archiveArtifacts artifacts: "${REPO_NAME}/tests/ifg_sweep_*.txt", fingerprint: true, allowEmptyArchive: true
             }
