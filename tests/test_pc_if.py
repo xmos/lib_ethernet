@@ -15,19 +15,16 @@ def test_pc_if(request):
 
     intf = request.config.getoption("--eth-intf")
 
-    ip_cmd = ["ip", "a", "|", "grep"]
-    ip_cmd.append(intf)
-
-    ip_cmd_str = ' '.join(ip_cmd)
     # Append ':' to the interface name to avoid duplicate matches, as it expects something similar to,
     # "3: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> ..."
-    ip_cmd_str += ":"
+    ip_cmd_str = f"ip a | grep {intf}:"
 
     result = subprocess.run(ip_cmd_str, shell=True, capture_output=True)
+    
     ip_string = result.stdout.decode('utf-8').strip()
 
     # Check that the command was successful
-    assert result.returncode == 0, "Command failed to return a line"
+    assert result.returncode == 0, "Grep command failed to return a line"
 
     # Is interface UP?
     assert "UP" in ip_string
