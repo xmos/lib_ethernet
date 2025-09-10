@@ -4,6 +4,7 @@ import pytest
 import subprocess
 
 
+@pytest.mark.order(1)
 def test_pc_if(request):
     """
     This tests the agent running the tests to check that the interface settings are correct.
