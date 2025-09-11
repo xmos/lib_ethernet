@@ -10,7 +10,7 @@
   #define RX_USE_UPPER_2B (0)
 #endif
 
-#if (!defined TX_WIDTH || (TX_WIDTH != 4 && TX_WIDTH != 1))
+#if (!defined TX_WIDTH || (TX_WIDTH != 4 && TX_WIDTH != 1 && TX_WIDTH != 8))
   #warning TX_WIDTH not defined. Setting default to TX_WIDTH = 4 and USE_LOWER_2B
   #define TX_WIDTH (4)
   #define TX_USE_LOWER_2B (1)
@@ -44,28 +44,38 @@ port p_eth_rxd_1 = on tile[0]:XS1_PORT_1B;
 
 
 #if TX_WIDTH == 4
-#if ((TX_USE_LOWER_2B == 1) && (TX_USE_UPPER_2B == 1))
-  #error Both TX_USE_LOWER_2B and TX_USE_UPPER_2B set
-#endif
+  #if ((TX_USE_LOWER_2B == 1) && (TX_USE_UPPER_2B == 1))
+    #error Both TX_USE_LOWER_2B and TX_USE_UPPER_2B set
+  #endif
 
-#if ((TX_USE_LOWER_2B == 0) && (TX_USE_UPPER_2B == 0))
-  #error Both TX_USE_LOWER_2B and TX_USE_UPPER_2B are 0 when TX_WIDTH is 4
-#endif
+  #if ((TX_USE_LOWER_2B == 0) && (TX_USE_UPPER_2B == 0))
+    #error Both TX_USE_LOWER_2B and TX_USE_UPPER_2B are 0 when TX_WIDTH is 4
+  #endif
 
-port p_eth_txd_0 = on tile[0]:XS1_PORT_4B;
-#define p_eth_txd_1 null
-#if TX_USE_LOWER_2B
-  #define TX_PINS USE_LOWER_2B
-#elif TX_USE_UPPER_2B
-  #define TX_PINS USE_UPPER_2B
-#endif
+  port p_eth_txd_0 = on tile[0]:XS1_PORT_4B;
+  #define p_eth_txd_1 null
+  #if TX_USE_LOWER_2B
+    #define TX_PINS USE_LOWER_2B
+  #elif TX_USE_UPPER_2B
+    #define TX_PINS USE_UPPER_2B
+  #endif
 
 #elif TX_WIDTH == 1
-port p_eth_txd_0 = on tile[0]:XS1_PORT_1C;
-port p_eth_txd_1 = on tile[0]:XS1_PORT_1D;
-#define TX_PINS 0
+  port p_eth_txd_0 = on tile[0]:XS1_PORT_1C;
+  port p_eth_txd_1 = on tile[0]:XS1_PORT_1D;
+  #define TX_PINS 0
+#elif TX_WIDTH == 8
+  port p_eth_txd_0 = on tile[0]:XS1_PORT_8C;
+  #ifndef TX8_BIT_0
+    #error TX8_BIT_0 not defined
+  #endif
+  #ifndef TX8_BIT_1
+    #error TX8_BIT_1 not defined
+  #endif
+  #define TX_PINS RMII_8B_PINS_INITIALISER(TX8_BIT_0, TX8_BIT_1)
+  #define p_eth_txd_1 null
 #else
-#error invalid TX_WIDTH
+  #error invalid TX_WIDTH
 #endif
 
 port p_eth_clk = on tile[0]: XS1_PORT_1J;

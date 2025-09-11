@@ -12,16 +12,14 @@
 port p_test_ctrl = on tile[0]: XS1_PORT_1C;
 #endif
 
-
-
 struct test_packet { int len; int step; int tagged; }
 test_packets[] =
-  {
-    { 60, 1, 0 },
-    { ETHERNET_MAX_PACKET_SIZE, 5, 0 },
-    { 60, 1, 1 },
-    { ETHERNET_MAX_PACKET_SIZE, 5, 1 },
-  };
+{
+  { 60, 1, 0 },
+  { ETHERNET_MAX_PACKET_SIZE, 5, 0 },
+  { 60, 1, 1 },
+  { ETHERNET_MAX_PACKET_SIZE, 5, 1 },
+};
 
 void test_tx(client ethernet_tx_if tx, streaming chanend ? c_tx_hp)
 {
@@ -135,7 +133,8 @@ int main()
                                         eth_rxclk, eth_txclk,
                                         4000, 4000, ETHERNET_DISABLE_SHAPER);
     #elif RMII
-        on tile[0]: rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
+        on tile[0]: {
+          rmii_ethernet_rt_mac( i_cfg, NUM_CFG_IF,
                                           i_rx_lp, NUM_RX_LP_IF,
                                           i_tx_lp, NUM_TX_LP_IF,
                                           c_rx_hp, c_tx_hp,
@@ -153,6 +152,7 @@ int main()
                                           port_timing,
                                           4000, 4000,
                                           ETHERNET_DISABLE_SHAPER);
+        }
     #endif
 
     on tile[0]: filler(0x1111);

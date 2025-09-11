@@ -77,9 +77,11 @@
 // So the RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 30), and
 // RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b is (96 + 62) for frames with no tail bytes and (96 + 38) for frames with tail bytes.
 
-// For 8b TXD port, we output 8b of data pins at a time (one byte on the wire). So after the last OUT we have TR and SR full which is two wire bytes,
-// we have 16 timer ticks until it is empty. There are 4 slots after the last OUT in the ASM before we return to callee.
-// TODO work this out properly.
+
+// For 8b TXD port, 32 bits are output on the port, 8bits per 20ns RMII clock tick, so 4 ticks to output one 32 bit word.
+// when the last OUT for the CRC word returns, there's 3 ticks before the last word goes from the transfer register to shift register
+// and another 4 ticks before the full shift register is shifted out on the wire. So, a total of (3+4)*20ns = 140ns = 14 reference timer ticks
+// between the last OUT for CRC word returning and the last bit shifted on the wire, which is when TX_EN goes low.
 
 // Further, there's an adjustment needed due to the fact that
 // 1. The instruction that reads the timer is in fact the next instruction adter the out of the CRC word.
@@ -99,10 +101,10 @@
 #endif
 
 #ifndef RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b
-    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b (12) // In reference timer ticks
+    #define RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b (0) // In reference timer ticks
 #endif
 
-#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b) //TODO Work me out
+#define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_8b  (96 + 14 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_8b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_4b  (96 + 30 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_4b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_NO_TAIL_BYTES  (96 + 62 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
 #define RMII_ETHERNET_IFG_AS_REF_CLOCK_COUNT_1b_TAIL_BYTES  (96 + 38 - RMII_ETHERNET_IFG_DELAY_ADJUSTMENT_1b)
@@ -819,15 +821,6 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
     unsigned * unsafe dptr = &buf->data[0];
     unsigned * unsafe wrap_ptr = mii_get_wrap_ptr(tx_mem);;
 
-    // Check that we are out of the inter-frame gap
-    unsigned now;
-    ifg_tmr :> now;
-    unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
-    if(wait)
-    {
-        ifg_tmr when timerafter(ifg_time) :> ifg_time;
-    }
-
     // Check to see if we need to wrap or not
     int first_chunk_size = buf->length;
     int wrap_size = buf->length - ((int)wrap_ptr - (int)dptr);
@@ -843,19 +836,26 @@ unsafe unsigned rmii_transmit_packet_8b(mii_mempool_t tx_mem,
         ifg_tmr :> time;
     }
 
+    // Check that we are out of the inter-frame gap
+    unsigned now;
+    ifg_tmr :> now;
+    unsigned wait = check_if_ifg_wait_required(last_frame_end_time, ifg_time, now);
+    if(wait)
+    {
+        ifg_tmr when timerafter(ifg_time) :> ifg_time;
+    }
+
     // Tx all stuff incl preamble and CRC
     if(buf->length > 5){ // The ASM always transmits at least 5 bytes. Less than that will break the
                          // timing on the very tight loops so check in XC before we get there.
         rmii_master_tx_pins_8b_asm(dptr, first_chunk_size, p_mii_txd, lookup_8b_tx, poly, wrap_ptr, wrap_size);
     }
 
+    ifg_tmr :> ifg_time;
 
-    if (!MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
+    if (MII_TX_TIMESTAMP_END_OF_PACKET && buf->timestamp_id) {
         ifg_tmr :> time;
     }
-
-
-    ifg_tmr :> ifg_time;
 
     return time;
 }
@@ -1107,6 +1107,7 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
     unsigned bit_pos_0 = (unsigned)tx_port_pins & 0xffff;
     unsigned bit_pos_1 = (unsigned)tx_port_pins >> 16;
     if(tx_port_width == 8){
+        //printf("bit_pos_0 = %d, bit_pos_1 = %d\n", bit_pos_0, bit_pos_1);
         init_8b_tx_lookup(lookup_8b_tx, bit_pos_0, bit_pos_1);
     }
 

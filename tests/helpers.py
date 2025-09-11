@@ -343,6 +343,13 @@ def get_rmii_rx_phy(tx_width, clk, **kwargs):
         rx_rmii_phy = get_rmii_1b_port_rx_phy(clk,
                                               **kwargs
                                             )
+    elif tx_width.startswith("8b_"):
+        bit0_pos = int(tx_width.split("_")[1])
+        bit1_pos = int(tx_width.split("_")[2])
+        rx_rmii_phy = get_rmii_8b_port_rx_phy(clk,
+                                              [bit0_pos, bit1_pos],
+                                              **kwargs
+                                            )
     else:
         assert False, f"get_rmii_rx_phy(): Invalid tx_width {tx_width}"
     return rx_rmii_phy
@@ -369,10 +376,15 @@ def get_rmii_1b_port_tx_phy(clk, **kwargs):
     return phy
 
 def get_rmii_4b_port_rx_phy(clk, txd_4b_port_pin_assignment, **kwargs):
+    assert txd_4b_port_pin_assignment in ["lower_2b", "upper_2b"], f"Invalid txd_4b_port_pin_assignment {txd_4b_port_pin_assignment}. Only 'lower_2b' and 'upper_2b' are supported"
+    if txd_4b_port_pin_assignment == "lower_2b":
+        bit_positions = [0,1]
+    else:
+        bit_positions = [2,3]
     phy = RMiiReceiver('tile[0]:XS1_PORT_4B',
                         'tile[0]:XS1_PORT_1L',
                         clk,
-                        txd_4b_port_pin_assignment=txd_4b_port_pin_assignment,
+                        pin_assignment=bit_positions,
                         **kwargs
                         )
     return phy
@@ -385,3 +397,11 @@ def get_rmii_1b_port_rx_phy(clk, **kwargs):
                         )
     return phy
 
+def get_rmii_8b_port_rx_phy(clk, bit_positions, **kwargs):
+    phy = RMiiReceiver('tile[0]:XS1_PORT_8C',
+                        'tile[0]:XS1_PORT_1L',
+                        clk,
+                        pin_assignment=bit_positions,
+                        **kwargs
+                        )
+    return phy
