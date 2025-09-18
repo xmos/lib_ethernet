@@ -268,8 +268,8 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       rx_client_state_t &client_state = rx_client_state_lp[i];
 
       if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
-        data[0] = p_port_state->link_state;
-        data[1] = p_port_state->link_speed;
+        data[IF_STATUS_INDEX] = p_port_state->link_state;
+        data[IF_SPEED_INDEX] = p_port_state->link_speed;
         desc.type = ETH_IF_STATUS;
         desc.src_ifnum = 0;
         desc.timestamp = 0;

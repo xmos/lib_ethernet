@@ -296,7 +296,7 @@ void icmp_server(client ethernet_cfg_if cfg,
 
       if (packet_info.type != ETH_DATA)
       {
-        debug_printf("Link: %s, speed %d\n", rxbuf[0] ? "up" : "down", rxbuf[1]);
+        debug_printf("Link: %s, speed %d\n", rxbuf[IF_STATUS_INDEX] ? "up" : "down", rxbuf[IF_SPEED_INDEX]);
       }
       else if (is_valid_arp_packet(rxbuf, packet_info.len, ip_address))
       {

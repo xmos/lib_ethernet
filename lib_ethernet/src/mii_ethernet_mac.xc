@@ -129,8 +129,8 @@ static void mii_ethernet_aux(client mii_if i_mii,
                                    char data[n],
                                    unsigned n):
         if (client_state[i].status_update_state == STATUS_UPDATE_PENDING) {
-          data[0] = link_status;
-          data[1] = link_speed;
+          data[IF_STATUS_INDEX] = link_status;
+          data[IF_SPEED_INDEX] = link_speed;
           desc.type = ETH_IF_STATUS;
           desc.src_ifnum = 0;
           desc.timestamp = 0;

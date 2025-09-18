@@ -62,7 +62,7 @@ void test_link_status(client ethernet_cfg_if cfg,
       ethernet_packet_info_t packet_info;
       rx.get_packet(packet_info, rxbuf, ETHERNET_MAX_PACKET_SIZE);
       if (packet_info.type == ETH_IF_STATUS) {
-        debug_printf("Link status %s\n", rxbuf[0] == ETHERNET_LINK_DOWN ? "DOWN" : "UP");
+        debug_printf("Link status %s\n", rxbuf[IF_STATUS_INDEX] == ETHERNET_LINK_DOWN ? "DOWN" : "UP");
       } else {
         debug_printf("Unwanted packet\n");
       }
