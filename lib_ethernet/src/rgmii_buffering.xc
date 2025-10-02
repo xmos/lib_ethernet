@@ -432,8 +432,8 @@ unsafe void rgmii_ethernet_rx_server(rx_client_state_t client_state_lp[n_rx_lp],
         rx_client_state_t &client_state = client_state_lp[i];
 
         if (client_state.status_update_state == STATUS_UPDATE_PENDING) {
-          data[0] = cur_link_state;
-          data[1] = p_port_state->link_speed;
+          data[IF_STATUS_INDEX] = cur_link_state;
+          data[IF_SPEED_INDEX] = p_port_state->link_speed;
           desc.type = ETH_IF_STATUS;
           desc.src_ifnum = 0;
           desc.timestamp = 0;

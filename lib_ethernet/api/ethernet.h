@@ -25,6 +25,11 @@ typedef enum eth_packet_type_t {
   ETH_NO_DATA                    /**< A packet containing no data. */
 } eth_packet_type_t;
 
+/** Ethernet interface status information, index of state value in data array. */
+#define IF_STATUS_INDEX 0
+/** Ethernet interface status information, index of speed value in data array. */
+#define IF_SPEED_INDEX 1
+
 /** Type representing the PHY link speed and duplex */
 typedef enum ethernet_speed_t {
   LINK_10_MBPS_FULL_DUPLEX,   /**< 10 Mbps full duplex */
