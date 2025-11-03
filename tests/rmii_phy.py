@@ -253,7 +253,7 @@ class RMiiTransmitter(RMiiTxPhy):
 
 class RMiiRxPhy(px.SimThread):
 
-    def __init__(self, name, txd, txen, clock, txd_4b_port_pin_assignment, print_packets, packet_fn, verbose, test_ctrl):
+    def __init__(self, name, txd, txen, clock, pin_assignment, print_packets, packet_fn, verbose, test_ctrl):
         self._name = name
         # Check if txd is a string or an array of strings
         if not isinstance(txd, (list, tuple)):
@@ -262,7 +262,7 @@ class RMiiRxPhy(px.SimThread):
         self._txd = txd
         self._txen = txen
         self._clock = clock
-        self._txd_4b_port_pin_assignment = txd_4b_port_pin_assignment
+        self._pin_assignment = pin_assignment
         self._print_packets = print_packets
         self._verbose = verbose
         self._test_ctrl = test_ctrl
@@ -274,20 +274,19 @@ class RMiiRxPhy(px.SimThread):
             port_width_check = get_port_width_from_name(self._txd[1])
             assert self._txd_port_width == port_width_check, f"When specifying 2 ports, both need to be of width 1bit. {self._txd}"
         else:
-            assert self._txd_port_width == 4, f"Only 4bit port allowed when specifying only 1 port. {self._txd}"
+            assert self._txd_port_width in [4,8], f"Only 4bit or 8bit port allowed when specifying only 1 port. {self._txd}"
 
-        if self._txd_port_width == 4:
-            assert self._txd_4b_port_pin_assignment == "lower_2b" or self._txd_4b_port_pin_assignment == "upper_2b", \
-                f"Invalid txd_4b_port_pin_assignment (self._txd_4b_port_pin_assignment). Allowed values lower_2b or upper_2b"
-
-        self.expected_packets = None
-        self.expect_packet_index = 0
-        self.num_expected_packets = 0
+        if self._txd_port_width == 4: # extra checks for 4b port
+            assert self._pin_assignment == [0,1] or self._pin_assignment == [2,3], \
+                f"Invalid pin assignment {self._pin_assignment} for 4b port. Only lower 2 pins [0,1] and upper 2 pins [2,3] supported. "
 
         self.expected_packets = None
         self.expect_packet_index = 0
         self.num_expected_packets = 0
-        #print(f"self._txd = {self._txd}, self._txd_port_width = {self._txd_port_width}, self._txd_4b_port_pin_assignment = {self._txd_4b_port_pin_assignment}")
+
+        self.expected_packets = None
+        self.expect_packet_index = 0
+        self.num_expected_packets = 0
 
     def get_name(self):
         return self._name
@@ -307,10 +306,10 @@ class RMiiRxPhy(px.SimThread):
 class RMiiReceiver(RMiiRxPhy):
 
     def __init__(self, txd, txen, clock,
-                 txd_4b_port_pin_assignment="lower_2b",
+                 pin_assignment = None,
                  print_packets=False,
                  packet_fn=None, verbose=False, test_ctrl=None):
-        super(RMiiReceiver, self).__init__('rmii', txd, txen, clock, txd_4b_port_pin_assignment,
+        super(RMiiReceiver, self).__init__('rmii', txd, txen, clock, pin_assignment,
                                           print_packets,
                                           packet_fn, verbose, test_ctrl)
         self._txen_val = None
@@ -361,15 +360,18 @@ class RMiiReceiver(RMiiRxPhy):
 
             if self._txen_val == 1: # Sample data
                 if self._txd_port_width == 4:
-                    if self._txd_4b_port_pin_assignment == "lower_2b":
+                    if self._pin_assignment == [0,1]: # lower_2b
                         crumb = xsi.sample_port_pins(self._txd[0]) & 0x3
                         #print(f"crumb = {crumb}")
-                    else:
+                    else: # upper_2b
                         crumb = (xsi.sample_port_pins(self._txd[0]) >> 2) & 0x3
-                else: # 2, 1bit ports
+                elif self._txd_port_width == 1: # 2, 1bit ports
                     cr0 = xsi.sample_port_pins(self._txd[0]) & 0x1
                     cr1 = xsi.sample_port_pins(self._txd[1]) & 0x1
                     crumb = (cr1 << 1) | cr0
+                elif self._txd_port_width == 8: # always lower 2 bits for 8bit port
+                    data = xsi.sample_port_pins(self._txd[0])
+                    crumb = ((data >> self._pin_assignment[0]) & 0x1) | (((data >> self._pin_assignment[1]) & 0x1) << 1)
                 nibble = nibble | (crumb << (crumb_index*2))
                 if crumb_index == 1:
                     if self._verbose:

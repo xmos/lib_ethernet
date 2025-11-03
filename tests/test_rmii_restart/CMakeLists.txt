@@ -53,7 +53,7 @@ foreach(PROFILE ${profile_list})
 
             set_app_rx_width(rx_width)
 
-            set_app_tx_width(tx_width)
+            set_app_tx_width()
 
             string(FIND "${PROFILE}" "rt" position)
             if(position GREATER -1)

@@ -49,7 +49,7 @@ foreach(PROFILE ${profile_list})
 
             set(APP_COMPILER_FLAGS_${config}    ${COMPILER_FLAGS_COMMON})
 
-            set_app_tx_width(tx_width)
+            set_app_tx_width()
 
             string(FIND "${PROFILE}" "rt" position)
             if(position GREATER -1)

@@ -4,7 +4,6 @@
 #define __icmp_h__
 #include <ethernet.h>
 
-
 [[combinable]]
 void icmp_server(client ethernet_cfg_if cfg,
                  client ethernet_rx_if rx,

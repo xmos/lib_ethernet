@@ -27,7 +27,6 @@ port p_phy_clk = RMII_PHY_CLK_50M;
 clock phy_rxclk = on tile[0]: XS1_CLKBLK_1;
 clock phy_txclk = on tile[0]: XS1_CLKBLK_2;
 
-
 // An enum to manage the array of connections from the ethernet component to its clients.
 enum eth_clients {
   ETH_TO_TRAFFIC,
