@@ -43,7 +43,7 @@
             <!-- Optional 4b port version MDC on bit 2 MDIO on bit 3 -->
             <Port Location="XS1_PORT_4F"  Name="MDC_MDIO_4BIT"/>
             
-            <!-- PHY control ines -->
+            <!-- PHY control lines -->
             <Port Location="XS1_PORT_4A"  Name="PHY_RST_N"/>
             <Port Location="XS1_PORT_1O"  Name="PWRDN_INT"/>
             

@@ -54,7 +54,7 @@
             <Port Location="XS1_PORT_1F"  Name="MDC"/>
             <Port Location="XS1_PORT_1G"  Name="MDIO"/>
             
-            <!-- PHY control ines -->
+            <!-- PHY control lines -->
             <Port Location="XS1_PORT_4A"  Name="PERIPH_RST"/> <!-- PERIPH_RST on P4A3 -->
             
           </Tile>
